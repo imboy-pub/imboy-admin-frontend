@@ -1,0 +1,112 @@
+# imboy-admin-frontend
+
+ImBoy 管理后台前端（React + TypeScript + Vite + Bun）。
+
+## 技术栈
+
+- React 19
+- TypeScript 5
+- Vite 7
+- Bun（依赖安装与测试）
+- TanStack Query / TanStack Table
+- Zustand
+- React Hook Form + Zod
+
+## 本地开发
+
+```bash
+bun install
+bun run dev
+```
+
+默认开发地址：`http://localhost:8082`
+
+Vite 代理配置见 `vite.config.ts`，默认将 `/adm` 代理到 `http://localhost:9800`。
+
+## 环境变量
+
+开发环境：`.env.development`
+
+生产环境：`.env.production`
+
+关键变量：
+
+- `VITE_API_BASE_URL`
+- `VITE_APP_NAME`
+- `VITE_SIDEBAR_CONFIG_URL`（可选，菜单/RBAC 配置接口；失败时自动回退 `public/sidebar-menu.json`）
+- `VITE_UX_EVENT_REPORT_URL`（可选，UX 埋点上报接口，默认 `/adm/admin/ux/events`，批量载荷格式：`{ "events": [...] }`）
+- `VITE_FEEDBACK_WORKFLOW_CONFIG_URL`（可选，反馈模板/SLA 配置接口，默认 `/adm/admin/config/feedback-workflow`）
+- `VITE_FEEDBACK_WORKFLOW_CONFIG_SAVE_URL`（可选，反馈模板/SLA 保存接口，默认 `/adm/admin/config/feedback-workflow`，优先尝试 `PUT`，回退 `POST`）
+
+## 常用命令
+
+```bash
+bun run dev
+bun run lint
+bun run test
+bun run build
+```
+
+UX 埋点 7 天基线分析（需 PostgreSQL 可连通）：
+
+```bash
+IMBOY_UX_DB_DSN='postgresql://user:pass@host:5432/db' scripts/run_ux_funnel_baseline.sh
+```
+
+后端接口就绪检查（默认检查 `http://127.0.0.1:9800/adm`）：
+
+```bash
+scripts/check_ux_backend_readiness.sh
+# or
+IMBOY_ADMIN_BASE_URL='http://127.0.0.1:9800/adm' scripts/check_ux_backend_readiness.sh
+# fail-fast gate mode
+scripts/check_ux_backend_readiness.sh --strict
+```
+
+## 鉴权模型
+
+- 会话基于 Cookie（`withCredentials: true`）
+- 受保护路由入口：`src/components/auth/ProtectedRoute.tsx`
+- API 层 401 处理采用事件通知（`imboy:auth-expired`），由路由守卫统一执行登出与跳转
+
+## CI
+
+GitHub Actions：`.github/workflows/ci.yml`
+
+流水线默认执行：
+
+- `bun install --frozen-lockfile`
+- `bun run lint`
+- `bun run test`
+- `bun run build`
+
+可选后端联调门禁：
+
+- 配置仓库变量 `IMBOY_ADMIN_BASE_URL` 后，CI 会执行：
+  - `bash scripts/check_ux_backend_readiness.sh --strict`
+- 任一关键端点不是 `READY`（含 `MISSING/UNKNOWN/UNREACHABLE`）将直接失败。
+
+## 目录约定
+
+- 页面：`src/pages`
+- 组件：`src/components`
+- API：`src/services/api`
+- 状态：`src/stores`
+- 类型：`src/types`
+
+## 联调建议
+
+- 后端本地启动后，先访问登录页检查 Cookie 下发。
+- 若接口返回 401，前端会发出 `imboy:auth-expired` 事件，由 `ProtectedRoute` 收敛处理。
+- 若发生跨域问题，优先检查后端 CORS 白名单与 `Origin` 是否匹配。
+
+## 联调文档
+
+- [反馈模板与 SLA 配置契约](docs/feedback_workflow_api_contract.md)
+- [朋友圈举报批量处理契约](docs/moment_report_batch_resolve_api_contract.md)
+- [UX 埋点漏斗指南](docs/ux_telemetry_funnel_guide.md)
+- [后端就绪整改清单](docs/backend_readiness_remediation_plan.md)
+- [登录态联调验收清单](docs/login_state_smoke_acceptance_checklist.md)
+- [发布验收报告模板](docs/release_acceptance_report_template.md)
+- [发布验收报告（2026-03-01）](docs/release_acceptance_report_2026-03-01.md)
+- [发布后巡检指南（T+0/T+1）](docs/release_postcheck_guide.md)
