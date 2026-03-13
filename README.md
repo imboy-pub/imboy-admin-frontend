@@ -37,6 +37,12 @@ Vite 代理配置见 `vite.config.ts`，默认将 `/adm` 代理到 `http://local
 - `VITE_UX_EVENT_REPORT_URL`（可选，UX 埋点上报接口，默认 `/adm/admin/ux/events`，批量载荷格式：`{ "events": [...] }`）
 - `VITE_FEEDBACK_WORKFLOW_CONFIG_URL`（可选，反馈模板/SLA 配置接口，默认 `/adm/admin/config/feedback-workflow`）
 - `VITE_FEEDBACK_WORKFLOW_CONFIG_SAVE_URL`（可选，反馈模板/SLA 保存接口，默认 `/adm/admin/config/feedback-workflow`，优先尝试 `PUT`，回退 `POST`）
+- `VITE_ADMIN_LIST_ENDPOINT`（可选，管理员列表接口，支持逗号分隔多候选端点）
+- `VITE_ADMIN_CREATE_ENDPOINT`（可选，新增管理员接口，支持逗号分隔多候选端点）
+- `VITE_ADMIN_ASSIGN_ROLE_ENDPOINT`（可选，管理员角色分配接口，支持逗号分隔多候选端点）
+- `VITE_ROLE_LIST_ENDPOINT`（可选，角色列表接口，支持逗号分隔多候选端点）
+- `VITE_ROLE_CREATE_ENDPOINT`（可选，新增角色接口，支持逗号分隔多候选端点）
+- `VITE_ROLE_PERMISSION_SAVE_ENDPOINT`（可选，角色权限保存接口，支持逗号分隔多候选端点）
 
 ## 常用命令
 
@@ -45,12 +51,6 @@ bun run dev
 bun run lint
 bun run test
 bun run build
-```
-
-UX 埋点 7 天基线分析（需 PostgreSQL 可连通）：
-
-```bash
-IMBOY_UX_DB_DSN='postgresql://user:pass@host:5432/db' scripts/run_ux_funnel_baseline.sh
 ```
 
 后端接口就绪检查（默认检查 `http://127.0.0.1:9800/adm`）：
@@ -83,7 +83,8 @@ GitHub Actions：`.github/workflows/ci.yml`
 可选后端联调门禁：
 
 - 配置仓库变量 `IMBOY_ADMIN_BASE_URL` 后，CI 会执行：
-  - `bash scripts/check_ux_backend_readiness.sh --strict`
+  - `bash scripts/check_report_backend_readiness.sh --strict`
+  - `bash scripts/check_admin_role_backend_readiness.sh --strict`
 - 任一关键端点不是 `READY`（含 `MISSING/UNKNOWN/UNREACHABLE`）将直接失败。
 
 ## 目录约定
@@ -104,9 +105,4 @@ GitHub Actions：`.github/workflows/ci.yml`
 
 - [反馈模板与 SLA 配置契约](docs/feedback_workflow_api_contract.md)
 - [朋友圈举报批量处理契约](docs/moment_report_batch_resolve_api_contract.md)
-- [UX 埋点漏斗指南](docs/ux_telemetry_funnel_guide.md)
-- [后端就绪整改清单](docs/backend_readiness_remediation_plan.md)
-- [登录态联调验收清单](docs/login_state_smoke_acceptance_checklist.md)
-- [发布验收报告模板](docs/release_acceptance_report_template.md)
-- [发布验收报告（2026-03-01）](docs/release_acceptance_report_2026-03-01.md)
-- [发布后巡检指南（T+0/T+1）](docs/release_postcheck_guide.md)
+- [管理员与角色联调清单](docs/admin_role_backend_api_contract.md)
