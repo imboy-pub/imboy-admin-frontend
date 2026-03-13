@@ -1,0 +1,158 @@
+{
+  "title": "Imboy Admin",
+  "items": [
+    {
+      "path": "/dashboard",
+      "icon": "LayoutDashboard",
+      "label": "仪表盘",
+      "roles": [1, 2, 3],
+      "permission": "dashboard:view"
+    },
+    {
+      "label": "运营中心",
+      "icon": "Users",
+      "children": [
+        { "path": "/users", "icon": "Users", "label": "用户管理", "roles": [1, 2], "permission": "users:read" },
+        { "path": "/groups", "icon": "UsersRound", "label": "群组管理", "roles": [1, 2], "permission": "groups:read" },
+        { "path": "/channels", "icon": "Radio", "label": "频道管理", "roles": [1, 2], "permission": "channels:read" },
+        { "path": "/moments", "icon": "Camera", "label": "朋友圈管理", "roles": [1, 2], "permission": "moments:read" }
+      ]
+    },
+    {
+      "label": "治理中心",
+      "icon": "FileText",
+      "children": [
+        { "path": "/reports", "icon": "FileText", "label": "举报中心", "roles": [1, 2], "permission": "reports:read" },
+        { "path": "/feedback", "icon": "MessageCircle", "label": "反馈处理", "roles": [1, 2], "permission": "feedback:read" }
+      ]
+    },
+    {
+      "label": "审计中心",
+      "icon": "FileText",
+      "children": [
+        { "path": "/groups/context", "icon": "UsersRound", "label": "群上下文入口", "roles": [1, 2, 3] },
+        { "path": "/messages", "icon": "MessageSquare", "label": "消息管理", "roles": [1, 2, 3], "permission": "messages:read" },
+        { "path": "/logout-applications", "icon": "UserMinus", "label": "注销申请", "roles": [1, 2, 3], "permission": "logout_applications:read" },
+        { "path": "/logs", "icon": "FileText", "label": "日志审计", "roles": [1, 3], "permission": "logs:view" }
+      ]
+    },
+    {
+      "label": "系统配置",
+      "icon": "Settings",
+      "children": [
+        { "path": "/settings", "icon": "Settings", "label": "系统设置", "roles": [1], "permission": "settings:view" },
+        { "path": "/admins", "icon": "Shield", "label": "管理员", "roles": [1], "permission": "admins:read" },
+        { "path": "/roles", "icon": "KeyRound", "label": "角色权限", "roles": [1, 3], "permission": "roles:view" }
+      ]
+    }
+  ],
+  "rbac": {
+    "permissions": [
+      { "key": "dashboard:view", "name": "查看仪表盘", "module": "仪表盘", "path": "/dashboard" },
+
+      { "key": "users:read", "name": "查看用户资料", "module": "用户管理", "path": "/users" },
+
+      { "key": "groups:read", "name": "查看群资料", "module": "群组管理", "path": "/groups" },
+      { "key": "groups:delete", "name": "删除群资料", "module": "群组管理", "path": "/groups" },
+      { "key": "groups:vote:read", "name": "查看群投票治理页", "module": "群组管理", "path": "/groups/:id/votes" },
+      { "key": "groups:vote:close", "name": "结束群投票", "module": "群组管理", "path": "/groups/:id/votes" },
+      { "key": "groups:notice:read", "name": "查看群公告治理页", "module": "群组管理", "path": "/groups/:id/notices" },
+      { "key": "groups:notice:delete", "name": "删除群公告", "module": "群组管理", "path": "/groups/:id/notices" },
+      { "key": "groups:category:read", "name": "查看群分组分类治理页", "module": "群组管理", "path": "/groups/:id/categories" },
+      { "key": "groups:category:delete", "name": "删除群分组分类", "module": "群组管理", "path": "/groups/:id/categories" },
+      { "key": "groups:tag:read", "name": "查看群标签治理页", "module": "群组管理", "path": "/groups/:id/tags" },
+      { "key": "groups:tag:delete", "name": "删除群标签", "module": "群组管理", "path": "/groups/:id/tags" },
+      { "key": "groups:file:read", "name": "查看群文件治理页", "module": "群组管理", "path": "/groups/:id/files" },
+      { "key": "groups:file:delete", "name": "删除群文件", "module": "群组管理", "path": "/groups/:id/files" },
+      { "key": "groups:album:read", "name": "查看群相册治理页", "module": "群组管理", "path": "/groups/:id/albums" },
+      { "key": "groups:album:delete", "name": "删除群相册", "module": "群组管理", "path": "/groups/:id/albums" },
+      { "key": "groups:schedule:read", "name": "查看群日程治理页", "module": "群组管理", "path": "/groups/:id/schedules" },
+      { "key": "groups:schedule:cancel", "name": "取消群日程", "module": "群组管理", "path": "/groups/:id/schedules" },
+      { "key": "groups:schedule:restore", "name": "恢复群日程", "module": "群组管理", "path": "/groups/:id/schedules" },
+      { "key": "groups:task:read", "name": "查看群任务治理页", "module": "群组管理", "path": "/groups/:id/tasks" },
+      { "key": "groups:task:review", "name": "批改群任务提交", "module": "群组管理", "path": "/groups/:id/tasks" },
+      { "key": "groups:task:close", "name": "强制结束群任务", "module": "群组管理", "path": "/groups/:id/tasks" },
+      { "key": "groups:task:delete", "name": "删除群任务", "module": "群组管理", "path": "/groups/:id/tasks" },
+      { "key": "groups:task:restore", "name": "恢复群任务", "module": "群组管理", "path": "/groups/:id/tasks" },
+
+      { "key": "channels:read", "name": "查看频道资料", "module": "频道管理", "path": "/channels" },
+      { "key": "channels:update", "name": "编辑频道资料", "module": "频道管理", "path": "/channels" },
+      { "key": "channels:delete", "name": "删除频道资料", "module": "频道管理", "path": "/channels" },
+
+      { "key": "moments:read", "name": "查看动态内容", "module": "朋友圈治理", "path": "/moments" },
+      { "key": "moments:delete", "name": "删除动态内容", "module": "朋友圈治理", "path": "/moments" },
+      { "key": "moments:report:read", "name": "查看动态举报", "module": "朋友圈治理", "path": "/reports" },
+      { "key": "moments:report:handle", "name": "处理动态举报", "module": "朋友圈治理", "path": "/reports" },
+      { "key": "reports:read", "name": "查看举报中心", "module": "举报中心", "path": "/reports" },
+      { "key": "reports:handle", "name": "处理举报工单", "module": "举报中心", "path": "/reports" },
+
+      { "key": "feedback:read", "name": "查看反馈", "module": "反馈管理", "path": "/feedback" },
+      { "key": "feedback:reply", "name": "回复反馈", "module": "反馈管理", "path": "/feedback" },
+
+      { "key": "messages:read", "name": "查看消息记录（只读）", "module": "消息管理", "path": "/messages" },
+      { "key": "logout_applications:read", "name": "查看注销申请（只读）", "module": "注销申请", "path": "/logout-applications" },
+      { "key": "logs:view", "name": "查看审计日志（只读）", "module": "日志审计", "path": "/logs" },
+
+      { "key": "settings:view", "name": "查看系统设置", "module": "系统设置", "path": "/settings" },
+      { "key": "settings:version:read", "name": "查看版本策略", "module": "系统设置", "path": "/settings/versions" },
+      { "key": "settings:version:update", "name": "修改版本策略", "module": "系统设置", "path": "/settings/versions" },
+      { "key": "settings:ddl:read", "name": "查看DDL策略", "module": "系统设置", "path": "/settings/ddl" },
+      { "key": "settings:ddl:update", "name": "修改DDL策略", "module": "系统设置", "path": "/settings/ddl" },
+
+      { "key": "admins:read", "name": "查看管理员信息", "module": "管理员", "path": "/admins" },
+      { "key": "admins:create", "name": "新增管理员", "module": "管理员", "path": "/admins" },
+      { "key": "admins:assign_role", "name": "分配管理员角色", "module": "管理员", "path": "/admins" },
+      { "key": "roles:view", "name": "查看角色权限", "module": "角色权限", "path": "/roles" },
+      { "key": "roles:create", "name": "新增角色", "module": "角色权限", "path": "/roles" },
+      { "key": "roles:update", "name": "编辑角色权限", "module": "角色权限", "path": "/roles" }
+    ],
+    "roles": [
+      {
+        "id": 1,
+        "name": "超级管理员",
+        "description": "拥有全部管理能力，负责策略制定与安全管控。",
+        "permissions": [
+          "dashboard:view",
+          "users:read",
+          "groups:read", "groups:delete",
+          "groups:vote:read", "groups:vote:close", "groups:notice:read", "groups:notice:delete", "groups:category:read", "groups:category:delete", "groups:tag:read", "groups:tag:delete", "groups:file:read", "groups:file:delete", "groups:album:read", "groups:album:delete", "groups:schedule:read", "groups:schedule:cancel", "groups:schedule:restore",
+          "groups:task:read", "groups:task:review", "groups:task:close", "groups:task:delete", "groups:task:restore",
+          "channels:read", "channels:update", "channels:delete",
+          "moments:read", "moments:delete", "moments:report:read", "moments:report:handle",
+          "reports:read", "reports:handle",
+          "feedback:read", "feedback:reply",
+          "messages:read", "logout_applications:read", "logs:view",
+          "settings:view", "settings:version:read", "settings:version:update", "settings:ddl:read", "settings:ddl:update",
+          "admins:read", "admins:create", "admins:assign_role",
+          "roles:view", "roles:create", "roles:update"
+        ]
+      },
+      {
+        "id": 2,
+        "name": "运营管理员",
+        "description": "负责用户、群组、频道和反馈等业务运营事务。",
+        "permissions": [
+          "dashboard:view",
+          "users:read",
+          "groups:read", "groups:delete",
+          "groups:vote:read", "groups:vote:close", "groups:notice:read", "groups:notice:delete", "groups:category:read", "groups:category:delete", "groups:tag:read", "groups:tag:delete", "groups:file:read", "groups:file:delete", "groups:album:read", "groups:album:delete", "groups:schedule:read", "groups:schedule:cancel", "groups:schedule:restore",
+          "groups:task:read", "groups:task:review", "groups:task:close", "groups:task:delete", "groups:task:restore",
+          "channels:read", "channels:update", "channels:delete",
+          "moments:read", "moments:delete", "moments:report:read", "moments:report:handle",
+          "reports:read", "reports:handle",
+          "feedback:read", "feedback:reply",
+          "messages:read", "logout_applications:read"
+        ]
+      },
+      {
+        "id": 3,
+        "name": "审计管理员",
+        "description": "聚焦日志审计、消息检查和数据留痕，不执行配置变更。",
+        "permissions": [
+          "dashboard:view",
+          "messages:read", "logout_applications:read", "logs:view", "roles:view"
+        ]
+      }
+    ]
+  }
+}
