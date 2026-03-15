@@ -6,6 +6,10 @@ ImBoy 管理后台前端（React + TypeScript + Vite + Bun）。
 
 - [2026-03-15-admin-feature-module-boundaries](docs/adr/2026-03-15-admin-feature-module-boundaries.md)
 
+## Related Docs / 相关文档
+
+- [Admin Module Map](docs/module_map.md)
+
 ## 技术栈
 
 - React 19
