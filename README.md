@@ -2,6 +2,10 @@
 
 ImBoy 管理后台前端（React + TypeScript + Vite + Bun）。
 
+## Related Decisions / 相关 ADR
+
+- [2026-03-15-admin-feature-module-boundaries](docs/adr/2026-03-15-admin-feature-module-boundaries.md)
+
 ## 技术栈
 
 - React 19
@@ -101,10 +105,6 @@ GitHub Actions：`.github/workflows/ci.yml`
 - API：`src/services/api`
 - 状态：`src/stores`
 - 类型：`src/types`
-
-## Related Decisions / 相关 ADR
-
-- [Admin Feature Module Boundaries And Extension Points](docs/adr/2026-03-15-admin-feature-module-boundaries.md)
 
 ## 联调建议
 
