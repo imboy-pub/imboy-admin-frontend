@@ -102,6 +102,10 @@ GitHub Actions：`.github/workflows/ci.yml`
 - 状态：`src/stores`
 - 类型：`src/types`
 
+## Related Decisions / 相关 ADR
+
+- [Admin Feature Module Boundaries And Extension Points](docs/adr/2026-03-15-admin-feature-module-boundaries.md)
+
 ## 联调建议
 
 - 后端本地启动后，先访问登录页检查 Cookie 下发。
