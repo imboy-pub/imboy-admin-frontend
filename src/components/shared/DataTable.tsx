@@ -15,7 +15,7 @@ interface DataTableProps<TData> {
   table: ReactTable<TData>
   loading?: boolean
   emptyMessage?: string
-  onRowClick?: (row: TData) => void
+  onRowClick?: (_row: TData) => void
 }
 
 export function DataTable<TData>({
@@ -86,8 +86,8 @@ interface PaginationProps {
   page: number
   pageSize: number
   total: number
-  onPageChange: (page: number) => void
-  onPageSizeChange?: (size: number) => void
+  onPageChange: (_page: number) => void
+  onPageSizeChange?: (_size: number) => void
 }
 
 const DEFAULT_PAGE_SIZE_OPTIONS = [10, 50, 100, 200, 500, 1000]

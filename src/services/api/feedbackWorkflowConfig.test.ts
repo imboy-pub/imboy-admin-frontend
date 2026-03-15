@@ -8,15 +8,15 @@ type FetchResponseLike = {
   ok: boolean
   status: number
   headers: {
-    get: (name: string) => string | null
+    get: (_name: string) => string | null
   }
   json: () => Promise<unknown>
 }
 
 type StorageLike = {
-  getItem: (key: string) => string | null
-  setItem: (key: string, value: string) => void
-  removeItem: (key: string) => void
+  getItem: (_key: string) => string | null
+  setItem: (_key: string, _value: string) => void
+  removeItem: (_key: string) => void
   clear: () => void
 }
 

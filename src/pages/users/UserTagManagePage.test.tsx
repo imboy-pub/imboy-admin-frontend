@@ -10,7 +10,7 @@ import userEvent from '@testing-library/user-event'
 import client from '../../services/api/client'
 import { UserTagManagePage } from './UserTagManagePage'
 
-type AnyFn = (...args: unknown[]) => unknown
+type AnyFn = (..._args: unknown[]) => unknown
 
 type MutableClient = {
   get: AnyFn

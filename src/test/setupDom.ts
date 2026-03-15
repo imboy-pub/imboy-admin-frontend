@@ -21,8 +21,8 @@ globalThis.requestAnimationFrame = (callback: FrameRequestCallback) =>
 globalThis.cancelAnimationFrame = (id: number) => clearTimeout(id)
 
 const elementProto = window.HTMLElement.prototype as unknown as {
-  attachEvent?: (eventName: string, listener: (event: Event) => void) => void
-  detachEvent?: (eventName: string, listener: (event: Event) => void) => void
+  attachEvent?: (_eventName: string, _listener: (_event: Event) => void) => void
+  detachEvent?: (_eventName: string, _listener: (_event: Event) => void) => void
 }
 
 if (typeof elementProto.attachEvent !== 'function') {

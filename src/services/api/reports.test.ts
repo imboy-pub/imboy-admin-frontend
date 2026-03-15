@@ -6,7 +6,7 @@ import {
   resolveReportBatchWithFallback,
 } from './reports'
 
-type AnyFn = (...args: unknown[]) => unknown
+type AnyFn = (..._args: unknown[]) => unknown
 type MutableClient = {
   get: AnyFn
   post: AnyFn

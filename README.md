@@ -56,12 +56,19 @@ bun run build
 后端接口就绪检查（默认检查 `http://127.0.0.1:9800/adm`）：
 
 ```bash
-scripts/check_ux_backend_readiness.sh
-# or
-IMBOY_ADMIN_BASE_URL='http://127.0.0.1:9800/adm' scripts/check_ux_backend_readiness.sh
+bash scripts/check_report_backend_readiness.sh
+bash scripts/check_admin_role_backend_readiness.sh
+
+# 自定义后端地址
+IMBOY_ADMIN_BASE_URL='http://127.0.0.1:9800/adm' bash scripts/check_report_backend_readiness.sh
+IMBOY_ADMIN_BASE_URL='http://127.0.0.1:9800/adm' bash scripts/check_admin_role_backend_readiness.sh
+
 # fail-fast gate mode
-scripts/check_ux_backend_readiness.sh --strict
+bash scripts/check_report_backend_readiness.sh --strict
+bash scripts/check_admin_role_backend_readiness.sh --strict
 ```
+
+说明：反馈工作流配置接口当前没有独立的 readiness 脚本，建议结合 `bun test src/services/api/feedbackWorkflowConfig.test.ts` 与页面联调一起验证。
 
 ## 鉴权模型
 

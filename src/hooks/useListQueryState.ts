@@ -12,10 +12,10 @@ type SetListQueryStateOptions = {
 type UseListQueryStateReturn<T extends ListQueryState> = {
   state: T
   setState: (
-    patch: Partial<T> | ((prev: T) => Partial<T>),
-    options?: SetListQueryStateOptions
+    _patch: Partial<T> | ((_prev: T) => Partial<T>),
+    _options?: SetListQueryStateOptions
   ) => void
-  resetState: (overrides?: Partial<T>, options?: SetListQueryStateOptions) => void
+  resetState: (_overrides?: Partial<T>, _options?: SetListQueryStateOptions) => void
 }
 
 function parseQueryValue(raw: string | null, fallback: ListQueryValue): ListQueryValue {

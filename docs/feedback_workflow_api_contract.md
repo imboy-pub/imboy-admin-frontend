@@ -62,17 +62,21 @@
 
 ## 4. Readiness Check
 
-前端仓库提供后端接口联调检查脚本：
+前端仓库当前没有单独覆盖反馈工作流配置的 readiness 脚本。联调时可先执行现有通用检查：
 
 ```bash
-scripts/check_ux_backend_readiness.sh
+bash scripts/check_report_backend_readiness.sh --strict
+bash scripts/check_admin_role_backend_readiness.sh --strict
 ```
 
-脚本会检测以下关键接口是否已挂载：
+反馈工作流配置接口建议额外通过下列方式验证：
+
+- `bun test src/services/api/feedbackWorkflowConfig.test.ts`
+- 反馈工作流页面实际读取与保存联调
+
+反馈工作流自身涉及的关键接口如下：
 
 - `GET /adm/current`
-- `POST /adm/admin/ux/events`
-- `POST /adm/moment/report/batch_resolve`
 - `GET /adm/admin/config/feedback-workflow`
 - `PUT /adm/admin/config/feedback-workflow`
 - `POST /adm/admin/config/feedback-workflow`

@@ -9,7 +9,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ReportCenterPage } from './ReportCenterPage'
 import client from '../../services/api/client'
 
-type AnyFn = (...args: unknown[]) => unknown
+type AnyFn = (..._args: unknown[]) => unknown
 
 type MutableClient = {
   get: AnyFn

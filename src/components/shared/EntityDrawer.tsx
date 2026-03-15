@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils'
 
 interface EntityDrawerProps {
   open: boolean
-  onOpenChange: (open: boolean) => void
+  onOpenChange: (_open: boolean) => void
   title: string
   subtitle?: string
   loading?: boolean

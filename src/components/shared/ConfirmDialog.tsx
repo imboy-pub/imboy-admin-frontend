@@ -13,7 +13,7 @@ import { Loader2 } from 'lucide-react'
 
 interface ConfirmDialogProps {
   open: boolean
-  onOpenChange: (open: boolean) => void
+  onOpenChange: (_open: boolean) => void
   title: string
   description?: string
   confirmText?: string

@@ -20,5 +20,5 @@ interface ImportMeta {
 }
 
 interface Window {
-  __IMBOY_UX_TRACK__?: (event: string, payload: Record<string, unknown>) => void
+  __IMBOY_UX_TRACK__?: (_event: string, _payload: Record<string, unknown>) => void
 }

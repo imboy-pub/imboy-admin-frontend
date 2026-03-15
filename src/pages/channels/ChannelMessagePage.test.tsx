@@ -8,7 +8,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { ChannelMessagePage } from './ChannelMessagePage'
 import client from '../../services/api/client'
 
-type AnyFn = (...args: unknown[]) => unknown
+type AnyFn = (..._args: unknown[]) => unknown
 
 type MutableClient = {
   get: AnyFn

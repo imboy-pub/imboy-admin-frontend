@@ -37,7 +37,7 @@ export type BatchActionItem = {
   confirmText?: string
   disabled?: boolean
   loading?: boolean
-  onExecute: (context: BatchActionExecuteContext) => Promise<void> | void
+  onExecute: (_context: BatchActionExecuteContext) => Promise<void> | void
 }
 
 interface BatchActionBarProps {
