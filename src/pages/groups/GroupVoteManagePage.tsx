@@ -21,7 +21,7 @@ import {
   getGroupVoteDetailPayload,
   getGroupVotesPayload,
   GroupVote,
-} from '@/services/api/groupEnhancements'
+} from '@/modules/groups/api'
 import { formatDate } from '@/lib/utils'
 import { useAdminPermission } from '@/hooks/useAdminPermission'
 
