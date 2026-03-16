@@ -6,18 +6,6 @@ import { PermissionRoute } from '@/components/auth/PermissionRoute'
 import { FeatureRoute } from '@/components/auth/FeatureRoute'
 import { AdminLayout } from '@/components/layout/AdminLayout'
 import { DashboardPage } from '@/pages/dashboard/DashboardPage'
-import { GroupListPage } from '@/pages/groups/GroupListPage'
-import { GroupDetailPage } from '@/pages/groups/GroupDetailPage'
-import { GroupVoteManagePage } from '@/pages/groups/GroupVoteManagePage'
-import { GroupNoticeManagePage } from '@/pages/groups/GroupNoticeManagePage'
-import { GroupCategoryManagePage } from '@/pages/groups/GroupCategoryManagePage'
-import { GroupTagManagePage } from '@/pages/groups/GroupTagManagePage'
-import { GroupFileManagePage } from '@/pages/groups/GroupFileManagePage'
-import { GroupAlbumManagePage } from '@/pages/groups/GroupAlbumManagePage'
-import { GroupScheduleManagePage } from '@/pages/groups/GroupScheduleManagePage'
-import { GroupTaskManagePage } from '@/pages/groups/GroupTaskManagePage'
-import { GroupGovernanceLogPage } from '@/pages/groups/GroupGovernanceLogPage'
-import { GroupContextGatewayPage } from '@/pages/groups/GroupContextGatewayPage'
 import { LogoutApplicationListPage } from '@/pages/logoutApplications/LogoutApplicationListPage'
 import {
   ChannelAdminPage,
@@ -28,6 +16,20 @@ import {
   ChannelOrderPage,
   ChannelSubscriberPage,
 } from '@/modules/channels'
+import {
+  GroupAlbumManagePage,
+  GroupCategoryManagePage,
+  GroupContextGatewayPage,
+  GroupDetailPage,
+  GroupFileManagePage,
+  GroupGovernanceLogPage,
+  GroupListPage,
+  GroupNoticeManagePage,
+  GroupScheduleManagePage,
+  GroupTagManagePage,
+  GroupTaskManagePage,
+  GroupVoteManagePage,
+} from '@/modules/groups'
 import { MessageListPage } from '@/modules/messages'
 import { MomentDetailPage, MomentListPage } from '@/modules/moments'
 import { LoginPage, RolePermissionPage, UserDetailPage, UserListPage } from '@/modules/identity'

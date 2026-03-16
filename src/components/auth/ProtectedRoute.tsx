@@ -2,7 +2,7 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { LoadingState } from '@/components/shared'
 import { useState, useEffect } from 'react'
-import { getCurrentAdminPayload } from '@/services/api/auth'
+import { getCurrentAdminPayload } from '@/modules/identity'
 import { AUTH_EXPIRED_EVENT } from '@/services/api/client'
 
 export function ProtectedRoute() {

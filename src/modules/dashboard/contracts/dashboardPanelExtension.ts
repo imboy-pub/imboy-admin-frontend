@@ -14,5 +14,5 @@ export type DashboardPanelContext = {
 
 export interface DashboardPanelExtension {
   id: string
-  render: (context: DashboardPanelContext) => ReactNode
+  render: (_context: DashboardPanelContext) => ReactNode
 }

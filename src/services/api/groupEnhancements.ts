@@ -205,7 +205,7 @@ export interface GroupGovernanceLogListParams {
   to_ts?: string | number
 }
 
-export interface GroupListParams {
+export interface GroupPaginationParams {
   page?: number
   size?: number
 }
@@ -215,7 +215,7 @@ export interface GroupListParams {
  */
 export async function getGroupVotes(
   gid: IdLike,
-  params: GroupListParams = { page: 1, size: 10 }
+  params: GroupPaginationParams = { page: 1, size: 10 }
 ): Promise<ApiResponse<PaginatedResponse<GroupVote>>> {
   const response = await client.get('/group/vote/list', {
     params: { gid, ...params },
@@ -225,7 +225,7 @@ export async function getGroupVotes(
 
 export async function getGroupVotesPayload(
   gid: IdLike,
-  params: GroupListParams = { page: 1, size: 10 }
+  params: GroupPaginationParams = { page: 1, size: 10 }
 ): Promise<PaginatedResponse<GroupVote>> {
   return requireApiPayload(await getGroupVotes(gid, params), '/group/vote/list')
 }
@@ -252,7 +252,7 @@ export async function closeGroupVote(voteId: string): Promise<ApiResponse<Record
  */
 export async function getGroupSchedules(
   gid: IdLike,
-  params: GroupListParams = { page: 1, size: 10 }
+  params: GroupPaginationParams = { page: 1, size: 10 }
 ): Promise<ApiResponse<PaginatedResponse<GroupSchedule>>> {
   const response = await client.get('/group/schedule/list', {
     params: { gid, ...params },
@@ -262,7 +262,7 @@ export async function getGroupSchedules(
 
 export async function getGroupSchedulesPayload(
   gid: IdLike,
-  params: GroupListParams = { page: 1, size: 10 }
+  params: GroupPaginationParams = { page: 1, size: 10 }
 ): Promise<PaginatedResponse<GroupSchedule>> {
   return requireApiPayload(await getGroupSchedules(gid, params), '/group/schedule/list')
 }
@@ -299,7 +299,7 @@ export async function restoreGroupSchedule(scheduleId: string): Promise<ApiRespo
  */
 export async function getGroupNotices(
   gid: IdLike,
-  params: GroupListParams = { page: 1, size: 10 }
+  params: GroupPaginationParams = { page: 1, size: 10 }
 ): Promise<ApiResponse<PaginatedResponse<GroupNotice>>> {
   const response = await client.get('/group/notice/list', {
     params: { gid, ...params },
@@ -309,7 +309,7 @@ export async function getGroupNotices(
 
 export async function getGroupNoticesPayload(
   gid: IdLike,
-  params: GroupListParams = { page: 1, size: 10 }
+  params: GroupPaginationParams = { page: 1, size: 10 }
 ): Promise<PaginatedResponse<GroupNotice>> {
   return requireApiPayload(await getGroupNotices(gid, params), '/group/notice/list')
 }
@@ -431,7 +431,7 @@ export async function deleteGroupFile(fileId: IdLike | string): Promise<ApiRespo
  */
 export async function getGroupAlbums(
   gid: IdLike,
-  params: GroupListParams = { page: 1, size: 10 }
+  params: GroupPaginationParams = { page: 1, size: 10 }
 ): Promise<ApiResponse<PaginatedResponse<GroupAlbum>>> {
   const response = await client.get('/group/album/list', {
     params: { gid, ...params },
@@ -441,7 +441,7 @@ export async function getGroupAlbums(
 
 export async function getGroupAlbumsPayload(
   gid: IdLike,
-  params: GroupListParams = { page: 1, size: 10 }
+  params: GroupPaginationParams = { page: 1, size: 10 }
 ): Promise<PaginatedResponse<GroupAlbum>> {
   return requireApiPayload(await getGroupAlbums(gid, params), '/group/album/list')
 }

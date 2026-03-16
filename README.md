@@ -61,6 +61,12 @@ bun run test
 bun run build
 ```
 
+## Architecture Gates / 架构门禁
+
+- 模块边界 lint：`bun run lint`
+- 生产构建验证：`bun run build`
+- 约束规则：模块外代码优先从 `src/modules/<domain>` 公开入口导入，不能继续直连已建 barrel 的 `src/pages/*`、`src/services/api/*` 或 `src/modules/<domain>/*` 内部路径
+
 后端接口就绪检查（默认检查 `http://127.0.0.1:9800/adm`）：
 
 ```bash

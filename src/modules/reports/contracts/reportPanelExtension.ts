@@ -18,5 +18,5 @@ export type ReportPanelContext = {
 export interface ReportPanelExtension {
   id: string
   targetType: ReportTargetType | 'default'
-  render: (context: ReportPanelContext) => ReactNode
+  render: (_context: ReportPanelContext) => ReactNode
 }

@@ -4,7 +4,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { logout as logoutApi } from '@/services/api/auth'
+import { logout as logoutApi } from '@/modules/identity'
 import { trackUxEvent } from '@/lib/uxTelemetry'
 
 type CommandItem = {

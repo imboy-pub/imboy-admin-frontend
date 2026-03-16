@@ -15,7 +15,7 @@ import {
   PageHeader,
   StatusBadge,
 } from '@/components/shared'
-import { getMessageDetailPayload, getMessageListPayload } from '@/services/api/messages'
+import { getMessageDetailPayload, getMessageListPayload } from '@/modules/messages'
 import { getLogoutApplicationListPayload } from '@/services/api/logoutApplications'
 import { formatDate, truncate } from '@/lib/utils'
 import { MessageScope } from '@/types/message'

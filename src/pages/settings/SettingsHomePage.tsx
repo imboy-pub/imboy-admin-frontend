@@ -13,7 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { PageHeader, ErrorState, LoadingState, StatsCard } from '@/components/shared'
 import { getOverviewStatsPayload } from '@/services/api/stats'
-import { getCurrentAdminPayload } from '@/services/api/auth'
+import { getCurrentAdminPayload } from '@/modules/identity'
 
 type SettingsModule = {
   title: string

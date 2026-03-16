@@ -25,7 +25,7 @@ import {
   type AdminListParams,
   type CreateAdminInput,
 } from '@/services/api/admins'
-import { getRoleListPayload } from '@/services/api/roles'
+import { getRoleListPayload } from '@/modules/identity'
 import { useListQueryState } from '@/hooks/useListQueryState'
 import { useAuthStore } from '@/stores/authStore'
 import { formatDate } from '@/lib/utils'
