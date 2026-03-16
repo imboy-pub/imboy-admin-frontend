@@ -16,7 +16,7 @@ import {
   exportMessageCsvBlob,
   getMessageDetailPayload,
   getMessageListPayload,
-} from '@/services/api/messages'
+} from '@/modules/messages/api'
 import { ManagedMessage, MessageListParams } from '@/types/message'
 import { formatDate, truncate } from '@/lib/utils'
 import { ColumnDef, VisibilityState, getCoreRowModel, useReactTable } from '@tanstack/react-table'

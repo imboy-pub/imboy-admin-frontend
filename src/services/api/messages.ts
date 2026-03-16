@@ -3,6 +3,7 @@ import { ApiResponse, PaginatedResponse } from '@/types/api'
 import { ManagedMessage, MessageListParams } from '@/types/message'
 import { requireApiPayload } from './responseAdapter'
 
+// Compatibility location kept for existing callers. Prefer '@/modules/messages/api'.
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/adm'
 
 /**
