@@ -19,7 +19,7 @@ import {
   ChannelSubscriber,
   getChannelSubscribersPayload,
   removeChannelSubscriber,
-} from '@/services/api/channels'
+} from '@/modules/channels/api'
 import { formatDate } from '@/lib/utils'
 
 function formatOptionalDate(value: string | null | undefined): string {
