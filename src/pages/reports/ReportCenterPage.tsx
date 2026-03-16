@@ -5,10 +5,13 @@ import { useSearchParams } from 'react-router-dom'
 import { PageHeader } from '@/components/shared'
 import { Card, CardHeader } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
+import {
+  type ReportProcessStep,
+  type ReportTargetType,
+} from '@/modules/reports/contracts/reportPanelExtension'
+import { ReportPanelRegistry } from '@/modules/reports/registry/reportPanelRegistry'
 import { MomentReportPage } from '@/pages/moments/MomentReportPage'
 import { TargetReportPanel } from './TargetReportPanel'
-
-type ReportTargetType = 'moment' | 'group' | 'channel' | 'user'
 
 type ReportTargetConfig = {
   type: ReportTargetType
@@ -59,7 +62,7 @@ const REPORT_TARGETS: ReportTargetConfig[] = [
   },
 ]
 
-const REPORT_PROCESS_STEPS = [
+const REPORT_PROCESS_STEPS: ReportProcessStep[] = [
   { title: '受理分拣', description: '按违规类型、风险等级与目标对象分桶，明确处理优先级。' },
   { title: '证据核验', description: '拉取上下文内容与历史行为，交叉验证举报事实。' },
   { title: '执行处置', description: '根据规则执行删帖、禁言、封禁、驳回等动作并留痕。' },
@@ -81,6 +84,28 @@ export function ReportCenterPage() {
     () => REPORT_TARGETS.find((item) => item.type === activeTarget) ?? REPORT_TARGETS[0],
     [activeTarget]
   )
+  const reportPanelRegistry = useMemo(() => {
+    const registry = new ReportPanelRegistry()
+    registry.register({
+      id: 'moment-panel',
+      targetType: 'moment',
+      render: () => <MomentReportPage showPageHeader={false} />,
+    })
+    registry.register({
+      id: 'default-target-panel',
+      targetType: 'default',
+      render: (context) => (
+        <TargetReportPanel
+          targetType={context.targetType === 'moment' ? 'group' : context.targetType}
+          targetLabel={context.targetLabel}
+          governancePath={context.governancePath}
+          governanceLabel={context.governanceLabel}
+          processSteps={context.processSteps}
+        />
+      ),
+    })
+    return registry
+  }, [])
   const readyCount = REPORT_TARGETS.filter((item) => item.status === 'ready').length
   const rollingCount = REPORT_TARGETS.length - readyCount
 
@@ -89,6 +114,8 @@ export function ReportCenterPage() {
     nextParams.set('target_type', target)
     setSearchParams(nextParams, { replace: true })
   }
+
+  const activePanel = reportPanelRegistry.resolveForTarget(activeTarget)
 
   return (
     <div className="space-y-6">
@@ -135,18 +162,13 @@ export function ReportCenterPage() {
         </CardHeader>
       </Card>
 
-      {activeTarget === 'moment' ? (
-        <MomentReportPage showPageHeader={false} />
-      ) : (
-        <TargetReportPanel
-          key={activeTarget}
-          targetType={activeTarget}
-          targetLabel={activeConfig.label}
-          governancePath={activeConfig.governancePath}
-          governanceLabel={activeConfig.governanceLabel}
-          processSteps={REPORT_PROCESS_STEPS}
-        />
-      )}
+      {activePanel?.render({
+        targetType: activeTarget,
+        targetLabel: activeConfig.label,
+        governancePath: activeConfig.governancePath,
+        governanceLabel: activeConfig.governanceLabel,
+        processSteps: REPORT_PROCESS_STEPS,
+      })}
     </div>
   )
 }

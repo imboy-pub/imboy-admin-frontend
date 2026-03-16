@@ -25,6 +25,9 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { formatDate } from '@/lib/utils'
+import type {
+  ReportProcessStep,
+} from '@/modules/reports/contracts/reportPanelExtension'
 import {
   getReportListPayload,
   isReportEndpointUnavailable,
@@ -37,15 +40,12 @@ import {
 } from '@/services/api/reports'
 import { trackUxEvent } from '@/lib/uxTelemetry'
 
-type TargetReportPanelProps = {
+export type TargetReportPanelProps = {
   targetType: NonMomentReportTargetType
   targetLabel: string
   governancePath: string
   governanceLabel: string
-  processSteps: Array<{
-    title: string
-    description: string
-  }>
+  processSteps: ReportProcessStep[]
 }
 
 type TargetReportQuery = {
