@@ -2,11 +2,11 @@ import '../../test/setupDom'
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'bun:test'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, fireEvent, render, waitFor, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, waitFor } from '@testing-library/react'
 import { act } from 'react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import userEvent from '@testing-library/user-event'
-import { MessageListPage } from './MessageListPage'
+import { MessageListPage } from '@/modules/messages'
 import client from '../../services/api/client'
 
 type AnyFn = (..._args: unknown[]) => unknown

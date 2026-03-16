@@ -59,6 +59,10 @@ function cacheFeatureFlags(flags: FeatureFlags) {
   }
 }
 
+export function adminFeatureQueryKey(account?: string | null) {
+  return ['admin', 'features', account || 'anonymous'] as const
+}
+
 export async function getAdminFeaturesPayload(): Promise<FeatureFlags | null> {
   const requestConfig: AuthAwareRequestConfig = {
     [SKIP_AUTH_EXPIRED_EVENT_FLAG]: true,

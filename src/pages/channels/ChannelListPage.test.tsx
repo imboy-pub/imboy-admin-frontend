@@ -6,7 +6,7 @@ import { cleanup, fireEvent, render, waitFor } from '@testing-library/react'
 import { act } from 'react'
 import { MemoryRouter, Route, Routes, useParams } from 'react-router-dom'
 import userEvent from '@testing-library/user-event'
-import { ChannelListPage } from './ChannelListPage'
+import { ChannelListPage } from '@/modules/channels'
 import client from '../../services/api/client'
 
 type AnyFn = (..._args: unknown[]) => unknown

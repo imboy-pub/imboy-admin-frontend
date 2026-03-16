@@ -23,18 +23,19 @@ import { GroupScheduleManagePage } from '@/pages/groups/GroupScheduleManagePage'
 import { GroupTaskManagePage } from '@/pages/groups/GroupTaskManagePage'
 import { GroupGovernanceLogPage } from '@/pages/groups/GroupGovernanceLogPage'
 import { GroupContextGatewayPage } from '@/pages/groups/GroupContextGatewayPage'
-import { MessageListPage } from '@/pages/messages/MessageListPage'
 import { LogoutApplicationListPage } from '@/pages/logoutApplications/LogoutApplicationListPage'
 import { FeedbackListPage } from '@/pages/feedback/FeedbackListPage'
-import { ChannelListPage } from '@/pages/channels/ChannelListPage'
-import { ChannelDetailPage } from '@/pages/channels/ChannelDetailPage'
-import { ChannelMessagePage } from '@/pages/channels/ChannelMessagePage'
-import { ChannelSubscriberPage } from '@/pages/channels/ChannelSubscriberPage'
-import { ChannelAdminPage } from '@/pages/channels/ChannelAdminPage'
-import { ChannelInvitationPage } from '@/pages/channels/ChannelInvitationPage'
-import { ChannelOrderPage } from '@/pages/channels/ChannelOrderPage'
-import { MomentListPage } from '@/pages/moments/MomentListPage'
-import { MomentDetailPage } from '@/pages/moments/MomentDetailPage'
+import {
+  ChannelAdminPage,
+  ChannelDetailPage,
+  ChannelInvitationPage,
+  ChannelListPage,
+  ChannelMessagePage,
+  ChannelOrderPage,
+  ChannelSubscriberPage,
+} from '@/modules/channels'
+import { MessageListPage } from '@/modules/messages'
+import { MomentDetailPage, MomentListPage } from '@/modules/moments'
 import { ReportCenterPage } from '@/pages/reports/ReportCenterPage'
 import { VersionPage } from '@/pages/settings/VersionPage'
 import { DDLPage } from '@/pages/settings/DDLPage'

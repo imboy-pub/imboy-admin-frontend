@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useAuthStore } from '@/stores/authStore'
 import {
+  adminFeatureQueryKey,
   getAdminFeaturesPayload,
   getCachedAdminFeatures,
   type FeatureFlags,
@@ -12,7 +13,7 @@ export function useAdminFeatures() {
   const cachedFeatures = getCachedAdminFeatures()
 
   return useQuery<FeatureFlags | null>({
-    queryKey: ['admin', 'features', account || 'anonymous'],
+    queryKey: adminFeatureQueryKey(account),
     queryFn: () => getAdminFeaturesPayload(),
     enabled: isAuthenticated,
     retry: false,
