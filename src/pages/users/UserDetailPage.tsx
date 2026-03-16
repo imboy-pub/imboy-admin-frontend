@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { ArrowLeft, UserX, UserCheck, Loader2, Smartphone, Users, MessageSquare, Tags, Bookmark } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageHeader, LoadingState, ErrorState, StatusBadge } from '@/components/shared'
-import { getUserDetailPayload, banUser, unbanUser } from '@/services/api/users'
+import { getUserDetailPayload, banUser, unbanUser } from '@/modules/identity/api'
 import { formatDate } from '@/lib/utils'
 
 export function UserDetailPage() {

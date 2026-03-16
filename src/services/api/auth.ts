@@ -1,3 +1,5 @@
+// Compatibility API location kept during module migration.
+// New admin callers should prefer '@/modules/identity/api'.
 import client from './client'
 import { ApiResponse } from '@/types/api'
 import { Admin } from '@/types/admin'

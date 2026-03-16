@@ -8,10 +8,10 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { EntityDrawer, ErrorState, LoadingState, PageHeader } from '@/components/shared'
 import { cn } from '@/lib/utils'
-import { getCurrentAdminPayload } from '@/services/api/auth'
+import { getCurrentAdminPayload } from '@/modules/identity/api'
 import { getMyRbacProfilePayload } from '@/services/api/rbac'
 import { fetchSidebarMenuConfig, type PermissionCatalogItem, type RoleTemplateConfig } from '@/services/api/adminConfig'
-import { createRole, getRoleListPayload, updateRolePermissions } from '@/services/api/roles'
+import { createRole, getRoleListPayload, updateRolePermissions } from '@/modules/identity/api'
 
 type PermissionItem = PermissionCatalogItem
 type RoleTemplate = RoleTemplateConfig

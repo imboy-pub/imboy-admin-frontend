@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useAuthStore } from '@/stores/authStore'
-import { getCaptchaUrl, getLoginPage, loginPayload } from '@/services/api/auth'
+import { getCaptchaUrl, getLoginPage, loginPayload } from '@/modules/identity/api'
 import { encryptLoginPassword } from '@/lib/passwordCrypto'
 
 const loginSchema = z.object({

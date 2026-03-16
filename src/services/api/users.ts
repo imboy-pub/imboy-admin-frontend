@@ -1,3 +1,5 @@
+// Compatibility API location kept during module migration.
+// New admin callers should prefer '@/modules/identity/api'.
 import client from './client'
 import { ApiResponse, PaginatedResponse } from '@/types/api'
 import { User } from '@/types/user'
