@@ -9,8 +9,8 @@ import {
   type ReportProcessStep,
   type ReportTargetType,
 } from '@/modules/reports/contracts/reportPanelExtension'
-import { ReportPanelRegistry } from '@/modules/reports/registry/reportPanelRegistry'
-import { MomentReportPage } from '@/pages/moments/MomentReportPage'
+import { reportPanelRegistry } from '@/modules/reports/registry/reportPanelRegistry'
+import { MomentReportPage } from '@/modules/moments'
 import { TargetReportPanel } from './TargetReportPanel'
 
 type ReportTargetConfig = {
@@ -69,12 +69,42 @@ const REPORT_PROCESS_STEPS: ReportProcessStep[] = [
   { title: '结果回写', description: '回写处理结论、复核意见与操作人，支持后续审计追踪。' },
 ]
 
+function isNonMomentTargetType(targetType: ReportTargetType): targetType is Exclude<ReportTargetType, 'moment'> {
+  return targetType !== 'moment'
+}
+
 function normalizeTargetType(raw: string | null): ReportTargetType {
   if (raw === 'group' || raw === 'channel' || raw === 'user' || raw === 'moment') {
     return raw
   }
   return 'moment'
 }
+
+reportPanelRegistry.register({
+  id: 'moment-panel',
+  targetType: 'moment',
+  render: () => <MomentReportPage showPageHeader={false} />,
+})
+
+reportPanelRegistry.register({
+  id: 'default-target-panel',
+  targetType: 'default',
+  render: (context) => {
+    if (!isNonMomentTargetType(context.targetType)) {
+      return <MomentReportPage showPageHeader={false} />
+    }
+
+    return (
+      <TargetReportPanel
+        targetType={context.targetType}
+        targetLabel={context.targetLabel}
+        governancePath={context.governancePath}
+        governanceLabel={context.governanceLabel}
+        processSteps={context.processSteps}
+      />
+    )
+  },
+})
 
 export function ReportCenterPage() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -84,28 +114,6 @@ export function ReportCenterPage() {
     () => REPORT_TARGETS.find((item) => item.type === activeTarget) ?? REPORT_TARGETS[0],
     [activeTarget]
   )
-  const reportPanelRegistry = useMemo(() => {
-    const registry = new ReportPanelRegistry()
-    registry.register({
-      id: 'moment-panel',
-      targetType: 'moment',
-      render: () => <MomentReportPage showPageHeader={false} />,
-    })
-    registry.register({
-      id: 'default-target-panel',
-      targetType: 'default',
-      render: (context) => (
-        <TargetReportPanel
-          targetType={context.targetType === 'moment' ? 'group' : context.targetType}
-          targetLabel={context.targetLabel}
-          governancePath={context.governancePath}
-          governanceLabel={context.governanceLabel}
-          processSteps={context.processSteps}
-        />
-      ),
-    })
-    return registry
-  }, [])
   const readyCount = REPORT_TARGETS.filter((item) => item.status === 'ready').length
   const rollingCount = REPORT_TARGETS.length - readyCount
 

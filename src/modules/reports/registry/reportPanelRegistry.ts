@@ -7,14 +7,12 @@ export class ReportPanelRegistry {
   private readonly panels = new Map<string, ReportPanelExtension>()
 
   register(panel: ReportPanelExtension) {
-    if (this.panels.has(panel.id)) {
-      throw new Error(`Report panel "${panel.id}" already registered`)
-    }
     this.panels.set(panel.id, panel)
+    return panel
   }
 
   resolveById(id: string) {
-    return this.panels.get(id)
+    return this.panels.get(id) ?? null
   }
 
   resolveForTarget(targetType: ReportTargetType) {
@@ -30,6 +28,12 @@ export class ReportPanelRegistry {
       }
     }
 
-    return undefined
+    return null
+  }
+
+  list() {
+    return Array.from(this.panels.values())
   }
 }
+
+export const reportPanelRegistry = new ReportPanelRegistry()

@@ -1,10 +1,10 @@
-import { Fragment, useMemo } from 'react'
+import { Fragment } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Users, MessageSquare, UsersRound, Activity } from 'lucide-react'
 import { PageHeader, StatsCard, LoadingState, ErrorState } from '@/components/shared'
 import { getOverviewStatsPayload, getUserStatsPayload, getMessageStatsPayload, DailyCount } from '@/services/api/stats'
-import { DashboardPanelRegistry } from '@/modules/dashboard/registry/dashboardPanelRegistry'
+import { dashboardPanelRegistry } from '@/modules/dashboard/registry/dashboardPanelRegistry'
 import {
   LineChart,
   Line,
@@ -17,6 +17,45 @@ import {
   BarChart,
   Bar,
 } from 'recharts'
+
+dashboardPanelRegistry.register({
+  id: 'system-status',
+  render: ({ stats: panelStats }) => (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Activity className="h-5 w-5" />
+          系统状态
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="grid gap-4 md:grid-cols-3">
+          <div className="flex items-center gap-3">
+            <div className="h-3 w-3 rounded-full bg-green-500" />
+            <div>
+              <p className="font-medium">API 服务</p>
+              <p className="text-sm text-muted-foreground">运行正常</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="h-3 w-3 rounded-full bg-green-500" />
+            <div>
+              <p className="font-medium">WebSocket 服务</p>
+              <p className="text-sm text-muted-foreground">在线 {panelStats?.online_users || 0} 用户</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="h-3 w-3 rounded-full bg-green-500" />
+            <div>
+              <p className="font-medium">数据库</p>
+              <p className="text-sm text-muted-foreground">连接正常</p>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  ),
+})
 
 export function DashboardPage() {
   // 获取总览统计
@@ -56,49 +95,6 @@ export function DashboardPage() {
     单聊: item.count,
     群聊: messageStats?.daily_c2g?.[index]?.count || 0,
   })) || []
-
-  const dashboardPanelRegistry = useMemo(() => {
-    const registry = new DashboardPanelRegistry()
-    registry.register({
-      id: 'system-status',
-      render: ({ stats: panelStats }) => (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Activity className="h-5 w-5" />
-              系统状态
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 md:grid-cols-3">
-              <div className="flex items-center gap-3">
-                <div className="h-3 w-3 rounded-full bg-green-500" />
-                <div>
-                  <p className="font-medium">API 服务</p>
-                  <p className="text-sm text-muted-foreground">运行正常</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="h-3 w-3 rounded-full bg-green-500" />
-                <div>
-                  <p className="font-medium">WebSocket 服务</p>
-                  <p className="text-sm text-muted-foreground">在线 {panelStats?.online_users || 0} 用户</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="h-3 w-3 rounded-full bg-green-500" />
-                <div>
-                  <p className="font-medium">数据库</p>
-                  <p className="text-sm text-muted-foreground">连接正常</p>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      ),
-    })
-    return registry
-  }, [])
 
   return (
     <div className="space-y-6">

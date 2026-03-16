@@ -12,7 +12,16 @@ const createPanel = (
 })
 
 describe('ReportPanelRegistry', () => {
-  it('registers and resolves panel by id', () => {
+  it('registers panel entries', () => {
+    const registry = new ReportPanelRegistry()
+    const panel = createPanel('moment-panel', 'moment')
+
+    registry.register(panel)
+
+    expect(registry.list()).toEqual([panel])
+  })
+
+  it('resolves panel by id', () => {
     const registry = new ReportPanelRegistry()
     const panel = createPanel('moment-panel', 'moment')
 
