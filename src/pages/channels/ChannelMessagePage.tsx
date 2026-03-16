@@ -20,7 +20,7 @@ import {
   deleteChannelMessage,
   getChannelMessagesPayload,
   pinChannelMessage,
-} from '@/services/api/channels'
+} from '@/modules/channels/api'
 import { formatDate, truncate } from '@/lib/utils'
 
 export function ChannelMessagePage() {

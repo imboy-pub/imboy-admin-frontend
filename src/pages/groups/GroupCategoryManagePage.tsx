@@ -21,7 +21,7 @@ import {
   getGroupCategoriesPayload,
   GroupCategory,
 } from '@/services/api/groupEnhancements'
-import { getGroupDetailPayload } from '@/services/api/groups'
+import { getGroupDetailPayload } from '@/modules/groups/api'
 import { useAdminPermission } from '@/hooks/useAdminPermission'
 
 export function GroupCategoryManagePage() {

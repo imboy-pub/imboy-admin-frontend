@@ -1,3 +1,6 @@
+// Deprecated compatibility implementation.
+// New callers should depend on `@/modules/messages/api`; keep this file until
+// every legacy page implementation has moved behind the module boundary.
 import client from './client'
 import { ApiResponse, PaginatedResponse } from '@/types/api'
 import { ManagedMessage, MessageListParams } from '@/types/message'

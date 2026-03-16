@@ -1,5 +1,6 @@
-// Compatibility API location kept during module migration.
-// New admin callers should prefer '@/modules/groups/api'.
+// Deprecated compatibility implementation.
+// New admin callers should prefer '@/modules/groups/api'; keep this file until
+// every legacy page implementation has moved behind the module boundary.
 import client from './client'
 import { ApiResponse, PaginatedResponse } from '@/types/api'
 import { Group, GroupMember } from '@/types/group'

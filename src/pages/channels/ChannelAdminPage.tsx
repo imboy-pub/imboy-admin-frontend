@@ -20,7 +20,7 @@ import {
   getChannelAdminsPayload,
   removeChannelAdmin,
   updateChannelAdminRole,
-} from '@/services/api/channels'
+} from '@/modules/channels/api'
 import { formatDate } from '@/lib/utils'
 
 const ROLE_LABELS: Record<number, string> = {
