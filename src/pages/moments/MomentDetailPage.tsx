@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { ConfirmDialog, ErrorState, LoadingState, PageHeader, StatusBadge } from '@/components/shared'
-import { deleteMoment, getMomentDetailPayload, MomentReport } from '@/services/api/moments'
+import { deleteMoment, getMomentDetailPayload, MomentReport } from '@/modules/moments/api'
 import { formatDate } from '@/lib/utils'
 
 const visibilityLabels: Record<number, string> = {

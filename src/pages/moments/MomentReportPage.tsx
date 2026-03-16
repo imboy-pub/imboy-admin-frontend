@@ -30,7 +30,7 @@ import {
   MomentReportListParams,
   resolveMomentReport,
   resolveMomentReportBatchWithFallback,
-} from '@/services/api/moments'
+} from '@/modules/moments/api'
 import { useAdminPermission } from '@/hooks/useAdminPermission'
 import { useListQueryState } from '@/hooks/useListQueryState'
 import { formatDate } from '@/lib/utils'

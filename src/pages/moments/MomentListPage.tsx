@@ -23,7 +23,7 @@ import {
   getMomentListPayload,
   MomentItem,
   MomentListParams,
-} from '@/services/api/moments'
+} from '@/modules/moments/api'
 import { formatDate } from '@/lib/utils'
 import { trackUxEvent } from '@/lib/uxTelemetry'
 
