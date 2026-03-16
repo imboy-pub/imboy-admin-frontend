@@ -21,7 +21,7 @@ import {
   removeUserCollect,
   UserCollectItem,
   UserCollectListParams,
-} from '@/services/api/users'
+} from '@/modules/social_graph/api'
 import { formatDate } from '@/lib/utils'
 
 const COLLECT_KIND_OPTIONS = [

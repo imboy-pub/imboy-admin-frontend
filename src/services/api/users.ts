@@ -14,6 +14,7 @@ export interface UserListParams {
   keyword?: string
 }
 
+// New admin callers should prefer '@/modules/social_graph/api' for tag governance.
 export interface UserTagListParams {
   uid: IdLike
   scene: 'collect' | 'friend'
@@ -31,6 +32,9 @@ export interface UserTagItem {
   created_at: string
   updated_at: string
 }
+
+// Social graph compatibility APIs are kept here during the module migration.
+// New admin callers should prefer '@/modules/social_graph/api'.
 
 export interface UserCollectListParams {
   uid: IdLike

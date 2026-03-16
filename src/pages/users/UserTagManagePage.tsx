@@ -21,7 +21,7 @@ import {
   getUserTagListPayload,
   UserTagItem,
   UserTagListParams,
-} from '@/services/api/users'
+} from '@/modules/social_graph/api'
 import { formatDate } from '@/lib/utils'
 
 const SCENE_OPTIONS = [
