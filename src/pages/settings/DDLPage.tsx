@@ -7,7 +7,13 @@ import { Label } from '@/components/ui/label'
 import { Plus, Trash2, Edit, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageHeader, LoadingState, ErrorState, StatusBadge, ConfirmDialog } from '@/components/shared'
-import { getDDLListPayload, saveDDL, deleteDDL, DDL, DDLSaveParams } from '@/services/api/ddl'
+import {
+  DDL,
+  DDLSaveParams,
+  deleteDDL,
+  getDDLListPayload,
+  saveDDL,
+} from '@/modules/ops_governance/api'
 import { formatDate } from '@/lib/utils'
 
 export function DDLPage() {

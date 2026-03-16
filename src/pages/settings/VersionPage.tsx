@@ -8,7 +8,13 @@ import { Label } from '@/components/ui/label'
 import { Plus, Trash2, Edit, Loader2, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageHeader, LoadingState, ErrorState, StatusBadge, ConfirmDialog } from '@/components/shared'
-import { getVersionListPayload, saveVersion, deleteVersion, AppVersion, VersionSaveParams } from '@/services/api/versions'
+import {
+  AppVersion,
+  deleteVersion,
+  getVersionListPayload,
+  saveVersion,
+  VersionSaveParams,
+} from '@/modules/ops_governance/api'
 import { formatDate } from '@/lib/utils'
 
 export function VersionPage() {

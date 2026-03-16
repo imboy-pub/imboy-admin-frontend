@@ -9,6 +9,9 @@ import {
   type MomentReportBatchResolveSummary,
 } from './moments'
 
+// Ops governance compatibility APIs are kept here during the module migration.
+// New admin callers should prefer '@/modules/ops_governance/api'.
+
 type IdLike = string | number
 
 type ApiErrorLike = {

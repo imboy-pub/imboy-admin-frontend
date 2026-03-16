@@ -5,7 +5,12 @@ import { Button } from '@/components/ui/button'
 import { Send, Loader2, PanelRightOpen } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageHeader, LoadingState, ErrorState, StatusBadge, DataTable, DataTablePagination, FilterBar, EntityDrawer } from '@/components/shared'
-import { getFeedbackListPayload, replyFeedback, FeedbackListParams, Feedback } from '@/services/api/feedback'
+import {
+  Feedback,
+  FeedbackListParams,
+  getFeedbackListPayload,
+  replyFeedback,
+} from '@/modules/ops_governance/api'
 import { PaginatedResponse } from '@/types/api'
 import { formatDate } from '@/lib/utils'
 import { ColumnDef, useReactTable, getCoreRowModel } from '@tanstack/react-table'

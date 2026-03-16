@@ -2,6 +2,9 @@ import client from './client'
 import { ApiResponse, PaginatedResponse } from '@/types/api'
 import { requireApiPayload } from './responseAdapter'
 
+// Ops governance compatibility APIs are kept here during the module migration.
+// New admin callers should prefer '@/modules/ops_governance/api'.
+
 export interface Feedback {
   id: number
   user_id: number

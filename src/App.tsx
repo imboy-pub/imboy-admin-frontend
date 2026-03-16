@@ -19,7 +19,6 @@ import { GroupTaskManagePage } from '@/pages/groups/GroupTaskManagePage'
 import { GroupGovernanceLogPage } from '@/pages/groups/GroupGovernanceLogPage'
 import { GroupContextGatewayPage } from '@/pages/groups/GroupContextGatewayPage'
 import { LogoutApplicationListPage } from '@/pages/logoutApplications/LogoutApplicationListPage'
-import { FeedbackListPage } from '@/pages/feedback/FeedbackListPage'
 import {
   ChannelAdminPage,
   ChannelDetailPage,
@@ -32,10 +31,8 @@ import {
 import { MessageListPage } from '@/modules/messages'
 import { MomentDetailPage, MomentListPage } from '@/modules/moments'
 import { LoginPage, RolePermissionPage, UserDetailPage, UserListPage } from '@/modules/identity'
+import { DDLPage, FeedbackListPage, ReportCenterPage, VersionPage } from '@/modules/ops_governance'
 import { UserCollectManagePage, UserTagManagePage } from '@/modules/social_graph'
-import { ReportCenterPage } from '@/pages/reports/ReportCenterPage'
-import { VersionPage } from '@/pages/settings/VersionPage'
-import { DDLPage } from '@/pages/settings/DDLPage'
 import { SettingsHomePage } from '@/pages/settings/SettingsHomePage'
 import { AdminListPage } from '@/pages/admins/AdminListPage'
 import { AuditLogPage } from '@/pages/logs/AuditLogPage'
