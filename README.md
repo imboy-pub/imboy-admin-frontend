@@ -10,12 +10,14 @@ ImBoy 管理后台前端（React + TypeScript + Vite + Bun）。
 
 - [Admin Module Map](docs/module_map.md)
 
-## Migration Status / 迁移状态
+## Migration Status / 迁移状态（2026-03-28 — 闭环）
 
-- Stable public entries: `src/modules/identity/public.ts`, `src/modules/social_graph/public.ts`, `src/modules/groups/public.ts`, `src/modules/moments/public.ts`, `src/modules/ops_governance/public.ts`.
-- Module shells already in place and still converging: `src/modules/channels/index.ts`, `src/modules/messages/index.ts`.
+> Workspace Modular + Plugin Architecture 迁移已全部完成（Task 0-17）。
+
+- Stable public entries: `src/modules/identity/public.ts`, `src/modules/social_graph/public.ts`, `src/modules/groups/public.ts`, `src/modules/channels/public.ts`, `src/modules/messages/public.ts`, `src/modules/moments/public.ts`, `src/modules/ops_governance/public.ts`.
 - Production extension points: `src/modules/dashboard/registry/dashboardPanelRegistry.ts`, `src/modules/reports/registry/reportPanelRegistry.ts`.
-- Compatibility wrappers intentionally retained: `src/services/api/channels.ts`, `src/services/api/groups.ts`, `src/services/api/messages.ts`, `src/services/api/moments.ts`, `src/services/api/users.ts`, `src/services/api/reports.ts`, `src/services/api/feedback.ts`.
+- Boundary gate: `eslint.config.js` no-restricted-imports rule.
+- Regression: 75 tests passed / 0 failed, `bun run build` 5.53s, `eslint` 0 errors.
 
 ## 技术栈
 
