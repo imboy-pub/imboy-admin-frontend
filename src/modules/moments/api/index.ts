@@ -1,1 +1,1 @@
-export * from '@/services/api/moments'
+export * from './public'

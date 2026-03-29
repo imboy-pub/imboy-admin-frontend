@@ -1,1 +1,1 @@
-export * from '@/services/api/channels'
+export * from './public'

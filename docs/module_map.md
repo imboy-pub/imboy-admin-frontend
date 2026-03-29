@@ -22,14 +22,16 @@
 
 | Domain | Current roots | Future public entry |
 |---|---|---|
-| Channels | `src/pages/channels/`, `src/services/api/channels.ts` | `src/modules/channels/index.ts` |
-| Messages | `src/pages/messages/`, `src/services/api/messages.ts` | `src/modules/messages/index.ts` |
-| Moments | `src/pages/moments/`, `src/services/api/moments.ts` | `src/modules/moments/index.ts` |
-| Groups | `src/pages/groups/`, `src/services/api/groups.ts` | `src/modules/groups/index.ts` |
-| Users and identity | `src/pages/auth/`, `src/pages/users/`, `src/services/api/auth.ts`, `src/services/api/users.ts` | `src/modules/identity/index.ts` |
-| Reports and governance | `src/pages/reports/`, `src/pages/feedback/`, `src/services/api/reports.ts`, `src/services/api/feedback.ts` | `src/modules/ops-governance/index.ts` |
-| Roles and settings | `src/pages/roles/`, `src/pages/settings/`, related API clients | `src/modules/admin-governance/index.ts` |
+| Channels | `src/pages/channels/`, `src/services/api/channels.ts` | `src/modules/channels/public.ts` |
+| Messages | `src/pages/messages/`, `src/services/api/messages.ts` | `src/modules/messages/public.ts` |
+| Moments | `src/pages/moments/`, `src/services/api/moments.ts` | `src/modules/moments/public.ts` |
+| Groups | `src/pages/groups/`, `src/services/api/groups.ts` | `src/modules/groups/public.ts` |
+| Identity | `src/pages/auth/`, `src/pages/users/`, `src/pages/roles/`, `src/modules/identity/api/{auth,users,roles}.ts` | `src/modules/identity/public.ts` |
+| Social graph | `src/pages/users/`, `src/modules/social_graph/api/{tags,collects}.ts` | `src/modules/social_graph/public.ts` |
+| Reports and governance | `src/pages/reports/`, `src/pages/feedback/`, `src/pages/settings/`, `src/modules/ops_governance/api/{reports,feedback,versions,ddl}.ts` | `src/modules/ops_governance/public.ts` |
 
 ## Migration Note
 
 Task 2 establishes the map and public-entry rule first. Physical page moves happen later, after module barrels and compatibility layers are in place.
+
+Compatibility re-export files such as `src/services/api/auth.ts`, `src/services/api/users.ts`, `src/services/api/roles.ts`, `src/services/api/reports.ts`, `src/services/api/feedback.ts`, `src/services/api/versions.ts`, and `src/services/api/ddl.ts` remain temporary adapters for older imports and are not the ownership boundary anymore.

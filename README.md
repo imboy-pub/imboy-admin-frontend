@@ -12,10 +12,10 @@ ImBoy 管理后台前端（React + TypeScript + Vite + Bun）。
 
 ## Migration Status / 迁移状态
 
-- Stable public entries: `src/modules/identity/public.ts`, `src/modules/social_graph/public.ts`, `src/modules/groups/public.ts`, `src/modules/moments/public.ts`, `src/modules/ops_governance/public.ts`.
-- Module shells already in place and still converging: `src/modules/channels/index.ts`, `src/modules/messages/index.ts`.
+- Stable public entries: `src/modules/identity/public.ts`, `src/modules/social_graph/public.ts`, `src/modules/groups/public.ts`, `src/modules/channels/public.ts`, `src/modules/messages/public.ts`, `src/modules/moments/public.ts`, `src/modules/ops_governance/public.ts`.
+- Module-owned API implementations: `src/modules/identity/api/{auth,users,roles}.ts`, `src/modules/social_graph/api/{tags,collects}.ts`, `src/modules/channels/api/public.ts`, `src/modules/groups/api/public.ts`, `src/modules/messages/api/public.ts`, `src/modules/moments/api/public.ts`, `src/modules/ops_governance/api/{reports,feedback,versions,ddl}.ts`.
 - Production extension points: `src/modules/dashboard/registry/dashboardPanelRegistry.ts`, `src/modules/reports/registry/reportPanelRegistry.ts`.
-- Compatibility wrappers intentionally retained: `src/services/api/channels.ts`, `src/services/api/groups.ts`, `src/services/api/messages.ts`, `src/services/api/moments.ts`, `src/services/api/users.ts`, `src/services/api/reports.ts`, `src/services/api/feedback.ts`.
+- Compatibility wrappers intentionally retained: `src/services/api/auth.ts`, `src/services/api/users.ts`, `src/services/api/roles.ts`, `src/services/api/channels.ts`, `src/services/api/groups.ts`, `src/services/api/messages.ts`, `src/services/api/moments.ts`, `src/services/api/reports.ts`, `src/services/api/feedback.ts`, `src/services/api/versions.ts`, `src/services/api/ddl.ts`.
 
 ## 技术栈
 

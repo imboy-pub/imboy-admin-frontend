@@ -37,7 +37,7 @@ import {
   type ReportBatchResolveSummary,
   type ReportListParams,
   type ReportTicket,
-} from '@/services/api/reports'
+} from '@/modules/ops_governance/api'
 import { trackUxEvent } from '@/lib/uxTelemetry'
 
 export type TargetReportPanelProps = {
