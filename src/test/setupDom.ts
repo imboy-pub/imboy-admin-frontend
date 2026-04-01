@@ -35,3 +35,17 @@ if (typeof elementProto.detachEvent !== 'function') {
 
 ;(globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT?: boolean })
   .IS_REACT_ACT_ENVIRONMENT = true
+
+// Add global DOM cleanup between tests to prevent "Found multiple elements" errors
+// This is necessary because Bun runs test files in parallel and DOM state can leak
+const { beforeEach, afterEach } = require('bun:test')
+
+beforeEach(() => {
+  // Reset document body to a clean state before each test
+  document.body.innerHTML = ''
+})
+
+afterEach(() => {
+  // Clean up any remaining DOM elements after each test
+  document.body.innerHTML = ''
+})

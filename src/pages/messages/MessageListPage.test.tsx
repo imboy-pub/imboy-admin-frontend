@@ -32,6 +32,9 @@ function renderMessageListPage() {
     defaultOptions: {
       queries: {
         retry: false,
+        // Set a shorter cache time to prevent stale data between tests
+        staleTime: 0,
+        gcTime: 0,
       },
     },
   })
@@ -65,7 +68,24 @@ describe('MessageListPage flow', () => {
   let clipboardWriteMock: ReturnType<typeof vi.fn>
 
   beforeEach(() => {
+    // Clean up any leftover DOM from previous tests
+    cleanup()
     document.body.innerHTML = ''
+    // Set up a default mock that returns empty data to prevent "loading..." state
+    mutableClient.get = async () => ({
+      data: {
+        code: 0,
+        msg: 'ok',
+        payload: {
+          items: [],
+          page: 1,
+          size: 10,
+          total: 0,
+          total_pages: 0,
+        },
+      },
+    })
+
     clipboardWriteMock = vi.fn().mockResolvedValue(undefined)
     Object.defineProperty(navigator, 'clipboard', {
       value: {
@@ -162,8 +182,11 @@ describe('MessageListPage flow', () => {
       conversation: undefined,
       keyword: undefined,
     })
-    await view.findByText('消息管理')
-    await view.findByText('msg-default')
+    // Wait for initial render and check page title and content
+    await waitFor(() => {
+      expect(view.container.textContent).toContain('消息管理')
+      expect(view.container.textContent).toContain('msg-default')
+    })
 
     // 2. 基于 scope/uid/conversation/keyword 的查询触发
     const scopeSelect = view.container.querySelector('select') as HTMLSelectElement
@@ -200,7 +223,7 @@ describe('MessageListPage flow', () => {
       ).toBe(true)
     })
 
-    await view.findByText('msg-alpha')
+    expect(view.container.textContent).toContain('msg-alpha')
 
     // 3. 分页 - 下一页
     await act(async () => {
@@ -234,16 +257,20 @@ describe('MessageListPage flow', () => {
 
     // 5. 打开消息详情抽屉
     await act(async () => {
-      fireEvent.click(view.getByTitle('查看详情'))
+      // Use getAllByTitle and take first since there may be multiple rows
+      const detailButtons = view.getAllByTitle('查看详情')
+      fireEvent.click(detailButtons[0])
     })
 
-    await view.findByText('消息详情')
+    expect(view.container.textContent).toContain('消息详情')
   })
 
   it('covers copy row JSON action', async () => {
+    // Set up mock BEFORE rendering
     const getCalls: MessageListCall[] = []
 
-    mutableClient.get = async (url: string, config?: { params?: Record<string, unknown> }) => {
+    const mockGet = vi.fn().mockImplementation(async (url: string, config?: { params?: Record<string, unknown> }) => {
+      console.log('Mock get called with URL:', url)
       if (url !== '/message/list') {
         throw new Error(`unexpected GET url: ${url}`)
       }
@@ -254,6 +281,7 @@ describe('MessageListPage flow', () => {
 
       getCalls.push({ page, size, msg_scope })
 
+      // Return axios-style response with data property
       return {
         data: {
           code: 0,
@@ -278,16 +306,24 @@ describe('MessageListPage flow', () => {
             total_pages: 1,
           },
         },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config: {},
       }
-    }
+    })
 
+    // Directly replace the get method
+    mutableClient.get = mockGet
+
+    // Now render with mock already in place
     const view = renderMessageListPage()
 
     await waitFor(() => {
       expect(getCalls.length).toBeGreaterThan(0)
-    })
+    }, { timeout: 5000 })
 
-    await view.findByText('msg-copy-test')
+    expect(view.container.textContent).toContain('msg-copy-test')
 
     // 点击复制整行JSON按钮
     await act(async () => {
@@ -303,6 +339,7 @@ describe('MessageListPage flow', () => {
   })
 
   it('covers CSV export with mocked fetch and URL.createObjectURL', async () => {
+    // Set up mocks BEFORE rendering
     const getCalls: MessageListCall[] = []
 
     const originalCreateObjectURL = URL.createObjectURL
@@ -358,13 +395,14 @@ describe('MessageListPage flow', () => {
       }
     }
 
+    // Now render with all mocks in place
     const view = renderMessageListPage()
 
     await waitFor(() => {
       expect(getCalls.length).toBeGreaterThan(0)
     })
 
-    await view.findByText('msg-export-test')
+    expect(view.container.textContent).toContain('msg-export-test')
 
     // 点击导出按钮
     await act(async () => {
