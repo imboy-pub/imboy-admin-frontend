@@ -27,6 +27,8 @@ function renderChannelInvitationPage() {
     defaultOptions: {
       queries: {
         retry: false,
+        staleTime: 0,
+        gcTime: 0,
       },
     },
   })
@@ -108,8 +110,10 @@ describe('ChannelInvitationPage flow', () => {
     })
 
     expect(getCalls[0]).toEqual({ page: 1, size: 10 })
-    await view.findByText('频道邀请治理')
-    await view.findByText('inviter-user')
+    await waitFor(() => {
+      expect(view.container.textContent).toContain('频道邀请治理')
+      expect(view.container.textContent).toContain('inviter-user')
+    })
 
     await act(async () => {
       fireEvent.click(view.getByRole('button', { name: '下一页' }))
@@ -120,7 +124,17 @@ describe('ChannelInvitationPage flow', () => {
     })
 
     await act(async () => {
-      fireEvent.change(view.getByRole('combobox'), {
+      const pageSizeSelect = view
+        .getAllByRole('combobox')
+        .find((element) =>
+          Array.from((element as HTMLSelectElement).options).some((option) => option.value === '50')
+        )
+
+      if (!pageSizeSelect) {
+        throw new Error('未找到分页大小下拉框')
+      }
+
+      fireEvent.change(pageSizeSelect, {
         target: { value: '50' },
       })
     })

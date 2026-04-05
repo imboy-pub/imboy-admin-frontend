@@ -3,13 +3,14 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Search, Trash2, Eye, Pencil, MessageSquare, PanelRightOpen } from 'lucide-react'
+import { Search, Trash2, Eye, Pencil, MessageSquare, PanelRightOpen, Download } from 'lucide-react'
 import { toast } from 'sonner'
 import { useNavigate } from 'react-router-dom'
-import { PageHeader, LoadingState, ErrorState, StatusBadge, DataTable, DataTablePagination, ConfirmDialog, FilterBar, EntityDrawer } from '@/components/shared'
+import { PageHeader, LoadingState, ErrorState, StatusBadge, DataTable, DataTablePagination, ConfirmDialog, FilterBar, EntityDrawer, BatchActionBar } from '@/components/shared'
 import { getChannelListPayload, getChannelDetailPayload, deleteChannel, ChannelListParams, Channel } from '@/modules/channels/api'
 import { formatDate } from '@/lib/utils'
-import { ColumnDef, useReactTable, getCoreRowModel } from '@tanstack/react-table'
+import { exportCsv, type CsvColumn } from '@/lib/csvExport'
+import { ColumnDef, useReactTable, getCoreRowModel, RowSelectionState } from '@tanstack/react-table'
 import { useListQueryState } from '@/hooks/useListQueryState'
 import { trackUxEvent } from '@/lib/uxTelemetry'
 
@@ -89,6 +90,7 @@ export function ChannelListPage() {
   const [searchKeyword, setSearchKeyword] = useState(params.keyword || '')
   const [statusFilter, setStatusFilter] = useState(String(params.status))
   const [drawerChannelId, setDrawerChannelId] = useState<string | null>(null)
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean
     channelId: string | number
@@ -103,7 +105,7 @@ export function ChannelListPage() {
   }
 
   // 获取频道列表
-  const { data, isLoading, error, refetch } = useQuery({
+  const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
     queryKey: ['channels', requestParams],
     queryFn: () => getChannelListPayload(requestParams),
   })
@@ -131,6 +133,38 @@ export function ChannelListPage() {
       toast.error(`删除失败: ${error.message}`)
     },
   })
+
+  // 批量删除频道
+  const batchDeleteMutation = useMutation({
+    mutationFn: async ({ ids }: { ids: Array<string | number> }) =>
+      Promise.allSettled(ids.map((id) => deleteChannel(id))),
+    onSuccess: (results) => {
+      const successCount = results.filter((r) => r.status === 'fulfilled').length
+      const failedCount = results.length - successCount
+      if (successCount > 0) toast.success(`批量删除完成：成功 ${successCount} 个频道`)
+      if (failedCount > 0) toast.error(`批量删除失败：${failedCount} 个频道`)
+      queryClient.invalidateQueries({ queryKey: ['channels'] })
+      setRowSelection({})
+    },
+    onError: (error: Error) => {
+      toast.error(`批量删除失败: ${error.message}`)
+    },
+  })
+
+  // 导出当前列表数据
+  const handleExportCsv = () => {
+    const csvColumns: CsvColumn<Channel>[] = [
+      { header: 'ID', accessor: 'id' },
+      { header: '频道名称', accessor: 'name' },
+      { header: '创建者 ID', accessor: 'owner_id' },
+      { header: '类型', accessor: (row) => ({ 0: '公开', 1: '私有', 2: '付费' }[String(row.type)] || String(row.type)) },
+      { header: '订阅数', accessor: (row) => row.subscriber_count || 0 },
+      { header: '状态', accessor: (row) => ({ 1: '正常', 0: '禁用', '-1': '已删除' }[String(row.status)] || String(row.status)) },
+      { header: '创建时间', accessor: (row) => formatDate(row.created_at) },
+    ]
+    exportCsv(csvColumns, channels, 'channels_export')
+    toast.success(`已导出 ${channels.length} 条频道数据`)
+  }
 
   // 搜索处理
   const handleSearch = () => {
@@ -178,6 +212,32 @@ export function ChannelListPage() {
 
   // 表格列定义
   const columns: ColumnDef<Channel>[] = [
+    {
+      id: 'select',
+      header: ({ table }) => (
+        <input
+          type="checkbox"
+          aria-label="全选当前页频道"
+          checked={table.getIsAllPageRowsSelected()}
+          onChange={table.getToggleAllPageRowsSelectedHandler()}
+          onClick={(event) => event.stopPropagation()}
+          className="h-4 w-4 rounded border-input align-middle"
+        />
+      ),
+      cell: ({ row }) => (
+        <input
+          type="checkbox"
+          aria-label={`选择频道 ${row.original.id}`}
+          checked={row.getIsSelected()}
+          disabled={!row.getCanSelect()}
+          onChange={row.getToggleSelectedHandler()}
+          onClick={(event) => event.stopPropagation()}
+          className="h-4 w-4 rounded border-input align-middle disabled:opacity-40"
+        />
+      ),
+      enableSorting: false,
+      enableHiding: false,
+    },
     {
       accessorKey: 'id',
       header: 'ID',
@@ -313,6 +373,12 @@ export function ChannelListPage() {
   const table = useReactTable({
     data: channels,
     columns,
+    state: {
+      rowSelection,
+    },
+    onRowSelectionChange: setRowSelection,
+    enableRowSelection: (row) => row.original.status === 1,
+    getRowId: (row) => String(row.id),
     getCoreRowModel: getCoreRowModel(),
   })
 
@@ -356,9 +422,43 @@ export function ChannelListPage() {
               <option value="1">正常</option>
               <option value="0">禁用</option>
             </select>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportCsv}
+              disabled={channels.length === 0}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              导出 CSV
+            </Button>
           </FilterBar>
         </CardHeader>
         <CardContent>
+          <BatchActionBar
+            selectedCount={Object.keys(rowSelection).length}
+            onClear={() => setRowSelection({})}
+            actions={[
+              {
+                key: 'batch-delete',
+                label: '批量删除',
+                variant: 'destructive',
+                permission: 'channels:delete',
+                roles: [1],
+                riskLevel: 'high',
+                description: `将删除 ${Object.keys(rowSelection).length} 个频道，此操作不可恢复。`,
+                disabled: Object.keys(rowSelection).length === 0,
+                loading: batchDeleteMutation.isPending,
+                onExecute: async () => {
+                  const ids = Object.keys(rowSelection)
+                  if (ids.length === 0) {
+                    toast.error('请先选择要删除的频道')
+                    return
+                  }
+                  await batchDeleteMutation.mutateAsync({ ids })
+                },
+              },
+            ]}
+          />
           <DataTable
             table={table}
             onRowClick={(row) => navigate(`/channels/${row.id}`)}
@@ -371,6 +471,8 @@ export function ChannelListPage() {
               total={pagination.total}
               onPageChange={handlePageChange}
               onPageSizeChange={handlePageSizeChange}
+              dataUpdatedAt={dataUpdatedAt}
+              onRefresh={() => refetch()}
             />
           )}
         </CardContent>

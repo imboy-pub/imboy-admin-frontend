@@ -31,6 +31,8 @@ function renderChannelAdminPage() {
     defaultOptions: {
       queries: {
         retry: false,
+        staleTime: 0,
+        gcTime: 0,
       },
     },
   })
@@ -125,15 +127,20 @@ describe('ChannelAdminPage flow', () => {
       }
     }
 
-    const view = renderChannelAdminPage()
+    let view: ReturnType<typeof renderChannelAdminPage>
+    await act(async () => {
+      view = renderChannelAdminPage()
+    })
 
     await waitFor(() => {
       expect(getCalls.length).toBeGreaterThan(0)
     })
 
     expect(getCalls[0]).toEqual({ page: 1, size: 10 })
-    await view.findByText('频道管理员治理')
-    await view.findByText('admin-user')
+    await waitFor(() => {
+      expect(view.container.textContent).toContain('频道管理员治理')
+      expect(view.container.textContent).toContain('admin-user')
+    })
 
     const selects = view.getAllByRole('combobox') as HTMLSelectElement[]
     const roleSelect = selects.find((select) => hasRoleOptions(select))
@@ -155,13 +162,21 @@ describe('ChannelAdminPage flow', () => {
     })
 
     await act(async () => {
-      fireEvent.click(view.getByTitle('移除管理员'))
+      const removeButtons = view.getAllByTitle('移除管理员')
+      fireEvent.click(removeButtons[removeButtons.length - 1])
     })
 
-    await view.findByText('确认移除管理员')
+    await waitFor(() => {
+      expect(document.body.textContent).toContain('确认移除管理员')
+    })
 
     await act(async () => {
-      fireEvent.click(view.getByRole('button', { name: '移除' }))
+      const removeButton = Array.from(view.baseElement.querySelectorAll('button'))
+        .find(btn => btn.textContent === '移除')
+      if (!removeButton) {
+        throw new Error('移除按钮未找到')
+      }
+      fireEvent.click(removeButton)
     })
 
     await waitFor(() => {

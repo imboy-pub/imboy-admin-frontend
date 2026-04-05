@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
 import { toast } from 'sonner'
-import { ArrowLeft, Eye, Trash2 } from 'lucide-react'
+import { ArrowLeft, Download, Eye, Trash2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -22,15 +22,9 @@ import {
   getGroupFilesPayload,
   GroupFile,
 } from '@/services/api/groupEnhancements'
-import { formatDate } from '@/lib/utils'
+import { formatOptionalDate } from '@/lib/utils'
+import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 import { useAdminPermission } from '@/hooks/useAdminPermission'
-
-function formatDateSafe(value?: string): string {
-  if (!value) return '-'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  return formatDate(date)
-}
 
 export function GroupFileManagePage() {
   const { id } = useParams<{ id: string }>()
@@ -49,7 +43,7 @@ export function GroupFileManagePage() {
     roles: [1, 2],
   })
 
-  const { data, isLoading, error, refetch } = useQuery({
+  const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
     queryKey: ['group-files', gid, page, size, keyword, category],
     queryFn: () =>
       getGroupFilesPayload(gid, {
@@ -125,7 +119,7 @@ export function GroupFileManagePage() {
         header: '创建时间',
         cell: ({ row }) => (
           <span className="text-sm text-muted-foreground">
-            {formatDateSafe(row.original.created_at)}
+            {formatOptionalDate(row.original.created_at)}
           </span>
         ),
       },
@@ -160,6 +154,20 @@ export function GroupFileManagePage() {
   )
 
   const files = data?.items || []
+  const handleExportCsv = () => {
+    const csvColumns: CsvColumn<GroupFile>[] = [
+      { header: 'ID', accessor: (row) => String(row.id) },
+      { header: '文件名', accessor: (row) => row.file_name || '-' },
+      { header: '分类', accessor: (row) => row.file_category || '-' },
+      { header: '大小', accessor: (row) => String(row.file_size ?? 0) },
+      { header: '上传者ID', accessor: (row) => String(row.uploader_id ?? '-') },
+      { header: '下载次数', accessor: (row) => String(row.download_count ?? 0) },
+      { header: '状态', accessor: (row) => String(row.status ?? '-') },
+      { header: '创建时间', accessor: (row) => formatOptionalDate(row.created_at) },
+    ]
+    exportCsv(csvColumns, files, 'group_files')
+    toast.success(`已导出 ${files.length} 条数据`)
+  }
   const table = useReactTable({
     data: files,
     columns,
@@ -180,10 +188,16 @@ export function GroupFileManagePage() {
         title="群文件管理"
         description={`群组 ${gid} 的文件列表与治理操作`}
         actions={(
-          <Button variant="outline" onClick={() => navigate(`/groups/${gid}`)}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            返回群详情
-          </Button>
+          <>
+            <Button variant="outline" size="sm" onClick={handleExportCsv} disabled={files.length === 0}>
+              <Download className="mr-2 h-4 w-4" />
+              导出 CSV
+            </Button>
+            <Button variant="outline" onClick={() => navigate(`/groups/${gid}`)}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              返回群详情
+            </Button>
+          </>
         )}
       />
 
@@ -226,6 +240,8 @@ export function GroupFileManagePage() {
                 setSize(nextSize)
                 setPage(1)
               }}
+              dataUpdatedAt={dataUpdatedAt}
+              onRefresh={() => refetch()}
             />
           )}
         </CardContent>
@@ -280,11 +296,11 @@ export function GroupFileManagePage() {
               </div>
               <div>
                 <dt className="text-sm text-muted-foreground">创建时间</dt>
-                <dd>{formatDateSafe(detail.created_at)}</dd>
+                <dd>{formatOptionalDate(detail.created_at)}</dd>
               </div>
               <div>
                 <dt className="text-sm text-muted-foreground">更新时间</dt>
-                <dd>{formatDateSafe(detail.updated_at)}</dd>
+                <dd>{formatOptionalDate(detail.updated_at)}</dd>
               </div>
             </dl>
           )}

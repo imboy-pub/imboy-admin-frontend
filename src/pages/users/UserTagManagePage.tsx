@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
-import { ArrowLeft, Search, Tags, Trash2 } from 'lucide-react'
+import { ArrowLeft, Download, Search, Tags, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -22,19 +22,13 @@ import {
   UserTagItem,
   UserTagListParams,
 } from '@/modules/social_graph/api'
-import { formatDate } from '@/lib/utils'
+import { formatOptionalDate } from '@/lib/utils'
+import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 
 const SCENE_OPTIONS = [
   { value: 'friend', label: '好友标签' },
   { value: 'collect', label: '收藏标签' },
 ] as const
-
-function formatDateSafe(value?: string): string {
-  if (!value) return '-'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  return formatDate(date)
-}
 
 function toSceneLabel(scene: number | string): string {
   if (scene === 1 || scene === '1') return '收藏'
@@ -58,7 +52,7 @@ export function UserTagManagePage() {
   const [searchKeyword, setSearchKeyword] = useState('')
   const [confirmDeleteTagName, setConfirmDeleteTagName] = useState('')
 
-  const { data, isLoading, error, refetch } = useQuery({
+  const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
     queryKey: ['user-tags', params],
     queryFn: () => getUserTagListPayload(params),
     enabled: uid.length > 0,
@@ -130,7 +124,7 @@ export function UserTagManagePage() {
         header: '创建时间',
         cell: ({ row }) => (
           <span className="text-sm text-muted-foreground">
-            {formatDateSafe(row.original.created_at)}
+            {formatOptionalDate(row.original.created_at)}
           </span>
         ),
       },
@@ -139,7 +133,7 @@ export function UserTagManagePage() {
         header: '更新时间',
         cell: ({ row }) => (
           <span className="text-sm text-muted-foreground">
-            {formatDateSafe(row.original.updated_at)}
+            {formatOptionalDate(row.original.updated_at)}
           </span>
         ),
       },
@@ -162,6 +156,19 @@ export function UserTagManagePage() {
   )
 
   const tags = data?.items || []
+
+  const handleExportCsv = () => {
+    const csvColumns: CsvColumn<UserTagItem>[] = [
+      { header: 'ID', accessor: (row) => String(row.id ?? '-') },
+      { header: '标签名', accessor: (row) => row.name || '-' },
+      { header: '副标题', accessor: (row) => row.subtitle || '-' },
+      { header: '场景', accessor: (row) => toSceneLabel(row.scene) },
+      { header: '创建时间', accessor: (row) => formatOptionalDate(row.created_at) },
+      { header: '更新时间', accessor: (row) => formatOptionalDate(row.updated_at) },
+    ]
+    exportCsv(csvColumns, tags, 'user_tags')
+    toast.success(`已导出 ${tags.length} 条数据`)
+  }
   const table = useReactTable({
     data: tags,
     columns,
@@ -182,10 +189,16 @@ export function UserTagManagePage() {
         title="用户标签治理"
         description={`用户 ${uid} 的标签列表、搜索与删除治理`}
         actions={(
-          <Button variant="outline" onClick={() => navigate(`/users/${uid}`)}>
+          <>
+            <Button variant="outline" size="sm" onClick={handleExportCsv} disabled={tags.length === 0}>
+              <Download className="mr-2 h-4 w-4" />
+              导出 CSV
+            </Button>
+            <Button variant="outline" onClick={() => navigate(`/users/${uid}`)}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             返回用户详情
           </Button>
+          </>
         )}
       />
 
@@ -233,6 +246,8 @@ export function UserTagManagePage() {
               total={data.total}
               onPageChange={handlePageChange}
               onPageSizeChange={handlePageSizeChange}
+              dataUpdatedAt={dataUpdatedAt}
+              onRefresh={() => refetch()}
             />
           )}
         </CardContent>

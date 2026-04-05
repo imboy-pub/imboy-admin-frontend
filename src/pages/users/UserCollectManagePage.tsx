@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
-import { ArrowLeft, Bookmark, Search, Trash2 } from 'lucide-react'
+import { ArrowLeft, Bookmark, Download, Search, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -22,7 +22,8 @@ import {
   UserCollectItem,
   UserCollectListParams,
 } from '@/modules/social_graph/api'
-import { formatDate } from '@/lib/utils'
+import { formatOptionalDate } from '@/lib/utils'
+import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 
 const COLLECT_KIND_OPTIONS = [
   { value: 0, label: '全部' },
@@ -33,13 +34,6 @@ const COLLECT_KIND_OPTIONS = [
   { value: 5, label: '链接' },
   { value: 6, label: '动态' },
 ] as const
-
-function formatDateSafe(value?: string): string {
-  if (!value) return '-'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  return formatDate(date)
-}
 
 function toKindLabel(kind: number): string {
   const matched = COLLECT_KIND_OPTIONS.find((item) => item.value === kind)
@@ -72,7 +66,7 @@ export function UserCollectManagePage() {
   const [searchTag, setSearchTag] = useState('')
   const [confirmRemoveKindId, setConfirmRemoveKindId] = useState('')
 
-  const { data, isLoading, error, refetch } = useQuery({
+  const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
     queryKey: ['user-collects', params],
     queryFn: () => getUserCollectListPayload(params),
     enabled: uid.length > 0,
@@ -157,7 +151,7 @@ export function UserCollectManagePage() {
         header: '创建时间',
         cell: ({ row }) => (
           <span className="text-sm text-muted-foreground">
-            {formatDateSafe(row.original.created_at)}
+            {formatOptionalDate(row.original.created_at)}
           </span>
         ),
       },
@@ -166,7 +160,7 @@ export function UserCollectManagePage() {
         header: '更新时间',
         cell: ({ row }) => (
           <span className="text-sm text-muted-foreground">
-            {formatDateSafe(row.original.updated_at)}
+            {formatOptionalDate(row.original.updated_at)}
           </span>
         ),
       },
@@ -189,6 +183,19 @@ export function UserCollectManagePage() {
   )
 
   const collects = data?.items || []
+
+  const handleExportCsv = () => {
+    const csvColumns: CsvColumn<UserCollectItem>[] = [
+      { header: '类型', accessor: (row) => toKindLabel(row.kind) },
+      { header: '对象ID', accessor: (row) => row.kind_id || '-' },
+      { header: '来源', accessor: (row) => row.source || '-' },
+      { header: '标签串', accessor: (row) => row.tag || '-' },
+      { header: '创建时间', accessor: (row) => formatOptionalDate(row.created_at) },
+      { header: '更新时间', accessor: (row) => formatOptionalDate(row.updated_at) },
+    ]
+    exportCsv(csvColumns, collects, 'user_collects')
+    toast.success(`已导出 ${collects.length} 条数据`)
+  }
   const table = useReactTable({
     data: collects,
     columns,
@@ -209,10 +216,16 @@ export function UserCollectManagePage() {
         title="用户收藏治理"
         description={`用户 ${uid} 的收藏列表、筛选与移除治理`}
         actions={(
-          <Button variant="outline" onClick={() => navigate(`/users/${uid}`)}>
+          <>
+            <Button variant="outline" size="sm" onClick={handleExportCsv} disabled={collects.length === 0}>
+              <Download className="mr-2 h-4 w-4" />
+              导出 CSV
+            </Button>
+            <Button variant="outline" onClick={() => navigate(`/users/${uid}`)}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             返回用户详情
           </Button>
+          </>
         )}
       />
 
@@ -271,6 +284,8 @@ export function UserCollectManagePage() {
               total={data.total}
               onPageChange={handlePageChange}
               onPageSizeChange={handlePageSizeChange}
+              dataUpdatedAt={dataUpdatedAt}
+              onRefresh={() => refetch()}
             />
           )}
         </CardContent>

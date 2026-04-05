@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
 import { toast } from 'sonner'
-import { ArrowLeft, Eye, Trash2 } from 'lucide-react'
+import { ArrowLeft, Download, Eye, Trash2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -21,15 +21,9 @@ import {
   getGroupAlbumsPayload,
   GroupAlbum,
 } from '@/services/api/groupEnhancements'
-import { formatDate } from '@/lib/utils'
+import { formatOptionalDate } from '@/lib/utils'
+import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 import { useAdminPermission } from '@/hooks/useAdminPermission'
-
-function formatDateSafe(value?: string): string {
-  if (!value) return '-'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  return formatDate(date)
-}
 
 export function GroupAlbumManagePage() {
   const { id } = useParams<{ id: string }>()
@@ -46,7 +40,7 @@ export function GroupAlbumManagePage() {
     roles: [1, 2],
   })
 
-  const { data, isLoading, error, refetch } = useQuery({
+  const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
     queryKey: ['group-albums', gid, page, size],
     queryFn: () => getGroupAlbumsPayload(gid, { page, size }),
     enabled: gid.length > 0,
@@ -111,7 +105,7 @@ export function GroupAlbumManagePage() {
         header: '创建时间',
         cell: ({ row }) => (
           <span className="text-sm text-muted-foreground">
-            {formatDateSafe(row.original.created_at)}
+            {formatOptionalDate(row.original.created_at)}
           </span>
         ),
       },
@@ -146,6 +140,18 @@ export function GroupAlbumManagePage() {
   )
 
   const albums = data?.items || []
+  const handleExportCsv = () => {
+    const csvColumns: CsvColumn<GroupAlbum>[] = [
+      { header: 'ID', accessor: (row) => String(row.id) },
+      { header: '相册名', accessor: (row) => row.album_name || '-' },
+      { header: '创建者ID', accessor: (row) => String(row.creator_id ?? '-') },
+      { header: '照片数量', accessor: (row) => String(row.photo_count ?? 0) },
+      { header: '状态', accessor: (row) => String(row.status ?? '-') },
+      { header: '创建时间', accessor: (row) => formatOptionalDate(row.created_at) },
+    ]
+    exportCsv(csvColumns, albums, 'group_albums')
+    toast.success(`已导出 ${albums.length} 条数据`)
+  }
   const table = useReactTable({
     data: albums,
     columns,
@@ -166,10 +172,16 @@ export function GroupAlbumManagePage() {
         title="群相册管理"
         description={`群组 ${gid} 的相册列表与治理操作`}
         actions={(
-          <Button variant="outline" onClick={() => navigate(`/groups/${gid}`)}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            返回群详情
-          </Button>
+          <>
+            <Button variant="outline" size="sm" onClick={handleExportCsv} disabled={albums.length === 0}>
+              <Download className="mr-2 h-4 w-4" />
+              导出 CSV
+            </Button>
+            <Button variant="outline" onClick={() => navigate(`/groups/${gid}`)}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              返回群详情
+            </Button>
+          </>
         )}
       />
 
@@ -193,6 +205,8 @@ export function GroupAlbumManagePage() {
                 setSize(nextSize)
                 setPage(1)
               }}
+              dataUpdatedAt={dataUpdatedAt}
+              onRefresh={() => refetch()}
             />
           )}
         </CardContent>
@@ -239,11 +253,11 @@ export function GroupAlbumManagePage() {
               </div>
               <div>
                 <dt className="text-sm text-muted-foreground">创建时间</dt>
-                <dd>{formatDateSafe(detail.created_at)}</dd>
+                <dd>{formatOptionalDate(detail.created_at)}</dd>
               </div>
               <div>
                 <dt className="text-sm text-muted-foreground">更新时间</dt>
-                <dd>{formatDateSafe(detail.updated_at)}</dd>
+                <dd>{formatOptionalDate(detail.updated_at)}</dd>
               </div>
             </dl>
           )}

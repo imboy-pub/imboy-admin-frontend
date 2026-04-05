@@ -4,13 +4,14 @@ import { useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Search, Trash2, Eye } from 'lucide-react'
+import { Search, Trash2, Eye, Download, SlidersHorizontal } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageHeader, LoadingState, ErrorState, StatusBadge, DataTable, DataTablePagination, ConfirmDialog, FilterBar, BatchActionBar } from '@/components/shared'
 import { getGroupListPayload, dissolveGroup, GroupListParams } from '@/modules/groups/api'
 import { Group } from '@/types/group'
 import { formatDate } from '@/lib/utils'
-import { ColumnDef, RowSelectionState, useReactTable, getCoreRowModel } from '@tanstack/react-table'
+import { exportCsv, type CsvColumn } from '@/lib/csvExport'
+import { ColumnDef, RowSelectionState, useReactTable, getCoreRowModel, getSortedRowModel, SortingState, VisibilityState } from '@tanstack/react-table'
 import { useListQueryState } from '@/hooks/useListQueryState'
 import { trackUxEvent } from '@/lib/uxTelemetry'
 
@@ -19,6 +20,18 @@ type GroupListPageQuery = {
   size: number
   status: number
   keyword: string
+}
+
+const columnLabels: Record<string, string> = {
+  select: '选择',
+  id: 'ID',
+  title: '群名称',
+  owner_uid: '群主 ID',
+  member_count: '成员数',
+  type: '类型',
+  status: '状态',
+  created_at: '创建时间',
+  actions: '操作',
 }
 
 export function GroupListPage() {
@@ -34,6 +47,9 @@ export function GroupListPage() {
   const [searchKeyword, setSearchKeyword] = useState(params.keyword || '')
   const [statusFilter, setStatusFilter] = useState(String(params.status))
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
+  const [sorting, setSorting] = useState<SortingState>([])
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
+  const [showColumnPanel, setShowColumnPanel] = useState(false)
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean
     gid: string | number
@@ -48,7 +64,7 @@ export function GroupListPage() {
   }
 
   // 获取群组列表
-  const { data, isLoading, error, refetch } = useQuery({
+  const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
     queryKey: ['groups', requestParams],
     queryFn: () => getGroupListPayload(requestParams),
   })
@@ -87,6 +103,21 @@ export function GroupListPage() {
       toast.error(`批量解散失败: ${error.message}`)
     },
   })
+
+  // 导出当前列表数据
+  const handleExportCsv = () => {
+    const csvColumns: CsvColumn<Group>[] = [
+      { header: 'ID', accessor: 'id' },
+      { header: '群名称', accessor: 'title' },
+      { header: '群主 ID', accessor: 'owner_uid' },
+      { header: '成员数', accessor: (row) => row.member_count || 0 },
+      { header: '类型', accessor: (row) => ({ 1: '普通群', 2: '私有群' }[String(row.type)] || String(row.type)) },
+      { header: '状态', accessor: (row) => ({ 1: '正常', 0: '已解散' }[String(row.status)] || String(row.status)) },
+      { header: '创建时间', accessor: (row) => formatDate(row.created_at) },
+    ]
+    exportCsv(csvColumns, groups, 'groups_export')
+    toast.success(`已导出 ${groups.length} 条群组数据`)
+  }
 
   // 搜索处理
   const handleSearch = () => {
@@ -210,6 +241,7 @@ export function GroupListPage() {
     {
       id: 'actions',
       header: '操作',
+      enableHiding: false,
       cell: ({ row }) => (
         <div className="flex items-center gap-1">
           <Button
@@ -253,11 +285,16 @@ export function GroupListPage() {
     columns,
     state: {
       rowSelection,
+      sorting,
+      columnVisibility,
     },
     onRowSelectionChange: setRowSelection,
+    onSortingChange: setSorting,
+    onColumnVisibilityChange: setColumnVisibility,
     enableRowSelection: (row) => row.original.status === 1,
     getRowId: (row) => String(row.id),
     getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
   })
 
   const selectedGroups = table.getSelectedRowModel().rows.map((row) => row.original)
@@ -304,6 +341,45 @@ export function GroupListPage() {
               <option value="1">正常</option>
               <option value="0">已解散</option>
             </select>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportCsv}
+              disabled={groups.length === 0}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              导出 CSV
+            </Button>
+            <div className="relative">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowColumnPanel((v) => !v)}
+              >
+                <SlidersHorizontal className="mr-2 h-4 w-4" />
+                列显示
+              </Button>
+              {showColumnPanel && (
+                <div className="absolute right-0 top-10 z-20 w-56 rounded-md border bg-background p-3 shadow-lg">
+                  <div className="mb-2 text-xs text-muted-foreground">自定义列表列显示</div>
+                  <div className="space-y-2">
+                    {table.getAllLeafColumns().filter((col) => col.getCanHide()).map((column) => (
+                      <label
+                        key={column.id}
+                        className="flex items-center gap-2 text-sm"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={column.getIsVisible()}
+                          onChange={column.getToggleVisibilityHandler()}
+                        />
+                        <span>{columnLabels[column.id] || column.id}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </FilterBar>
         </CardHeader>
         <CardContent>
@@ -347,6 +423,8 @@ export function GroupListPage() {
               total={pagination.total}
               onPageChange={handlePageChange}
               onPageSizeChange={handlePageSizeChange}
+              dataUpdatedAt={dataUpdatedAt}
+              onRefresh={() => refetch()}
             />
           )}
         </CardContent>

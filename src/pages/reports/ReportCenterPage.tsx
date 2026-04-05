@@ -3,8 +3,11 @@ import { Camera, Radio, Users, UsersRound } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 
 import { PageHeader } from '@/components/shared'
+import { FeatureDisabledPage } from '@/components/auth/FeatureRoute'
 import { Card, CardHeader } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
+import { useAdminFeatures } from '@/hooks/useAdminFeatures'
+import { isAdminFeatureEnabled } from '@/services/api/features'
 import {
   type ReportProcessStep,
   type ReportTargetType,
@@ -36,8 +39,8 @@ const REPORT_TARGETS: ReportTargetConfig[] = [
   {
     type: 'group',
     label: '群组',
-    description: '已提供完整处理面板，若后端未开放接口会自动降级为流程指引。',
-    status: 'rolling',
+    description: '已接入群组举报 API，支持筛选、单条/批量处理与联动群治理。',
+    status: 'ready',
     icon: UsersRound,
     governancePath: '/groups/context',
     governanceLabel: '群上下文入口',
@@ -45,8 +48,8 @@ const REPORT_TARGETS: ReportTargetConfig[] = [
   {
     type: 'channel',
     label: '频道',
-    description: '已提供完整处理面板，若后端未开放接口会自动降级为流程指引。',
-    status: 'rolling',
+    description: '已接入频道举报 API，支持筛选、单条/批量处理与联动频道治理。',
+    status: 'ready',
     icon: Radio,
     governancePath: '/channels',
     governanceLabel: '频道治理',
@@ -54,8 +57,8 @@ const REPORT_TARGETS: ReportTargetConfig[] = [
   {
     type: 'user',
     label: '用户',
-    description: '已提供完整处理面板，若后端未开放接口会自动降级为流程指引。',
-    status: 'rolling',
+    description: '已接入用户举报 API，支持筛选、单条/批量处理与联动用户治理。',
+    status: 'ready',
     icon: Users,
     governancePath: '/users',
     governanceLabel: '用户治理',
@@ -108,6 +111,7 @@ reportPanelRegistry.register({
 
 export function ReportCenterPage() {
   const [searchParams, setSearchParams] = useSearchParams()
+  const { data: featureFlags } = useAdminFeatures()
   const activeTarget = normalizeTargetType(searchParams.get('target_type'))
 
   const activeConfig = useMemo(
@@ -124,12 +128,20 @@ export function ReportCenterPage() {
   }
 
   const activePanel = reportPanelRegistry.resolveForTarget(activeTarget)
+  const activeFeature = activeTarget === 'moment'
+    ? 'moment'
+    : activeTarget === 'channel'
+      ? 'channel'
+      : null
+  const activeFeatureEnabled = isAdminFeatureEnabled(featureFlags, activeFeature)
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="举报中心"
-        description={`统一承接朋友圈、群组、频道、用户举报工单。当前已联调 ${readyCount}/${REPORT_TARGETS.length} 类对象，其余 ${rollingCount} 类处于联调模式。`}
+        description={rollingCount > 0
+          ? `统一承接朋友圈、群组、频道、用户举报工单。当前已联调 ${readyCount}/${REPORT_TARGETS.length} 类对象，其余 ${rollingCount} 类处于联调模式。`
+          : '统一承接朋友圈、群组、频道、用户举报工单，支持筛选、单条/批量处理与联动治理。'}
       />
 
       <Card>
@@ -160,7 +172,7 @@ export function ReportCenterPage() {
                         : 'bg-amber-500/15 text-amber-700'
                     )}
                   >
-                    {item.status === 'ready' ? '已联调' : '联调中'}
+                    {item.status === 'ready' ? '已接入' : '联调中'}
                   </span>
                 </button>
               )
@@ -170,13 +182,15 @@ export function ReportCenterPage() {
         </CardHeader>
       </Card>
 
-      {activePanel?.render({
-        targetType: activeTarget,
-        targetLabel: activeConfig.label,
-        governancePath: activeConfig.governancePath,
-        governanceLabel: activeConfig.governanceLabel,
-        processSteps: REPORT_PROCESS_STEPS,
-      })}
+      {activeFeature && !activeFeatureEnabled
+        ? <FeatureDisabledPage feature={activeFeature} />
+        : activePanel?.render({
+            targetType: activeTarget,
+            targetLabel: activeConfig.label,
+            governancePath: activeConfig.governancePath,
+            governanceLabel: activeConfig.governanceLabel,
+            processSteps: REPORT_PROCESS_STEPS,
+          })}
     </div>
   )
 }

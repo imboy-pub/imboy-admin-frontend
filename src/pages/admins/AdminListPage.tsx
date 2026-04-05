@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
-import { Activity, FileSearch, KeyRound, Plus, Shield, UserCircle } from 'lucide-react'
+import { Activity, FileSearch, KeyRound, Plus, Shield, UserCircle, Download } from 'lucide-react'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -29,6 +29,7 @@ import { getRoleListPayload } from '@/modules/identity'
 import { useListQueryState } from '@/hooks/useListQueryState'
 import { useAuthStore } from '@/stores/authStore'
 import { formatDate } from '@/lib/utils'
+import { exportCsv } from '@/lib/csvExport'
 import type { Admin } from '@/types/admin'
 
 type AdminListPageQuery = {
@@ -123,7 +124,7 @@ export function AdminListPage() {
     role_id: params.role_id > 0 ? params.role_id : undefined,
   }
 
-  const { data, isLoading, error, refetch } = useQuery({
+  const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
     queryKey: ['admins', requestParams],
     queryFn: () => getAdminListPayload(requestParams),
   })
@@ -246,6 +247,22 @@ export function AdminListPage() {
 
   const adminRows = data?.items || []
   const totalAdmins = data?.total || adminRows.length
+
+  const handleExportCsv = () => {
+    const columns = [
+      { header: 'ID', accessor: 'id' as const },
+      { header: '账号', accessor: 'account' as const },
+      { header: '昵称', accessor: (row: Admin) => row.nickname || '-' },
+      { header: '角色', accessor: (row: Admin) => resolveRoleLabel(row.role_id) },
+      { header: '状态', accessor: (row: Admin) => ({ 1: '正常', 0: '禁用', '-1': '已删除' }[String(row.status)] || String(row.status)) },
+      { header: '登录次数', accessor: (row: Admin) => String(row.login_count || 0) },
+      { header: '最后登录 IP', accessor: (row: Admin) => row.last_login_ip || '-' },
+      { header: '最后登录时间', accessor: (row: Admin) => row.last_login_at ? formatDate(row.last_login_at) : '-' },
+      { header: '创建时间', accessor: (row: Admin) => row.created_at ? formatDate(row.created_at) : '-' },
+    ]
+    exportCsv(columns, adminRows, 'admins_export')
+    toast.success(`已导出 ${adminRows.length} 条管理员数据`)
+  }
   const activeCount = adminRows.filter((item) => item.status === 1).length
   const disabledCount = adminRows.filter((item) => item.status !== 1).length
 
@@ -258,7 +275,11 @@ export function AdminListPage() {
     {
       accessorKey: 'account',
       header: '账号',
-      cell: ({ row }) => <span className="font-medium">{row.original.account}</span>,
+      cell: ({ row }) => (
+        <span className="font-medium" data-admin-account={row.original.account}>
+          {row.original.account}
+        </span>
+      ),
     },
     {
       accessorKey: 'nickname',
@@ -425,6 +446,15 @@ export function AdminListPage() {
                 </option>
               ))}
             </select>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportCsv}
+              disabled={adminRows.length === 0}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              导出 CSV
+            </Button>
           </FilterBar>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -435,6 +465,8 @@ export function AdminListPage() {
             total={data?.total || 0}
             onPageChange={handlePageChange}
             onPageSizeChange={handlePageSizeChange}
+            dataUpdatedAt={dataUpdatedAt}
+            onRefresh={() => refetch()}
           />
         </CardContent>
       </Card>

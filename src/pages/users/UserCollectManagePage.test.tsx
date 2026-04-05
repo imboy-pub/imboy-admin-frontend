@@ -41,6 +41,8 @@ function renderUserCollectManagePage() {
     defaultOptions: {
       queries: {
         retry: false,
+        staleTime: 0,
+        gcTime: 0,
       },
     },
   })
@@ -138,7 +140,10 @@ describe('UserCollectManagePage flow', () => {
     }
 
     const user = userEvent.setup()
-    const view = renderUserCollectManagePage()
+    let view: ReturnType<typeof renderUserCollectManagePage>
+    await act(async () => {
+      view = renderUserCollectManagePage()
+    })
 
     await waitFor(() => {
       expect(getCalls.length).toBeGreaterThan(0)
@@ -154,8 +159,10 @@ describe('UserCollectManagePage flow', () => {
       order: 'recent_use',
     })
 
-    await view.findByText('用户收藏治理')
-    await view.findByText('source-default-1')
+    await waitFor(() => {
+      expect(view.container.textContent).toContain('用户收藏治理')
+      expect(view.container.textContent).toContain('source-default-1')
+    })
 
     const keywordInput = view.getByPlaceholderText('搜索 source/remark/info...') as HTMLInputElement
     const tagInput = view.getByPlaceholderText('标签筛选（可选）') as HTMLInputElement
@@ -206,16 +213,26 @@ describe('UserCollectManagePage flow', () => {
       ).toBe(true)
     })
 
-    await view.findByText('source-alpha-1')
-
-    await act(async () => {
-      fireEvent.click(view.getByTitle('移除收藏'))
+    await waitFor(() => {
+      expect(view.container.textContent).toContain('source-alpha-1')
     })
 
-    await view.findByText('确认移除收藏')
+    await act(async () => {
+      const removeButtons = view.getAllByTitle('移除收藏')
+      fireEvent.click(removeButtons[removeButtons.length - 1])
+    })
+
+    await waitFor(() => {
+      expect(document.body.textContent).toContain('确认移除收藏')
+    })
 
     await act(async () => {
-      fireEvent.click(view.getByRole('button', { name: '移除' }))
+      const removeButton = Array.from(view.baseElement.querySelectorAll('button'))
+        .find(btn => btn.textContent === '移除')
+      if (!removeButton) {
+        throw new Error('移除按钮未找到')
+      }
+      fireEvent.click(removeButton)
     })
 
     await waitFor(() => {
@@ -257,6 +274,8 @@ describe('UserCollectManagePage flow', () => {
       fireEvent.click(view.getByRole('button', { name: '返回用户详情' }))
     })
 
-    await view.findByText('user-detail-route:88')
+    await waitFor(() => {
+      expect(view.container.textContent).toContain('user-detail-route:88')
+    })
   })
 })

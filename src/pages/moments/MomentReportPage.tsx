@@ -107,7 +107,7 @@ export function MomentReportPage({ permissionOverride, showPageHeader = true }: 
     status: params.status,
   }
 
-  const { data, isLoading, error, refetch } = useQuery({
+  const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
     queryKey: ['moment-reports', requestParams],
     queryFn: () => getMomentReportListPayload(requestParams),
   })
@@ -625,6 +625,8 @@ export function MomentReportPage({ permissionOverride, showPageHeader = true }: 
               total={data.total}
               onPageChange={handlePageChange}
               onPageSizeChange={handlePageSizeChange}
+              dataUpdatedAt={dataUpdatedAt}
+              onRefresh={() => refetch()}
             />
           )}
         </CardContent>

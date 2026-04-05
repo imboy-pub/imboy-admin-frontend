@@ -1,6 +1,7 @@
 // Stable admin groups module boundary for the current group collaboration surfaces.
 export { GroupListPage } from '@/pages/groups/GroupListPage'
 export { GroupDetailPage } from '@/pages/groups/GroupDetailPage'
+export { GroupMemberManagePage } from '@/pages/groups/GroupMemberManagePage'
 export { GroupVoteManagePage } from '@/pages/groups/GroupVoteManagePage'
 export { GroupNoticeManagePage } from '@/pages/groups/GroupNoticeManagePage'
 export { GroupCategoryManagePage } from '@/pages/groups/GroupCategoryManagePage'

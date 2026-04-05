@@ -1,5 +1,6 @@
 import axios, { AxiosError, AxiosInstance, InternalAxiosRequestConfig } from 'axios'
 import { ApiResponse, ApiError } from '@/types/api'
+import { startTopLoading, finishTopLoading } from '@/components/shared/TopLoadingBar'
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/adm'
 export const AUTH_EXPIRED_EVENT = 'imboy:auth-expired'
@@ -39,10 +40,11 @@ const client: AxiosInstance = axios.create({
 // 请求拦截器
 client.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    // 可以在这里添加 token 等
+    startTopLoading()
     return config
   },
   (error: AxiosError) => {
+    finishTopLoading()
     return Promise.reject(error)
   }
 )
@@ -50,6 +52,7 @@ client.interceptors.request.use(
 // 响应拦截器
 client.interceptors.response.use(
   (response) => {
+    finishTopLoading()
     // 登录页等接口会返回 HTML，不做 API 包装校验
     if (typeof response.data === 'string') {
       return response
@@ -67,6 +70,7 @@ client.interceptors.response.use(
     return response
   },
   (error: AxiosError<ApiResponse>) => {
+    finishTopLoading()
     const requestConfig = error.config as (InternalAxiosRequestConfig & {
       [SKIP_AUTH_EXPIRED_EVENT_FLAG]?: boolean
     }) | undefined

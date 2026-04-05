@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Send, Loader2, PanelRightOpen } from 'lucide-react'
+import { Send, Loader2, PanelRightOpen, Download } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageHeader, LoadingState, ErrorState, StatusBadge, DataTable, DataTablePagination, FilterBar, EntityDrawer } from '@/components/shared'
 import {
@@ -13,6 +13,7 @@ import {
 } from '@/modules/ops_governance/api'
 import { PaginatedResponse } from '@/types/api'
 import { formatDate } from '@/lib/utils'
+import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 import { ColumnDef, useReactTable, getCoreRowModel } from '@tanstack/react-table'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
@@ -179,7 +180,7 @@ export function FeedbackListPage() {
   }
 
   // 获取反馈列表
-  const { data, isLoading, error, refetch } = useQuery({
+  const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
     queryKey: ['feedback', requestParams],
     queryFn: () => getFeedbackListPayload(requestParams),
   })
@@ -414,6 +415,19 @@ export function FeedbackListPage() {
   const feedbacks = data?.items || []
   const pagination = data
 
+  const handleExportCsv = () => {
+    const csvColumns: CsvColumn<Feedback>[] = [
+      { header: 'ID', accessor: 'id' },
+      { header: '用户 ID', accessor: 'user_id' },
+      { header: '反馈内容', accessor: 'content' },
+      { header: '状态', accessor: (row) => ({ 1: '待处理', 2: '已回复', 3: '已完结', 0: '禁用', '-1': '已删除' }[String(row.status)] || String(row.status)) },
+      { header: '回复内容', accessor: (row) => row.reply || '-' },
+      { header: '提交时间', accessor: (row) => formatDate(row.created_at) },
+    ]
+    exportCsv(csvColumns, feedbacks, 'feedback_export')
+    toast.success(`已导出 ${feedbacks.length} 条反馈数据`)
+  }
+
   const table = useReactTable({
     data: feedbacks,
     columns,
@@ -441,12 +455,23 @@ export function FeedbackListPage() {
             onSearch={handleSearch}
             onReset={handleReset}
             extraActions={(
-              <Button
-                variant="outline"
-                onClick={openWorkflowDialog}
-              >
-                模板与 SLA
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportCsv}
+                  disabled={feedbacks.length === 0}
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  导出 CSV
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={openWorkflowDialog}
+                >
+                  模板与 SLA
+                </Button>
+              </div>
             )}
           >
             <select
@@ -477,6 +502,8 @@ export function FeedbackListPage() {
               total={pagination.total}
               onPageChange={handlePageChange}
               onPageSizeChange={handlePageSizeChange}
+              dataUpdatedAt={dataUpdatedAt}
+              onRefresh={() => refetch()}
             />
           )}
         </CardContent>

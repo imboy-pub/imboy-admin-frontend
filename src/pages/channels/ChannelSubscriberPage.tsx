@@ -2,10 +2,10 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
-import { ArrowLeft, Trash2 } from 'lucide-react'
+import { ArrowLeft, Download, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import {
   ConfirmDialog,
   DataTable,
@@ -20,12 +20,8 @@ import {
   getChannelSubscribersPayload,
   removeChannelSubscriber,
 } from '@/modules/channels/api'
-import { formatDate } from '@/lib/utils'
-
-function formatOptionalDate(value: string | null | undefined): string {
-  if (!value) return '-'
-  return formatDate(value)
-}
+import { formatOptionalDate } from '@/lib/utils'
+import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 
 export function ChannelSubscriberPage() {
   const { id } = useParams<{ id: string }>()
@@ -45,7 +41,7 @@ export function ChannelSubscriberPage() {
 
   const queryKey = ['channel-subscribers', channelId, params] as const
 
-  const { data, isLoading, error, refetch } = useQuery({
+  const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
     queryKey,
     queryFn: () => getChannelSubscribersPayload(channelId, params),
     enabled: channelId.length > 0,
@@ -143,8 +139,24 @@ export function ChannelSubscriberPage() {
     },
   ]
 
+  const subscribers = data?.items || []
+
+  const handleExportCsv = () => {
+    const csvColumns: CsvColumn<ChannelSubscriber>[] = [
+      { header: 'ID', accessor: (row) => String(row.id) },
+      { header: '用户ID', accessor: (row) => String(row.user_id) },
+      { header: '是否置顶', accessor: (row) => (row.is_pinned ? '是' : '否') },
+      { header: '未读数', accessor: (row) => String(row.unread_count ?? 0) },
+      { header: '最后阅读时间', accessor: (row) => formatOptionalDate(row.last_read_at) },
+      { header: '订阅时间', accessor: (row) => formatOptionalDate(row.subscribed_at) },
+      { header: '用户昵称', accessor: (row) => row.user?.nickname || row.user?.account || '-' },
+    ]
+    exportCsv(csvColumns, subscribers, 'channel_subscribers')
+    toast.success(`已导出 ${subscribers.length} 条数据`)
+  }
+
   const table = useReactTable({
-    data: data?.items || [],
+    data: subscribers,
     columns,
     getCoreRowModel: getCoreRowModel(),
   })
@@ -163,15 +175,20 @@ export function ChannelSubscriberPage() {
         title="频道订阅者治理"
         description={`频道 ID: ${channelId}`}
         actions={(
-          <Button variant="outline" onClick={() => navigate(`/channels/${channelId}`)}>
+          <>
+            <Button variant="outline" size="sm" onClick={handleExportCsv} disabled={subscribers.length === 0}>
+              <Download className="mr-2 h-4 w-4" />
+              导出 CSV
+            </Button>
+            <Button variant="outline" onClick={() => navigate(`/channels/${channelId}`)}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             返回频道详情
           </Button>
+          </>
         )}
       />
 
       <Card>
-        <CardHeader />
         <CardContent>
           <DataTable table={table} />
           {data && (
@@ -181,6 +198,8 @@ export function ChannelSubscriberPage() {
               total={data.total}
               onPageChange={handlePageChange}
               onPageSizeChange={handlePageSizeChange}
+              dataUpdatedAt={dataUpdatedAt}
+              onRefresh={() => refetch()}
             />
           )}
         </CardContent>

@@ -37,6 +37,8 @@ function renderChannelListPage() {
     defaultOptions: {
       queries: {
         retry: false,
+        staleTime: 0,
+        gcTime: 0,
       },
     },
   })
@@ -125,15 +127,20 @@ describe('ChannelListPage flow', () => {
     }
 
     const user = userEvent.setup()
-    const view = renderChannelListPage()
+    let view: ReturnType<typeof renderChannelListPage>
+    await act(async () => {
+      view = renderChannelListPage()
+    })
 
     await waitFor(() => {
       expect(getCalls.length).toBeGreaterThan(0)
     })
 
     expect(getCalls[0]).toEqual({ page: 1, size: 10, status: -1, keyword: undefined })
-    await view.findByText('频道管理')
-    await view.findByText('channel-default-1')
+    await waitFor(() => {
+      expect(view.container.textContent).toContain('频道管理')
+      expect(view.container.textContent).toContain('channel-default-1')
+    })
     await waitFor(() => {
       expect(view.getAllByTestId('channel-avatar-fallback').length).toBeGreaterThan(0)
     })
@@ -154,16 +161,26 @@ describe('ChannelListPage flow', () => {
       expect(getCalls.some((call) => call.page === 1 && call.size === 10 && call.keyword === 'alpha')).toBe(true)
     })
 
-    await view.findByText('channel-alpha-1')
-
-    await act(async () => {
-      fireEvent.click(view.getByTitle('删除频道'))
+    await waitFor(() => {
+      expect(view.container.textContent).toContain('channel-alpha-1')
     })
 
-    await view.findByText('确认删除频道')
+    await act(async () => {
+      const deleteButtons = view.getAllByTitle('删除频道')
+      fireEvent.click(deleteButtons[deleteButtons.length - 1])
+    })
+
+    await waitFor(() => {
+      expect(document.body.textContent).toContain('确认删除频道')
+    })
 
     await act(async () => {
-      fireEvent.click(view.getByRole('button', { name: '删除' }))
+      const deleteButton = Array.from(view.baseElement.querySelectorAll('button'))
+        .find(btn => btn.textContent === '删除')
+      if (!deleteButton) {
+        throw new Error('删除按钮未找到')
+      }
+      fireEvent.click(deleteButton)
     })
 
     await waitFor(() => {
@@ -204,9 +221,12 @@ describe('ChannelListPage flow', () => {
     })
 
     await act(async () => {
-      fireEvent.click(view.getByTitle('消息治理'))
+      const messageButtons = view.getAllByTitle('消息治理')
+      fireEvent.click(messageButtons[messageButtons.length - 1])
     })
 
-    await view.findByText('channel-messages-route:8')
+    await waitFor(() => {
+      expect(view.container.textContent).toContain('channel-messages-route:8')
+    })
   })
 })

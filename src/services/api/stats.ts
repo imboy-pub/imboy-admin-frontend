@@ -84,3 +84,33 @@ export async function getGroupStats(days = 7): Promise<ApiResponse<GroupStats>> 
 export async function getGroupStatsPayload(days = 7): Promise<GroupStats> {
   return requireApiPayload(await getGroupStats(days), '/stats/group')
 }
+
+export interface RankingItem {
+  id: number | string
+  nickname?: string
+  account?: string
+  name?: string
+  title?: string
+  metric: number
+}
+
+export interface RankingStats {
+  list: RankingItem[]
+}
+
+export async function getRankingStats(
+  type = 'user',
+  metric = 'message',
+  limit = 10,
+): Promise<ApiResponse<RankingStats>> {
+  const response = await client.get('/stats/ranking', { params: { type, metric, limit } })
+  return response.data
+}
+
+export async function getRankingStatsPayload(
+  type = 'user',
+  metric = 'message',
+  limit = 10,
+): Promise<RankingStats> {
+  return requireApiPayload(await getRankingStats(type, metric, limit), '/stats/ranking')
+}

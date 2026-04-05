@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
 import { toast } from 'sonner'
-import { ArrowLeft, Eye, Trash2 } from 'lucide-react'
+import { ArrowLeft, Download, Eye, Trash2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -22,15 +22,9 @@ import {
   getGroupNoticesPayload,
   GroupNotice,
 } from '@/services/api/groupEnhancements'
-import { formatDate } from '@/lib/utils'
+import { formatOptionalDate } from '@/lib/utils'
+import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 import { useAdminPermission } from '@/hooks/useAdminPermission'
-
-function formatDateSafe(value?: string | null): string {
-  if (!value) return '-'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  return formatDate(date)
-}
 
 export function GroupNoticeManagePage() {
   const { id } = useParams<{ id: string }>()
@@ -47,7 +41,7 @@ export function GroupNoticeManagePage() {
     roles: [1, 2],
   })
 
-  const { data, isLoading, error, refetch } = useQuery({
+  const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
     queryKey: ['group-notices', gid, page, size],
     queryFn: () => getGroupNoticesPayload(gid, { page, size }),
     enabled: gid.length > 0,
@@ -124,7 +118,7 @@ export function GroupNoticeManagePage() {
         header: '创建时间',
         cell: ({ row }) => (
           <span className="text-sm text-muted-foreground">
-            {formatDateSafe(row.original.created_at)}
+            {formatOptionalDate(row.original.created_at)}
           </span>
         ),
       },
@@ -159,6 +153,21 @@ export function GroupNoticeManagePage() {
   )
 
   const notices = data?.items || []
+  const handleExportCsv = () => {
+    const csvColumns: CsvColumn<GroupNotice>[] = [
+      { header: 'ID', accessor: (row) => String(row.id) },
+      { header: '标题', accessor: (row) => row.title || '-' },
+      { header: '内容', accessor: (row) => (row.body && row.body.length > 200 ? row.body.slice(0, 200) + '...' : (row.body || '-')) },
+      { header: '发布者ID', accessor: (row) => String(row.user_id ?? '-') },
+      { header: '状态', accessor: (row) => ({ 0: '草稿', 1: '已发布' }[row.status ?? 0] ?? String(row.status)) },
+      { header: '是否置顶', accessor: (row) => (row.pinned ? '是' : '否') },
+      { header: '阅读量', accessor: (row) => String(row.read_count ?? 0) },
+      { header: '过期时间', accessor: (row) => formatOptionalDate(row.expired_at) },
+      { header: '创建时间', accessor: (row) => formatOptionalDate(row.created_at) },
+    ]
+    exportCsv(csvColumns, notices, 'group_notices')
+    toast.success(`已导出 ${notices.length} 条数据`)
+  }
   const table = useReactTable({
     data: notices,
     columns,
@@ -179,10 +188,16 @@ export function GroupNoticeManagePage() {
         title="群公告管理"
         description={`群组 ${gid} 的公告列表与治理操作`}
         actions={(
-          <Button variant="outline" onClick={() => navigate(`/groups/${gid}`)}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            返回群详情
-          </Button>
+          <>
+            <Button variant="outline" size="sm" onClick={handleExportCsv} disabled={notices.length === 0}>
+              <Download className="mr-2 h-4 w-4" />
+              导出 CSV
+            </Button>
+            <Button variant="outline" onClick={() => navigate(`/groups/${gid}`)}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              返回群详情
+            </Button>
+          </>
         )}
       />
 
@@ -206,6 +221,8 @@ export function GroupNoticeManagePage() {
                 setSize(nextSize)
                 setPage(1)
               }}
+              dataUpdatedAt={dataUpdatedAt}
+              onRefresh={() => refetch()}
             />
           )}
         </CardContent>
@@ -266,15 +283,15 @@ export function GroupNoticeManagePage() {
               </div>
               <div>
                 <dt className="text-sm text-muted-foreground">过期时间</dt>
-                <dd>{formatDateSafe(detail.expired_at || undefined)}</dd>
+                <dd>{formatOptionalDate(detail.expired_at || undefined)}</dd>
               </div>
               <div>
                 <dt className="text-sm text-muted-foreground">创建时间</dt>
-                <dd>{formatDateSafe(detail.created_at || undefined)}</dd>
+                <dd>{formatOptionalDate(detail.created_at || undefined)}</dd>
               </div>
               <div>
                 <dt className="text-sm text-muted-foreground">更新时间</dt>
-                <dd>{formatDateSafe(detail.updated_at || undefined)}</dd>
+                <dd>{formatOptionalDate(detail.updated_at || undefined)}</dd>
               </div>
             </dl>
           )}

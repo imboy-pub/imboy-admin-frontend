@@ -1,17 +1,30 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { Bell, LogOut, User } from 'lucide-react'
-import { useAuthStore } from '@/stores/authStore'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Menu } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { logout as logoutApi } from '@/modules/identity'
 import { trackUxEvent } from '@/lib/uxTelemetry'
+import { ThemeToggle } from '@/components/shared/ThemeToggle'
+import { NotificationPanel } from '@/components/shared/NotificationPanel'
+import { AdminProfilePanel } from '@/components/shared/AdminProfilePanel'
+import { useSidebarMobile } from './AdminLayout'
+import { searchUsersPayload } from '@/modules/identity/api/users'
+import { searchGroupsPayload } from '@/modules/groups/api/public'
+import { searchChannelsPayload } from '@/modules/channels/api/public'
 
 type CommandItem = {
   key: string
   label: string
   path: string
   keywords: string[]
+  group?: string
+}
+
+type EntitySearchResult = {
+  type: 'user' | 'group' | 'channel'
+  id: string | number
+  name: string
+  subtitle?: string
 }
 
 const COMMAND_ITEMS: CommandItem[] = [
@@ -52,16 +65,139 @@ function parseQuickJump(keyword: string): CommandItem | null {
   }
 }
 
+const ENTITY_TYPE_LABELS: Record<string, string> = {
+  user: '用户',
+  group: '群组',
+  channel: '频道',
+}
+
+function entityToCommandItem(result: EntitySearchResult): CommandItem {
+  const pathMap: Record<string, string> = {
+    user: `/users/${result.id}`,
+    group: `/groups/${result.id}`,
+    channel: `/channels/${result.id}`,
+  }
+  return {
+    key: `entity:${result.type}:${result.id}`,
+    label: result.name,
+    path: pathMap[result.type] || '/',
+    keywords: [result.type, String(result.id), result.name],
+    group: ENTITY_TYPE_LABELS[result.type],
+  }
+}
+
 export function Header() {
-  const { admin, logout } = useAuthStore()
+  const { toggleMobile } = useSidebarMobile()
   const navigate = useNavigate()
   const [commandOpen, setCommandOpen] = useState(false)
   const [commandKeyword, setCommandKeyword] = useState('')
+  const [activeIndex, setActiveIndex] = useState(0)
+  const [entityResults, setEntityResults] = useState<EntitySearchResult[]>([])
+  const [searching, setSearching] = useState(false)
   const commandInputRef = useRef<HTMLInputElement | null>(null)
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const quickJumpCommand = useMemo(
     () => parseQuickJump(commandKeyword),
     [commandKeyword]
+  )
+
+  // 实体搜索：防抖 300ms，最少 2 字符
+  const performEntitySearch = useCallback(async (keyword: string) => {
+    if (keyword.length < 2) {
+      setEntityResults([])
+      setSearching(false)
+      return
+    }
+
+    // 如果匹配快速跳转模式，跳过搜索
+    if (parseQuickJump(keyword)) {
+      setEntityResults([])
+      setSearching(false)
+      return
+    }
+
+    setSearching(true)
+    try {
+      const [usersRes, groupsRes, channelsRes] = await Promise.allSettled([
+        searchUsersPayload(keyword, 1, 5),
+        searchGroupsPayload(keyword, 1, 5),
+        searchChannelsPayload({ keyword, limit: 5 }),
+      ])
+
+      const results: EntitySearchResult[] = []
+
+      if (usersRes.status === 'fulfilled') {
+        for (const user of usersRes.value.items.slice(0, 5)) {
+          results.push({
+            type: 'user',
+            id: user.id,
+            name: user.nickname || user.account || `#${user.id}`,
+            subtitle: user.account,
+          })
+        }
+      }
+
+      if (groupsRes.status === 'fulfilled') {
+        for (const group of groupsRes.value.items.slice(0, 5)) {
+          results.push({
+            type: 'group',
+            id: group.id,
+            name: group.title || `#${group.id}`,
+            subtitle: `${group.member_count} 成员`,
+          })
+        }
+      }
+
+      if (channelsRes.status === 'fulfilled') {
+        for (const channel of channelsRes.value.items.slice(0, 5)) {
+          results.push({
+            type: 'channel',
+            id: channel.id,
+            name: channel.name || `#${channel.id}`,
+            subtitle: `${channel.subscriber_count || 0} 订阅`,
+          })
+        }
+      }
+
+      setEntityResults(results)
+    } catch {
+      setEntityResults([])
+    } finally {
+      setSearching(false)
+    }
+  }, [])
+
+  // 防抖搜索
+  useEffect(() => {
+    if (!commandOpen) return
+    const keyword = commandKeyword.trim()
+
+    if (searchTimerRef.current) {
+      clearTimeout(searchTimerRef.current)
+    }
+
+    if (keyword.length < 2 || parseQuickJump(keyword)) {
+      setEntityResults([])
+      setSearching(false)
+      return
+    }
+
+    setSearching(true)
+    searchTimerRef.current = setTimeout(() => {
+      performEntitySearch(keyword)
+    }, 300)
+
+    return () => {
+      if (searchTimerRef.current) {
+        clearTimeout(searchTimerRef.current)
+      }
+    }
+  }, [commandKeyword, commandOpen, performEntitySearch])
+
+  const entityCommands = useMemo(
+    () => entityResults.map(entityToCommandItem),
+    [entityResults]
   )
 
   const filteredCommands = useMemo(() => {
@@ -73,12 +209,17 @@ export function Header() {
           command.keywords.some((item) => item.toLowerCase().includes(normalizedKeyword))
         )
 
-    if (!quickJumpCommand) return baseCommands
+    if (!quickJumpCommand) return [...entityCommands, ...baseCommands]
 
     const hasDuplicatePath = baseCommands.some((item) => item.path === quickJumpCommand.path)
-    if (hasDuplicatePath) return baseCommands
-    return [quickJumpCommand, ...baseCommands]
-  }, [commandKeyword, quickJumpCommand])
+    if (hasDuplicatePath) return [...entityCommands, ...baseCommands]
+    return [quickJumpCommand, ...entityCommands, ...baseCommands]
+  }, [commandKeyword, quickJumpCommand, entityCommands])
+
+  // 搜索结果变化时重置选中索引
+  useEffect(() => {
+    setActiveIndex(0)
+  }, [filteredCommands])
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -102,6 +243,9 @@ export function Header() {
   useEffect(() => {
     if (!commandOpen) {
       setCommandKeyword('')
+      setActiveIndex(0)
+      setEntityResults([])
+      setSearching(false)
       return
     }
 
@@ -110,17 +254,6 @@ export function Header() {
     }, 0)
     return () => window.clearTimeout(timer)
   }, [commandOpen])
-
-  const handleLogout = async () => {
-    try {
-      await logoutApi()
-    } catch {
-      // 忽略服务端登出失败，仍然执行本地登出
-    } finally {
-      logout()
-      navigate('/login')
-    }
-  }
 
   const executeCommand = (command: CommandItem, trigger: 'click' | 'enter') => {
     trackUxEvent('ux_command_palette_execute', {
@@ -135,10 +268,44 @@ export function Header() {
     setCommandKeyword('')
   }
 
+  // 分组渲染：实体搜索结果 vs 导航命令
+  const groupedItems = useMemo(() => {
+    const groups: Array<{ label: string; items: CommandItem[] }> = []
+    const entityItems = filteredCommands.filter((c) => c.group)
+    const navItems = filteredCommands.filter((c) => !c.group && !c.key.startsWith('quick:'))
+    const quickItems = filteredCommands.filter((c) => c.key.startsWith('quick:'))
+
+    if (quickItems.length > 0) {
+      groups.push({ label: '快速跳转', items: quickItems })
+    }
+    if (entityItems.length > 0) {
+      groups.push({ label: '实体搜索', items: entityItems })
+    }
+    if (navItems.length > 0) {
+      groups.push({ label: '导航', items: navItems })
+    }
+    return groups
+  }, [filteredCommands])
+
+  // 平坦索引用于键盘导航
+  const flatList = useMemo(
+    () => groupedItems.flatMap((g) => g.items),
+    [groupedItems]
+  )
+
   return (
     <>
       <header className="flex h-16 items-center justify-between border-b bg-background px-6">
         <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="md:hidden"
+            onClick={toggleMobile}
+            aria-label="打开菜单"
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
           <h1 className="text-lg font-semibold">Imboy 管理后台</h1>
         </div>
 
@@ -152,20 +319,11 @@ export function Header() {
             Cmd/Ctrl + K
           </Button>
 
-          <Button variant="ghost" size="icon">
-            <Bell className="h-5 w-5" />
-          </Button>
+          <NotificationPanel />
 
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground">
-              {admin?.nickname?.charAt(0) || <User className="h-4 w-4" />}
-            </div>
-            <span className="text-sm font-medium">{admin?.nickname || '管理员'}</span>
-          </div>
+          <ThemeToggle />
 
-          <Button variant="ghost" size="icon" onClick={handleLogout}>
-            <LogOut className="h-5 w-5" />
-          </Button>
+          <AdminProfilePanel />
         </div>
       </header>
 
@@ -181,32 +339,78 @@ export function Header() {
             <div className="border-b p-3">
               <Input
                 ref={commandInputRef}
-                placeholder="输入命令或实体 ID，例如：user 1024"
+                placeholder="搜索用户、群组、频道或输入命令，例如：user 1024"
                 value={commandKeyword}
                 onChange={(event) => setCommandKeyword(event.target.value)}
                 onKeyDown={(event) => {
-                  if (event.key === 'Enter' && filteredCommands.length > 0) {
-                    executeCommand(filteredCommands[0], 'enter')
+                  if (event.key === 'ArrowDown') {
+                    event.preventDefault()
+                    setActiveIndex((prev) => Math.min(prev + 1, flatList.length - 1))
+                  } else if (event.key === 'ArrowUp') {
+                    event.preventDefault()
+                    setActiveIndex((prev) => Math.max(prev - 1, 0))
+                  } else if (event.key === 'Enter' && flatList.length > 0) {
+                    executeCommand(flatList[activeIndex], 'enter')
                   }
                 }}
               />
             </div>
 
-            <div className="max-h-[360px] overflow-y-auto p-2">
-              {filteredCommands.length > 0 ? (
-                filteredCommands.map((command) => (
-                  <button
-                    key={command.key}
-                    type="button"
-                    className="w-full rounded-md px-3 py-2 text-left text-sm hover:bg-muted"
-                    onClick={() => executeCommand(command, 'click')}
-                  >
-                    {command.label}
-                  </button>
-                ))
-              ) : (
-                <div className="px-3 py-6 text-sm text-muted-foreground">无匹配命令</div>
+            <div className="max-h-[400px] overflow-y-auto p-2">
+              {searching && entityResults.length === 0 && commandKeyword.trim().length >= 2 && (
+                <div className="px-3 py-4 text-sm text-muted-foreground text-center">搜索中...</div>
               )}
+
+              {!searching && flatList.length === 0 && commandKeyword.trim().length >= 2 && (
+                <div className="px-3 py-6 text-sm text-muted-foreground text-center">
+                  未找到匹配「{commandKeyword.trim()}」的结果
+                </div>
+              )}
+
+              {!searching && flatList.length === 0 && commandKeyword.trim().length < 2 && (
+                <div className="px-3 py-6 text-sm text-muted-foreground text-center">输入关键词搜索用户、群组、频道</div>
+              )}
+
+              {groupedItems.map((group) => {
+                const groupStartIndex = flatList.indexOf(group.items[0])
+                return (
+                  <div key={group.label}>
+                    <div className="px-2 py-1 text-xs font-medium text-muted-foreground">{group.label}</div>
+                    {group.items.map((command) => {
+                      const globalIndex = groupStartIndex + group.items.indexOf(command)
+                      return (
+                        <button
+                          key={command.key}
+                          type="button"
+                          className={`w-full rounded-md px-3 py-2 text-left text-sm flex items-center justify-between ${globalIndex === activeIndex ? 'bg-muted' : 'hover:bg-muted'}`}
+                          onClick={() => executeCommand(command, 'click')}
+                          onMouseEnter={() => setActiveIndex(globalIndex)}
+                        >
+                          <span className="truncate">{command.label}</span>
+                          <span className="shrink-0 ml-2 text-xs text-muted-foreground">
+                            {command.group && (
+                              <span className="inline-flex items-center rounded bg-muted px-1.5 py-0.5 text-[10px]">
+                                {command.group}
+                              </span>
+                            )}
+                            {!command.group && !command.key.startsWith('quick:') && (
+                              <span className="text-muted-foreground/60">{command.path}</span>
+                            )}
+                            {command.key.startsWith('quick:') && (
+                              <span className="text-muted-foreground/60">回车跳转</span>
+                            )}
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )
+              })}
+            </div>
+
+            <div className="border-t px-3 py-2 flex items-center justify-between text-xs text-muted-foreground">
+              <span>↑↓ 选择 · Enter 打开 · Esc 关闭</span>
+              <span>输入「user 1024」快速跳转</span>
             </div>
           </div>
         </div>

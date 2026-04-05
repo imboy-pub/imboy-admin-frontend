@@ -38,6 +38,8 @@ function renderMomentListPage() {
     defaultOptions: {
       queries: {
         retry: false,
+        staleTime: 0,
+        gcTime: 0,
       },
     },
   })
@@ -132,16 +134,58 @@ describe('MomentListPage flow', () => {
     }
 
     const user = userEvent.setup()
-    const view = renderMomentListPage()
+    let view: ReturnType<typeof renderMomentListPage>
+    await act(async () => {
+      view = renderMomentListPage()
+    })
 
     await waitFor(() => {
       expect(getCalls.length).toBeGreaterThan(0)
     })
 
     expect(getCalls[0]).toEqual({ page: 1, size: 10, status: -2, keyword: undefined, uid: undefined })
-    await view.findByText('朋友圈治理')
-    await view.findByText('moment-default-1')
+    await waitFor(() => {
+      expect(view.container.textContent).toContain('朋友圈治理')
+      expect(view.container.textContent).toContain('moment-default-1')
+    })
 
+    // Test delete on initial page (before search)
+    await waitFor(() => {
+      expect(view.getAllByTitle('删除动态').length).toBeGreaterThan(0)
+    })
+
+    await act(async () => {
+      const deleteButtons = view.getAllByTitle('删除动态')
+      fireEvent.click(deleteButtons[0])
+    })
+
+    await waitFor(() => {
+      expect(document.body.textContent).toContain('确认删除动态')
+    })
+
+    await act(async () => {
+      // The dialog is rendered in a portal, use baseElement (document.body)
+      const deleteButton = Array.from(view.baseElement.querySelectorAll('button'))
+        .find(btn => btn.textContent === '删除')
+      if (!deleteButton) {
+        throw new Error('删除按钮未找到')
+      }
+      fireEvent.click(deleteButton)
+    })
+
+    await waitFor(() => {
+      expect(postCalls.length).toBe(1)
+    })
+
+    expect(postCalls[0]).toEqual({
+      url: '/moment/delete',
+      body: {
+        moment_id: 9001,
+        reason: 'admin_delete',
+      },
+    })
+
+    // Now test search functionality
     const keywordInput = view.getByPlaceholderText('搜索动态内容...') as HTMLInputElement
     const uidInput = view.getByPlaceholderText('作者 UID（可选）') as HTMLInputElement
 
@@ -170,28 +214,8 @@ describe('MomentListPage flow', () => {
       ).toBe(true)
     })
 
-    await view.findByText('moment-alpha-1')
-
-    await act(async () => {
-      fireEvent.click(view.getByTitle('删除动态'))
-    })
-
-    await view.findByText('确认删除动态')
-
-    await act(async () => {
-      fireEvent.click(view.getByRole('button', { name: '删除' }))
-    })
-
     await waitFor(() => {
-      expect(postCalls.length).toBe(1)
-    })
-
-    expect(postCalls[0]).toEqual({
-      url: '/moment/delete',
-      body: {
-        moment_id: 9001,
-        reason: 'admin_delete',
-      },
+      expect(view.container.textContent).toContain('moment-alpha-1')
     })
 
     await act(async () => {
@@ -203,7 +227,17 @@ describe('MomentListPage flow', () => {
     })
 
     await act(async () => {
-      fireEvent.change(view.getByRole('combobox'), {
+      const pageSizeSelect = view
+        .getAllByRole('combobox')
+        .find((element) =>
+          Array.from((element as HTMLSelectElement).options).some((option) => option.value === '50')
+        )
+
+      if (!pageSizeSelect) {
+        throw new Error('未找到分页大小下拉框')
+      }
+
+      fireEvent.change(pageSizeSelect, {
         target: { value: '50' },
       })
     })
@@ -213,9 +247,12 @@ describe('MomentListPage flow', () => {
     })
 
     await act(async () => {
-      fireEvent.click(view.getByTitle('举报处理'))
+      const reportButtons = view.getAllByTitle('举报处理')
+      fireEvent.click(reportButtons[reportButtons.length - 1])
     })
 
-    await view.findByText('moment-reports-route')
+    await waitFor(() => {
+      expect(view.container.textContent).toContain('moment-reports-route')
+    })
   })
 })

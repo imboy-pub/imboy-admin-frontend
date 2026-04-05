@@ -64,6 +64,13 @@ export function GroupDetailPage() {
               <ArrowLeft className="h-4 w-4 mr-2" />
               返回列表
             </Button>
+            <Button
+              variant="outline"
+              onClick={() => navigate(`/groups/${gid}/members`)}
+            >
+              <Users className="h-4 w-4 mr-2" />
+              成员管理
+            </Button>
             {voteEnabled && (
               <Button
                 variant="outline"

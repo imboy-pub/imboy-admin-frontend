@@ -221,7 +221,7 @@ export async function getChannelMessages(
   channelId: IdLike,
   params: ChannelMessageListParams = { page: 1, size: 10 }
 ): Promise<ApiResponse<PaginatedResponse<ChannelMessage>>> {
-  const response = await client.get(`/channel/detail/${channelId}/messages`, { params })
+  const response = await client.get(`/channel/${channelId}/messages`, { params })
   return response.data
 }
 
@@ -231,7 +231,7 @@ export async function getChannelMessagesPayload(
 ): Promise<PaginatedResponse<ChannelMessage>> {
   return requireApiPayload(
     await getChannelMessages(channelId, params),
-    '/channel/detail/:id/messages'
+    '/channel/:id/messages'
   )
 }
 
@@ -241,7 +241,7 @@ export async function pinChannelMessage(
   pinned: boolean
 ): Promise<ApiResponse<Record<string, never>>> {
   const response = await client.put(
-    `/channel/detail/${channelId}/message/${messageId}/pin`,
+    `/channel/${channelId}/message/${messageId}/pin`,
     { pinned }
   )
   return response.data
@@ -252,7 +252,7 @@ export async function deleteChannelMessage(
   messageId: IdLike
 ): Promise<ApiResponse<Record<string, never>>> {
   const response = await client.delete(
-    `/channel/detail/${channelId}/message/${messageId}/delete`
+    `/channel/${channelId}/message/${messageId}/delete`
   )
   return response.data
 }

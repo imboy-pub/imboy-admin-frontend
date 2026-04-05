@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
-import { ArrowLeft, Search, ShieldCheck } from 'lucide-react'
+import { ArrowLeft, Search, ShieldCheck, Download } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -19,7 +19,9 @@ import {
   GroupGovernanceLog,
   GroupGovernanceLogListParams,
 } from '@/services/api/groupEnhancements'
-import { formatDate, truncate } from '@/lib/utils'
+import { formatOptionalDate, truncate } from '@/lib/utils'
+import { exportCsv, type CsvColumn } from '@/lib/csvExport'
+import { toast } from 'sonner'
 
 function normalizeTimestamp(value: string): string | undefined {
   const normalized = value.trim()
@@ -29,13 +31,6 @@ function normalizeTimestamp(value: string): string | undefined {
   const parsed = new Date(normalized)
   if (Number.isNaN(parsed.getTime())) return undefined
   return parsed.toISOString()
-}
-
-function formatTimestamp(value?: string): string {
-  if (!value) return '-'
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return value
-  return formatDate(parsed)
 }
 
 function summarizeExtra(extra?: Record<string, unknown>): string {
@@ -105,7 +100,7 @@ export function GroupGovernanceLogPage() {
         header: '发生时间',
         cell: ({ row }) => (
           <span className="text-sm text-muted-foreground">
-            {formatTimestamp(row.original.occurred_at || row.original.created_at)}
+            {formatOptionalDate(row.original.occurred_at || row.original.created_at)}
           </span>
         ),
       },
@@ -162,16 +157,44 @@ export function GroupGovernanceLogPage() {
     return <ErrorState message="加载群治理日志失败" onRetry={() => refetch()} />
   }
 
+  const logs = data?.items || []
+
+  const handleExportCsv = () => {
+    const csvColumns: CsvColumn<GroupGovernanceLog>[] = [
+      { header: '发生时间', accessor: (row) => formatOptionalDate(row.occurred_at || row.created_at) },
+      { header: '治理动作', accessor: 'action' },
+      { header: '操作人UID', accessor: (row) => String(row.operator_uid ?? row.uid ?? '-') },
+      { header: '账号', accessor: (row) => row.account || '-' },
+      { header: '昵称', accessor: (row) => row.nickname || '-' },
+      { header: '目标ID', accessor: (row) => String(row.target_id ?? '-') },
+      { header: '群组ID', accessor: (row) => String(row.group_id ?? '-') },
+      { header: '附加信息', accessor: (row) => summarizeExtra(row.extra) },
+    ]
+    exportCsv(csvColumns, logs, 'group_governance_logs')
+    toast.success(`已导出 ${logs.length} 条治理日志`)
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
         title="群治理审计日志"
         description={`群组 ${gid} 的治理动作审计记录`}
         actions={(
-          <Button variant="outline" onClick={() => navigate(`/groups/context?gid=${gid}`)}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            返回群上下文入口
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportCsv}
+              disabled={logs.length === 0}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              导出 CSV
+            </Button>
+            <Button variant="outline" onClick={() => navigate(`/groups/context?gid=${gid}`)}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              返回群上下文入口
+            </Button>
+          </div>
         )}
       />
 

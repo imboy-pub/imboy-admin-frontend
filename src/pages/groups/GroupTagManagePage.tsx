@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
 import { toast } from 'sonner'
-import { ArrowLeft, Trash2 } from 'lucide-react'
+import { ArrowLeft, Download, Trash2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -19,15 +19,9 @@ import {
   getGroupTagsPayload,
   GroupTag,
 } from '@/services/api/groupEnhancements'
-import { formatDate } from '@/lib/utils'
+import { formatOptionalDate } from '@/lib/utils'
+import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 import { useAdminPermission } from '@/hooks/useAdminPermission'
-
-function formatDateSafe(value?: string): string {
-  if (!value) return '-'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  return formatDate(date)
-}
 
 export function GroupTagManagePage() {
   const { id } = useParams<{ id: string }>()
@@ -81,7 +75,7 @@ export function GroupTagManagePage() {
         header: '创建时间',
         cell: ({ row }) => (
           <span className="text-sm text-muted-foreground">
-            {formatDateSafe(row.original.created_at)}
+            {formatOptionalDate(row.original.created_at)}
           </span>
         ),
       },
@@ -108,6 +102,17 @@ export function GroupTagManagePage() {
   )
 
   const tags = data?.items || []
+
+  const handleExportCsv = () => {
+    const csvColumns: CsvColumn<GroupTag>[] = [
+      { header: 'ID', accessor: (row) => String(row.id ?? '-') },
+      { header: '标签名', accessor: (row) => row.tag_name || '-' },
+      { header: '创建者ID', accessor: (row) => String(row.created_by ?? '-') },
+      { header: '创建时间', accessor: (row) => formatOptionalDate(row.created_at) },
+    ]
+    exportCsv(csvColumns, tags, 'group_tags')
+    toast.success(`已导出 ${tags.length} 条数据`)
+  }
   const table = useReactTable({
     data: tags,
     columns,
@@ -128,10 +133,16 @@ export function GroupTagManagePage() {
         title="群标签管理"
         description={`群组 ${gid} 的标签列表与治理操作`}
         actions={(
-          <Button variant="outline" onClick={() => navigate(`/groups/${gid}`)}>
+          <>
+            <Button variant="outline" size="sm" onClick={handleExportCsv} disabled={tags.length === 0}>
+              <Download className="mr-2 h-4 w-4" />
+              导出 CSV
+            </Button>
+            <Button variant="outline" onClick={() => navigate(`/groups/${gid}`)}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             返回群详情
           </Button>
+          </>
         )}
       />
 

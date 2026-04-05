@@ -12,6 +12,8 @@ import {
   getPolicyEffective,
   previewPolicyChange,
   savePolicyChange,
+  policyQueryKey,
+  buildPolicyConfig,
   type PolicyConfig,
   type PolicyResponse,
   type FeatureName,
@@ -54,7 +56,7 @@ export function FeatureConfigPage() {
   const [showPreview, setShowPreview] = useState(false)
 
   const { data: policyData, isLoading, error, refetch } = useQuery({
-    queryKey: ['policy', 'effective'],
+    queryKey: policyQueryKey('effective'),
     queryFn: () => getPolicyEffective(),
   })
 
@@ -69,7 +71,7 @@ export function FeatureConfigPage() {
       setPendingFeatures(null)
       setPreviewData(null)
       setShowPreview(false)
-      queryClient.invalidateQueries({ queryKey: ['policy'] })
+      queryClient.invalidateQueries({ queryKey: policyQueryKey() })
       queryClient.invalidateQueries({ queryKey: adminFeatureQueryKey() })
     },
     onError: (err: Error) => {
@@ -99,22 +101,12 @@ export function FeatureConfigPage() {
 
   const handlePreview = useCallback(() => {
     if (!pendingFeatures) return
-    const payload: PolicyConfig = {
-      profile: policyData?.effective?.profile,
-      capabilities: policyData?.effective?.capabilities,
-      features: pendingFeatures,
-    }
-    previewMutation.mutate(payload)
+    previewMutation.mutate(buildPolicyConfig(policyData?.effective, { features: pendingFeatures }))
   }, [pendingFeatures, policyData, previewMutation])
 
   const handleSave = useCallback(() => {
     if (!pendingFeatures) return
-    const payload: PolicyConfig = {
-      profile: policyData?.effective?.profile,
-      capabilities: policyData?.effective?.capabilities,
-      features: pendingFeatures,
-    }
-    featureMutation.mutate(payload)
+    featureMutation.mutate(buildPolicyConfig(policyData?.effective, { features: pendingFeatures }))
   }, [pendingFeatures, policyData, featureMutation])
 
   const handleDiscard = useCallback(() => {

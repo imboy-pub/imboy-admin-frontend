@@ -16,7 +16,7 @@ import { encryptLoginPassword } from '@/lib/passwordCrypto'
 const loginSchema = z.object({
   account: z.string().min(1, '请输入账号'),
   password: z.string().min(1, '请输入密码'),
-  captcha: z.string().length(5, '验证码为5位'),
+  captcha: z.string().min(4, '验证码为4-5位').max(5, '验证码为4-5位'),
 })
 
 type LoginForm = z.infer<typeof loginSchema>

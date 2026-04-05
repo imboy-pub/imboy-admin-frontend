@@ -128,6 +128,17 @@ function parsePermissionKeys(raw: string): string[] {
   )
 }
 
+function normalizeRoleIds(value: unknown): number[] {
+  const values = Array.isArray(value) ? value : [value]
+  return Array.from(
+    new Set(
+      values
+        .map((item) => Number(item))
+        .filter((item) => Number.isFinite(item) && item > 0)
+    )
+  )
+}
+
 export function RolePermissionPage() {
   const queryClient = useQueryClient()
   const [keyword, setKeyword] = useState('')
@@ -238,9 +249,19 @@ export function RolePermissionPage() {
     if (currentRbac?.permissions && currentRbac.permissions.length > 0) {
       return new Set(currentRbac.permissions)
     }
-    const role = roleTemplates.find((item) => item.id === currentAdmin?.role_id)
-    return new Set(role?.permissions || [])
-  }, [currentRbac, currentAdmin?.role_id, roleTemplates])
+    const adminRoleIds = normalizeRoleIds((currentAdmin as { role_id?: unknown } | undefined)?.role_id)
+    const permissions = roleTemplates
+      .filter((item) => adminRoleIds.includes(item.id))
+      .flatMap((item) => item.permissions || [])
+    return new Set(permissions)
+  }, [currentRbac, currentAdmin, roleTemplates])
+
+  const effectiveCurrentRoleIds = useMemo(() => {
+    if (Array.isArray(currentRbac?.role_ids) && currentRbac.role_ids.length > 0) {
+      return normalizeRoleIds(currentRbac.role_ids)
+    }
+    return normalizeRoleIds((currentAdmin as { role_id?: unknown } | undefined)?.role_id)
+  }, [currentRbac?.role_ids, currentAdmin])
 
   const draftPermissions = useMemo(() => {
     if (!selectedRole) return []
@@ -314,8 +335,8 @@ export function RolePermissionPage() {
     }
     return map
   }, [roleTemplates, draftPermissionsByRole])
-  const canCreateRole = currentAdmin?.role_id === 1 || currentRolePermissions.has('roles:create')
-  const canUpdateRole = currentAdmin?.role_id === 1 || currentRolePermissions.has('roles:update')
+  const canCreateRole = currentRolePermissions.has('roles:create')
+  const canUpdateRole = currentRolePermissions.has('roles:update')
 
   const togglePermission = (permissionKey: string) => {
     if (!canUpdateRole) return
@@ -464,14 +485,19 @@ export function RolePermissionPage() {
 
       <div className="grid gap-4 md:grid-cols-3">
         {roleTemplates.map((role) => {
-          const isCurrent = currentAdmin?.role_id === role.id
+          const isCurrent = effectiveCurrentRoleIds.includes(role.id)
           const isEditing = effectiveEditingRoleId === role.id
           const isSystemRole = role.id <= 3
           const rolePermissionSet = rolePermissionSets.get(role.id) || new Set<string>()
           const grantedCount = permissions.filter((item) => rolePermissionSet.has(item.key)).length
           const hasDraftPermissions = Array.isArray(draftPermissionsByRole[role.id])
           return (
-            <Card key={role.id} className={isEditing ? 'border-primary shadow-sm' : (isCurrent ? 'border-primary/60' : '')}>
+            <Card
+              key={role.id}
+              data-role-id={role.id}
+              data-role-name={role.name}
+              className={isEditing ? 'border-primary shadow-sm' : (isCurrent ? 'border-primary/60' : '')}
+            >
               <CardHeader>
                 <CardTitle className="flex items-center justify-between gap-2 text-base">
                   <span className="truncate">{role.name}</span>
@@ -661,6 +687,7 @@ export function RolePermissionPage() {
                     return (
                       <label
                         key={item.key}
+                        data-permission-key={item.key}
                         className={cn(
                           'flex cursor-pointer items-start gap-3 rounded-md border p-3 text-sm transition-colors',
                           checked ? 'border-primary/50 bg-primary/5' : 'hover:bg-muted/40'

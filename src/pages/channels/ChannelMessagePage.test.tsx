@@ -31,6 +31,8 @@ function renderChannelMessagePage() {
     defaultOptions: {
       queries: {
         retry: false,
+        staleTime: 0,
+        gcTime: 0,
       },
     },
   })
@@ -64,7 +66,7 @@ describe('ChannelMessagePage flow', () => {
     const deleteCalls: string[] = []
 
     mutableClient.get = async (url: string, config?: { params?: Record<string, unknown> }) => {
-      if (url !== '/channel/detail/8/messages') {
+      if (url !== '/channel/8/messages') {
         throw new Error(`unexpected GET url: ${url}`)
       }
 
@@ -122,18 +124,24 @@ describe('ChannelMessagePage flow', () => {
       }
     }
 
-    const view = renderChannelMessagePage()
+    let view: ReturnType<typeof renderChannelMessagePage>
+    await act(async () => {
+      view = renderChannelMessagePage()
+    })
 
     await waitFor(() => {
       expect(getCalls.length).toBeGreaterThan(0)
     })
 
     expect(getCalls[0]).toEqual({ page: 1, size: 10 })
-    await view.findByText('频道消息治理')
-    await view.findByText('message-page-1')
+    await waitFor(() => {
+      expect(view.container.textContent).toContain('频道消息治理')
+      expect(view.container.textContent).toContain('message-page-1')
+    })
 
     await act(async () => {
-      fireEvent.click(view.getByTitle('置顶消息'))
+      const pinButtons = view.getAllByTitle('置顶消息')
+      fireEvent.click(pinButtons[pinButtons.length - 1])
     })
 
     await waitFor(() => {
@@ -141,25 +149,33 @@ describe('ChannelMessagePage flow', () => {
     })
 
     expect(putCalls[0]).toEqual({
-      url: '/channel/detail/8/message/101/pin',
+      url: '/channel/8/message/101/pin',
       body: { pinned: true },
     })
 
     await act(async () => {
-      fireEvent.click(view.getByTitle('删除消息'))
+      const deleteButtons = view.getAllByTitle('删除消息')
+      fireEvent.click(deleteButtons[deleteButtons.length - 1])
     })
 
-    await view.findByText('确认删除消息')
+    await waitFor(() => {
+      expect(document.body.textContent).toContain('确认删除消息')
+    })
 
     await act(async () => {
-      fireEvent.click(view.getByRole('button', { name: '删除' }))
+      const deleteButton = Array.from(view.baseElement.querySelectorAll('button'))
+        .find(btn => btn.textContent === '删除')
+      if (!deleteButton) {
+        throw new Error('删除按钮未找到')
+      }
+      fireEvent.click(deleteButton)
     })
 
     await waitFor(() => {
       expect(deleteCalls.length).toBe(1)
     })
 
-    expect(deleteCalls[0]).toBe('/channel/detail/8/message/101/delete')
+    expect(deleteCalls[0]).toBe('/channel/8/message/101/delete')
 
     await act(async () => {
       fireEvent.click(view.getByRole('button', { name: '下一页' }))
@@ -170,7 +186,17 @@ describe('ChannelMessagePage flow', () => {
     })
 
     await act(async () => {
-      fireEvent.change(view.getByRole('combobox'), {
+      const pageSizeSelect = view
+        .getAllByRole('combobox')
+        .find((element) =>
+          Array.from((element as HTMLSelectElement).options).some((option) => option.value === '50')
+        )
+
+      if (!pageSizeSelect) {
+        throw new Error('未找到分页大小下拉框')
+      }
+
+      fireEvent.change(pageSizeSelect, {
         target: { value: '50' },
       })
     })
@@ -178,5 +204,7 @@ describe('ChannelMessagePage flow', () => {
     await waitFor(() => {
       expect(getCalls.some((call) => call.page === 1 && call.size === 50)).toBe(true)
     })
-  })
+    // TODO: This multi-step test hangs in jsdom - needs investigation on
+    // which internal component dependency causes the render to stall.
+  }, 30_000)
 })

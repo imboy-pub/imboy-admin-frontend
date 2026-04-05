@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
-import { ArrowRightLeft, Copy, Eye, FileSearch, MessageSquare, UserMinus, X } from 'lucide-react'
+import { ArrowRightLeft, Copy, Eye, FileSearch, MessageSquare, UserMinus, X, Download } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -18,6 +18,7 @@ import {
 import { getMessageDetailPayload, getMessageListPayload } from '@/modules/messages'
 import { getLogoutApplicationListPayload } from '@/services/api/logoutApplications'
 import { formatDate, truncate } from '@/lib/utils'
+import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 import { MessageScope } from '@/types/message'
 
 type AuditEventType = 'message' | 'logout_apply'
@@ -385,6 +386,26 @@ export function AuditLogPage() {
                 setPage(1)
               }}
             />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const csvColumns: CsvColumn<AuditEvent>[] = [
+                  { header: '事件类型', accessor: (row) => row.eventType === 'message' ? '消息审计' : '注销申请' },
+                  { header: '发生时间', accessor: (row) => formatDate(row.time) },
+                  { header: '操作者', accessor: 'actor' },
+                  { header: '目标', accessor: 'target' },
+                  { header: '摘要', accessor: 'summary' },
+                  { header: '详情', accessor: 'detail' },
+                ]
+                exportCsv(csvColumns, filteredEvents, 'audit_log_export')
+                toast.success(`已导出 ${filteredEvents.length} 条审计记录`)
+              }}
+              disabled={filteredEvents.length === 0}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              导出 CSV
+            </Button>
           </div>
 
           <DataTable table={table} emptyMessage="暂无匹配的审计事件" />

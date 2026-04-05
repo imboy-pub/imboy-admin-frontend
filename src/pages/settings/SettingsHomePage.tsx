@@ -3,11 +3,15 @@ import { useNavigate } from 'react-router-dom'
 import {
   AppWindow,
   ArrowRight,
+  Bell,
   DatabaseZap,
   FileSearch,
   KeyRound,
   Settings,
   Shield,
+  ShieldOff,
+  ToggleLeft,
+  Settings2,
 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -23,6 +27,24 @@ type SettingsModule = {
 }
 
 const modules: SettingsModule[] = [
+  {
+    title: '功能开关',
+    description: '管理系统功能模块的启用状态（频道、朋友圈、群组增强等）。',
+    path: '/settings/features',
+    icon: ToggleLeft,
+  },
+  {
+    title: '能力配置',
+    description: '配置存储策略、加密模式、审计级别、数据保留策略等。',
+    path: '/settings/capabilities',
+    icon: Settings2,
+  },
+  {
+    title: '合规密钥',
+    description: '管理 compliance_e2ee 模式下的合规审计密钥对（创建、查看、撤销）。',
+    path: '/settings/compliance-keys',
+    icon: Shield,
+  },
   {
     title: '版本管理',
     description: '管理各平台发布版本、更新说明和强制更新策略。',
@@ -52,6 +74,18 @@ const modules: SettingsModule[] = [
     description: '追踪消息行为与账号注销等审计事件。',
     path: '/logs',
     icon: FileSearch,
+  },
+  {
+    title: '禁言管理',
+    description: '查看当前被禁言的用户列表，支持手动解禁操作。',
+    path: '/settings/muted-users',
+    icon: ShieldOff,
+  },
+  {
+    title: '推送管理',
+    description: '查看各平台推送 Token 注册信息与设备绑定状态。',
+    path: '/settings/push-tokens',
+    icon: Bell,
   },
 ]
 

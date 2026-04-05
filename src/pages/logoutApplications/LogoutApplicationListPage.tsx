@@ -31,7 +31,7 @@ export function LogoutApplicationListPage() {
   const [toTsInput, setToTsInput] = useState('')
   const [isExporting, setIsExporting] = useState(false)
 
-  const { data, isLoading, error, refetch } = useQuery({
+  const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
     queryKey: ['logout-applications', params],
     queryFn: () => getLogoutApplicationListPayload(params),
   })
@@ -211,6 +211,8 @@ export function LogoutApplicationListPage() {
               total={pagination.total}
               onPageChange={handlePageChange}
               onPageSizeChange={handlePageSizeChange}
+              dataUpdatedAt={dataUpdatedAt}
+              onRefresh={() => refetch()}
             />
           )}
         </CardContent>

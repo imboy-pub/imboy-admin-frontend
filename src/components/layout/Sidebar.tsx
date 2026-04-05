@@ -11,6 +11,7 @@ import {
   Shield,
   KeyRound,
   FileText,
+  BarChart3,
   ChevronLeft,
   ChevronRight,
   ChevronDown,
@@ -18,6 +19,7 @@ import {
   Star,
   Circle,
   Camera,
+  Megaphone,
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -26,6 +28,7 @@ import { getMyRbacProfilePayload, RbacProfile } from '@/services/api/rbac'
 import { useAuthStore } from '@/stores/authStore'
 import { fetchSidebarMenuConfig, type MenuConfigItem, type SidebarMenuConfig } from '@/services/api/adminConfig'
 import { useAdminFeatures } from '@/hooks/useAdminFeatures'
+import { useSidebarBadges } from '@/hooks/useSidebarBadges'
 import { featureKeyForAdminPath, isAdminFeatureEnabled, type FeatureFlags } from '@/services/api/features'
 
 type SidebarMenuItem = {
@@ -62,6 +65,8 @@ const iconMap: Record<string, LucideIcon> = {
   KeyRound,
   FileText,
   Camera,
+  Megaphone,
+  BarChart3,
 }
 
 const defaultConfig: SidebarMenuConfig = {
@@ -76,6 +81,7 @@ const defaultConfig: SidebarMenuConfig = {
         { path: '/groups', icon: 'UsersRound', label: '群组管理', roles: [1, 2], permission: 'groups:read' },
         { path: '/channels', icon: 'Radio', label: '频道管理', roles: [1, 2], permission: 'channels:read' },
         { path: '/moments', icon: 'Camera', label: '朋友圈管理', roles: [1, 2], permission: 'moments:read' },
+        { path: '/analytics', icon: 'BarChart3', label: '运营分析', roles: [1, 2], permission: 'analytics:view' },
       ],
     },
     {
@@ -84,6 +90,7 @@ const defaultConfig: SidebarMenuConfig = {
       children: [
         { path: '/reports', icon: 'FileText', label: '举报中心', roles: [1, 2], permission: 'reports:read' },
         { path: '/feedback', icon: 'MessageCircle', label: '反馈处理', roles: [1, 2], permission: 'feedback:read' },
+        { path: '/announcements', icon: 'FileText', label: '全局公告', roles: [1, 2], permission: 'announcements:read' },
       ],
     },
     {
@@ -101,6 +108,7 @@ const defaultConfig: SidebarMenuConfig = {
       icon: 'Settings',
       children: [
         { path: '/settings', icon: 'Settings', label: '系统设置', roles: [1], permission: 'settings:view' },
+        { path: '/storage', icon: 'HardDrive', label: '存储管理', roles: [1], permission: 'storage:view' },
         { path: '/admins', icon: 'Shield', label: '管理员', roles: [1], permission: 'admins:read' },
         { path: '/roles', icon: 'KeyRound', label: '角色权限', roles: [1, 3], permission: 'roles:view' },
       ],
@@ -387,6 +395,11 @@ export function Sidebar() {
   const location = useLocation()
   const currentRoleId = useAuthStore((state) => state.admin?.role_id)
   const { data: featureFlags } = useAdminFeatures()
+  const { pendingReports, pendingFeedback } = useSidebarBadges()
+  const badges: Record<string, number> = {
+    '/reports': pendingReports,
+    '/feedback': pendingFeedback,
+  }
   const [collapsed, setCollapsed] = useState(false)
   const [keyword, setKeyword] = useState('')
   const [title, setTitle] = useState(defaultConfig.title || 'Imboy Admin')
@@ -514,12 +527,14 @@ export function Sidebar() {
     if (!item.path) return null
     const isFavorite = favoritePaths.includes(item.path)
     const indentStyle = !collapsed && level > 0 ? { paddingLeft: `${12 + level * 12}px` } : undefined
+    const badgeCount = badges[item.path] ?? 0
 
     return (
       <NavLink
         key={item.key}
         to={item.path}
         style={indentStyle}
+        title={collapsed ? item.label : undefined}
         className={({ isActive }) =>
           cn(
             'group flex items-center gap-3 rounded-lg px-3 py-2 text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
@@ -528,8 +543,20 @@ export function Sidebar() {
           )
         }
       >
-        <item.icon className="h-5 w-5 shrink-0" />
+        <div className="relative">
+          <item.icon className="h-5 w-5 shrink-0" />
+          {badgeCount > 0 && collapsed && (
+            <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-white">
+              {badgeCount > 9 ? '9+' : badgeCount}
+            </span>
+          )}
+        </div>
         {!collapsed && <span className="min-w-0 flex-1 truncate">{item.label}</span>}
+        {!collapsed && badgeCount > 0 && (
+          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-bold text-white">
+            {badgeCount > 99 ? '99+' : badgeCount}
+          </span>
+        )}
         {!collapsed && (
           <button
             type="button"

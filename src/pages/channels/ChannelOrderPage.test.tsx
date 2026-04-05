@@ -27,6 +27,8 @@ function renderChannelOrderPage() {
     defaultOptions: {
       queries: {
         retry: false,
+        staleTime: 0,
+        gcTime: 0,
       },
     },
   })
@@ -44,7 +46,27 @@ function renderChannelOrderPage() {
 
 describe('ChannelOrderPage flow', () => {
   beforeEach(() => {
+    // Clean up any leftover DOM from previous tests
+    cleanup()
     document.body.innerHTML = ''
+    // Set up a default mock that returns empty data to prevent "loading..." state
+    mutableClient.get = async () => ({
+      data: {
+        code: 0,
+        msg: 'ok',
+        payload: {
+          items: [],
+          page: 1,
+          size: 10,
+          total: 0,
+          total_pages: 0,
+        },
+      },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config: {},
+    })
   })
 
   afterEach(() => {
@@ -110,8 +132,15 @@ describe('ChannelOrderPage flow', () => {
     })
 
     expect(getCalls[0]).toEqual({ page: 1, size: 10 })
-    await view.findByText('频道订单治理')
-    await view.findByText('order-user')
+    // Use textContent check instead of findByText to avoid "Found multiple elements" error
+    await waitFor(() => {
+      expect(view.container.textContent).toContain('频道订单治理')
+      expect(view.container.textContent).toContain('order-user')
+    })
+
+    // Debug: log available buttons before clicking
+    const buttons = view.container.querySelectorAll('button')
+    console.log('Available buttons:', Array.from(buttons).map(b => b.textContent || b.getAttribute('aria-label') || b.getAttribute('name')).slice(0, 50))
 
     await act(async () => {
       fireEvent.click(view.getByRole('button', { name: '下一页' }))
@@ -122,7 +151,18 @@ describe('ChannelOrderPage flow', () => {
     })
 
     await act(async () => {
-      fireEvent.change(view.getByRole('combobox'), {
+      // Find the page size select (has option value '50')
+      const pageSizeSelect = view
+        .getAllByRole('combobox')
+        .find((element) =>
+          Array.from((element as HTMLSelectElement).options).some((option) => option.value === '50')
+        )
+
+      if (!pageSizeSelect) {
+        throw new Error('未找到分页大小下拉框')
+      }
+
+      fireEvent.change(pageSizeSelect, {
         target: { value: '50' },
       })
     })

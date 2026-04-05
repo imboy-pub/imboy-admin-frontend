@@ -31,6 +31,8 @@ function renderGroupTagManagePage() {
     defaultOptions: {
       queries: {
         retry: false,
+        staleTime: 0,
+        gcTime: 0,
       },
     },
   })
@@ -150,7 +152,10 @@ describe('GroupTagManagePage flow', () => {
       } as Response
     }
 
-    const view = renderGroupTagManagePage()
+    let view: ReturnType<typeof renderGroupTagManagePage>
+    await act(async () => {
+      view = renderGroupTagManagePage()
+    })
 
     await waitFor(() => {
       expect(getCalls.some((call) => call.url === '/group/tag/list')).toBe(true)
@@ -158,17 +163,27 @@ describe('GroupTagManagePage flow', () => {
 
     expect(getCalls.find((call) => call.url === '/group/tag/list')?.params).toEqual({ gid: '88' })
 
-    await view.findByText('群标签管理')
-    await view.findByText('tag-a')
-
-    await act(async () => {
-      fireEvent.click(view.getByTitle('删除标签'))
+    await waitFor(() => {
+      expect(view.container.textContent).toContain('群标签管理')
+      expect(view.container.textContent).toContain('tag-a')
     })
 
-    await view.findByText('确认删除标签')
+    await act(async () => {
+      const deleteButtons = view.getAllByTitle('删除标签')
+      fireEvent.click(deleteButtons[deleteButtons.length - 1])
+    })
+
+    await waitFor(() => {
+      expect(document.body.textContent).toContain('确认删除标签')
+    })
 
     await act(async () => {
-      fireEvent.click(view.getByRole('button', { name: '删除' }))
+      const deleteButton = Array.from(view.baseElement.querySelectorAll('button'))
+        .find(btn => btn.textContent === '删除')
+      if (!deleteButton) {
+        throw new Error('删除按钮未找到')
+      }
+      fireEvent.click(deleteButton)
     })
 
     await waitFor(() => {
@@ -187,6 +202,8 @@ describe('GroupTagManagePage flow', () => {
       fireEvent.click(view.getByRole('button', { name: '返回群详情' }))
     })
 
-    await view.findByText('group-detail-route:88')
+    await waitFor(() => {
+      expect(view.container.textContent).toContain('group-detail-route:88')
+    })
   })
 })

@@ -2,10 +2,10 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
-import { ArrowLeft, Trash2 } from 'lucide-react'
+import { ArrowLeft, Download, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import {
   ConfirmDialog,
   DataTable,
@@ -22,6 +22,7 @@ import {
   updateChannelAdminRole,
 } from '@/modules/channels/api'
 import { formatDate } from '@/lib/utils'
+import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 
 const ROLE_LABELS: Record<number, string> = {
   1: '管理员',
@@ -48,7 +49,7 @@ export function ChannelAdminPage() {
 
   const queryKey = ['channel-admins', channelId, params] as const
 
-  const { data, isLoading, error, refetch } = useQuery({
+  const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
     queryKey,
     queryFn: () => getChannelAdminsPayload(channelId, params),
     enabled: channelId.length > 0,
@@ -175,8 +176,22 @@ export function ChannelAdminPage() {
     },
   ]
 
+  const admins = data?.items || []
+
+  const handleExportCsv = () => {
+    const csvColumns: CsvColumn<ChannelAdmin>[] = [
+      { header: 'ID', accessor: (row) => String(row.id) },
+      { header: '用户ID', accessor: (row) => String(row.user_id) },
+      { header: '角色', accessor: (row) => ({ 1: '管理员', 2: '高级管理员', 3: '创建者' }[row.role] ?? String(row.role)) },
+      { header: '创建时间', accessor: (row) => formatDate(row.created_at) },
+      { header: '用户昵称', accessor: (row) => row.user?.nickname || row.user?.account || '-' },
+    ]
+    exportCsv(csvColumns, admins, 'channel_admins')
+    toast.success(`已导出 ${admins.length} 条数据`)
+  }
+
   const table = useReactTable({
-    data: data?.items || [],
+    data: admins,
     columns,
     getCoreRowModel: getCoreRowModel(),
   })
@@ -195,15 +210,20 @@ export function ChannelAdminPage() {
         title="频道管理员治理"
         description={`频道 ID: ${channelId}`}
         actions={(
-          <Button variant="outline" onClick={() => navigate(`/channels/${channelId}`)}>
+          <>
+            <Button variant="outline" size="sm" onClick={handleExportCsv} disabled={admins.length === 0}>
+              <Download className="mr-2 h-4 w-4" />
+              导出 CSV
+            </Button>
+            <Button variant="outline" onClick={() => navigate(`/channels/${channelId}`)}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             返回频道详情
           </Button>
+          </>
         )}
       />
 
       <Card>
-        <CardHeader />
         <CardContent>
           <DataTable table={table} />
           {data && (
@@ -213,6 +233,8 @@ export function ChannelAdminPage() {
               total={data.total}
               onPageChange={handlePageChange}
               onPageSizeChange={handlePageSizeChange}
+              dataUpdatedAt={dataUpdatedAt}
+              onRefresh={() => refetch()}
             />
           )}
         </CardContent>

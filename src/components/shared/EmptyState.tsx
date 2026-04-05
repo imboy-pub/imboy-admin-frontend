@@ -1,5 +1,6 @@
 import { FileQuestion } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 
 interface EmptyStateProps {
   icon?: React.ReactNode
@@ -36,9 +37,4 @@ export function EmptyState({
       )}
     </div>
   )
-}
-
-// 工具函数：合并类名
-function cn(...classes: (string | boolean | undefined)[]) {
-  return classes.filter(Boolean).join(' ')
 }

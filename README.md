@@ -68,8 +68,68 @@ Vite 代理配置见 `vite.config.ts`，默认将 `/adm` 代理到 `http://local
 bun run dev
 bun run lint
 bun run test
+bun run test:e2e:list
+bun run test:e2e
 bun run build
 ```
+
+## Playwright 浏览器 E2E
+
+已补 Playwright 骨架，首批覆盖：
+
+- 登录并进入仪表盘
+- 举报中心目标切换 + 单条处理 + 批量处理
+- 管理员中心创建管理员 + 分配角色
+- 角色权限页创建角色 + 保存权限
+- 频道消息治理页基础加载 + 置顶 + 删除
+
+运行前准备：
+
+1. 启动本地后端与前端。
+2. 在仓库根目录准备统一场景清单，例如：
+
+```bash
+cp testing/fixtures/three-end-first-batch.example.json testing/fixtures/three-end-first-batch.local.json
+```
+
+3. 在 `imboy-admin-frontend` 下准备 `.env.e2e`，可直接参考 `.env.e2e.example`。
+4. 将 `IMBOY_TEST_SCENARIO_MANIFEST` 指向你的本地场景清单。
+5. 安装浏览器二进制：
+
+```bash
+bun run test:e2e:install
+```
+
+推荐先做 preflight：
+
+```bash
+node ../testing/scripts/check_scenario_manifest.mjs --strict ../testing/fixtures/three-end-first-batch.local.json
+node ../testing/scripts/check_playwright_fixture_readiness.mjs --strict ../testing/fixtures/three-end-first-batch.local.json
+```
+
+推荐入口：
+
+```bash
+bash scripts/run_playwright_e2e_gate.sh
+```
+
+仅做配置解析与用例枚举：
+
+```bash
+PLAYWRIGHT_DISABLE_WEBSERVER=1 bun run test:e2e:list
+```
+
+需要注意：
+
+- `scripts/run_playwright_e2e_gate.sh` 会自动加载 `imboy-admin-frontend/.env.e2e`，并在真正执行 Playwright 前先做 manifest 校验；未设置 `IMBOY_ADMIN_E2E_SKIP_BACKEND_CHECKS=1` 时，还会自动做后端 readiness 与 fixture readiness 预检。
+- `playwright.config.ts` 会自动读取 `imboy-admin-frontend/.env.e2e`，命令行显式传入的环境变量优先级更高。
+- 管理后台登录验证码在 `local/dev/test` 环境支持固定验证码 `1234`，用于浏览器自动化；生产环境不生效。
+- 普通登录用例使用 `IMBOY_ADMIN_E2E_ACCOUNT` / `IMBOY_ADMIN_E2E_PASSWORD`。
+- 管理员与角色页建议使用超级管理员账号，可单独提供 `IMBOY_ADMIN_E2E_SUPER_ACCOUNT` / `IMBOY_ADMIN_E2E_SUPER_PASSWORD`。
+- 举报中心和频道消息治理页依赖共享场景清单中的固定工单 / 固定消息数据。
+- `reportId` / `reportIds` / `channelId` / `pinMessageId` / `deleteMessageId` 应填写管理后台 UI 或 `/adm` 接口返回的 ID，而不是默认假设数据库自增主键。
+- `testing/fixtures/three-end-first-batch.example.json` 现在只保留结构占位值，复制成 `.local.json` 并替换为真实 ID 后再跑。
+- `IMBOY_ADMIN_E2E_CHANNEL_ID` 仍可作为频道 ID 的兜底变量，但推荐统一写进场景清单。
 
 ## Architecture Gates / 架构门禁
 

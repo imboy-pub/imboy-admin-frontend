@@ -39,6 +39,8 @@ function renderUserTagManagePage() {
     defaultOptions: {
       queries: {
         retry: false,
+        staleTime: 0,
+        gcTime: 0,
       },
     },
   })
@@ -123,7 +125,10 @@ describe('UserTagManagePage flow', () => {
     }
 
     const user = userEvent.setup()
-    const view = renderUserTagManagePage()
+    let view: ReturnType<typeof renderUserTagManagePage>
+    await act(async () => {
+      view = renderUserTagManagePage()
+    })
 
     await waitFor(() => {
       expect(getCalls.length).toBeGreaterThan(0)
@@ -137,8 +142,10 @@ describe('UserTagManagePage flow', () => {
       keyword: undefined,
     })
 
-    await view.findByText('用户标签治理')
-    await view.findByText('tag-friend-default-1')
+    await waitFor(() => {
+      expect(view.container.textContent).toContain('用户标签治理')
+      expect(view.container.textContent).toContain('tag-friend-default-1')
+    })
 
     const keywordInput = view.getByPlaceholderText('搜索标签名/副标题...') as HTMLInputElement
     await user.clear(keywordInput)
@@ -169,16 +176,26 @@ describe('UserTagManagePage flow', () => {
       ).toBe(true)
     })
 
-    await view.findByText('tag-collect-default-1')
-
-    await act(async () => {
-      fireEvent.click(view.getByTitle('删除标签'))
+    await waitFor(() => {
+      expect(view.container.textContent).toContain('tag-collect-default-1')
     })
 
-    await view.findByText('确认删除标签')
+    await act(async () => {
+      const deleteButtons = view.getAllByTitle('删除标签')
+      fireEvent.click(deleteButtons[deleteButtons.length - 1])
+    })
+
+    await waitFor(() => {
+      expect(document.body.textContent).toContain('确认删除标签')
+    })
 
     await act(async () => {
-      fireEvent.click(view.getByRole('button', { name: '删除' }))
+      const deleteButton = Array.from(view.baseElement.querySelectorAll('button'))
+        .find(btn => btn.textContent === '删除')
+      if (!deleteButton) {
+        throw new Error('删除按钮未找到')
+      }
+      fireEvent.click(deleteButton)
     })
 
     await waitFor(() => {
@@ -221,6 +238,8 @@ describe('UserTagManagePage flow', () => {
       fireEvent.click(view.getByRole('button', { name: '返回用户详情' }))
     })
 
-    await view.findByText('user-detail-route:88')
+    await waitFor(() => {
+      expect(view.container.textContent).toContain('user-detail-route:88')
+    })
   })
 })

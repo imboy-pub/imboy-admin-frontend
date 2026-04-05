@@ -122,7 +122,7 @@ export function TargetReportPanel({
     setRowSelection((prev) => (Object.keys(prev).length === 0 ? prev : {}))
   }, [])
 
-  const { data, isLoading, error, refetch } = useQuery({
+  const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
     queryKey: ['reports', targetType, requestParams],
     queryFn: () => getReportListPayload(targetType, requestParams),
     retry: false,
@@ -557,6 +557,8 @@ export function TargetReportPanel({
             total={data.total}
             onPageChange={handlePageChange}
             onPageSizeChange={handlePageSizeChange}
+            dataUpdatedAt={dataUpdatedAt}
+            onRefresh={() => refetch()}
           />
         )}
       </CardContent>

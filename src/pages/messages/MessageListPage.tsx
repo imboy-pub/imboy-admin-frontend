@@ -98,7 +98,7 @@ export function MessageListPage() {
     }))
   }
 
-  const { data, isLoading, error, refetch } = useQuery({
+  const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
     queryKey: ['messages', params],
     queryFn: () => getMessageListPayload(params),
   })
@@ -445,6 +445,8 @@ export function MessageListPage() {
               total={pagination.total}
               onPageChange={handlePageChange}
               onPageSizeChange={handlePageSizeChange}
+              dataUpdatedAt={dataUpdatedAt}
+              onRefresh={() => refetch()}
             />
           )}
         </CardContent>

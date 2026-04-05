@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ColumnDef, RowSelectionState, getCoreRowModel, useReactTable } from '@tanstack/react-table'
 import { useNavigate } from 'react-router-dom'
-import { Eye, Flag, Search, Trash2 } from 'lucide-react'
+import { Eye, Flag, Search, Trash2, Download } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -25,6 +25,7 @@ import {
   MomentListParams,
 } from '@/modules/moments/api'
 import { formatDate } from '@/lib/utils'
+import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 import { trackUxEvent } from '@/lib/uxTelemetry'
 
 const visibilityLabels: Record<number, string> = {
@@ -52,7 +53,7 @@ export function MomentListPage() {
     momentId: string | number
   } | null>(null)
 
-  const { data, isLoading, error, refetch } = useQuery({
+  const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
     queryKey: ['moments', params],
     queryFn: () => getMomentListPayload(params),
   })
@@ -304,6 +305,28 @@ export function MomentListPage() {
               onKeyDown={(event) => event.key === 'Enter' && handleSearch()}
             />
             <Button onClick={handleSearch}>搜索</Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const csvColumns: CsvColumn<MomentItem>[] = [
+                  { header: '动态ID', accessor: 'id' },
+                  { header: '作者UID', accessor: 'author_uid' },
+                  { header: '内容', accessor: (row) => row.content || '-' },
+                  { header: '可见性', accessor: (row) => visibilityLabels[row.visibility] || String(row.visibility) },
+                  { header: '赞数', accessor: (row) => row.stats?.like_count ?? 0 },
+                  { header: '评论数', accessor: (row) => row.stats?.comment_count ?? 0 },
+                  { header: '状态', accessor: (row) => ({ 1: '正常', 0: '禁用', '-1': '已删除' }[String(row.status)] || String(row.status)) },
+                  { header: '发布时间', accessor: (row) => formatDate(row.created_at) },
+                ]
+                exportCsv(csvColumns, moments, 'moments_export')
+                toast.success(`已导出 ${moments.length} 条动态数据`)
+              }}
+              disabled={moments.length === 0}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              导出 CSV
+            </Button>
             <Button variant="outline" onClick={() => navigate('/moments/reports')}>
               进入举报处理
             </Button>
@@ -347,6 +370,8 @@ export function MomentListPage() {
               total={data.total}
               onPageChange={handlePageChange}
               onPageSizeChange={handlePageSizeChange}
+              dataUpdatedAt={dataUpdatedAt}
+              onRefresh={() => refetch()}
             />
           )}
         </CardContent>

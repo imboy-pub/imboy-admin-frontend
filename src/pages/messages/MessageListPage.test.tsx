@@ -317,7 +317,10 @@ describe('MessageListPage flow', () => {
     mutableClient.get = mockGet
 
     // Now render with mock already in place
-    const view = renderMessageListPage()
+    let view: ReturnType<typeof renderMessageListPage>
+    await act(async () => {
+      view = renderMessageListPage()
+    })
 
     await waitFor(() => {
       expect(getCalls.length).toBeGreaterThan(0)
@@ -327,7 +330,8 @@ describe('MessageListPage flow', () => {
 
     // 点击复制整行JSON按钮
     await act(async () => {
-      fireEvent.click(view.getByTitle('复制整行JSON'))
+      const copyButtons = view.getAllByTitle('复制整行JSON')
+      fireEvent.click(copyButtons[copyButtons.length - 1]) // Use the last button (from current test)
     })
 
     await waitFor(() => {
@@ -396,7 +400,10 @@ describe('MessageListPage flow', () => {
     }
 
     // Now render with all mocks in place
-    const view = renderMessageListPage()
+    let view: ReturnType<typeof renderMessageListPage>
+    await act(async () => {
+      view = renderMessageListPage()
+    })
 
     await waitFor(() => {
       expect(getCalls.length).toBeGreaterThan(0)

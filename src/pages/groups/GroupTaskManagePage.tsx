@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
 import { toast } from 'sonner'
-import { ArrowLeft, CheckCircle2, Eye, RotateCcw, Trash2 } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, Download, Eye, RotateCcw, Trash2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -29,15 +29,9 @@ import {
   reviewGroupTaskAssignment,
   restoreGroupTask,
 } from '@/modules/groups/api'
-import { formatDate } from '@/lib/utils'
+import { formatOptionalDate } from '@/lib/utils'
+import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 import { useAdminPermission } from '@/hooks/useAdminPermission'
-
-function formatDateSafe(value?: string | null): string {
-  if (!value) return '-'
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return value
-  return formatDate(parsed)
-}
 
 export function GroupTaskManagePage() {
   const { id } = useParams<{ id: string }>()
@@ -74,7 +68,7 @@ export function GroupTaskManagePage() {
     roles: [1, 2],
   })
 
-  const { data, isLoading, error, refetch } = useQuery({
+  const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
     queryKey: ['group-tasks', gid, page, size, statusFilter, deletedFilter],
     queryFn: () =>
       getGroupTasksPayload(gid, {
@@ -208,7 +202,7 @@ export function GroupTaskManagePage() {
         header: '截止时间',
         cell: ({ row }) => (
           <span className="text-sm text-muted-foreground">
-            {formatDateSafe(row.original.deadline ?? undefined)}
+            {formatOptionalDate(row.original.deadline ?? undefined)}
           </span>
         ),
       },
@@ -217,7 +211,7 @@ export function GroupTaskManagePage() {
         header: '删除时间',
         cell: ({ row }) => (
           <span className="text-sm text-muted-foreground">
-            {formatDateSafe(row.original.deleted_at ?? undefined)}
+            {formatOptionalDate(row.original.deleted_at ?? undefined)}
           </span>
         ),
       },
@@ -277,6 +271,20 @@ export function GroupTaskManagePage() {
 
   const tasks = data?.items || []
   const pendingAssignments: GroupTaskAssignment[] = pendingReviewData?.items || []
+
+  const handleExportCsv = () => {
+    const csvColumns: CsvColumn<GroupTask>[] = [
+      { header: 'ID', accessor: (row) => String(row.id) },
+      { header: '标题', accessor: (row) => row.title || '-' },
+      { header: '描述', accessor: (row) => (row.description && row.description.length > 200 ? row.description.slice(0, 200) + '...' : (row.description || '-')) },
+      { header: '创建者ID', accessor: (row) => String(row.creator_id ?? '-') },
+      { header: '截止时间', accessor: (row) => formatOptionalDate(row.deadline ?? undefined) },
+      { header: '状态', accessor: (row) => ({ 1: '进行中', 2: '待审核', 3: '已完成' }[row.status] ?? String(row.status)) },
+      { header: '创建时间', accessor: (row) => formatOptionalDate(row.created_at ?? undefined) },
+    ]
+    exportCsv(csvColumns, tasks, 'group_tasks')
+    toast.success(`已导出 ${tasks.length} 条数据`)
+  }
   const table = useReactTable({
     data: tasks,
     columns,
@@ -317,10 +325,16 @@ export function GroupTaskManagePage() {
         title="群任务管理"
         description={`群组 ${gid} 的任务列表与治理操作`}
         actions={(
-          <Button variant="outline" onClick={() => navigate(`/groups/${gid}`)}>
+          <>
+            <Button variant="outline" size="sm" onClick={handleExportCsv} disabled={tasks.length === 0}>
+              <Download className="mr-2 h-4 w-4" />
+              导出 CSV
+            </Button>
+            <Button variant="outline" onClick={() => navigate(`/groups/${gid}`)}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             返回群详情
           </Button>
+          </>
         )}
       />
 
@@ -399,6 +413,8 @@ export function GroupTaskManagePage() {
                 setSize(nextSize)
                 setPage(1)
               }}
+              dataUpdatedAt={dataUpdatedAt}
+              onRefresh={() => refetch()}
             />
           )}
         </CardContent>
@@ -454,7 +470,7 @@ export function GroupTaskManagePage() {
               </div>
               <div>
                 <dt className="text-sm text-muted-foreground">截止时间</dt>
-                <dd>{formatDateSafe(detail.deadline || undefined)}</dd>
+                <dd>{formatOptionalDate(detail.deadline || undefined)}</dd>
               </div>
               <div>
                 <dt className="text-sm text-muted-foreground">创建者</dt>
@@ -462,7 +478,7 @@ export function GroupTaskManagePage() {
               </div>
               <div>
                 <dt className="text-sm text-muted-foreground">创建时间</dt>
-                <dd>{formatDateSafe(detail.created_at || undefined)}</dd>
+                <dd>{formatOptionalDate(detail.created_at || undefined)}</dd>
               </div>
             </dl>
           )}
@@ -502,7 +518,7 @@ export function GroupTaskManagePage() {
                         <div className="space-x-3 text-muted-foreground">
                           <span>分配ID：<span className="font-mono">{String(assignment.id)}</span></span>
                           <span>提交人：<span className="font-mono">{String(assignment.user_id)}</span></span>
-                          <span>提交时间：{formatDateSafe(assignment.submitted_at || undefined)}</span>
+                          <span>提交时间：{formatOptionalDate(assignment.submitted_at || undefined)}</span>
                         </div>
                         {canReviewTask && (
                           <Button

@@ -1,6 +1,12 @@
 import client from './client'
 import { requireApiPayload } from './responseAdapter'
 
+// --- Query Key ---
+
+export function policyQueryKey(type: 'effective' | 'saved' | 'meta' = 'effective') {
+  return ['policy', type] as const
+}
+
 // --- 类型定义 ---
 
 export type FeatureName =
@@ -89,6 +95,32 @@ export type PolicyResponse = {
   }
 }
 
+// --- 默认值 ---
+
+export const DEFAULT_CAPABILITIES: Capabilities = {
+  storage_mode: 'archived',
+  e2ee_mode: 'disabled',
+  message_search: false,
+  message_export: false,
+  audit_mode: 'metadata',
+  retention_policy: { mode: 'rolling_days', days: 365 },
+}
+
+// --- Helper ---
+
+export function buildPolicyConfig(
+  base: PolicyConfig | undefined,
+  updates: Partial<PolicyConfig>,
+): PolicyConfig {
+  return {
+    profile: base?.profile,
+    capabilities: base?.capabilities,
+    features: base?.features,
+    plugins: base?.plugins,
+    ...updates,
+  }
+}
+
 // --- API 调用 ---
 
 export async function getPolicyMeta(): Promise<PolicyMetaResponse> {
@@ -107,11 +139,11 @@ export async function getPolicyEffective(): Promise<PolicyResponse> {
 }
 
 export async function previewPolicyChange(payload: PolicyConfig): Promise<PolicyResponse> {
-  const response = await client.post('/admin/config/policy/preview', payload as unknown as Record<string, unknown>)
+  const response = await client.post('/admin/config/policy/preview', payload)
   return requireApiPayload<PolicyResponse>(response.data, '/admin/config/policy/preview')
 }
 
 export async function savePolicyChange(payload: PolicyConfig): Promise<PolicyConfig> {
-  const response = await client.put('/admin/config/policy', payload as unknown as Record<string, unknown>)
+  const response = await client.put('/admin/config/policy', payload)
   return requireApiPayload<PolicyConfig>(response.data, '/admin/config/policy')
 }

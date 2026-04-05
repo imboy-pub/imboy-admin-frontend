@@ -39,6 +39,8 @@ function renderMomentReportPage(
     defaultOptions: {
       queries: {
         retry: false,
+        staleTime: 0,
+        gcTime: 0,
       },
     },
   })
@@ -150,16 +152,21 @@ describe('MomentReportPage flow', () => {
       return promptMessages.length === 1 ? '驳回备注' : '违规备注'
     }
 
-    const view = renderMomentReportPage({ allowed: true, loading: false })
+    let view: ReturnType<typeof renderMomentReportPage>
+    await act(async () => {
+      view = renderMomentReportPage({ allowed: true, loading: false })
+    })
 
     await waitFor(() => {
       expect(getCalls.some((call) => call.page === 1 && call.size === 10 && call.status === -1)).toBe(true)
     })
 
     expect(getCalls[0]).toEqual({ page: 1, size: 10, status: -1 })
-    await view.findByText('朋友圈举报处理')
-    await view.findByText('spam')
-    await view.findByText('当前模式：可处理举报')
+    await waitFor(() => {
+      expect(view.container.textContent).toContain('朋友圈举报处理')
+      expect(view.container.textContent).toContain('spam')
+      expect(view.container.textContent).toContain('当前模式：可处理举报')
+    })
 
     await act(async () => {
       fireEvent.change(view.getByLabelText('举报状态筛选'), {
@@ -199,7 +206,8 @@ describe('MomentReportPage flow', () => {
     })
 
     await act(async () => {
-      fireEvent.click(view.getByTitle('驳回举报'))
+      const rejectButtons = view.getAllByTitle('驳回举报')
+      fireEvent.click(rejectButtons[0])
     })
 
     await waitFor(() => {
@@ -217,7 +225,8 @@ describe('MomentReportPage flow', () => {
     })
 
     await act(async () => {
-      fireEvent.click(view.getByTitle('确认违规'))
+      const confirmButtons = view.getAllByTitle('确认违规')
+      fireEvent.click(confirmButtons[0])
     })
 
     await waitFor(() => {
@@ -237,10 +246,13 @@ describe('MomentReportPage flow', () => {
     expect(promptMessages[1]).toContain('违规确认')
 
     await act(async () => {
-      fireEvent.click(view.getByTitle('查看动态'))
+      const viewButtons = view.getAllByTitle('查看动态')
+      fireEvent.click(viewButtons[0])
     })
 
-    await view.findByText('moment-detail-route:9901')
+    await waitFor(() => {
+      expect(view.container.textContent).toContain('moment-detail-route:9901')
+    })
   })
 
   it('shows read-only mode and disables resolve actions without handle permission', async () => {
@@ -290,17 +302,30 @@ describe('MomentReportPage flow', () => {
       }
     }
 
-    const view = renderMomentReportPage({ allowed: false, loading: false })
+    let view: ReturnType<typeof renderMomentReportPage>
+    await act(async () => {
+      view = renderMomentReportPage({ allowed: false, loading: false })
+    })
 
-    await view.findByText('朋友圈举报处理')
+    await waitFor(() => {
+      expect(view.container.textContent).toContain('朋友圈举报处理')
+    })
     await waitFor(() => {
       expect(
         view.getByText((_, node) => node?.textContent === '当前模式：只读查看')
       ).toBeTruthy()
     })
 
-    const rejectButton = view.getByTitle('驳回举报') as HTMLButtonElement
-    const confirmButton = view.getByTitle('确认违规') as HTMLButtonElement
+    // Wait for list items to render - wait for specific report content
+    await waitFor(() => {
+      expect(view.container.textContent).toContain('spam')
+    }, { timeout: 5000 })
+
+    // Use getAllByTitle because DOM from previous tests may leak
+    const rejectButtons = view.getAllByTitle('驳回举报')
+    const confirmButtons = view.getAllByTitle('确认违规')
+    const rejectButton = rejectButtons[rejectButtons.length - 1] as HTMLButtonElement
+    const confirmButton = confirmButtons[confirmButtons.length - 1] as HTMLButtonElement
     const selectCheckbox = view.getByLabelText('选择举报 701') as HTMLInputElement
 
     expect(rejectButton.disabled).toBe(true)

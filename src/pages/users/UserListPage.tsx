@@ -4,13 +4,15 @@ import { useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Search, UserX, UserCheck, Eye, Loader2, PanelRightOpen } from 'lucide-react'
+import { Search, UserX, UserCheck, Eye, Loader2, PanelRightOpen, Download, SlidersHorizontal } from 'lucide-react'
 import { toast } from 'sonner'
-import { PageHeader, LoadingState, ErrorState, StatusBadge, DataTable, DataTablePagination, FilterBar, BatchActionBar, EntityDrawer } from '@/components/shared'
+import { PageHeader, LoadingState, ErrorState, StatusBadge, DataTable, DataTablePagination, FilterBar, BatchActionBar, EntityDrawer, ConfirmDialog } from '@/components/shared'
+import { pushNotification } from '@/components/shared/NotificationPanel'
 import { getUserListPayload, getUserDetailPayload, banUser, unbanUser, UserListParams } from '@/modules/identity/api'
 import { User } from '@/types/user'
 import { formatDate } from '@/lib/utils'
-import { ColumnDef, RowSelectionState, useReactTable, getCoreRowModel } from '@tanstack/react-table'
+import { exportCsv, type CsvColumn } from '@/lib/csvExport'
+import { ColumnDef, RowSelectionState, useReactTable, getCoreRowModel, getSortedRowModel, SortingState, VisibilityState } from '@tanstack/react-table'
 import { useListQueryState } from '@/hooks/useListQueryState'
 import { trackUxEvent } from '@/lib/uxTelemetry'
 
@@ -19,6 +21,18 @@ type UserListPageQuery = {
   size: number
   status: number
   keyword: string
+}
+
+const columnLabels: Record<string, string> = {
+  select: '选择',
+  id: 'ID',
+  account: '账号',
+  nickname: '昵称',
+  email: '邮箱',
+  mobile: '手机',
+  status: '状态',
+  created_at: '注册时间',
+  actions: '操作',
 }
 
 export function UserListPage() {
@@ -34,7 +48,16 @@ export function UserListPage() {
   const [searchKeyword, setSearchKeyword] = useState(params.keyword || '')
   const [statusFilter, setStatusFilter] = useState(String(params.status))
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
+  const [sorting, setSorting] = useState<SortingState>([])
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
+  const [showColumnPanel, setShowColumnPanel] = useState(false)
   const [drawerUserId, setDrawerUserId] = useState<string | null>(null)
+  const [confirmAction, setConfirmAction] = useState<{
+    open: boolean
+    type: 'ban' | 'unban'
+    uid: string | number
+    nickname: string
+  } | null>(null)
 
   const requestParams: UserListParams = {
     page: params.page,
@@ -44,7 +67,7 @@ export function UserListPage() {
   }
 
   // 获取用户列表
-  const { data, isLoading, error, refetch } = useQuery({
+  const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
     queryKey: ['users', requestParams],
     queryFn: () => getUserListPayload(requestParams),
   })
@@ -65,6 +88,7 @@ export function UserListPage() {
     mutationFn: banUser,
     onSuccess: () => {
       toast.success('用户已封禁')
+      pushNotification({ type: 'warning', title: '用户封禁', message: `管理员执行了用户封禁操作` })
       queryClient.invalidateQueries({ queryKey: ['users'] })
     },
     onError: (error: Error) => {
@@ -77,6 +101,7 @@ export function UserListPage() {
     mutationFn: unbanUser,
     onSuccess: () => {
       toast.success('用户已解封')
+      pushNotification({ type: 'info', title: '用户解封', message: `管理员执行了用户解封操作` })
       queryClient.invalidateQueries({ queryKey: ['users'] })
     },
     onError: (error: Error) => {
@@ -94,6 +119,7 @@ export function UserListPage() {
 
       if (successCount > 0) {
         toast.success(`批量封禁完成：成功 ${successCount} 个`)
+        pushNotification({ type: 'warning', title: '批量封禁', message: `批量封禁 ${successCount} 个用户账号` })
       }
       if (failedCount > 0) {
         toast.error(`批量封禁失败：${failedCount} 个`)
@@ -117,6 +143,7 @@ export function UserListPage() {
 
       if (successCount > 0) {
         toast.success(`批量解封完成：成功 ${successCount} 个`)
+        pushNotification({ type: 'info', title: '批量解封', message: `批量解封 ${successCount} 个用户账号` })
       }
       if (failedCount > 0) {
         toast.error(`批量解封失败：${failedCount} 个`)
@@ -129,6 +156,21 @@ export function UserListPage() {
       toast.error(`批量解封失败: ${error.message}`)
     },
   })
+
+  // 导出当前列表数据
+  const handleExportCsv = () => {
+    const csvColumns: CsvColumn<User>[] = [
+      { header: 'ID', accessor: 'id' },
+      { header: '账号', accessor: 'account' },
+      { header: '昵称', accessor: 'nickname' },
+      { header: '邮箱', accessor: (row) => row.email || '-' },
+      { header: '手机', accessor: (row) => row.mobile || '-' },
+      { header: '状态', accessor: (row) => ({ 1: '正常', 0: '禁用', '-1': '已删除' }[String(row.status)] || String(row.status)) },
+      { header: '注册时间', accessor: (row) => formatDate(row.created_at) },
+    ]
+    exportCsv(csvColumns, users, 'users_export')
+    toast.success(`已导出 ${users.length} 条用户数据`)
+  }
 
   // 搜索处理
   const handleSearch = () => {
@@ -257,6 +299,7 @@ export function UserListPage() {
     {
       id: 'actions',
       header: '操作',
+      enableHiding: false,
       cell: ({ row }) => (
         <div className="flex items-center gap-1">
           <Button
@@ -288,7 +331,12 @@ export function UserListPage() {
               title="封禁用户"
               onClick={(event) => {
                 event.stopPropagation()
-                banMutation.mutate(row.original.id)
+                setConfirmAction({
+                  open: true,
+                  type: 'ban',
+                  uid: row.original.id,
+                  nickname: row.original.nickname || row.original.account,
+                })
               }}
               disabled={banMutation.isPending}
             >
@@ -305,7 +353,12 @@ export function UserListPage() {
               title="解封用户"
               onClick={(event) => {
                 event.stopPropagation()
-                unbanMutation.mutate(row.original.id)
+                setConfirmAction({
+                  open: true,
+                  type: 'unban',
+                  uid: row.original.id,
+                  nickname: row.original.nickname || row.original.account,
+                })
               }}
               disabled={unbanMutation.isPending}
             >
@@ -329,11 +382,16 @@ export function UserListPage() {
     columns,
     state: {
       rowSelection,
+      sorting,
+      columnVisibility,
     },
     onRowSelectionChange: setRowSelection,
+    onSortingChange: setSorting,
+    onColumnVisibilityChange: setColumnVisibility,
     enableRowSelection: (row) => row.original.status !== -1,
     getRowId: (row) => String(row.id),
     getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
   })
 
   const selectedUsers = table.getSelectedRowModel().rows.map((row) => row.original)
@@ -384,6 +442,45 @@ export function UserListPage() {
               <option value="1">正常</option>
               <option value="0">禁用</option>
             </select>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportCsv}
+              disabled={users.length === 0}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              导出 CSV
+            </Button>
+            <div className="relative">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowColumnPanel((v) => !v)}
+              >
+                <SlidersHorizontal className="mr-2 h-4 w-4" />
+                列显示
+              </Button>
+              {showColumnPanel && (
+                <div className="absolute right-0 top-10 z-20 w-56 rounded-md border bg-background p-3 shadow-lg">
+                  <div className="mb-2 text-xs text-muted-foreground">自定义列表列显示</div>
+                  <div className="space-y-2">
+                    {table.getAllLeafColumns().filter((col) => col.getCanHide()).map((column) => (
+                      <label
+                        key={column.id}
+                        className="flex items-center gap-2 text-sm"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={column.getIsVisible()}
+                          onChange={column.getToggleVisibilityHandler()}
+                        />
+                        <span>{columnLabels[column.id] || column.id}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </FilterBar>
         </CardHeader>
         <CardContent>
@@ -446,6 +543,8 @@ export function UserListPage() {
               total={pagination.total}
               onPageChange={handlePageChange}
               onPageSizeChange={handlePageSizeChange}
+              dataUpdatedAt={dataUpdatedAt}
+              onRefresh={() => refetch()}
             />
           )}
         </CardContent>
@@ -528,6 +627,30 @@ export function UserListPage() {
           </div>
         </div>
       </EntityDrawer>
+
+      {/* 封禁/解封确认弹窗 */}
+      {confirmAction && (
+        <ConfirmDialog
+          open={confirmAction.open}
+          onOpenChange={(open) => setConfirmAction(open ? confirmAction : null)}
+          title={confirmAction.type === 'ban' ? '确认封禁用户' : '确认解封用户'}
+          description={
+            confirmAction.type === 'ban'
+              ? `确定要封禁用户「${confirmAction.nickname}」吗？封禁后该用户将无法登录。`
+              : `确定要解封用户「${confirmAction.nickname}」吗？解封后该用户可正常登录。`
+          }
+          confirmText={confirmAction.type === 'ban' ? '封禁' : '解封'}
+          variant={confirmAction.type === 'ban' ? 'destructive' : 'default'}
+          loading={confirmAction.type === 'ban' ? banMutation.isPending : unbanMutation.isPending}
+          onConfirm={() => {
+            if (confirmAction.type === 'ban') {
+              banMutation.mutate(confirmAction.uid)
+            } else {
+              unbanMutation.mutate(confirmAction.uid)
+            }
+          }}
+        />
+      )}
     </div>
   )
 }

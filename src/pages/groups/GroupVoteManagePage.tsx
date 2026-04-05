@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
 import { toast } from 'sonner'
-import { ArrowLeft, Eye, StopCircle } from 'lucide-react'
+import { ArrowLeft, Download, Eye, StopCircle } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -22,15 +22,9 @@ import {
   getGroupVotesPayload,
   GroupVote,
 } from '@/modules/groups/api'
-import { formatDate } from '@/lib/utils'
+import { formatOptionalDate } from '@/lib/utils'
+import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 import { useAdminPermission } from '@/hooks/useAdminPermission'
-
-function formatDateSafe(value?: string | null): string {
-  if (!value) return '-'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  return formatDate(date)
-}
 
 export function GroupVoteManagePage() {
   const { id } = useParams<{ id: string }>()
@@ -47,7 +41,7 @@ export function GroupVoteManagePage() {
     roles: [1, 2],
   })
 
-  const { data, isLoading, error, refetch } = useQuery({
+  const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
     queryKey: ['group-votes', gid, page, size],
     queryFn: () => getGroupVotesPayload(gid, { page, size }),
     enabled: gid.length > 0,
@@ -112,7 +106,7 @@ export function GroupVoteManagePage() {
         header: '创建时间',
         cell: ({ row }) => (
           <span className="text-sm text-muted-foreground">
-            {formatDateSafe(row.original.created_at)}
+            {formatOptionalDate(row.original.created_at)}
           </span>
         ),
       },
@@ -147,6 +141,21 @@ export function GroupVoteManagePage() {
   )
 
   const votes = data?.items || []
+  const handleExportCsv = () => {
+    const csvColumns: CsvColumn<GroupVote>[] = [
+      { header: 'ID', accessor: 'vote_id' },
+      { header: '标题', accessor: 'title' },
+      { header: '描述', accessor: (row) => row.description || '-' },
+      { header: '创建者ID', accessor: (row) => String(row.creator_id ?? '-') },
+      { header: '投票类型', accessor: (row) => String(row.vote_type ?? '-') },
+      { header: '是否匿名', accessor: (row) => (row.is_anonymous ? '是' : '否') },
+      { header: '状态', accessor: (row) => ({ 1: '进行中', 2: '已结束', 3: '已取消' }[row.status] ?? String(row.status)) },
+      { header: '结束时间', accessor: (row) => formatOptionalDate(row.end_at) },
+      { header: '创建时间', accessor: (row) => formatOptionalDate(row.created_at) },
+    ]
+    exportCsv(csvColumns, votes, 'group_votes')
+    toast.success(`已导出 ${votes.length} 条数据`)
+  }
   const table = useReactTable({
     data: votes,
     columns,
@@ -167,10 +176,16 @@ export function GroupVoteManagePage() {
         title="群投票管理"
         description={`群组 ${gid} 的投票列表与治理操作`}
         actions={(
-          <Button variant="outline" onClick={() => navigate(`/groups/${gid}`)}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            返回群详情
-          </Button>
+          <>
+            <Button variant="outline" size="sm" onClick={handleExportCsv} disabled={votes.length === 0}>
+              <Download className="mr-2 h-4 w-4" />
+              导出 CSV
+            </Button>
+            <Button variant="outline" onClick={() => navigate(`/groups/${gid}`)}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              返回群详情
+            </Button>
+          </>
         )}
       />
 
@@ -194,6 +209,8 @@ export function GroupVoteManagePage() {
                 setSize(nextSize)
                 setPage(1)
               }}
+              dataUpdatedAt={dataUpdatedAt}
+              onRefresh={() => refetch()}
             />
           )}
         </CardContent>
@@ -247,7 +264,7 @@ export function GroupVoteManagePage() {
                 </div>
                 <div>
                   <dt className="text-sm text-muted-foreground">截止时间</dt>
-                  <dd>{formatDateSafe(detail.end_at)}</dd>
+                  <dd>{formatOptionalDate(detail.end_at)}</dd>
                 </div>
               </dl>
 

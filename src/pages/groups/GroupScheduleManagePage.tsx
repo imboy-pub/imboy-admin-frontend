@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
 import { toast } from 'sonner'
-import { ArrowLeft, Eye, RotateCcw, XCircle } from 'lucide-react'
+import { ArrowLeft, Download, Eye, RotateCcw, XCircle } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -24,6 +24,7 @@ import {
   restoreGroupSchedule,
 } from '@/modules/groups/api'
 import { formatDate } from '@/lib/utils'
+import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 import { useAdminPermission } from '@/hooks/useAdminPermission'
 
 function normalizeTimestamp(value?: string | number): string {
@@ -62,7 +63,7 @@ export function GroupScheduleManagePage() {
     roles: [1, 2],
   })
 
-  const { data, isLoading, error, refetch } = useQuery({
+  const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
     queryKey: ['group-schedules', gid, page, size],
     queryFn: () => getGroupSchedulesPayload(gid, { page, size }),
     enabled: gid.length > 0,
@@ -195,6 +196,21 @@ export function GroupScheduleManagePage() {
   )
 
   const schedules = data?.items || []
+  const handleExportCsv = () => {
+    const csvColumns: CsvColumn<GroupSchedule>[] = [
+      { header: 'ID', accessor: 'schedule_id' },
+      { header: '标题', accessor: 'title' },
+      { header: '描述', accessor: (row) => row.description || '-' },
+      { header: '地点', accessor: (row) => row.location || '-' },
+      { header: '创建者ID', accessor: (row) => String(row.creator_id ?? '-') },
+      { header: '开始时间', accessor: (row) => normalizeTimestamp(row.start_at) },
+      { header: '结束时间', accessor: (row) => normalizeTimestamp(row.end_at) },
+      { header: '状态', accessor: (row) => ({ 1: '正常', 4: '已取消' }[row.status] ?? String(row.status)) },
+      { header: '创建时间', accessor: (row) => normalizeTimestamp(row.created_at) },
+    ]
+    exportCsv(csvColumns, schedules, 'group_schedules')
+    toast.success(`已导出 ${schedules.length} 条数据`)
+  }
   const table = useReactTable({
     data: schedules,
     columns,
@@ -215,10 +231,16 @@ export function GroupScheduleManagePage() {
         title="群日程管理"
         description={`群组 ${gid} 的日程列表与参与情况`}
         actions={(
-          <Button variant="outline" onClick={() => navigate(`/groups/${gid}`)}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            返回群详情
-          </Button>
+          <>
+            <Button variant="outline" size="sm" onClick={handleExportCsv} disabled={schedules.length === 0}>
+              <Download className="mr-2 h-4 w-4" />
+              导出 CSV
+            </Button>
+            <Button variant="outline" onClick={() => navigate(`/groups/${gid}`)}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              返回群详情
+            </Button>
+          </>
         )}
       />
 
@@ -242,6 +264,8 @@ export function GroupScheduleManagePage() {
                 setSize(nextSize)
                 setPage(1)
               }}
+              dataUpdatedAt={dataUpdatedAt}
+              onRefresh={() => refetch()}
             />
           )}
         </CardContent>

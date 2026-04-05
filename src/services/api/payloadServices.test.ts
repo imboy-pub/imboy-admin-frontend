@@ -304,7 +304,7 @@ describe('payload-first services', () => {
     expect(payload.id).toBe(8)
   })
 
-  it('getChannelMessagesPayload reads /channel/detail/:id/messages and forwards params', async () => {
+  it('getChannelMessagesPayload reads /channel/:id/messages and forwards params', async () => {
     let capturedUrl = ''
     let capturedParams: Record<string, unknown> | undefined
     mutableClient.get = async (url: string, config: { params?: Record<string, unknown> }) => {
@@ -326,13 +326,13 @@ describe('payload-first services', () => {
     }
 
     const payload = await getChannelMessagesPayload(8, { page: 2, size: 15 })
-    expect(capturedUrl).toBe('/channel/detail/8/messages')
+    expect(capturedUrl).toBe('/channel/8/messages')
     expect(capturedParams).toEqual({ page: 2, size: 15 })
     expect(payload.page).toBe(2)
     expect(payload.items[0]?.id).toBe(101)
   })
 
-  it('pinChannelMessage sends PUT /channel/detail/:id/message/:message_id/pin', async () => {
+  it('pinChannelMessage sends PUT /channel/:id/message/:message_id/pin', async () => {
     let capturedUrl = ''
     let capturedBody: Record<string, unknown> | undefined
     mutableClient.put = async (url: string, body: Record<string, unknown>) => {
@@ -348,12 +348,12 @@ describe('payload-first services', () => {
     }
 
     const response = await pinChannelMessage(8, 101, true)
-    expect(capturedUrl).toBe('/channel/detail/8/message/101/pin')
+    expect(capturedUrl).toBe('/channel/8/message/101/pin')
     expect(capturedBody).toEqual({ pinned: true })
     expect(response.code).toBe(0)
   })
 
-  it('deleteChannelMessage sends DELETE /channel/detail/:id/message/:message_id/delete', async () => {
+  it('deleteChannelMessage sends DELETE /channel/:id/message/:message_id/delete', async () => {
     let capturedUrl = ''
     mutableClient.delete = async (url: string) => {
       capturedUrl = url
@@ -367,7 +367,7 @@ describe('payload-first services', () => {
     }
 
     const response = await deleteChannelMessage(8, 101)
-    expect(capturedUrl).toBe('/channel/detail/8/message/101/delete')
+    expect(capturedUrl).toBe('/channel/8/message/101/delete')
     expect(response.code).toBe(0)
   })
 
