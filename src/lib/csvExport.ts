@@ -18,10 +18,17 @@ export interface CsvColumn<T> {
   accessor: Accessor<T>
 }
 
+/** CSV 公式注入危险前缀 */
+const CSV_FORMULA_PREFIXES = ['=', '+', '-', '@', '\t', '\r']
+
 function resolveValue<T>(row: T, accessor: Accessor<T>): string {
   const raw = typeof accessor === 'function' ? accessor(row) : (row as Record<string, unknown>)[accessor]
   if (raw == null) return ''
-  const str = String(raw)
+  let str = String(raw)
+  // 防止 CSV 公式注入：以危险字符开头的单元格前加单引号
+  if (CSV_FORMULA_PREFIXES.some((p) => str.startsWith(p))) {
+    str = `'${str}`
+  }
   // 包含逗号、双引号、换行符时需要用双引号包裹
   if (str.includes(',') || str.includes('"') || str.includes('\n')) {
     return `"${str.replace(/"/g, '""')}"`

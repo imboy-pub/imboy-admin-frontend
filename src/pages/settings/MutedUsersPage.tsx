@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { PageHeader, ErrorState, LoadingState, ConfirmDialog } from '@/components/shared'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Table,
   TableBody,
@@ -14,6 +15,7 @@ import {
 import {
   listMutedUsers,
   unmuteUser,
+  unmuteUsers,
   mutedUsersQueryKey,
 } from '@/services/api/mutedUsers'
 
@@ -32,6 +34,8 @@ function formatRemaining(seconds: number): string {
 export function MutedUsersPage() {
   const queryClient = useQueryClient()
   const [confirmUid, setConfirmUid] = useState<string | null>(null)
+  const [selectedUids, setSelectedUids] = useState<Set<string>>(new Set())
+  const [showBatchConfirm, setShowBatchConfirm] = useState(false)
 
   const {
     data,
@@ -58,6 +62,38 @@ export function MutedUsersPage() {
     },
   })
 
+  const batchUnmuteMutation = useMutation({
+    mutationFn: unmuteUsers,
+    onSuccess: () => {
+      toast.success(`已解禁 ${selectedUids.size} 个用户`)
+      setSelectedUids(new Set())
+      void queryClient.invalidateQueries({ queryKey: mutedUsersQueryKey() })
+    },
+    onError: (err: Error) => {
+      toast.error(`批量解禁失败: ${err.message}`)
+    },
+    onSettled: () => {
+      setShowBatchConfirm(false)
+    },
+  })
+
+  const toggleSelect = (uid: string) => {
+    setSelectedUids((prev) => {
+      const next = new Set(prev)
+      if (next.has(uid)) next.delete(uid)
+      else next.add(uid)
+      return next
+    })
+  }
+
+  const toggleSelectAll = (list: { uid: string }[]) => {
+    if (selectedUids.size === list.length) {
+      setSelectedUids(new Set())
+    } else {
+      setSelectedUids(new Set(list.map((u) => u.uid)))
+    }
+  }
+
   if (isLoading && !data) {
     return <LoadingState message="加载禁言用户列表..." />
   }
@@ -73,6 +109,17 @@ export function MutedUsersPage() {
       <PageHeader
         title="禁言用户管理"
         description="查看当前被禁言的用户列表，支持手动解禁"
+        actions={
+          selectedUids.size > 0 ? (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => setShowBatchConfirm(true)}
+            >
+              批量解禁 ({selectedUids.size})
+            </Button>
+          ) : undefined
+        }
       />
 
       {list.length === 0 ? (
@@ -84,6 +131,12 @@ export function MutedUsersPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-[40px]">
+                  <Checkbox
+                    checked={list.length > 0 && selectedUids.size === list.length}
+                    onCheckedChange={() => toggleSelectAll(list)}
+                  />
+                </TableHead>
                 <TableHead>用户 ID</TableHead>
                 <TableHead>禁言到期时间</TableHead>
                 <TableHead>剩余时间</TableHead>
@@ -93,6 +146,12 @@ export function MutedUsersPage() {
             <TableBody>
               {list.map((user) => (
                 <TableRow key={user.uid}>
+                  <TableCell>
+                    <Checkbox
+                      checked={selectedUids.has(user.uid)}
+                      onCheckedChange={() => toggleSelect(user.uid)}
+                    />
+                  </TableCell>
                   <TableCell className="font-mono text-sm">{user.uid}</TableCell>
                   <TableCell>
                     {new Date(user.mute_until * 1000).toLocaleString('zh-CN')}
@@ -129,6 +188,17 @@ export function MutedUsersPage() {
         }}
         variant="destructive"
         loading={unmuteMutation.isPending}
+      />
+
+      <ConfirmDialog
+        open={showBatchConfirm}
+        onOpenChange={setShowBatchConfirm}
+        title="批量解禁"
+        description={`确定要解除 ${selectedUids.size} 个用户的禁言吗？`}
+        confirmText={`解禁 ${selectedUids.size} 个用户`}
+        onConfirm={() => batchUnmuteMutation.mutateAsync([...selectedUids])}
+        variant="destructive"
+        loading={batchUnmuteMutation.isPending}
       />
     </div>
   )

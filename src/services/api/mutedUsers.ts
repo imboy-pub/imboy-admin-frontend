@@ -24,3 +24,8 @@ export async function unmuteUser(uid: string): Promise<void> {
   const res = await client.post('/admin/muted_users/unmute', { uid })
   requireApiPayload(res.data, 'muted_users/unmute')
 }
+
+export async function unmuteUsers(uids: string[]): Promise<void> {
+  const res = await client.post('/admin/muted_users/unmute_batch', { uids })
+  requireApiPayload(res.data, 'muted_users/unmute_batch')
+}

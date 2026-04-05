@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Smartphone, Monitor, Tablet } from 'lucide-react'
 import { PageHeader, ErrorState, LoadingState, DataTablePagination } from '@/components/shared'
 import { Button } from '@/components/ui/button'
 import {
@@ -13,10 +13,52 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { listPushTokens, pushTokenQueryKey } from '@/services/api/pushToken'
+import type { PushToken } from '@/services/api/pushToken'
 
 function truncateToken(token: string, maxLen = 20): string {
   if (token.length <= maxLen) return token
   return `${token.slice(0, maxLen)}...`
+}
+
+/** 统计卡片组件 */
+function StatsCard({ title, value, icon, description }: {
+  title: string
+  value: number | string
+  icon: React.ReactNode
+  description?: string
+}) {
+  return (
+    <div className="rounded-lg border bg-card p-4 shadow-sm">
+      <div className="flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10 text-primary">
+          {icon}
+        </div>
+        <div>
+          <p className="text-sm text-muted-foreground">{title}</p>
+          <p className="text-2xl font-semibold">{value}</p>
+          {description && <p className="text-xs text-muted-foreground">{description}</p>}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/** 从列表数据计算统计信息 */
+function useTokenStats(list: PushToken[], total: number) {
+  return useMemo(() => {
+    const platforms = new Map<string, number>()
+    for (const item of list) {
+      const p = item.platform || 'unknown'
+      platforms.set(p, (platforms.get(p) ?? 0) + 1)
+    }
+    return {
+      total,
+      android: platforms.get('android') ?? 0,
+      ios: platforms.get('ios') ?? 0,
+      other: total - (platforms.get('android') ?? 0) - (platforms.get('ios') ?? 0),
+      platformEntries: [...platforms.entries()].sort((a, b) => b[1] - a[1]),
+    }
+  }, [list, total])
 }
 
 export function PushTokenListPage() {
@@ -35,6 +77,10 @@ export function PushTokenListPage() {
     queryFn: () => listPushTokens(page, size),
   })
 
+  const list = data?.list ?? []
+  const total = data?.total ?? 0
+  const stats = useTokenStats(list, total)
+
   if (isLoading && !data) {
     return <LoadingState message="加载推送 Token 列表..." />
   }
@@ -42,9 +88,6 @@ export function PushTokenListPage() {
   if (error) {
     return <ErrorState message={error.message} onRetry={() => void refetch()} />
   }
-
-  const list = data?.list ?? []
-  const total = data?.total ?? 0
 
   return (
     <div className="space-y-6">
@@ -58,6 +101,34 @@ export function PushTokenListPage() {
           </Button>
         }
       />
+
+      {/* 统计卡片 */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatsCard
+          title="Token 总数"
+          value={stats.total}
+          icon={<Monitor className="h-5 w-5" />}
+          description="所有已注册设备"
+        />
+        <StatsCard
+          title="Android"
+          value={stats.android}
+          icon={<Smartphone className="h-5 w-5" />}
+          description="FCM 推送"
+        />
+        <StatsCard
+          title="iOS"
+          value={stats.ios}
+          icon={<Tablet className="h-5 w-5" />}
+          description="APNs 推送"
+        />
+        <StatsCard
+          title="其他平台"
+          value={stats.other}
+          icon={<Monitor className="h-5 w-5" />}
+          description="其他推送渠道"
+        />
+      </div>
 
       <div className="rounded-md border">
         <Table>
@@ -76,7 +147,17 @@ export function PushTokenListPage() {
                 <TableRow key={`${item.user_id}-${item.device_id}`}>
                   <TableCell className="font-mono text-sm">{item.user_id}</TableCell>
                   <TableCell>{item.device_type}</TableCell>
-                  <TableCell>{item.platform}</TableCell>
+                  <TableCell>
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                      item.platform === 'android'
+                        ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                        : item.platform === 'ios'
+                          ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                          : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400'
+                    }`}>
+                      {item.platform}
+                    </span>
+                  </TableCell>
                   <TableCell className="font-mono text-sm" title={item.token}>
                     {truncateToken(item.token)}
                   </TableCell>
