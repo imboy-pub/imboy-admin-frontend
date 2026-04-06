@@ -11,7 +11,7 @@
  *   exportCsv(columns, users, 'users_export')
  */
 
-type Accessor<T> = string | ((row: T) => string | number | null | undefined)
+type Accessor<T> = string | ((_row: T) => string | number | null | undefined)
 
 export interface CsvColumn<T> {
   header: string

@@ -27,7 +27,7 @@ type TimeRange = 7 | 30
 const pieLabel = ({ name, percent }: { name?: string; percent?: number }) =>
   `${name ?? ''} ${((percent ?? 0) * 100).toFixed(0)}%`
 
-function RankingCard({ title, items, getLabel }: { title: string; items: RankingItem[]; getLabel: (item: RankingItem) => string }) {
+function RankingCard({ title, items, getLabel }: { title: string; items: RankingItem[]; getLabel: (_item: RankingItem) => string }) {
   return (
     <Card>
       <CardHeader>

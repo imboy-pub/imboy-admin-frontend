@@ -83,13 +83,11 @@ export function AnnouncementListPage() {
     queryClient.invalidateQueries({ queryKey: ['announcements'] })
   }, [queryClient])
 
-  if (isLoading) return <LoadingState message="加载公告列表..." />
-  if (error) return <ErrorState message="加载公告列表失败" onRetry={() => refetch()} />
-
   const items: Announcement[] = data?.items ?? []
   const totalPages = data?.total_pages ?? 1
 
   const handleExportCsv = useCallback(() => {
+    const currentItems: Announcement[] = data?.items ?? []
     const columns = [
       { header: 'ID', accessor: (row: Announcement) => String(row.id) },
       { header: '标题', accessor: (row: Announcement) => row.title },
@@ -98,9 +96,12 @@ export function AnnouncementListPage() {
       { header: '置顶', accessor: (row: Announcement) => row.pinned === 1 ? '是' : '否' },
       { header: '创建时间', accessor: (row: Announcement) => row.created_at || '-' },
     ]
-    exportCsv(columns, items, 'announcements_export')
-    toast.success(`已导出 ${items.length} 条公告数据`)
-  }, [items])
+    exportCsv(columns, currentItems, 'announcements_export')
+    toast.success(`已导出 ${currentItems.length} 条公告数据`)
+  }, [data])
+
+  if (isLoading) return <LoadingState message="加载公告列表..." />
+  if (error) return <ErrorState message="加载公告列表失败" onRetry={() => refetch()} />
 
   return (
     <div className="space-y-6">

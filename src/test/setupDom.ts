@@ -38,7 +38,7 @@ if (typeof elementProto.detachEvent !== 'function') {
 
 // Add global DOM cleanup between tests to prevent "Found multiple elements" errors
 // This is necessary because Bun runs test files in parallel and DOM state can leak
-const { beforeEach, afterEach } = require('bun:test')
+import { beforeEach, afterEach } from 'bun:test'
 
 beforeEach(() => {
   // Reset document body to a clean state before each test

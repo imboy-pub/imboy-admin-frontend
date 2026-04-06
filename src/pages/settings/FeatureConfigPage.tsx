@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -60,7 +60,10 @@ export function FeatureConfigPage() {
     queryFn: () => getPolicyEffective(),
   })
 
-  const effectiveFeatures: FeatureFlags = policyData?.effective?.features ?? {}
+  const effectiveFeatures: FeatureFlags = useMemo(
+    () => policyData?.effective?.features ?? {},
+    [policyData]
+  )
   const displayFeatures = pendingFeatures ?? effectiveFeatures
   const hasChanges = pendingFeatures !== null
 

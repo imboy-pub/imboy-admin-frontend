@@ -8,9 +8,9 @@ import { ThemeToggle } from '@/components/shared/ThemeToggle'
 import { NotificationPanel } from '@/components/shared/NotificationPanel'
 import { AdminProfilePanel } from '@/components/shared/AdminProfilePanel'
 import { useSidebarMobile } from './AdminLayout'
-import { searchUsersPayload } from '@/modules/identity/api/users'
-import { searchGroupsPayload } from '@/modules/groups/api/public'
-import { searchChannelsPayload } from '@/modules/channels/api/public'
+import { searchUsersPayload } from '@/modules/identity'
+import { searchGroupsPayload } from '@/modules/groups'
+import { searchChannelsPayload } from '@/modules/channels'
 
 type CommandItem = {
   key: string

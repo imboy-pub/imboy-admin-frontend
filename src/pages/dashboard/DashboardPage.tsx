@@ -99,10 +99,9 @@ function QuickActionCard({ title, description, path, icon: Icon }: {
 }
 
 function RecentActivityCard() {
-  const [notifications, setNotifications] = useState<AdminNotification[]>([])
+  const [notifications, setNotifications] = useState<AdminNotification[]>(() => loadNotifications().slice(0, 8))
 
   useEffect(() => {
-    setNotifications(loadNotifications().slice(0, 8))
     const handler = () => setNotifications(loadNotifications().slice(0, 8))
     window.addEventListener('admin-notifications-changed', handler)
     return () => window.removeEventListener('admin-notifications-changed', handler)

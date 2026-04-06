@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useEffect } from 'react'
+import { createContext, useContext, useState, useCallback } from 'react'
 import { Outlet, Navigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { Sidebar } from './Sidebar'
@@ -17,16 +17,26 @@ export function useSidebarMobile() {
 
 export function AdminLayout() {
   const { isAuthenticated } = useAuthStore()
-  const [mobileOpen, setMobileOpen] = useState(false)
   const location = useLocation()
 
-  const toggleMobile = useCallback(() => setMobileOpen((v) => !v), [])
-  const closeMobile = useCallback(() => setMobileOpen(false), [])
+  // 将 mobileOpen 与打开时的 pathname 一起存储，路由切换时自动关闭侧边栏
+  const [sidebarState, setSidebarState] = useState<{ open: boolean; openedAt: string }>({
+    open: false,
+    openedAt: location.pathname,
+  })
 
-  // 路由变化时关闭移动端侧边栏
-  useEffect(() => {
-    setMobileOpen(false)
+  const mobileOpen = sidebarState.open && sidebarState.openedAt === location.pathname
+
+  const toggleMobile = useCallback(() => {
+    setSidebarState((prev) => ({
+      open: !(prev.open && prev.openedAt === location.pathname),
+      openedAt: location.pathname,
+    }))
   }, [location.pathname])
+
+  const closeMobile = useCallback(() => {
+    setSidebarState((prev) => ({ ...prev, open: false }))
+  }, [])
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />

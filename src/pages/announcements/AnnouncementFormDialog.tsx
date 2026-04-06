@@ -32,7 +32,7 @@ const TYPE_OPTIONS: { value: AnnouncementType; label: string; description: strin
 type Props = {
   item: Announcement | null
   open: boolean
-  onOpenChange: (open: boolean) => void
+  onOpenChange: (_open: boolean) => void
   onSuccess: () => void
 }
 

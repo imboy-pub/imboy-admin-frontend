@@ -43,3 +43,17 @@ export function truncate(str: string, length: number): string {
 export function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
+
+/** 从 API 错误对象中提取可读的错误消息 */
+export function getErrorMessage(err: unknown): string {
+  if (typeof err === 'object' && err !== null) {
+    // API 错误格式: { msg: string }
+    if ('msg' in err && typeof (err as { msg: unknown }).msg === 'string') {
+      return (err as { msg: string }).msg
+    }
+    // 标准 Error
+    if (err instanceof Error) return err.message
+  }
+  if (typeof err === 'string') return err
+  return '未知错误'
+}

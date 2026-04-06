@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -60,7 +60,10 @@ export function CapabilityConfigPage() {
     queryFn: () => getPolicyEffective(),
   })
 
-  const effectiveCapabilities: Capabilities = policyData?.effective?.capabilities ?? {}
+  const effectiveCapabilities: Capabilities = useMemo(
+    () => policyData?.effective?.capabilities ?? {},
+    [policyData]
+  )
   const displayCapabilities = pendingCapabilities ?? effectiveCapabilities
   const hasChanges = pendingCapabilities !== null
 
@@ -251,7 +254,7 @@ function OptionGroup<T extends string>({
   label: string
   options: SelectOption<T>[]
   value: T
-  onChange: (value: T) => void
+  onChange: (_value: T) => void
 }) {
   return (
     <div className="space-y-2">

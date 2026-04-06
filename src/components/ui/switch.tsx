@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils'
 export interface SwitchProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'onChange'> {
   checked?: boolean
   defaultChecked?: boolean
-  onCheckedChange?(checked: boolean): void
+  onCheckedChange?(_checked: boolean): void
   disabled?: boolean
 }
 

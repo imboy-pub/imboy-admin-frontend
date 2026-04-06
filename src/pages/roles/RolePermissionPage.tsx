@@ -261,7 +261,7 @@ export function RolePermissionPage() {
       return normalizeRoleIds(currentRbac.role_ids)
     }
     return normalizeRoleIds((currentAdmin as { role_id?: unknown } | undefined)?.role_id)
-  }, [currentRbac?.role_ids, currentAdmin])
+  }, [currentRbac, currentAdmin])
 
   const draftPermissions = useMemo(() => {
     if (!selectedRole) return []
