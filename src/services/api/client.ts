@@ -87,24 +87,3 @@ client.interceptors.response.use(
 )
 
 export default client
-
-// 通用请求方法
-export async function apiGet<T>(url: string, params?: Record<string, unknown>): Promise<ApiResponse<T>> {
-  const response = await client.get<ApiResponse<T>>(url, { params })
-  return response.data
-}
-
-export async function apiPost<T>(url: string, data?: Record<string, unknown>): Promise<ApiResponse<T>> {
-  const response = await client.post<ApiResponse<T>>(url, data)
-  return response.data
-}
-
-export async function apiPut<T>(url: string, data?: Record<string, unknown>): Promise<ApiResponse<T>> {
-  const response = await client.put<ApiResponse<T>>(url, data)
-  return response.data
-}
-
-export async function apiDelete<T>(url: string): Promise<ApiResponse<T>> {
-  const response = await client.delete<ApiResponse<T>>(url)
-  return response.data
-}

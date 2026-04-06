@@ -23,37 +23,8 @@ export function formatDate(date: Date | string | number): string {
   })
 }
 
-export function formatNumber(num: number): string {
-  return new Intl.NumberFormat('zh-CN').format(num)
-}
-
-export function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 B'
-  const k = 1024
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`
-}
-
 export function truncate(str: string, length: number): string {
   if (str.length <= length) return str
   return str.slice(0, length) + '...'
 }
 
-export function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms))
-}
-
-/** 从 API 错误对象中提取可读的错误消息 */
-export function getErrorMessage(err: unknown): string {
-  if (typeof err === 'object' && err !== null) {
-    // API 错误格式: { msg: string }
-    if ('msg' in err && typeof (err as { msg: unknown }).msg === 'string') {
-      return (err as { msg: string }).msg
-    }
-    // 标准 Error
-    if (err instanceof Error) return err.message
-  }
-  if (typeof err === 'string') return err
-  return '未知错误'
-}

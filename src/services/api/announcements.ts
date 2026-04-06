@@ -19,7 +19,7 @@ export type Announcement = {
   updated_at: string | null
 }
 
-export type AnnouncementListParams = {
+type AnnouncementListParams = {
   page?: number
   size?: number
   status?: number

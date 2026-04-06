@@ -2,7 +2,7 @@ import client from './client'
 import { requireApiPayload } from './responseAdapter'
 import type { PaginatedResponse } from '@/types/api'
 
-export type StorageStats = {
+type StorageStats = {
   total_files: number
   total_size: number
   image_count: number

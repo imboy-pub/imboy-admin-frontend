@@ -79,7 +79,7 @@ function is404Error(error: unknown): boolean {
   return false
 }
 
-export async function getMyRbacProfile(): Promise<ApiResponse<RbacProfile>> {
+async function getMyRbacProfile(): Promise<ApiResponse<RbacProfile>> {
   const requestConfig: AuthAwareRequestConfig = {
     [SKIP_AUTH_EXPIRED_EVENT_FLAG]: true,
   }

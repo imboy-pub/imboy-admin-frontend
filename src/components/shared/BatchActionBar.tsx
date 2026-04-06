@@ -17,13 +17,13 @@ import { getMyRbacProfilePayload } from '@/services/api/rbac'
 import { useAuthStore } from '@/stores/authStore'
 import { trackUxEvent } from '@/lib/uxTelemetry'
 
-export type BatchActionRiskLevel = 'low' | 'medium' | 'high'
+type BatchActionRiskLevel = 'low' | 'medium' | 'high'
 
-export type BatchActionExecuteContext = {
+type BatchActionExecuteContext = {
   reason?: string
 }
 
-export type BatchActionItem = {
+type BatchActionItem = {
   key: string
   label: string
   description?: string

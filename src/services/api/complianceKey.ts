@@ -18,16 +18,16 @@ export interface ComplianceKey {
   revoked_at?: string | null
 }
 
-export interface ComplianceKeyListResponse {
+interface ComplianceKeyListResponse {
   list: ComplianceKey[]
 }
 
-export interface ComplianceKeyCreateParams {
+interface ComplianceKeyCreateParams {
   public_key: string
   private_key_encrypted: string
 }
 
-export interface ComplianceKeyCreateResponse {
+interface ComplianceKeyCreateResponse {
   key_id: string
 }
 

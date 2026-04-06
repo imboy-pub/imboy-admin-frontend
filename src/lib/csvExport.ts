@@ -36,7 +36,7 @@ function resolveValue<T>(row: T, accessor: Accessor<T>): string {
   return str
 }
 
-export function generateCsv<T>(columns: CsvColumn<T>[], rows: T[]): string {
+function generateCsv<T>(columns: CsvColumn<T>[], rows: T[]): string {
   const headerLine = columns.map((col) => `"${col.header}"`).join(',')
   const dataLines = rows.map((row) =>
     columns.map((col) => resolveValue(row, col.accessor)).join(',')
@@ -44,7 +44,7 @@ export function generateCsv<T>(columns: CsvColumn<T>[], rows: T[]): string {
   return [headerLine, ...dataLines].join('\n')
 }
 
-export function downloadBlob(content: string, filename: string, mimeType = 'text/csv;charset=utf-8'): void {
+function downloadBlob(content: string, filename: string, mimeType = 'text/csv;charset=utf-8'): void {
   const bom = '\uFEFF' // UTF-8 BOM，确保 Excel 正确识别中文
   const blob = new Blob([bom + content], { type: mimeType })
   const url = URL.createObjectURL(blob)

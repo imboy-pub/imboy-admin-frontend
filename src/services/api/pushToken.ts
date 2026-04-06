@@ -11,7 +11,7 @@ export interface PushToken {
   updated_at: string
 }
 
-export interface PushTokenListResponse {
+interface PushTokenListResponse {
   list: PushToken[]
   total: number
   page: number

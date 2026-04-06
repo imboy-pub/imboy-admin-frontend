@@ -1,6 +1,6 @@
-export type FeedbackWorkflowConfigSource = 'backend' | 'local' | 'default'
+type FeedbackWorkflowConfigSource = 'backend' | 'local' | 'default'
 
-export type FeedbackWorkflowConfig = {
+type FeedbackWorkflowConfig = {
   replyTemplates: string[]
   slaHours: number
   source: FeedbackWorkflowConfigSource
@@ -11,7 +11,7 @@ export type FeedbackWorkflowEditableConfig = {
   slaHours: number
 }
 
-export type FeedbackWorkflowSaveResult = {
+type FeedbackWorkflowSaveResult = {
   source: 'backend' | 'local'
   config: FeedbackWorkflowEditableConfig
 }
@@ -210,7 +210,7 @@ export function getDefaultFeedbackWorkflowEditableConfig(): FeedbackWorkflowEdit
   }
 }
 
-export function readFeedbackWorkflowLocalConfig(): FeedbackWorkflowEditableConfig | null {
+function readFeedbackWorkflowLocalConfig(): FeedbackWorkflowEditableConfig | null {
   if (typeof window === 'undefined') {
     return null
   }
@@ -225,7 +225,7 @@ export function readFeedbackWorkflowLocalConfig(): FeedbackWorkflowEditableConfi
   }
 }
 
-export function saveFeedbackWorkflowLocalConfig(
+function saveFeedbackWorkflowLocalConfig(
   next: Partial<FeedbackWorkflowEditableConfig>
 ): FeedbackWorkflowEditableConfig {
   const fallback = readFeedbackWorkflowLocalConfig() || getDefaultFeedbackWorkflowEditableConfig()

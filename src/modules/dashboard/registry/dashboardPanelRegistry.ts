@@ -1,6 +1,6 @@
 import type { DashboardPanelExtension } from '@/modules/dashboard/contracts/dashboardPanelExtension'
 
-export class DashboardPanelRegistry {
+class DashboardPanelRegistry {
   private readonly panels = new Map<string, DashboardPanelExtension>()
 
   register(panel: DashboardPanelExtension) {

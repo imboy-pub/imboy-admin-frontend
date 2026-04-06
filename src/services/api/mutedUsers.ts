@@ -1,13 +1,13 @@
 import client from './client'
 import { requireApiPayload } from './responseAdapter'
 
-export interface MutedUser {
+interface MutedUser {
   uid: string
   mute_until: number
   remaining_seconds: number
 }
 
-export interface MutedUserListResponse {
+interface MutedUserListResponse {
   list: MutedUser[]
 }
 

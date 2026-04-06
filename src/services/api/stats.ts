@@ -19,28 +19,25 @@ export interface DailyCount {
   count: number
 }
 
-export interface UserStats {
+interface UserStats {
   daily_new: DailyCount[]
   active_users: number
   banned_users: number
   deleted_users: number
 }
 
-export interface MessageStats {
+interface MessageStats {
   daily_c2c: DailyCount[]
   daily_c2g: DailyCount[]
 }
 
-export interface GroupStats {
+interface GroupStats {
   daily_new: DailyCount[]
   public_groups: number
   private_groups: number
 }
 
-/**
- * @deprecated Prefer `getOverviewStatsPayload` to consume typed payload directly.
- */
-export async function getOverviewStats(): Promise<ApiResponse<OverviewStats>> {
+async function getOverviewStats(): Promise<ApiResponse<OverviewStats>> {
   const response = await client.get('/stats/overview')
   return response.data
 }
@@ -49,10 +46,7 @@ export async function getOverviewStatsPayload(): Promise<OverviewStats> {
   return requireApiPayload(await getOverviewStats(), '/stats/overview')
 }
 
-/**
- * @deprecated Prefer `getUserStatsPayload` to consume typed payload directly.
- */
-export async function getUserStats(days = 7): Promise<ApiResponse<UserStats>> {
+async function getUserStats(days = 7): Promise<ApiResponse<UserStats>> {
   const response = await client.get('/stats/user', { params: { days } })
   return response.data
 }
@@ -61,10 +55,7 @@ export async function getUserStatsPayload(days = 7): Promise<UserStats> {
   return requireApiPayload(await getUserStats(days), '/stats/user')
 }
 
-/**
- * @deprecated Prefer `getMessageStatsPayload` to consume typed payload directly.
- */
-export async function getMessageStats(days = 7): Promise<ApiResponse<MessageStats>> {
+async function getMessageStats(days = 7): Promise<ApiResponse<MessageStats>> {
   const response = await client.get('/stats/message', { params: { days } })
   return response.data
 }
@@ -73,10 +64,7 @@ export async function getMessageStatsPayload(days = 7): Promise<MessageStats> {
   return requireApiPayload(await getMessageStats(days), '/stats/message')
 }
 
-/**
- * @deprecated Prefer `getGroupStatsPayload` to consume typed payload directly.
- */
-export async function getGroupStats(days = 7): Promise<ApiResponse<GroupStats>> {
+async function getGroupStats(days = 7): Promise<ApiResponse<GroupStats>> {
   const response = await client.get('/stats/group', { params: { days } })
   return response.data
 }
@@ -94,11 +82,11 @@ export interface RankingItem {
   metric: number
 }
 
-export interface RankingStats {
+interface RankingStats {
   list: RankingItem[]
 }
 
-export async function getRankingStats(
+async function getRankingStats(
   type = 'user',
   metric = 'message',
   limit = 10,

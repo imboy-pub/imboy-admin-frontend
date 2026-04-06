@@ -30,12 +30,12 @@ export interface CreateAdminInput {
   status?: number
 }
 
-export interface AssignAdminRoleInput {
+interface AssignAdminRoleInput {
   admin_id: IdLike
   role_id: number
 }
 
-export interface AdminListPayload extends PaginatedResponse<Admin> {
+interface AdminListPayload extends PaginatedResponse<Admin> {
   source: 'list' | 'current'
 }
 
@@ -80,7 +80,7 @@ function toErrorMessage(error: unknown): string {
   return String(error)
 }
 
-export function isAdminRbacEndpointUnavailable(error: unknown): boolean {
+function isAdminRbacEndpointUnavailable(error: unknown): boolean {
   const code = toErrorCode(error)
   if (code === 404 || code === 405 || code === 501) {
     return true
@@ -253,7 +253,7 @@ async function putOrPostToCandidates(
   throw lastError
 }
 
-export async function getAdminList(
+async function getAdminList(
   params: AdminListParams = { page: 1, size: 10, status: -1 }
 ): Promise<ApiResponse<unknown>> {
   return getFromCandidates(ADMIN_LIST_ENDPOINTS, params as Record<string, unknown>)

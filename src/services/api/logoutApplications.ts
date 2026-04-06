@@ -5,10 +5,7 @@ import { requireApiPayload } from './responseAdapter'
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/adm'
 
-/**
- * @deprecated Prefer `getLogoutApplicationListPayload` to consume typed payload directly.
- */
-export async function getLogoutApplicationList(
+async function getLogoutApplicationList(
   params: LogoutApplicationListParams
 ): Promise<ApiResponse<PaginatedResponse<LogoutApplication>>> {
   const response = await client.get('/user/logout_apply/list', { params })
@@ -19,6 +16,11 @@ export async function getLogoutApplicationListPayload(
   params: LogoutApplicationListParams
 ): Promise<PaginatedResponse<LogoutApplication>> {
   return requireApiPayload(await getLogoutApplicationList(params), '/user/logout_apply/list')
+}
+
+export async function rejectLogoutApplication(uid: string, reason?: string): Promise<ApiResponse<{ uid: string; status: string }>> {
+  const response = await client.post('/user/logout_apply/reject', { uid, reason: reason || '' })
+  return response.data
 }
 
 export async function exportLogoutApplicationCsvBlob(params: LogoutApplicationListParams): Promise<Blob> {

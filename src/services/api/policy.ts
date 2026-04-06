@@ -123,16 +123,6 @@ export function buildPolicyConfig(
 
 // --- API 调用 ---
 
-export async function getPolicyMeta(): Promise<PolicyMetaResponse> {
-  const response = await client.get('/admin/config/policy/meta')
-  return requireApiPayload<PolicyMetaResponse>(response.data, '/admin/config/policy/meta')
-}
-
-export async function getPolicySaved(): Promise<PolicyConfig> {
-  const response = await client.get('/admin/config/policy/saved')
-  return requireApiPayload<PolicyConfig>(response.data, '/admin/config/policy/saved')
-}
-
 export async function getPolicyEffective(): Promise<PolicyResponse> {
   const response = await client.get('/admin/config/policy')
   return requireApiPayload<PolicyResponse>(response.data, '/admin/config/policy')

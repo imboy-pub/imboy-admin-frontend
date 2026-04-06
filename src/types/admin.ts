@@ -12,12 +12,3 @@ export interface Admin {
   status: number
   created_at: string
 }
-
-export interface Role {
-  id: number
-  name: string
-  description?: string
-  permissions: string[]
-  status: number
-  created_at: string
-}
