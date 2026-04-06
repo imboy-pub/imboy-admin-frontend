@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
-import { ArrowLeft, ShieldCheck, ShieldOff, Plus } from 'lucide-react'
+import { ArrowLeft, ShieldCheck, ShieldOff, Plus, Eye, EyeOff } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -25,6 +25,11 @@ import {
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 
+function isValidPemFormat(value: string): boolean {
+  const trimmed = value.trim()
+  return /^-----BEGIN [A-Z ]+-----/.test(trimmed) && /-----END [A-Z ]+-----\s*$/.test(trimmed)
+}
+
 export function ComplianceKeyPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -32,6 +37,7 @@ export function ComplianceKeyPage() {
   const [publicKey, setPublicKey] = useState('')
   const [privateKeyEncrypted, setPrivateKeyEncrypted] = useState('')
   const [revokeTarget, setRevokeTarget] = useState<string | null>(null)
+  const [showPrivateKey, setShowPrivateKey] = useState(false)
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: complianceKeyQueryKey(),
@@ -47,7 +53,7 @@ export function ComplianceKeyPage() {
       setPublicKey('')
       setPrivateKeyEncrypted('')
     },
-    onError: () => toast.error('创建失败'),
+    onError: (err: Error) => toast.error(`创建失败: ${err.message}`),
   })
 
   const revokeMutation = useMutation({
@@ -57,7 +63,7 @@ export function ComplianceKeyPage() {
       queryClient.invalidateQueries({ queryKey: complianceKeyQueryKey() })
       setRevokeTarget(null)
     },
-    onError: () => toast.error('撤销失败'),
+    onError: (err: Error) => toast.error(`撤销失败: ${err.message}`),
   })
 
   if (isLoading) return <LoadingState />
@@ -148,13 +154,26 @@ export function ComplianceKeyPage() {
               />
             </div>
             <div>
-              <Label>加密后的私钥</Label>
+              <div className="flex items-center justify-between">
+                <Label>加密后的私钥</Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2"
+                  onClick={() => setShowPrivateKey((prev) => !prev)}
+                >
+                  {showPrivateKey ? <EyeOff className="mr-1 h-3.5 w-3.5" /> : <Eye className="mr-1 h-3.5 w-3.5" />}
+                  {showPrivateKey ? '隐藏' : '显示'}
+                </Button>
+              </div>
               <Textarea
                 className="mt-1 font-mono text-xs"
                 rows={6}
                 placeholder="使用管理密码加密后的私钥..."
                 value={privateKeyEncrypted}
                 onChange={(e) => setPrivateKeyEncrypted(e.target.value)}
+                style={showPrivateKey ? undefined : { WebkitTextSecurity: 'disc', textSecurity: 'disc' } as React.CSSProperties}
               />
             </div>
           </div>
@@ -163,13 +182,17 @@ export function ComplianceKeyPage() {
               取消
             </Button>
             <Button
-              disabled={!publicKey.trim() || !privateKeyEncrypted.trim() || createMutation.isPending}
-              onClick={() =>
+              disabled={!publicKey.trim() || !privateKeyEncrypted.trim() || !isValidPemFormat(publicKey) || createMutation.isPending}
+              onClick={() => {
+                if (!isValidPemFormat(publicKey)) {
+                  toast.error('公钥格式不正确，请提供 PEM 格式（以 -----BEGIN 开头，-----END 结尾）')
+                  return
+                }
                 createMutation.mutate({
                   public_key: publicKey.trim(),
                   private_key_encrypted: privateKeyEncrypted.trim(),
                 })
-              }
+              }}
             >
               {createMutation.isPending ? '创建中...' : '创建'}
             </Button>

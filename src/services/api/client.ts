@@ -21,13 +21,30 @@ export function handleUnauthorizedStatus(status?: number) {
   return false
 }
 
-export function toApiError(error: Pick<AxiosError<ApiResponse>, 'response' | 'message'>): ApiError {
-  return {
-    code: error.response?.data?.code || error.response?.status || -1,
-    msg: error.response?.data?.msg || error.message || '网络错误',
+/** HTTP 状态码 → 用户友好提示 */
+function httpStatusMessage(status?: number): string {
+  switch (status) {
+    case 403: return '您无权访问此资源'
+    case 404: return '请求的资源不存在'
+    case 422: return '请求数据验证失败'
+    case 429: return '请求过于频繁，请稍后重试'
+    default:
+      if (status && status >= 500) return '服务器错误，请稍后重试'
+      return '网络错误'
   }
 }
 
+export function toApiError(error: Pick<AxiosError<ApiResponse>, 'response' | 'message'>): ApiError {
+  return {
+    code: error.response?.data?.code || error.response?.status || -1,
+    msg: error.response?.data?.msg || httpStatusMessage(error.response?.status) || error.message || '网络错误',
+  }
+}
+
+// CSRF 防护说明:
+// - 登录请求通过 csrf_token 参数保护 (见 modules/identity/api/auth.ts)
+// - 登录后的 API 请求依赖 Cookie session + 后端 SameSite 策略
+// - 如需增强: 可在请求拦截器中为 POST/PUT/DELETE 添加 X-CSRF-Token header
 const client: AxiosInstance = axios.create({
   baseURL: BASE_URL,
   timeout: 30000,

@@ -21,6 +21,9 @@ type FeedbackWorkflowBackendPayload = {
   sla_hours: number
 }
 
+// NOTE: localStorage is intentionally used here (not sessionStorage) because this config
+// contains only non-sensitive display preferences (reply templates, SLA hours). Persisting
+// across sessions improves UX when the backend is unavailable. No tokens or secrets are stored.
 const FEEDBACK_WORKFLOW_LOCAL_KEY = 'imboy.feedback-workflow-config.v1'
 const DEFAULT_FEEDBACK_WORKFLOW_CONFIG_URL = '/adm/admin/config/feedback-workflow'
 const DEFAULT_FEEDBACK_WORKFLOW_CONFIG_SAVE_URL = '/adm/admin/config/feedback-workflow'

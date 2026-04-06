@@ -158,24 +158,32 @@ export function DashboardPage() {
   const { data: userStats } = useQuery({
     queryKey: ['stats', 'user', 7],
     queryFn: () => getUserStatsPayload(7),
+    staleTime: 60_000,
+    gcTime: 5 * 60_000,
   })
 
   // 获取消息趋势
   const { data: messageStats } = useQuery({
     queryKey: ['stats', 'message', 7],
     queryFn: () => getMessageStatsPayload(7),
+    staleTime: 60_000,
+    gcTime: 5 * 60_000,
   })
 
   // 获取群组趋势
   const { data: groupStats } = useQuery({
     queryKey: ['stats', 'group', 7],
     queryFn: () => getGroupStatsPayload(7),
+    staleTime: 60_000,
+    gcTime: 5 * 60_000,
   })
 
   // 获取消息排行
   const { data: rankingStats } = useQuery({
     queryKey: ['stats', 'ranking', 'user', 'message', 10],
     queryFn: () => getRankingStatsPayload('user', 'message', 10),
+    staleTime: 60_000,
+    gcTime: 5 * 60_000,
   })
 
   if (overviewLoading) {

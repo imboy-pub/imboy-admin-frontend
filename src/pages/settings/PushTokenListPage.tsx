@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Smartphone, Monitor, Tablet } from 'lucide-react'
+import { ArrowLeft, Smartphone, Monitor, Tablet, Search } from 'lucide-react'
 import { PageHeader, ErrorState, LoadingState, DataTablePagination } from '@/components/shared'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import {
   Table,
   TableBody,
@@ -65,6 +66,7 @@ export function PushTokenListPage() {
   const navigate = useNavigate()
   const [page, setPage] = useState(1)
   const [size, setSize] = useState(10)
+  const [searchText, setSearchText] = useState('')
 
   const {
     data,
@@ -77,9 +79,20 @@ export function PushTokenListPage() {
     queryFn: () => listPushTokens(page, size),
   })
 
-  const list = data?.list ?? []
+  const rawList = data?.list ?? []
   const total = data?.total ?? 0
-  const stats = useTokenStats(list, total)
+  const stats = useTokenStats(rawList, total)
+
+  // 客户端搜索过滤（按用户 ID、设备类型、平台）
+  const list = useMemo(() => {
+    if (!searchText.trim()) return rawList
+    const q = searchText.trim().toLowerCase()
+    return rawList.filter((item) =>
+      item.user_id?.toLowerCase().includes(q) ||
+      item.device_type?.toLowerCase().includes(q) ||
+      item.platform?.toLowerCase().includes(q)
+    )
+  }, [rawList, searchText])
 
   if (isLoading && !data) {
     return <LoadingState message="加载推送 Token 列表..." />
@@ -127,6 +140,17 @@ export function PushTokenListPage() {
           value={stats.other}
           icon={<Monitor className="h-5 w-5" />}
           description="其他推送渠道"
+        />
+      </div>
+
+      {/* 搜索过滤 */}
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          placeholder="搜索用户 ID、设备类型、平台..."
+          value={searchText}
+          onChange={(e) => setSearchText(e.target.value)}
+          className="pl-9"
         />
       </div>
 

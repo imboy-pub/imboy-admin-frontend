@@ -189,6 +189,9 @@ async function getFromCandidates(
     } catch (error) {
       lastError = error
       if (isAdminRbacEndpointUnavailable(error)) {
+        if (import.meta.env.DEV) {
+          console.warn(`[admins] GET ${endpoint} unavailable, trying next candidate:`, toErrorMessage(error))
+        }
         continue
       }
       throw error
@@ -211,6 +214,9 @@ async function postToCandidates(
     } catch (error) {
       lastError = error
       if (isAdminRbacEndpointUnavailable(error)) {
+        if (import.meta.env.DEV) {
+          console.warn(`[admins] POST ${endpoint} unavailable, trying next candidate:`, toErrorMessage(error))
+        }
         continue
       }
       throw error
@@ -236,6 +242,9 @@ async function putOrPostToCandidates(
       }
 
       lastError = putError
+      if (import.meta.env.DEV) {
+        console.warn(`[admins] PUT ${endpoint} unavailable, falling back to POST:`, toErrorMessage(putError))
+      }
 
       try {
         const response = await client.post(endpoint, body)
@@ -243,6 +252,9 @@ async function putOrPostToCandidates(
       } catch (postError) {
         lastError = postError
         if (isAdminRbacEndpointUnavailable(postError)) {
+          if (import.meta.env.DEV) {
+            console.warn(`[admins] POST ${endpoint} also unavailable, trying next candidate:`, toErrorMessage(postError))
+          }
           continue
         }
         throw postError

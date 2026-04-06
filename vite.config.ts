@@ -39,7 +39,11 @@ export default defineConfig({
     port: 8082,
     proxy: {
       '^/adm(?=/|$)': {
-        target: 'http://127.0.0.1:9800',
+        target: process.env.VITE_PROXY_TARGET || 'http://127.0.0.1:9800',
+        changeOrigin: true,
+      },
+      '^/metrics$': {
+        target: process.env.VITE_PROXY_TARGET || 'http://127.0.0.1:9800',
         changeOrigin: true,
       },
     },

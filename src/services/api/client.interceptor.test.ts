@@ -72,6 +72,6 @@ describe('toApiError', () => {
       message: '',
     })
     expect(apiError.code).toBe(502)
-    expect(apiError.msg).toBe('网络错误')
+    expect(apiError.msg).toBe('服务器错误，请稍后重试')
   })
 })

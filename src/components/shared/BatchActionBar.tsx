@@ -210,6 +210,10 @@ function BatchActionBarContent({
   const handleConfirm = async () => {
     if (!pendingAction || !canConfirm) return
 
+    // NOTE: Stale data limitation — the selected items may have been modified or deleted
+    // by another admin since they were loaded. The backend should validate item existence
+    // and return appropriate errors for any items that no longer exist. The caller's
+    // onExecute handler is responsible for surfacing those errors (e.g., via toast).
     setSubmitting(true)
     try {
       await pendingAction.onExecute({

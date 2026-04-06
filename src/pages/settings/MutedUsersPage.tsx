@@ -37,19 +37,11 @@ export function MutedUsersPage() {
   const [selectedUids, setSelectedUids] = useState<Set<string>>(new Set())
   const [showBatchConfirm, setShowBatchConfirm] = useState(false)
 
-  const {
-    data,
-    isLoading,
-    error,
-    refetch,
-  } = useQuery({
-    queryKey: mutedUsersQueryKey(),
-    queryFn: listMutedUsers,
-    refetchInterval: 30000,
-  })
-
   const unmuteMutation = useMutation({
     mutationFn: unmuteUser,
+    onMutate: () => {
+      void queryClient.cancelQueries({ queryKey: mutedUsersQueryKey() })
+    },
     onSuccess: () => {
       toast.success('解禁成功')
       void queryClient.invalidateQueries({ queryKey: mutedUsersQueryKey() })
@@ -64,6 +56,9 @@ export function MutedUsersPage() {
 
   const batchUnmuteMutation = useMutation({
     mutationFn: unmuteUsers,
+    onMutate: () => {
+      void queryClient.cancelQueries({ queryKey: mutedUsersQueryKey() })
+    },
     onSuccess: () => {
       toast.success(`已解禁 ${selectedUids.size} 个用户`)
       setSelectedUids(new Set())
@@ -75,6 +70,20 @@ export function MutedUsersPage() {
     onSettled: () => {
       setShowBatchConfirm(false)
     },
+  })
+
+  // 操作进行中时暂停自动刷新，避免竞态
+  const isMutating = unmuteMutation.isPending || batchUnmuteMutation.isPending
+
+  const {
+    data,
+    isLoading,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey: mutedUsersQueryKey(),
+    queryFn: listMutedUsers,
+    refetchInterval: isMutating ? false : 30000,
   })
 
   const toggleSelect = (uid: string) => {
@@ -102,7 +111,13 @@ export function MutedUsersPage() {
     return <ErrorState message={error.message} onRetry={() => void refetch()} />
   }
 
-  const list = data?.list ?? []
+  // TODO: Backend API does not support pagination yet. Apply client-side limit to avoid
+  // rendering performance issues with very large lists. Remove this once the backend
+  // supports page/size parameters in /admin/muted_users/list.
+  const CLIENT_PAGE_LIMIT = 200
+  const fullList = data?.list ?? []
+  const list = fullList.slice(0, CLIENT_PAGE_LIMIT)
+  const isTruncated = fullList.length > CLIENT_PAGE_LIMIT
 
   return (
     <div className="space-y-6">
@@ -121,6 +136,12 @@ export function MutedUsersPage() {
           ) : undefined
         }
       />
+
+      {isTruncated && (
+        <p className="text-sm text-amber-700">
+          当前共 {fullList.length} 个禁言用户，仅展示前 {CLIENT_PAGE_LIMIT} 条。
+        </p>
+      )}
 
       {list.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
