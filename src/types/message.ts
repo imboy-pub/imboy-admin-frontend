@@ -1,12 +1,12 @@
-export type MessageScope = 'c2c' | 'c2g' | 'c2s' | 's2c'
+import type { EntityId } from './common'
 
-type IdLike = string | number
+export type MessageScope = 'c2c' | 'c2g' | 'c2s' | 's2c'
 
 export interface ManagedMessage {
   scope: MessageScope
   msg_id: string
-  from_id: IdLike
-  to_id: IdLike
+  from_id: EntityId
+  to_id: EntityId
   msg_type: string
   action: string
   payload: string
@@ -18,7 +18,7 @@ export interface MessageListParams {
   page?: number
   size?: number
   msg_scope?: MessageScope | 'all'
-  uid?: IdLike
+  uid?: EntityId
   conversation?: string
   from_ts?: string
   to_ts?: string

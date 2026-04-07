@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
-import { Search, Download } from 'lucide-react'
+import { Search, Download, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -16,6 +16,7 @@ import {
 import {
   exportLogoutApplicationCsvBlob,
   getLogoutApplicationListPayload,
+  rejectLogoutApplication,
 } from '@/services/api/logoutApplications'
 import { formatDate, truncate } from '@/lib/utils'
 import { LogoutApplication, LogoutApplicationListParams } from '@/types/logoutApplication'
@@ -56,6 +57,18 @@ export function LogoutApplicationListPage() {
     setParams((prev) => ({ ...prev, page: 1, size }))
   }
 
+  const handleReject = async (uid: string | number) => {
+    if (!window.confirm('确定要驳回此注销申请吗？用户账号将恢复正常状态。')) return
+    try {
+      await rejectLogoutApplication(String(uid))
+      toast.success('已驳回注销申请')
+      refetch()
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '操作失败'
+      toast.error(msg)
+    }
+  }
+
   const handleExportCsv = async () => {
     setIsExporting(true)
     try {
@@ -92,6 +105,17 @@ export function LogoutApplicationListPage() {
       accessorKey: 'nickname',
       header: '昵称',
       cell: ({ row }) => <span>{row.original.nickname || '-'}</span>,
+    },
+    {
+      accessorKey: 'user_status',
+      header: '状态',
+      cell: ({ row }) => {
+        const status = row.original.user_status
+        if (status === 2) return <span className="inline-flex items-center rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">注销中</span>
+        if (status === 1) return <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">已驳回</span>
+        if (status === -1) return <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800">已删除</span>
+        return <span className="text-muted-foreground">-</span>
+      },
     },
     {
       accessorKey: 'app_vsn',
@@ -134,6 +158,24 @@ export function LogoutApplicationListPage() {
           {row.original.body ? truncate(row.original.body, 100) : '-'}
         </span>
       ),
+    },
+    {
+      id: 'actions',
+      header: '操作',
+      cell: ({ row }) => {
+        const status = row.original.user_status
+        if (status !== 2) return <span className="text-muted-foreground text-xs">-</span>
+        return (
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => handleReject(row.original.uid)}
+          >
+            <XCircle className="mr-1 h-3 w-3" />
+            驳回
+          </Button>
+        )
+      },
     },
   ]
 
