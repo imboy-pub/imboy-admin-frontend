@@ -64,6 +64,7 @@ const AdminListPage = lazy(() => import('@/pages/admins/AdminListPage').then((m)
 const MutedUsersPage = lazy(() => import('@/pages/settings/MutedUsersPage').then((m) => ({ default: m.MutedUsersPage })))
 const PushTokenListPage = lazy(() => import('@/pages/settings/PushTokenListPage').then((m) => ({ default: m.PushTokenListPage })))
 const AuditLogPage = lazy(() => import('@/pages/logs/AuditLogPage').then((m) => ({ default: m.AuditLogPage })))
+const SystemHealthPage = lazy(() => import('@/pages/system-health/SystemHealthPage').then((m) => ({ default: m.SystemHealthPage })))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -502,6 +503,16 @@ function App() {
                     </PermissionRoute>
                   )}
                 />
+                {/* 系统健康 */}
+                <Route
+                  path="/system-health"
+                  element={(
+                    <PermissionRoute permission="settings:view" roles={[1]}>
+                      <SystemHealthPage />
+                    </PermissionRoute>
+                  )}
+                />
+
                 {/* 运营分析 */}
                 <Route
                   path="/analytics"

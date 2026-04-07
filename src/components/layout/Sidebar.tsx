@@ -20,6 +20,8 @@ import {
   Circle,
   Camera,
   Megaphone,
+  HeartPulse,
+  HardDrive,
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -67,6 +69,8 @@ const iconMap: Record<string, LucideIcon> = {
   Camera,
   Megaphone,
   BarChart3,
+  HeartPulse,
+  HardDrive,
 }
 
 const defaultConfig: SidebarMenuConfig = {
@@ -108,6 +112,7 @@ const defaultConfig: SidebarMenuConfig = {
       icon: 'Settings',
       children: [
         { path: '/settings', icon: 'Settings', label: '系统设置', roles: [1], permission: 'settings:view' },
+        { path: '/system-health', icon: 'HeartPulse', label: '系统健康', roles: [1], permission: 'settings:view' },
         { path: '/storage', icon: 'HardDrive', label: '存储管理', roles: [1], permission: 'storage:view' },
         { path: '/admins', icon: 'Shield', label: '管理员', roles: [1], permission: 'admins:read' },
         { path: '/roles', icon: 'KeyRound', label: '角色权限', roles: [1, 3], permission: 'roles:view' },
