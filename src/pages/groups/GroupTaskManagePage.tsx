@@ -378,7 +378,7 @@ export function GroupTaskManagePage() {
             <div className="flex-1 space-y-1">
               <p className="text-sm font-medium">恢复软删除任务</p>
               <p className="text-xs text-muted-foreground">
-                输入任务ID（支持业务ID/主键/hashid）后执行恢复
+                输入任务ID后执行恢复
               </p>
             </div>
             <div className="flex w-full gap-2 md:w-auto md:min-w-[380px]">

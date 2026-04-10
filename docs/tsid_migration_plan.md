@@ -1,10 +1,11 @@
 # TSID 迁移计划 — Admin Frontend
 
 > 创建日期: 2026-04-06
+> 状态: **已完成** (2026-04-07 后端迁移完成，elib_hashids 已删除)
 
 ## 背景
 
-后端正从 BIGSERIAL (自增) + `elib_hashids` 编码迁移到 `elib_tsid` (分布式时间排序 ID，原始 BIGINT)。
+后端已从 BIGSERIAL (自增) + `elib_hashids` 编码完成迁移到 `elib_tsid` (分布式时间排序 ID，原始 BIGINT)。`elib_hashids` 已于 2026-04-07 删除。
 
 - **旧流程**: DB 生成 BIGSERIAL → 后端 hashids 编码 → 前端收到 hashid 字符串 (如 `"522dzx"`)
 - **新流程**: 后端生成 TSID (64 位 BIGINT) → 前端收到数字或字符串
@@ -30,7 +31,7 @@
 创建 `EntityId` 统一类型别名，替代各模块分散定义的 `IdLike`:
 
 ```typescript
-/** TSID 或 hashids 编码的 ID，统一用 string 传输避免精度丢失 */
+/** TSID 编码的 ID，统一用 string 传输避免精度丢失 */
 export type EntityId = string;
 ```
 

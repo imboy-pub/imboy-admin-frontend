@@ -67,12 +67,12 @@ imboy-admin-frontend/
 
 **迁移过渡期**:
 - 新接口: ID 字段为 TSID 数字，后端以字符串形式返回
-- 旧接口: ID 字段保持 hashids 编码字符串 (如 `"522dzx"`)
-- 类型定义中使用 `string` 统一处理，无需区分 TSID 还是 hashids
+- 旧接口: 已全部迁移到 TSID，不再使用 hashids 编码（elib_hashids 已于 2026-04-07 删除）
+- 类型定义中使用 `string` 统一处理
 
 ```typescript
 // src/types/common.ts
-/** TSID 或 hashids 编码的 ID，统一用 string 传输避免精度丢失 */
+/** TSID 编码的 ID，统一用 string 传输避免精度丢失 */
 export type EntityId = string;
 ```
 

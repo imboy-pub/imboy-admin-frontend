@@ -173,7 +173,7 @@ export function GroupCategoryManagePage() {
                 setTargetUid(event.target.value)
                 setPage(1)
               }}
-              placeholder="输入用户 UID（支持数字或 hashid）"
+              placeholder="输入用户 UID"
               className="md:max-w-sm"
             />
             <Input

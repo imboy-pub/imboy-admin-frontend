@@ -10,7 +10,7 @@
 
 ```bash
 export IMBOY_ADMIN_BASE_URL='http://localhost:8082/adm'
-export IMBOY_ADMIN_COOKIE='adm_user_id=xxx; adm_user_sig=xxx; gaiass_access_token=xxx'
+export IMBOY_ADMIN_COOKIE='adm_user_id=xxx; adm_user_sig=xxx'
 ```
 
 说明：
@@ -186,6 +186,6 @@ bash scripts/check_admin_role_backend_readiness.sh --strict
 
 ```bash
 IMBOY_ADMIN_BASE_URL='http://localhost:8082/adm' \
-IMBOY_ADMIN_COOKIE='adm_user_id=xxx; adm_user_sig=xxx; gaiass_access_token=xxx' \
+IMBOY_ADMIN_COOKIE='adm_user_id=xxx; adm_user_sig=xxx' \
 bash scripts/check_admin_role_backend_readiness.sh --strict
 ```
