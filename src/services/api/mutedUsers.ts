@@ -1,8 +1,9 @@
 import client from './client'
 import { requireApiPayload } from './responseAdapter'
+import type { EntityId } from '@/types/common'
 
 interface MutedUser {
-  uid: string
+  uid: EntityId
   mute_until: number
   remaining_seconds: number
 }
@@ -20,12 +21,12 @@ export async function listMutedUsers(): Promise<MutedUserListResponse> {
   return requireApiPayload<MutedUserListResponse>(res.data, 'muted_users/list')
 }
 
-export async function unmuteUser(uid: string): Promise<void> {
+export async function unmuteUser(uid: EntityId): Promise<void> {
   const res = await client.post('/admin/muted_users/unmute', { uid })
   requireApiPayload(res.data, 'muted_users/unmute')
 }
 
-export async function unmuteUsers(uids: string[]): Promise<void> {
+export async function unmuteUsers(uids: EntityId[]): Promise<void> {
   const res = await client.post('/admin/muted_users/unmute_batch', { uids })
   requireApiPayload(res.data, 'muted_users/unmute_batch')
 }

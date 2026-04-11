@@ -1,8 +1,9 @@
 import client from './client'
 import { requireApiPayload } from './responseAdapter'
+import type { EntityId } from '@/types/common'
 
 export interface PushToken {
-  user_id: string
+  user_id: EntityId
   device_id: string
   device_type: string
   platform: string

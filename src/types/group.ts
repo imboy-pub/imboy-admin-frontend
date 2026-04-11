@@ -1,10 +1,12 @@
+import type { EntityId } from './common'
+
 export interface Group {
-  id: string
+  id: EntityId
   title: string
   avatar?: string
   introduction?: string
-  owner_uid: string
-  creator_uid?: string
+  owner_uid: EntityId
+  creator_uid?: EntityId
   member_count: number
   member_max?: number
   type: number
@@ -14,9 +16,9 @@ export interface Group {
 }
 
 export interface GroupMember {
-  id: string
-  group_id: string
-  user_id: string
+  id: EntityId
+  group_id: EntityId
+  user_id: EntityId
   nickname: string
   avatar?: string
   role: number

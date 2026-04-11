@@ -12,6 +12,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useAuthStore } from '@/stores/authStore'
 import { getCaptchaUrl, getLoginPage, loginPayload } from '@/modules/identity/api'
 import { encryptLoginPassword } from '@/lib/passwordCrypto'
+import { useSetupGuard } from '@/hooks/useSetupGuard'
+import { LoadingState } from '@/components/shared'
 
 const loginSchema = z.object({
   account: z.string().min(1, '请输入账号'),
@@ -117,6 +119,7 @@ export function LoginPage() {
   const [publicKey, setPublicKey] = useState('')
   const navigate = useNavigate()
   const { isAuthenticated, setAdmin } = useAuthStore()
+  const setupGuard = useSetupGuard()
 
   const {
     register,
@@ -191,6 +194,14 @@ export function LoginPage() {
 
   if (isAuthenticated) {
     return <Navigate to="/dashboard" replace />
+  }
+
+  // P0-5: 系统未初始化时强制跳转首启向导
+  if (setupGuard.loading) {
+    return <LoadingState message="检查系统初始化状态..." />
+  }
+  if (setupGuard.needSetup) {
+    return <Navigate to="/setup" replace />
   }
 
   return (

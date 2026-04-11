@@ -8,7 +8,7 @@ function safeParseBigIntJson(text: string): unknown {
   }
 
   const safeText = trimmed.replace(
-    /(?<=[:,\[\s])(-?\d{16,})(?=[,\]\}\s])/g,
+    /(?<=[:,[\s])(-?\d{16,})(?=[,\]}\s])/g,
     '"$1"'
   )
 

@@ -1,5 +1,6 @@
 import client from './client'
 import { requireApiPayload } from './responseAdapter'
+import type { EntityId } from '@/types/common'
 
 // --- Query Key ---
 
@@ -10,7 +11,7 @@ export function complianceKeyQueryKey() {
 // --- 类型定义 ---
 
 export interface ComplianceKey {
-  key_id: string
+  key_id: EntityId
   algorithm?: string
   status: number          // 1=active, 0=revoked
   created_by?: number
@@ -28,7 +29,7 @@ interface ComplianceKeyCreateParams {
 }
 
 interface ComplianceKeyCreateResponse {
-  key_id: string
+  key_id: EntityId
 }
 
 // --- API ---
@@ -45,7 +46,7 @@ export async function createComplianceKey(
   return requireApiPayload<ComplianceKeyCreateResponse>(res.data, 'compliance_key/create')
 }
 
-export async function revokeComplianceKey(keyId: string): Promise<void> {
+export async function revokeComplianceKey(keyId: EntityId): Promise<void> {
   const res = await client.post('/admin/compliance_key/revoke', { key_id: keyId })
   requireApiPayload(res.data, 'compliance_key/revoke')
 }

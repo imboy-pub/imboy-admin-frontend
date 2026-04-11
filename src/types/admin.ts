@@ -1,5 +1,7 @@
+import type { EntityId } from './common'
+
 export interface Admin {
-  id: string
+  id: EntityId
   account: string
   nickname: string
   avatar: string

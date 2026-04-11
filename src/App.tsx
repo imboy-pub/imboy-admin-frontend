@@ -6,7 +6,7 @@ import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 import { PermissionRoute } from '@/components/auth/PermissionRoute'
 import { FeatureRoute } from '@/components/auth/FeatureRoute'
 import { AdminLayout } from '@/components/layout/AdminLayout'
-import { LoginPage } from '@/modules/identity'
+import { LoginPage, SetupPage } from '@/modules/identity'
 import { NotFoundPage } from '@/pages/errors/NotFoundPage'
 import { ForbiddenPage } from '@/pages/errors/ForbiddenPage'
 import { ErrorBoundary } from '@/components/shared'
@@ -91,6 +91,9 @@ function App() {
         <ErrorBoundary>
         <Suspense fallback={<PageFallback />}>
           <Routes>
+            {/* 首启初始化向导（P0-5）— 免鉴权 */}
+            <Route path="/setup" element={<SetupPage />} />
+
             {/* 登录页 */}
             <Route path="/login" element={<LoginPage />} />
 

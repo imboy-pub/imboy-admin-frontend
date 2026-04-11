@@ -60,7 +60,7 @@ function safeParseBigIntJson(text: string): unknown {
   // 将 16 位及以上的整数字面量包裹成字符串
   // 负向前瞻/后顾确保不匹配已在引号内的值或小数
   const safeText = trimmed.replace(
-    /(?<=[:,\[\s])(-?\d{16,})(?=[,\]\}\s])/g,
+    /(?<=[:,[\s])(-?\d{16,})(?=[,\]}\s])/g,
     '"$1"'
   )
 
