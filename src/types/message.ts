@@ -4,7 +4,7 @@ export type MessageScope = 'c2c' | 'c2g' | 'c2s' | 's2c'
 
 export interface ManagedMessage {
   scope: MessageScope
-  msg_id: string
+  msg_id: EntityId
   from_id: EntityId
   to_id: EntityId
   msg_type: string
