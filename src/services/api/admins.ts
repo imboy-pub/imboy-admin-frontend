@@ -3,8 +3,7 @@ import { ApiResponse, PaginatedResponse } from '@/types/api'
 import { Admin } from '@/types/admin'
 import { requireApiPayload } from './responseAdapter'
 import { getCurrentAdminPayload } from './auth'
-
-type IdLike = string | number
+import type { EntityId } from '@/types/common'
 
 type ApiErrorLike = {
   code?: number | string
@@ -31,7 +30,7 @@ export interface CreateAdminInput {
 }
 
 interface AssignAdminRoleInput {
-  admin_id: IdLike
+  admin_id: EntityId
   role_id: number
 }
 

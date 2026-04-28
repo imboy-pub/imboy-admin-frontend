@@ -2,8 +2,7 @@ import client from '@/services/api/client'
 import { requireApiPayload } from '@/services/api/responseAdapter'
 import { ApiResponse, PaginatedResponse } from '@/types/api'
 import { Group, GroupMember } from '@/types/group'
-
-type IdLike = string | number
+import type { EntityId } from '@/types/common'
 
 export interface GroupListParams {
   page?: number
@@ -36,16 +35,16 @@ export type GroupDetail = Group & {
 /**
  * @deprecated Prefer `getGroupDetailPayload` to consume typed payload directly.
  */
-export async function getGroupDetail(gid: IdLike): Promise<ApiResponse<GroupDetail>> {
+export async function getGroupDetail(gid: EntityId): Promise<ApiResponse<GroupDetail>> {
   const response = await client.get('/group/detail', { params: { gid } })
   return response.data
 }
 
-export async function getGroupDetailPayload(gid: IdLike): Promise<GroupDetail> {
+export async function getGroupDetailPayload(gid: EntityId): Promise<GroupDetail> {
   return requireApiPayload(await getGroupDetail(gid), '/group/detail')
 }
 
-export async function dissolveGroup(gid: IdLike): Promise<ApiResponse<Record<string, never>>> {
+export async function dissolveGroup(gid: EntityId): Promise<ApiResponse<Record<string, never>>> {
   const response = await client.post('/group/dissolve', { gid })
   return response.data
 }
@@ -74,7 +73,7 @@ export async function searchGroupsPayload(
  * @deprecated Prefer `getGroupMembersPayload` to consume typed payload directly.
  */
 export async function getGroupMembers(
-  gid: IdLike,
+  gid: EntityId,
   page = 1,
   size = 20
 ): Promise<ApiResponse<PaginatedResponse<GroupMember>>> {
@@ -83,7 +82,7 @@ export async function getGroupMembers(
 }
 
 export async function getGroupMembersPayload(
-  gid: IdLike,
+  gid: EntityId,
   page = 1,
   size = 20
 ): Promise<PaginatedResponse<GroupMember>> {

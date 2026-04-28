@@ -146,6 +146,16 @@ describe('MomentDetailPage flow', () => {
     await view.findByText('moments-route')
   })
 
+  it('shows error state when API fails', async () => {
+    mutableClient.get = async () => { throw new Error('network error') }
+
+    const view = renderMomentDetailPage()
+
+    await waitFor(() => {
+      expect(view.container.textContent).toContain('加载动态详情失败')
+    })
+  })
+
   it('supports navigate to reports from detail page', async () => {
     mutableClient.get = async (url: string) => {
       if (url !== '/moment/detail/9001') {

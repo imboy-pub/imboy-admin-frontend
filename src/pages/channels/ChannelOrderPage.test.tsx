@@ -171,4 +171,32 @@ describe('ChannelOrderPage flow', () => {
       expect(getCalls.some((call) => call.page === 1 && call.size === 50)).toBe(true)
     })
   })
+
+  it('shows error state when API fails', async () => {
+    mutableClient.get = async () => { throw new Error('network error') }
+
+    let view: ReturnType<typeof renderChannelOrderPage>
+    await act(async () => { view = renderChannelOrderPage() })
+
+    await waitFor(() => {
+      expect(view.container.textContent).toContain('加载频道订单失败')
+    })
+  })
+
+  it('shows empty list when no orders exist', async () => {
+    mutableClient.get = async () => ({
+      data: {
+        code: 0, msg: 'ok',
+        payload: { items: [], page: 1, size: 10, total: 0, total_pages: 0 },
+      },
+    })
+
+    let view: ReturnType<typeof renderChannelOrderPage>
+    await act(async () => { view = renderChannelOrderPage() })
+
+    await waitFor(() => {
+      expect(view.container.textContent).toContain('频道订单治理')
+    })
+    expect(view.container.textContent).toContain('暂无数据')
+  })
 })

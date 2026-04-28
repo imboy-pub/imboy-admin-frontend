@@ -1,16 +1,15 @@
 import client from '@/services/api/client'
 import { requireApiPayload } from '@/services/api/responseAdapter'
 import { ApiResponse, PaginatedResponse } from '@/types/api'
-
-type IdLike = number | string
+import type { EntityId } from '@/types/common'
 
 export interface GroupVote {
-  id: IdLike
-  group_id: IdLike
+  id: EntityId
+  group_id: EntityId
   vote_id: string
   title: string
   description?: string
-  creator_id?: IdLike
+  creator_id?: EntityId
   vote_type?: number
   is_anonymous?: boolean
   status: number
@@ -20,7 +19,7 @@ export interface GroupVote {
 }
 
 export interface GroupVoteOption {
-  id?: IdLike
+  id?: EntityId
   option_id: string
   option_text: string
   vote_count?: number
@@ -31,13 +30,13 @@ export interface GroupVoteDetail extends GroupVote {
 }
 
 export interface GroupSchedule {
-  id: IdLike
+  id: EntityId
   schedule_id: string
-  group_id: IdLike
+  group_id: EntityId
   title: string
   description?: string
   location?: string
-  creator_id?: IdLike
+  creator_id?: EntityId
   start_at?: string | number
   end_at?: string | number
   status: number
@@ -45,8 +44,8 @@ export interface GroupSchedule {
 }
 
 export interface GroupScheduleParticipant {
-  id?: IdLike
-  user_id: IdLike
+  id?: EntityId
+  user_id: EntityId
   status?: number
   nickname?: string
 }
@@ -58,11 +57,11 @@ export interface GroupScheduleDetail {
 }
 
 export interface GroupNotice {
-  id: IdLike
-  notice_id?: IdLike
-  group_id: IdLike
-  user_id?: IdLike
-  edit_user_id?: IdLike
+  id: EntityId
+  notice_id?: EntityId
+  group_id: EntityId
+  user_id?: EntityId
+  edit_user_id?: EntityId
   title?: string
   body?: string
   status?: number
@@ -74,10 +73,10 @@ export interface GroupNotice {
 }
 
 export interface GroupTag {
-  id?: IdLike
-  group_id: IdLike
+  id?: EntityId
+  group_id: EntityId
   tag_name: string
-  created_by?: IdLike
+  created_by?: EntityId
   created_at?: string
 }
 
@@ -87,28 +86,28 @@ export interface GroupTagListPayload {
 }
 
 export interface GroupCategory {
-  id: IdLike
-  category_id?: IdLike
+  id: EntityId
+  category_id?: EntityId
   category_name: string
   sort_order?: number
 }
 
 export interface GroupCategoryListParams {
-  gid?: IdLike
-  uid: IdLike
+  gid?: EntityId
+  uid: EntityId
   page?: number
   size?: number
   keyword?: string
 }
 
 export interface GroupFile {
-  id: IdLike
-  group_id: IdLike
+  id: EntityId
+  group_id: EntityId
   file_id: string
   file_name?: string
   file_category?: string
   file_size?: number
-  uploader_id?: IdLike
+  uploader_id?: EntityId
   download_count?: number
   status?: number
   created_at?: string
@@ -123,12 +122,12 @@ export interface GroupFileListParams {
 }
 
 export interface GroupAlbum {
-  id: IdLike
-  group_id: IdLike
+  id: EntityId
+  group_id: EntityId
   album_id: string
   album_name?: string
   album_cover?: string
-  creator_id?: IdLike
+  creator_id?: EntityId
   photo_count?: number
   status?: number
   created_at?: string
@@ -136,12 +135,12 @@ export interface GroupAlbum {
 }
 
 export interface GroupTask {
-  id: IdLike
-  group_id: IdLike
+  id: EntityId
+  group_id: EntityId
   task_id: string
   title: string
   description?: string
-  creator_id?: IdLike
+  creator_id?: EntityId
   deadline?: string | null
   status: number
   deleted_at?: string | null
@@ -157,16 +156,16 @@ export interface GroupTaskListParams {
 }
 
 export interface GroupTaskAssignment {
-  id: IdLike
+  id: EntityId
   task_id: string
-  user_id: IdLike
+  user_id: EntityId
   status: number
   submitted_at?: string | null
   content?: string
   attachment?: string
   score?: number
   comment?: string
-  reviewed_by?: IdLike
+  reviewed_by?: EntityId
   reviewed_at?: string | null
   created_at?: string
   updated_at?: string
@@ -178,13 +177,13 @@ export interface GroupTaskPendingReviewListParams {
 }
 
 export interface GroupGovernanceLog {
-  uid: IdLike
+  uid: EntityId
   account?: string
   nickname?: string
   action: string
-  operator_uid?: IdLike
-  group_id?: IdLike
-  target_id?: IdLike | string
+  operator_uid?: EntityId
+  group_id?: EntityId
+  target_id?: EntityId | string
   occurred_at?: string
   created_at?: string
   extra?: Record<string, unknown>
@@ -194,10 +193,10 @@ export interface GroupGovernanceLog {
 export interface GroupGovernanceLogListParams {
   page?: number
   size?: number
-  uid?: IdLike
-  group_id?: IdLike
+  uid?: EntityId
+  group_id?: EntityId
   action?: string
-  target_id?: IdLike | string
+  target_id?: EntityId | string
   keyword?: string
   from_ts?: string | number
   to_ts?: string | number
@@ -212,7 +211,7 @@ export interface GroupPaginationParams {
  * @deprecated Prefer `getGroupVotesPayload`.
  */
 export async function getGroupVotes(
-  gid: IdLike,
+  gid: EntityId,
   params: GroupPaginationParams = { page: 1, size: 10 }
 ): Promise<ApiResponse<PaginatedResponse<GroupVote>>> {
   const response = await client.get('/group/vote/list', {
@@ -222,7 +221,7 @@ export async function getGroupVotes(
 }
 
 export async function getGroupVotesPayload(
-  gid: IdLike,
+  gid: EntityId,
   params: GroupPaginationParams = { page: 1, size: 10 }
 ): Promise<PaginatedResponse<GroupVote>> {
   return requireApiPayload(await getGroupVotes(gid, params), '/group/vote/list')
@@ -249,7 +248,7 @@ export async function closeGroupVote(voteId: string): Promise<ApiResponse<Record
  * @deprecated Prefer `getGroupSchedulesPayload`.
  */
 export async function getGroupSchedules(
-  gid: IdLike,
+  gid: EntityId,
   params: GroupPaginationParams = { page: 1, size: 10 }
 ): Promise<ApiResponse<PaginatedResponse<GroupSchedule>>> {
   const response = await client.get('/group/schedule/list', {
@@ -259,7 +258,7 @@ export async function getGroupSchedules(
 }
 
 export async function getGroupSchedulesPayload(
-  gid: IdLike,
+  gid: EntityId,
   params: GroupPaginationParams = { page: 1, size: 10 }
 ): Promise<PaginatedResponse<GroupSchedule>> {
   return requireApiPayload(await getGroupSchedules(gid, params), '/group/schedule/list')
@@ -304,7 +303,7 @@ export async function restoreGroupSchedule(
  * @deprecated Prefer `getGroupNoticesPayload`.
  */
 export async function getGroupNotices(
-  gid: IdLike,
+  gid: EntityId,
   params: GroupPaginationParams = { page: 1, size: 10 }
 ): Promise<ApiResponse<PaginatedResponse<GroupNotice>>> {
   const response = await client.get('/group/notice/list', {
@@ -314,7 +313,7 @@ export async function getGroupNotices(
 }
 
 export async function getGroupNoticesPayload(
-  gid: IdLike,
+  gid: EntityId,
   params: GroupPaginationParams = { page: 1, size: 10 }
 ): Promise<PaginatedResponse<GroupNotice>> {
   return requireApiPayload(await getGroupNotices(gid, params), '/group/notice/list')
@@ -324,7 +323,7 @@ export async function getGroupNoticesPayload(
  * @deprecated Prefer `getGroupNoticeDetailPayload`.
  */
 export async function getGroupNoticeDetail(
-  noticeId: IdLike | string
+  noticeId: EntityId | string
 ): Promise<ApiResponse<GroupNotice>> {
   const response = await client.get('/group/notice/detail', {
     params: { notice_id: noticeId },
@@ -333,13 +332,13 @@ export async function getGroupNoticeDetail(
 }
 
 export async function getGroupNoticeDetailPayload(
-  noticeId: IdLike | string
+  noticeId: EntityId | string
 ): Promise<GroupNotice> {
   return requireApiPayload(await getGroupNoticeDetail(noticeId), '/group/notice/detail')
 }
 
 export async function deleteGroupNotice(
-  noticeId: IdLike | string
+  noticeId: EntityId | string
 ): Promise<ApiResponse<Record<string, never>>> {
   const response = await client.post('/group/notice/delete', { notice_id: noticeId })
   return response.data
@@ -348,12 +347,12 @@ export async function deleteGroupNotice(
 /**
  * @deprecated Prefer `getGroupTagsPayload`.
  */
-export async function getGroupTags(gid: IdLike): Promise<ApiResponse<Record<string, unknown>>> {
+export async function getGroupTags(gid: EntityId): Promise<ApiResponse<Record<string, unknown>>> {
   const response = await client.get('/group/tag/list', { params: { gid } })
   return response.data
 }
 
-export async function getGroupTagsPayload(gid: IdLike): Promise<GroupTagListPayload> {
+export async function getGroupTagsPayload(gid: EntityId): Promise<GroupTagListPayload> {
   const payload = requireApiPayload(await getGroupTags(gid), '/group/tag/list')
   const rawItems = payload.items ?? payload.list
   const items = Array.isArray(rawItems) ? (rawItems as GroupTag[]) : []
@@ -363,7 +362,7 @@ export async function getGroupTagsPayload(gid: IdLike): Promise<GroupTagListPayl
 }
 
 export interface DeleteGroupTagInput {
-  gid: IdLike | string
+  gid: EntityId | string
   tag_name: string
 }
 
@@ -391,9 +390,9 @@ export async function getGroupCategoriesPayload(
 }
 
 export interface DeleteGroupCategoryInput {
-  uid: IdLike | string
-  category_id: IdLike | string
-  gid?: IdLike | string
+  uid: EntityId | string
+  category_id: EntityId | string
+  gid?: EntityId | string
 }
 
 export async function deleteGroupCategory(
@@ -407,7 +406,7 @@ export async function deleteGroupCategory(
  * @deprecated Prefer `getGroupFilesPayload`.
  */
 export async function getGroupFiles(
-  gid: IdLike,
+  gid: EntityId,
   params: GroupFileListParams = { page: 1, size: 10 }
 ): Promise<ApiResponse<PaginatedResponse<GroupFile>>> {
   const response = await client.get('/group/file/list', {
@@ -417,7 +416,7 @@ export async function getGroupFiles(
 }
 
 export async function getGroupFilesPayload(
-  gid: IdLike,
+  gid: EntityId,
   params: GroupFileListParams = { page: 1, size: 10 }
 ): Promise<PaginatedResponse<GroupFile>> {
   return requireApiPayload(await getGroupFiles(gid, params), '/group/file/list')
@@ -426,19 +425,19 @@ export async function getGroupFilesPayload(
 /**
  * @deprecated Prefer `getGroupFileDetailPayload`.
  */
-export async function getGroupFileDetail(fileId: IdLike | string): Promise<ApiResponse<GroupFile>> {
+export async function getGroupFileDetail(fileId: EntityId | string): Promise<ApiResponse<GroupFile>> {
   const response = await client.get('/group/file/detail', {
     params: { file_id: fileId },
   })
   return response.data
 }
 
-export async function getGroupFileDetailPayload(fileId: IdLike | string): Promise<GroupFile> {
+export async function getGroupFileDetailPayload(fileId: EntityId | string): Promise<GroupFile> {
   return requireApiPayload(await getGroupFileDetail(fileId), '/group/file/detail')
 }
 
 export async function deleteGroupFile(
-  fileId: IdLike | string
+  fileId: EntityId | string
 ): Promise<ApiResponse<Record<string, never>>> {
   const response = await client.post('/group/file/delete', { file_id: fileId })
   return response.data
@@ -448,7 +447,7 @@ export async function deleteGroupFile(
  * @deprecated Prefer `getGroupAlbumsPayload`.
  */
 export async function getGroupAlbums(
-  gid: IdLike,
+  gid: EntityId,
   params: GroupPaginationParams = { page: 1, size: 10 }
 ): Promise<ApiResponse<PaginatedResponse<GroupAlbum>>> {
   const response = await client.get('/group/album/list', {
@@ -458,7 +457,7 @@ export async function getGroupAlbums(
 }
 
 export async function getGroupAlbumsPayload(
-  gid: IdLike,
+  gid: EntityId,
   params: GroupPaginationParams = { page: 1, size: 10 }
 ): Promise<PaginatedResponse<GroupAlbum>> {
   return requireApiPayload(await getGroupAlbums(gid, params), '/group/album/list')
@@ -468,7 +467,7 @@ export async function getGroupAlbumsPayload(
  * @deprecated Prefer `getGroupAlbumDetailPayload`.
  */
 export async function getGroupAlbumDetail(
-  albumId: IdLike | string
+  albumId: EntityId | string
 ): Promise<ApiResponse<GroupAlbum>> {
   const response = await client.get('/group/album/detail', {
     params: { album_id: albumId },
@@ -477,13 +476,13 @@ export async function getGroupAlbumDetail(
 }
 
 export async function getGroupAlbumDetailPayload(
-  albumId: IdLike | string
+  albumId: EntityId | string
 ): Promise<GroupAlbum> {
   return requireApiPayload(await getGroupAlbumDetail(albumId), '/group/album/detail')
 }
 
 export async function deleteGroupAlbum(
-  albumId: IdLike | string
+  albumId: EntityId | string
 ): Promise<ApiResponse<Record<string, never>>> {
   const response = await client.post('/group/album/delete', { album_id: albumId })
   return response.data
@@ -493,7 +492,7 @@ export async function deleteGroupAlbum(
  * @deprecated Prefer `getGroupTasksPayload`.
  */
 export async function getGroupTasks(
-  gid: IdLike,
+  gid: EntityId,
   params: GroupTaskListParams = { page: 1, size: 10 }
 ): Promise<ApiResponse<PaginatedResponse<GroupTask>>> {
   const response = await client.get('/group/task/list', {
@@ -503,7 +502,7 @@ export async function getGroupTasks(
 }
 
 export async function getGroupTasksPayload(
-  gid: IdLike,
+  gid: EntityId,
   params: GroupTaskListParams = { page: 1, size: 10 }
 ): Promise<PaginatedResponse<GroupTask>> {
   return requireApiPayload(await getGroupTasks(gid, params), '/group/task/list')
@@ -554,7 +553,7 @@ export async function getGroupTaskPendingReviewsPayload(
 }
 
 export interface ReviewGroupTaskAssignmentInput {
-  assignment_id: IdLike | string
+  assignment_id: EntityId | string
   score?: number
   comment?: string
 }

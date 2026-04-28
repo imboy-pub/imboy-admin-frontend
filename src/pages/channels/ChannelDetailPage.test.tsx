@@ -183,4 +183,50 @@ describe('ChannelDetailPage flow', () => {
 
     await view.findByText('channels-route')
   })
+
+  it('shows error state when API fails', async () => {
+    mutableClient.get = async () => { throw new Error('network error') }
+
+    const view = renderChannelDetailPage()
+
+    await waitFor(() => {
+      expect(view.container.textContent).toContain('加载频道详情失败')
+    })
+  })
+
+  it('displays channel stats from API data', async () => {
+    mutableClient.get = async (url: string) => {
+      if (url === '/channel/detail/8') {
+        return {
+          data: {
+            code: 0, msg: 'ok',
+            payload: {
+              id: 8, name: 'channel-8', owner_id: 1001, custom_id: 'tech_news',
+              description: 'tech channel', avatar: null, type: 0, status: 1,
+              subscriber_count: 12, created_at: '2026-02-28 10:00:00', updated_at: '2026-02-28 10:00:00',
+            },
+          },
+        }
+      }
+      if (url === '/channel/detail/8/stats') {
+        return {
+          data: {
+            code: 0, msg: 'ok',
+            payload: {
+              channel_id: 8, subscriber_count: 12, total_messages: 200,
+              total_views: 300, total_reactions: 25,
+            },
+          },
+        }
+      }
+      throw new Error(`unexpected GET: ${url}`)
+    }
+
+    const view = renderChannelDetailPage()
+
+    await waitFor(() => {
+      expect(view.container.textContent).toContain('频道详情')
+      expect(view.container.textContent).toContain('tech_news')
+    })
+  })
 })

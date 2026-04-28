@@ -1,8 +1,7 @@
 import client from '@/services/api/client'
 import { requireApiPayload } from '@/services/api/responseAdapter'
 import { ApiResponse, PaginatedResponse } from '@/types/api'
-
-type IdLike = string | number
+import type { EntityId } from '@/types/common'
 
 type ApiErrorLike = {
   code?: number | string
@@ -16,26 +15,26 @@ export interface MomentStats {
 }
 
 export interface MomentAcl {
-  allow_uids: IdLike[]
-  deny_uids: IdLike[]
+  allow_uids: EntityId[]
+  deny_uids: EntityId[]
 }
 
 export interface MomentReport {
-  id: IdLike
-  post_id: IdLike
-  reporter_uid: IdLike
+  id: EntityId
+  post_id: EntityId
+  reporter_uid: EntityId
   reason: string
   description: string
   status: number
-  handled_by: IdLike | ''
+  handled_by: EntityId | ''
   handled_at: string | null
   created_at: string
   updated_at: string
 }
 
 export interface MomentItem {
-  id: IdLike
-  author_uid: IdLike
+  id: EntityId
+  author_uid: EntityId
   content: string
   media: Array<Record<string, unknown>>
   visibility: number
@@ -69,14 +68,14 @@ export interface MomentReportBatchResolveSummary {
   total: number
   successCount: number
   failedCount: number
-  failedIds: IdLike[]
+  failedIds: EntityId[]
 }
 
 const BATCH_RESOLVE_ENDPOINT = '/moment/report/batch_resolve'
 
-function normalizeReportIds(reportIds: IdLike[]): IdLike[] {
+function normalizeReportIds(reportIds: EntityId[]): EntityId[] {
   const seen = new Set<string>()
-  const normalized: IdLike[] = []
+  const normalized: EntityId[] = []
 
   for (const rawId of reportIds) {
     const candidate = typeof rawId === 'string' ? rawId.trim() : rawId
@@ -119,7 +118,7 @@ function isBatchResolveEndpointUnavailable(error: unknown): boolean {
     message.includes('endpoint unavailable')
 }
 
-function toFailedIds(raw: unknown): IdLike[] {
+function toFailedIds(raw: unknown): EntityId[] {
   if (!Array.isArray(raw)) return []
   return raw
     .filter((item) => typeof item === 'string' || typeof item === 'number')
@@ -187,8 +186,8 @@ function normalizeMoment(raw: unknown): MomentItem {
     : {}) as Record<string, unknown>
 
   return {
-    id: item.id as IdLike,
-    author_uid: item.author_uid as IdLike,
+    id: item.id as EntityId,
+    author_uid: item.author_uid as EntityId,
     content: String(item.content ?? ''),
     media: Array.isArray(item.media) ? (item.media as Array<Record<string, unknown>>) : [],
     visibility: Number(item.visibility ?? 1),
@@ -220,19 +219,19 @@ export async function getMomentListPayload(
 }
 
 export async function getMomentDetail(
-  momentId: IdLike
+  momentId: EntityId
 ): Promise<ApiResponse<Record<string, unknown>>> {
   const response = await client.get(`/moment/detail/${momentId}`)
   return response.data
 }
 
-export async function getMomentDetailPayload(momentId: IdLike): Promise<MomentItem> {
+export async function getMomentDetailPayload(momentId: EntityId): Promise<MomentItem> {
   const payload = requireApiPayload(await getMomentDetail(momentId), '/moment/detail/:id')
   return normalizeMoment(payload)
 }
 
 export async function deleteMoment(
-  momentId: IdLike,
+  momentId: EntityId,
   reason = ''
 ): Promise<ApiResponse<Record<string, never>>> {
   const response = await client.post('/moment/delete', {
@@ -256,7 +255,7 @@ export async function getMomentReportListPayload(
 }
 
 export async function resolveMomentReport(
-  reportId: IdLike,
+  reportId: EntityId,
   result: 1 | 2,
   note = ''
 ): Promise<ApiResponse<Record<string, never>>> {
@@ -269,7 +268,7 @@ export async function resolveMomentReport(
 }
 
 export async function resolveMomentReportBatchWithFallback(
-  reportIds: IdLike[],
+  reportIds: EntityId[],
   result: 1 | 2,
   note = ''
 ): Promise<MomentReportBatchResolveSummary> {
@@ -314,7 +313,7 @@ export async function resolveMomentReportBatchWithFallback(
 
     const failedIds = results
       .map((item, index) => (item.status === 'rejected' ? normalizedReportIds[index] : null))
-      .filter((item): item is IdLike => item !== null)
+      .filter((item): item is EntityId => item !== null)
 
     const failedCount = failedIds.length
     const successCount = total - failedCount

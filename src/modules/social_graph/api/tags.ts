@@ -1,11 +1,10 @@
 import client from '@/services/api/client'
 import { requireApiPayload } from '@/services/api/responseAdapter'
 import { ApiResponse, PaginatedResponse } from '@/types/api'
-
-type IdLike = string | number
+import type { EntityId } from '@/types/common'
 
 export interface UserTagListParams {
-  uid: IdLike
+  uid: EntityId
   scene: 'collect' | 'friend'
   page?: number
   size?: number
@@ -44,7 +43,7 @@ export async function getUserTagListPayload(params: UserTagListParams): Promise<
 }
 
 export async function deleteUserTag(
-  data: { uid: IdLike; scene: 'collect' | 'friend'; tag: string }
+  data: { uid: EntityId; scene: 'collect' | 'friend'; tag: string }
 ): Promise<ApiResponse<Record<string, never>>> {
   const response = await client.post('/user/tag/delete', data)
   return response.data

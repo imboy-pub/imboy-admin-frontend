@@ -207,4 +207,32 @@ describe('ChannelAdminPage flow', () => {
       expect(getCalls.some((call) => call.page === 1 && call.size === 50)).toBe(true)
     })
   })
+
+  it('shows error state when API fails', async () => {
+    mutableClient.get = async () => { throw new Error('network error') }
+
+    let view: ReturnType<typeof renderChannelAdminPage>
+    await act(async () => { view = renderChannelAdminPage() })
+
+    await waitFor(() => {
+      expect(view.container.textContent).toContain('加载频道管理员失败')
+    })
+  })
+
+  it('shows empty list when no admins exist', async () => {
+    mutableClient.get = async () => ({
+      data: {
+        code: 0, msg: 'ok',
+        payload: { items: [], page: 1, size: 10, total: 0, total_pages: 0 },
+      },
+    })
+
+    let view: ReturnType<typeof renderChannelAdminPage>
+    await act(async () => { view = renderChannelAdminPage() })
+
+    await waitFor(() => {
+      expect(view.container.textContent).toContain('频道管理员治理')
+    })
+    expect(view.container.textContent).toContain('暂无数据')
+  })
 })

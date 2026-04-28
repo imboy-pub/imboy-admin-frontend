@@ -1,14 +1,13 @@
 import client from '@/services/api/client'
 import { requireApiPayload } from '@/services/api/responseAdapter'
 import { ApiResponse, PaginatedResponse } from '@/types/api'
-
-type IdLike = string | number
+import type { EntityId } from '@/types/common'
 
 export interface Channel {
-  id: IdLike
+  id: EntityId
   name: string
   type: number
-  owner_id: IdLike
+  owner_id: EntityId
   custom_id: string | null
   description: string | null
   avatar: string | null
@@ -40,9 +39,9 @@ export interface ChannelUpdateParams {
 }
 
 export interface ChannelMessage {
-  id: IdLike
-  channel_id: IdLike
-  author_id: IdLike
+  id: EntityId
+  channel_id: EntityId
+  author_id: EntityId
   author_name: string | null
   content: string
   msg_type: string
@@ -63,7 +62,7 @@ export interface ChannelGovernanceListParams {
 }
 
 export interface ChannelUserSummary {
-  id: IdLike
+  id: EntityId
   account?: string
   nickname?: string
   avatar?: string
@@ -71,9 +70,9 @@ export interface ChannelUserSummary {
 }
 
 export interface ChannelSubscriber {
-  id: IdLike
-  channel_id: IdLike
-  user_id: IdLike
+  id: EntityId
+  channel_id: EntityId
+  user_id: EntityId
   is_pinned: boolean
   unread_count: number
   last_read_at: string | null
@@ -82,19 +81,19 @@ export interface ChannelSubscriber {
 }
 
 export interface ChannelAdmin {
-  id: IdLike
-  channel_id: IdLike
-  user_id: IdLike
+  id: EntityId
+  channel_id: EntityId
+  user_id: EntityId
   role: number
   created_at: string
   user?: ChannelUserSummary
 }
 
 export interface ChannelInvitation {
-  id: IdLike
-  channel_id: IdLike
-  inviter_uid: IdLike
-  invitee_uid: IdLike
+  id: EntityId
+  channel_id: EntityId
+  inviter_uid: EntityId
+  invitee_uid: EntityId
   invitation_code: string | null
   status: number
   message: string | null
@@ -107,9 +106,9 @@ export interface ChannelInvitation {
 }
 
 export interface ChannelOrder {
-  id: IdLike
-  channel_id: IdLike
-  user_id: IdLike
+  id: EntityId
+  channel_id: EntityId
+  user_id: EntityId
   order_no: string
   amount: string
   currency: string
@@ -128,7 +127,7 @@ export interface ChannelOrder {
 }
 
 export interface ChannelStats {
-  channel_id: IdLike
+  channel_id: EntityId
   subscriber_count: number
   total_messages: number
   total_views: number
@@ -136,7 +135,7 @@ export interface ChannelStats {
 }
 
 type RawChannel = Channel & {
-  creator_uid?: IdLike
+  creator_uid?: EntityId
 }
 
 function normalizeChannel(item: RawChannel): Channel {
@@ -171,12 +170,12 @@ export async function getChannelListPayload(
  * 获取频道详情
  * @deprecated Prefer `getChannelDetailPayload` to consume typed payload directly.
  */
-export async function getChannelDetail(channelId: IdLike): Promise<ApiResponse<Channel>> {
+export async function getChannelDetail(channelId: EntityId): Promise<ApiResponse<Channel>> {
   const response = await client.get(`/channel/detail/${channelId}`)
   return response.data
 }
 
-export async function getChannelDetailPayload(channelId: IdLike): Promise<Channel> {
+export async function getChannelDetailPayload(channelId: EntityId): Promise<Channel> {
   const payload = requireApiPayload(await getChannelDetail(channelId), '/channel/detail')
   return normalizeChannel(payload as RawChannel)
 }
@@ -203,14 +202,14 @@ export async function searchChannelsPayload(
 }
 
 export async function updateChannel(
-  channelId: IdLike,
+  channelId: EntityId,
   data: ChannelUpdateParams
 ): Promise<ApiResponse<Record<string, never>>> {
   const response = await client.put(`/channel/detail/${channelId}`, data)
   return response.data
 }
 
-export async function deleteChannel(id: IdLike): Promise<ApiResponse<Record<string, never>>> {
+export async function deleteChannel(id: EntityId): Promise<ApiResponse<Record<string, never>>> {
   const response = await client.delete('/channel/delete', {
     data: { id },
   })
@@ -218,7 +217,7 @@ export async function deleteChannel(id: IdLike): Promise<ApiResponse<Record<stri
 }
 
 export async function getChannelMessages(
-  channelId: IdLike,
+  channelId: EntityId,
   params: ChannelMessageListParams = { page: 1, size: 10 }
 ): Promise<ApiResponse<PaginatedResponse<ChannelMessage>>> {
   const response = await client.get(`/channel/${channelId}/messages`, { params })
@@ -226,7 +225,7 @@ export async function getChannelMessages(
 }
 
 export async function getChannelMessagesPayload(
-  channelId: IdLike,
+  channelId: EntityId,
   params: ChannelMessageListParams = { page: 1, size: 10 }
 ): Promise<PaginatedResponse<ChannelMessage>> {
   return requireApiPayload(
@@ -236,8 +235,8 @@ export async function getChannelMessagesPayload(
 }
 
 export async function pinChannelMessage(
-  channelId: IdLike,
-  messageId: IdLike,
+  channelId: EntityId,
+  messageId: EntityId,
   pinned: boolean
 ): Promise<ApiResponse<Record<string, never>>> {
   const response = await client.put(
@@ -248,8 +247,8 @@ export async function pinChannelMessage(
 }
 
 export async function deleteChannelMessage(
-  channelId: IdLike,
-  messageId: IdLike
+  channelId: EntityId,
+  messageId: EntityId
 ): Promise<ApiResponse<Record<string, never>>> {
   const response = await client.delete(
     `/channel/${channelId}/message/${messageId}/delete`
@@ -258,7 +257,7 @@ export async function deleteChannelMessage(
 }
 
 export async function getChannelSubscribers(
-  channelId: IdLike,
+  channelId: EntityId,
   params: ChannelGovernanceListParams = { page: 1, size: 10 }
 ): Promise<ApiResponse<PaginatedResponse<ChannelSubscriber>>> {
   const response = await client.get(`/channel/detail/${channelId}/subscribers`, { params })
@@ -266,7 +265,7 @@ export async function getChannelSubscribers(
 }
 
 export async function getChannelSubscribersPayload(
-  channelId: IdLike,
+  channelId: EntityId,
   params: ChannelGovernanceListParams = { page: 1, size: 10 }
 ): Promise<PaginatedResponse<ChannelSubscriber>> {
   return requireApiPayload(
@@ -276,15 +275,15 @@ export async function getChannelSubscribersPayload(
 }
 
 export async function removeChannelSubscriber(
-  channelId: IdLike,
-  userId: IdLike
+  channelId: EntityId,
+  userId: EntityId
 ): Promise<ApiResponse<Record<string, never>>> {
   const response = await client.delete(`/channel/detail/${channelId}/subscriber/${userId}`)
   return response.data
 }
 
 export async function getChannelAdmins(
-  channelId: IdLike,
+  channelId: EntityId,
   params: ChannelGovernanceListParams = { page: 1, size: 10 }
 ): Promise<ApiResponse<PaginatedResponse<ChannelAdmin>>> {
   const response = await client.get(`/channel/detail/${channelId}/admins`, { params })
@@ -292,7 +291,7 @@ export async function getChannelAdmins(
 }
 
 export async function getChannelAdminsPayload(
-  channelId: IdLike,
+  channelId: EntityId,
   params: ChannelGovernanceListParams = { page: 1, size: 10 }
 ): Promise<PaginatedResponse<ChannelAdmin>> {
   return requireApiPayload(
@@ -302,8 +301,8 @@ export async function getChannelAdminsPayload(
 }
 
 export async function updateChannelAdminRole(
-  channelId: IdLike,
-  userId: IdLike,
+  channelId: EntityId,
+  userId: EntityId,
   role: number
 ): Promise<ApiResponse<Record<string, never>>> {
   const response = await client.put(`/channel/detail/${channelId}/admin/${userId}/role`, { role })
@@ -311,15 +310,15 @@ export async function updateChannelAdminRole(
 }
 
 export async function removeChannelAdmin(
-  channelId: IdLike,
-  userId: IdLike
+  channelId: EntityId,
+  userId: EntityId
 ): Promise<ApiResponse<Record<string, never>>> {
   const response = await client.delete(`/channel/detail/${channelId}/admin/${userId}`)
   return response.data
 }
 
 export async function getChannelInvitations(
-  channelId: IdLike,
+  channelId: EntityId,
   params: ChannelGovernanceListParams = { page: 1, size: 10 }
 ): Promise<ApiResponse<PaginatedResponse<ChannelInvitation>>> {
   const response = await client.get(`/channel/detail/${channelId}/invitations`, { params })
@@ -327,7 +326,7 @@ export async function getChannelInvitations(
 }
 
 export async function getChannelInvitationsPayload(
-  channelId: IdLike,
+  channelId: EntityId,
   params: ChannelGovernanceListParams = { page: 1, size: 10 }
 ): Promise<PaginatedResponse<ChannelInvitation>> {
   return requireApiPayload(
@@ -337,7 +336,7 @@ export async function getChannelInvitationsPayload(
 }
 
 export async function getChannelOrders(
-  channelId: IdLike,
+  channelId: EntityId,
   params: ChannelGovernanceListParams = { page: 1, size: 10 }
 ): Promise<ApiResponse<PaginatedResponse<ChannelOrder>>> {
   const response = await client.get(`/channel/detail/${channelId}/orders`, { params })
@@ -345,7 +344,7 @@ export async function getChannelOrders(
 }
 
 export async function getChannelOrdersPayload(
-  channelId: IdLike,
+  channelId: EntityId,
   params: ChannelGovernanceListParams = { page: 1, size: 10 }
 ): Promise<PaginatedResponse<ChannelOrder>> {
   return requireApiPayload(
@@ -354,12 +353,12 @@ export async function getChannelOrdersPayload(
   )
 }
 
-export async function getChannelStats(channelId: IdLike): Promise<ApiResponse<ChannelStats>> {
+export async function getChannelStats(channelId: EntityId): Promise<ApiResponse<ChannelStats>> {
   const response = await client.get(`/channel/detail/${channelId}/stats`)
   return response.data
 }
 
-export async function getChannelStatsPayload(channelId: IdLike): Promise<ChannelStats> {
+export async function getChannelStatsPayload(channelId: EntityId): Promise<ChannelStats> {
   return requireApiPayload(
     await getChannelStats(channelId),
     '/channel/detail/:id/stats'

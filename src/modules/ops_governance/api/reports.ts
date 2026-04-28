@@ -8,8 +8,7 @@ import {
   type MomentReportBatchResolveSummary,
 } from '@/modules/moments/api'
 import { ApiResponse, PaginatedResponse } from '@/types/api'
-
-type IdLike = string | number
+import type { EntityId } from '@/types/common'
 
 type ApiErrorLike = {
   code?: number | string
@@ -21,14 +20,14 @@ export type ReportTargetType = 'moment' | 'group' | 'channel' | 'user'
 export type NonMomentReportTargetType = Exclude<ReportTargetType, 'moment'>
 
 export interface ReportTicket {
-  id: IdLike
+  id: EntityId
   target_type: ReportTargetType
-  target_id: IdLike
-  reporter_uid: IdLike
+  target_id: EntityId
+  reporter_uid: EntityId
   reason: string
   description: string
   status: number
-  handled_by: IdLike | ''
+  handled_by: EntityId | ''
   handled_at: string | null
   created_at: string
   updated_at: string
@@ -50,7 +49,7 @@ export interface ReportBatchResolveSummary {
   total: number
   successCount: number
   failedCount: number
-  failedIds: IdLike[]
+  failedIds: EntityId[]
 }
 
 type TargetEndpointMap = Record<NonMomentReportTargetType, {
@@ -113,7 +112,7 @@ export function isReportEndpointUnavailable(error: unknown): boolean {
     message.includes('invalid url')
 }
 
-function toFailedIds(raw: unknown): IdLike[] {
+function toFailedIds(raw: unknown): EntityId[] {
   if (!Array.isArray(raw)) return []
   return raw
     .filter((item) => typeof item === 'string' || typeof item === 'number')
@@ -218,9 +217,9 @@ function normalizeReport(raw: unknown, fallbackType: ReportTargetType): ReportTi
   }
 }
 
-function normalizeReportIds(reportIds: IdLike[]): IdLike[] {
+function normalizeReportIds(reportIds: EntityId[]): EntityId[] {
   const seen = new Set<string>()
-  const normalized: IdLike[] = []
+  const normalized: EntityId[] = []
 
   for (const rawId of reportIds) {
     const candidate = typeof rawId === 'string' ? rawId.trim() : rawId
@@ -346,7 +345,7 @@ async function resolveByEndpoint(
 
 export async function resolveReport(
   targetType: ReportTargetType,
-  reportId: IdLike,
+  reportId: EntityId,
   result: 1 | 2,
   note = ''
 ): Promise<ApiResponse<Record<string, never>>> {
@@ -398,7 +397,7 @@ function normalizeMomentBatchSummary(summary: MomentReportBatchResolveSummary): 
 
 export async function resolveReportBatchWithFallback(
   targetType: ReportTargetType,
-  reportIds: IdLike[],
+  reportIds: EntityId[],
   result: 1 | 2,
   note = ''
 ): Promise<ReportBatchResolveSummary> {
@@ -474,7 +473,7 @@ export async function resolveReportBatchWithFallback(
 
   const failedIds = results
     .map((item, index) => (item.status === 'rejected' ? normalizedReportIds[index] : null))
-    .filter((item): item is IdLike => item !== null)
+    .filter((item): item is EntityId => item !== null)
 
   const failedCount = failedIds.length
   const successCount = total - failedCount

@@ -242,4 +242,37 @@ describe('UserTagManagePage flow', () => {
       expect(view.container.textContent).toContain('user-detail-route:88')
     })
   })
+
+  it('shows error state when API fails', async () => {
+    mutableClient.get = async () => { throw new Error('network error') }
+
+    let view: ReturnType<typeof renderUserTagManagePage>
+    await act(async () => { view = renderUserTagManagePage() })
+
+    await waitFor(() => {
+      expect(view.container.textContent).toContain('加载用户标签数据失败')
+    })
+  })
+
+  it('shows empty state when no tags exist', async () => {
+    mutableClient.get = async (url: string) => {
+      if (url === '/user/tag/list') {
+        return {
+          data: {
+            code: 0, msg: 'ok',
+            payload: { items: [], page: 1, size: 10, total: 0, total_pages: 0 },
+          },
+        }
+      }
+      throw new Error(`unexpected GET: ${url}`)
+    }
+
+    let view: ReturnType<typeof renderUserTagManagePage>
+    await act(async () => { view = renderUserTagManagePage() })
+
+    await waitFor(() => {
+      expect(view.container.textContent).toContain('用户标签治理')
+      expect(view.container.textContent).toContain('暂无数据')
+    })
+  })
 })

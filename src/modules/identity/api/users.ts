@@ -2,8 +2,7 @@ import client from '@/services/api/client'
 import { requireApiPayload } from '@/services/api/responseAdapter'
 import { ApiResponse, PaginatedResponse } from '@/types/api'
 import { User } from '@/types/user'
-
-type IdLike = string | number
+import type { EntityId } from '@/types/common'
 
 export interface UserListParams {
   page?: number
@@ -33,21 +32,21 @@ export type UserDetail = User & {
 /**
  * @deprecated Prefer `getUserDetailPayload` to consume typed payload directly.
  */
-export async function getUserDetail(uid: IdLike): Promise<ApiResponse<UserDetail>> {
+export async function getUserDetail(uid: EntityId): Promise<ApiResponse<UserDetail>> {
   const response = await client.get('/user/detail', { params: { uid } })
   return response.data
 }
 
-export async function getUserDetailPayload(uid: IdLike): Promise<UserDetail> {
+export async function getUserDetailPayload(uid: EntityId): Promise<UserDetail> {
   return requireApiPayload(await getUserDetail(uid), '/user/detail')
 }
 
-export async function banUser(uid: IdLike): Promise<ApiResponse<Record<string, never>>> {
+export async function banUser(uid: EntityId): Promise<ApiResponse<Record<string, never>>> {
   const response = await client.post('/user/ban', { uid })
   return response.data
 }
 
-export async function unbanUser(uid: IdLike): Promise<ApiResponse<Record<string, never>>> {
+export async function unbanUser(uid: EntityId): Promise<ApiResponse<Record<string, never>>> {
   const response = await client.post('/user/unban', { uid })
   return response.data
 }

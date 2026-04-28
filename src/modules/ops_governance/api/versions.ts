@@ -1,9 +1,10 @@
 import client from '@/services/api/client'
 import { requireApiPayload } from '@/services/api/responseAdapter'
 import { ApiResponse, PaginatedResponse } from '@/types/api'
+import type { EntityId } from '@/types/common'
 
 export interface AppVersion {
-  id: number
+  id: EntityId
   version: string
   platform: string // 'ios' | 'android' | 'windows' | 'mac'
   download_url: string
@@ -21,7 +22,7 @@ export interface VersionListParams {
 }
 
 export interface VersionSaveParams {
-  id?: number
+  id?: EntityId
   version: string
   platform: string
   download_url: string
@@ -46,7 +47,7 @@ export async function saveVersion(data: VersionSaveParams): Promise<ApiResponse<
   return response.data
 }
 
-export async function deleteVersion(id: number): Promise<ApiResponse<Record<string, never>>> {
+export async function deleteVersion(id: EntityId): Promise<ApiResponse<Record<string, never>>> {
   const response = await client.post('/app_version/delete', { id })
   return response.data
 }

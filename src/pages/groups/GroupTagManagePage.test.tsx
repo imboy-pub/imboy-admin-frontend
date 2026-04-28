@@ -206,4 +206,40 @@ describe('GroupTagManagePage flow', () => {
       expect(view.container.textContent).toContain('group-detail-route:88')
     })
   })
+
+  it('shows error state when API fails', async () => {
+    mutableClient.get = async (url: string) => {
+      if (url === '/rbac/me') {
+        return { data: { code: 0, msg: 'ok', payload: { role_id: 1, role_ids: [1], role_name: 'super_admin', permissions: [], menu_paths: [] } } }
+      }
+      throw new Error('network error')
+    }
+
+    let view: ReturnType<typeof renderGroupTagManagePage>
+    await act(async () => { view = renderGroupTagManagePage() })
+
+    await waitFor(() => {
+      expect(view.container.textContent).toContain('加载群标签数据失败')
+    })
+  })
+
+  it('shows empty list when no tags exist', async () => {
+    mutableClient.get = async (url: string) => {
+      if (url === '/group/tag/list') {
+        return { data: { code: 0, msg: 'ok', payload: { items: [], total: 0 } } }
+      }
+      if (url === '/rbac/me') {
+        return { data: { code: 0, msg: 'ok', payload: { role_id: 1, role_ids: [1], role_name: 'super_admin', permissions: ['groups:tag:delete'], menu_paths: [] } } }
+      }
+      throw new Error(`unexpected: ${url}`)
+    }
+
+    let view: ReturnType<typeof renderGroupTagManagePage>
+    await act(async () => { view = renderGroupTagManagePage() })
+
+    await waitFor(() => {
+      expect(view.container.textContent).toContain('群标签管理')
+      expect(view.container.textContent).toContain('暂无数据')
+    })
+  })
 })

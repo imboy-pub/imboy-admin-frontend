@@ -255,4 +255,37 @@ describe('MomentListPage flow', () => {
       expect(view.container.textContent).toContain('moment-reports-route')
     })
   })
+
+  it('shows error state when API fails', async () => {
+    mutableClient.get = async () => { throw new Error('network error') }
+
+    let view: ReturnType<typeof renderMomentListPage>
+    await act(async () => { view = renderMomentListPage() })
+
+    await waitFor(() => {
+      expect(view.container.textContent).toContain('加载动态数据失败')
+    })
+  })
+
+  it('shows empty state when no moments exist', async () => {
+    mutableClient.get = async (url: string) => {
+      if (url === '/moment/list') {
+        return {
+          data: {
+            code: 0, msg: 'ok',
+            payload: { items: [], page: 1, size: 10, total: 0, total_pages: 0 },
+          },
+        }
+      }
+      throw new Error(`unexpected GET: ${url}`)
+    }
+
+    let view: ReturnType<typeof renderMomentListPage>
+    await act(async () => { view = renderMomentListPage() })
+
+    await waitFor(() => {
+      expect(view.container.textContent).toContain('朋友圈治理')
+      expect(view.container.textContent).toContain('暂无数据')
+    })
+  })
 })

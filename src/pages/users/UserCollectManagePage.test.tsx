@@ -278,4 +278,37 @@ describe('UserCollectManagePage flow', () => {
       expect(view.container.textContent).toContain('user-detail-route:88')
     })
   })
+
+  it('shows error state when API fails', async () => {
+    mutableClient.get = async () => { throw new Error('network error') }
+
+    let view: ReturnType<typeof renderUserCollectManagePage>
+    await act(async () => { view = renderUserCollectManagePage() })
+
+    await waitFor(() => {
+      expect(view.container.textContent).toContain('加载用户收藏数据失败')
+    })
+  })
+
+  it('shows empty state when no collects exist', async () => {
+    mutableClient.get = async (url: string) => {
+      if (url === '/user/collect/list') {
+        return {
+          data: {
+            code: 0, msg: 'ok',
+            payload: { items: [], page: 1, size: 10, total: 0, total_pages: 0 },
+          },
+        }
+      }
+      throw new Error(`unexpected GET: ${url}`)
+    }
+
+    let view: ReturnType<typeof renderUserCollectManagePage>
+    await act(async () => { view = renderUserCollectManagePage() })
+
+    await waitFor(() => {
+      expect(view.container.textContent).toContain('用户收藏治理')
+      expect(view.container.textContent).toContain('暂无数据')
+    })
+  })
 })

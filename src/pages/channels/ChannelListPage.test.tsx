@@ -229,4 +229,37 @@ describe('ChannelListPage flow', () => {
       expect(view.container.textContent).toContain('channel-messages-route:8')
     })
   })
+
+  it('shows error state when API fails', async () => {
+    mutableClient.get = async () => { throw new Error('network error') }
+
+    let view: ReturnType<typeof renderChannelListPage>
+    await act(async () => { view = renderChannelListPage() })
+
+    await waitFor(() => {
+      expect(view.container.textContent).toContain('加载频道数据失败')
+    })
+  })
+
+  it('shows empty state when no channels exist', async () => {
+    mutableClient.get = async (url: string) => {
+      if (url === '/channel/list') {
+        return {
+          data: {
+            code: 0, msg: 'ok',
+            payload: { items: [], page: 1, size: 10, total: 0, total_pages: 0 },
+          },
+        }
+      }
+      throw new Error(`unexpected GET: ${url}`)
+    }
+
+    let view: ReturnType<typeof renderChannelListPage>
+    await act(async () => { view = renderChannelListPage() })
+
+    await waitFor(() => {
+      expect(view.container.textContent).toContain('频道管理')
+      expect(view.container.textContent).toContain('暂无数据')
+    })
+  })
 })

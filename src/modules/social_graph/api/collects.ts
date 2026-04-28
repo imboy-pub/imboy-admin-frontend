@@ -1,11 +1,10 @@
 import client from '@/services/api/client'
 import { requireApiPayload } from '@/services/api/responseAdapter'
 import { ApiResponse, PaginatedResponse } from '@/types/api'
-
-type IdLike = string | number
+import type { EntityId } from '@/types/common'
 
 export interface UserCollectListParams {
-  uid: IdLike
+  uid: EntityId
   page?: number
   size?: number
   kind?: number
@@ -50,7 +49,7 @@ export async function getUserCollectListPayload(params: UserCollectListParams): 
 }
 
 export async function removeUserCollect(
-  data: { uid: IdLike; kind_id: string }
+  data: { uid: EntityId; kind_id: string }
 ): Promise<ApiResponse<Record<string, never>>> {
   const response = await client.post('/user/collect/remove', data)
   return response.data

@@ -346,6 +346,8 @@ export function GroupTaskManagePage() {
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">状态筛选</span>
             <select
+              data-testid="group-task-status-filter"
+              aria-label="状态筛选"
               className="h-9 rounded-md border border-input bg-background px-3 text-sm"
               value={String(statusFilter)}
               onChange={(event) => {
