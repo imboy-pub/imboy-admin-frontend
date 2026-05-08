@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { ConfirmDialog, ErrorState, LoadingState, PageHeader, StatusBadge } from '@/components/shared'
 import { ChannelUpdateParams, deleteChannel, getChannelDetailPayload, getChannelStatsPayload, updateChannel } from '@/modules/channels/api'
 import { formatDate } from '@/lib/utils'
-import { useAdminFeatures } from '@/hooks/useAdminFeatures'
+import { useAdminFeatures, useAdminEntryEnabled } from '@/hooks/useAdminFeatures'
 import { isAdminFeatureEnabled } from '@/services/api/features'
 
 type ChannelForm = {
@@ -51,6 +51,7 @@ export function ChannelDetailPage() {
   const [isEditing, setIsEditing] = useState(() => searchParams.get('edit') === '1')
   const [formData, setFormData] = useState<ChannelForm | null>(null)
   const { data: featureFlags } = useAdminFeatures()
+  const channelEntryEnabled = useAdminEntryEnabled('channel')
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['channel', channelId],
@@ -123,8 +124,8 @@ export function ChannelDetailPage() {
       description: resolvedFormData.description,
     })
   }
-  const invitationEnabled = isAdminFeatureEnabled(featureFlags, 'channel_invitation')
-  const orderEnabled = isAdminFeatureEnabled(featureFlags, 'channel_order')
+  const invitationEnabled = channelEntryEnabled && isAdminFeatureEnabled(featureFlags, 'channel_invitation')
+  const orderEnabled = channelEntryEnabled && isAdminFeatureEnabled(featureFlags, 'channel_order')
 
   const statsCards = [
     { label: '订阅数', value: stats?.subscriber_count ?? channel.subscriber_count ?? 0 },

@@ -8,8 +8,7 @@ import { PageHeader, LoadingState, ErrorState, StatusBadge, ConfirmDialog } from
 import { getGroupDetailPayload, dissolveGroup } from '@/modules/groups/api'
 import { formatDate } from '@/lib/utils'
 import { useState } from 'react'
-import { useAdminFeatures } from '@/hooks/useAdminFeatures'
-import { isAdminFeatureEnabled } from '@/services/api/features'
+import { useAdminEntryEnabled } from '@/hooks/useAdminFeatures'
 
 export function GroupDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -17,7 +16,9 @@ export function GroupDetailPage() {
   const queryClient = useQueryClient()
   const gid = id ?? ''
   const [showConfirm, setShowConfirm] = useState(false)
-  const { data: featureFlags } = useAdminFeatures()
+  const voteEnabled = useAdminEntryEnabled('group_vote')
+  const scheduleEnabled = useAdminEntryEnabled('group_schedule')
+  const taskEnabled = useAdminEntryEnabled('group_task')
 
   // 获取群组详情
   const { data, isLoading, error, refetch } = useQuery({
@@ -48,10 +49,6 @@ export function GroupDetailPage() {
   if (error || !group) {
     return <ErrorState message="加载群组详情失败" onRetry={() => refetch()} />
   }
-
-  const voteEnabled = isAdminFeatureEnabled(featureFlags, 'group_vote')
-  const scheduleEnabled = isAdminFeatureEnabled(featureFlags, 'group_schedule')
-  const taskEnabled = isAdminFeatureEnabled(featureFlags, 'group_task')
 
   return (
     <div className="space-y-6">

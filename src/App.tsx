@@ -65,6 +65,8 @@ const MutedUsersPage = lazy(() => import('@/pages/settings/MutedUsersPage').then
 const PushTokenListPage = lazy(() => import('@/pages/settings/PushTokenListPage').then((m) => ({ default: m.PushTokenListPage })))
 const AuditLogPage = lazy(() => import('@/pages/logs/AuditLogPage').then((m) => ({ default: m.AuditLogPage })))
 const SystemHealthPage = lazy(() => import('@/pages/system-health/SystemHealthPage').then((m) => ({ default: m.SystemHealthPage })))
+const PluginManagementPage = lazy(() => import('@/modules/plugin_management').then((m) => ({ default: m.PluginManagementPage })))
+const PluginLogPage = lazy(() => import('@/modules/plugin_management').then((m) => ({ default: m.PluginLogPage })))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -512,6 +514,23 @@ function App() {
                   element={(
                     <PermissionRoute permission="settings:view" roles={[1]}>
                       <SystemHealthPage />
+                    </PermissionRoute>
+                  )}
+                />
+                {/* 插件管理 */}
+                <Route
+                  path="/plugins"
+                  element={(
+                    <PermissionRoute permission="settings:view" roles={[1]}>
+                      <PluginManagementPage />
+                    </PermissionRoute>
+                  )}
+                />
+                <Route
+                  path="/plugins/logs"
+                  element={(
+                    <PermissionRoute permission="settings:view" roles={[1]}>
+                      <PluginLogPage />
                     </PermissionRoute>
                   )}
                 />

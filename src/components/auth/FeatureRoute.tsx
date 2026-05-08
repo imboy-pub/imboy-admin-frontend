@@ -1,11 +1,16 @@
 import { ReactElement } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { Lock, Settings } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { LoadingState } from '@/components/shared'
-import { useAdminFeatures } from '@/hooks/useAdminFeatures'
-import { featureKeyForAdminPath, isAdminFeatureEnabled } from '@/services/api/features'
-import { Lock, Settings } from 'lucide-react'
+import { useAdminFeatures, useAdminEntries } from '@/hooks/useAdminFeatures'
+import {
+  featureKeyForAdminPath,
+  isAdminFeatureEnabled,
+  adminEntryForPath,
+  isAdminEntryEnabled,
+} from '@/services/api/features'
 
 type FeatureRouteProps = {
   children: ReactElement
@@ -50,13 +55,52 @@ export function FeatureDisabledPage({ feature }: { feature: string }) {
   )
 }
 
+function AdminEntryDisabledPage({ entry }: { entry: string }) {
+  const navigate = useNavigate()
+  const entryLabels: Record<string, string> = {
+    channel: '频道',
+    moment: '朋友圈',
+    group_vote: '群投票',
+    group_schedule: '群日程',
+    group_task: '群任务',
+  }
+  const label = entryLabels[entry] ?? entry
+
+  return (
+    <div className="flex items-center justify-center min-h-[60vh]">
+      <Card className="max-w-md w-full">
+        <CardHeader className="text-center">
+          <div className="mx-auto mb-2 flex h-14 w-14 items-center justify-center rounded-full bg-muted">
+            <Lock className="h-7 w-7 text-muted-foreground" />
+          </div>
+          <CardTitle className="text-lg">功能未授权</CardTitle>
+        </CardHeader>
+        <CardContent className="text-center space-y-4">
+          <p className="text-sm text-muted-foreground">
+            「{label}」功能当前未授权访问。请联系管理员开启此功能的访问权限。
+          </p>
+          <Button onClick={() => navigate('/dashboard')} className="w-full">
+            返回首页
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
 export function FeatureRoute({ children, feature }: FeatureRouteProps) {
   const location = useLocation()
-  const { data: featureFlags, isLoading } = useAdminFeatures()
+  const { data: featureFlags, isLoading: featuresLoading } = useAdminFeatures()
+  const { data: adminEntries, isLoading: entriesLoading } = useAdminEntries()
   const effectiveFeature = feature ?? featureKeyForAdminPath(location.pathname)
+  const effectiveEntry = adminEntryForPath(location.pathname)
 
-  if (isLoading && featureFlags === undefined) {
+  if ((featuresLoading && featureFlags === undefined) || (entriesLoading && adminEntries === undefined)) {
     return <LoadingState message="校验功能开关..." />
+  }
+
+  if (effectiveEntry && !isAdminEntryEnabled(adminEntries, effectiveEntry)) {
+    return <AdminEntryDisabledPage entry={effectiveEntry} />
   }
 
   if (!isAdminFeatureEnabled(featureFlags, effectiveFeature)) {

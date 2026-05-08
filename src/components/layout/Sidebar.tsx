@@ -1,405 +1,47 @@
 import { NavLink, useLocation } from 'react-router-dom'
 import {
-  LayoutDashboard,
-  Users,
-  UsersRound,
-  MessageSquare,
-  UserMinus,
-  Radio,
-  MessageCircle,
-  Settings,
-  Shield,
-  KeyRound,
-  FileText,
-  BarChart3,
   ChevronLeft,
   ChevronRight,
   ChevronDown,
   Search,
   Star,
-  Circle,
-  Camera,
-  Megaphone,
-  HeartPulse,
-  HardDrive,
-  type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { getMyRbacProfilePayload, RbacProfile } from '@/services/api/rbac'
 import { useAuthStore } from '@/stores/authStore'
-import { fetchSidebarMenuConfig, type MenuConfigItem, type SidebarMenuConfig } from '@/services/api/adminConfig'
-import { useAdminFeatures } from '@/hooks/useAdminFeatures'
+import { fetchSidebarMenuConfig } from '@/services/api/adminConfig'
+import { useAdminFeatures, useAdminEntries } from '@/hooks/useAdminFeatures'
 import { useSidebarBadges } from '@/hooks/useSidebarBadges'
-import { featureKeyForAdminPath, isAdminFeatureEnabled, type FeatureFlags } from '@/services/api/features'
+import {
+  defaultConfig,
+  SIDEBAR_FAVORITES_KEY,
+  type SidebarMenuItem,
+} from './sidebarSchema'
+import {
+  collectParentKeys,
+  ensureRenderableMenu,
+  fallbackRbacProfile,
+  filterByAdminEntries,
+  filterByFeatures,
+  filterByKeyword,
+  filterByRbac,
+  findNodeByKey,
+  flattenLeafItems,
+  isNodeActive,
+  normalizeRoleId,
+  pickSafeMenuSource,
+  readFavoritePaths,
+  removeFavoriteLeaves,
+  toSidebarMenuItems,
+} from './sidebarFilters'
 
-type SidebarMenuItem = {
-  key: string
-  path?: string
-  label: string
-  icon: LucideIcon
-  roles?: Array<number | string>
-  permission?: string
-  children?: SidebarMenuItem[]
-}
-
-const SIDEBAR_FAVORITES_KEY = 'imboy_admin_sidebar_favorites'
-const LEGACY_MOMENT_COMPAT_PERMISSION = 'messages:read'
-const LEGACY_REPORT_COMPAT_PERMISSIONS = new Set([
-  'moments:read',
-  'moments:delete',
-  'moments:report:read',
-  'moments:report:handle',
-  'reports:read',
-  'reports:handle',
-])
-
-const iconMap: Record<string, LucideIcon> = {
-  LayoutDashboard,
-  Users,
-  UsersRound,
-  MessageSquare,
-  UserMinus,
-  Radio,
-  MessageCircle,
-  Settings,
-  Shield,
-  KeyRound,
-  FileText,
-  Camera,
-  Megaphone,
-  BarChart3,
-  HeartPulse,
-  HardDrive,
-}
-
-const defaultConfig: SidebarMenuConfig = {
-  title: 'Imboy Admin',
-  items: [
-    { path: '/dashboard', icon: 'LayoutDashboard', label: '仪表盘', roles: [1, 2, 3], permission: 'dashboard:view' },
-    {
-      label: '运营中心',
-      icon: 'Users',
-      children: [
-        { path: '/users', icon: 'Users', label: '用户管理', roles: [1, 2], permission: 'users:read' },
-        { path: '/groups', icon: 'UsersRound', label: '群组管理', roles: [1, 2], permission: 'groups:read' },
-        { path: '/channels', icon: 'Radio', label: '频道管理', roles: [1, 2], permission: 'channels:read' },
-        { path: '/moments', icon: 'Camera', label: '朋友圈管理', roles: [1, 2], permission: 'moments:read' },
-        { path: '/analytics', icon: 'BarChart3', label: '运营分析', roles: [1, 2], permission: 'analytics:view' },
-      ],
-    },
-    {
-      label: '治理中心',
-      icon: 'FileText',
-      children: [
-        { path: '/reports', icon: 'FileText', label: '举报中心', roles: [1, 2], permission: 'reports:read' },
-        { path: '/feedback', icon: 'MessageCircle', label: '反馈处理', roles: [1, 2], permission: 'feedback:read' },
-        { path: '/announcements', icon: 'FileText', label: '全局公告', roles: [1, 2], permission: 'announcements:read' },
-      ],
-    },
-    {
-      label: '审计中心',
-      icon: 'FileText',
-      children: [
-        { path: '/groups/context', icon: 'UsersRound', label: '群上下文入口', roles: [1, 2, 3] },
-        { path: '/messages', icon: 'MessageSquare', label: '消息管理', roles: [1, 2, 3], permission: 'messages:read' },
-        { path: '/logout-applications', icon: 'UserMinus', label: '注销申请', roles: [1, 2, 3], permission: 'logout_applications:read' },
-        { path: '/logs', icon: 'FileText', label: '日志审计', roles: [1, 3], permission: 'logs:view' },
-      ],
-    },
-    {
-      label: '系统配置',
-      icon: 'Settings',
-      children: [
-        { path: '/settings', icon: 'Settings', label: '系统设置', roles: [1], permission: 'settings:view' },
-        { path: '/system-health', icon: 'HeartPulse', label: '系统健康', roles: [1], permission: 'settings:view' },
-        { path: '/storage', icon: 'HardDrive', label: '存储管理', roles: [1], permission: 'storage:view' },
-        { path: '/admins', icon: 'Shield', label: '管理员', roles: [1], permission: 'admins:read' },
-        { path: '/roles', icon: 'KeyRound', label: '角色权限', roles: [1, 3], permission: 'roles:view' },
-      ],
-    },
-  ],
-}
-
-function normalizeRoleId(value: unknown): number | undefined {
-  const roleId = Number(value)
-  if (!Number.isFinite(roleId) || roleId <= 0) return undefined
-  return roleId
-}
-
-function fallbackRbacProfile(roleId?: number): RbacProfile | undefined {
-  const normalizedRoleId = normalizeRoleId(roleId)
-  if (!normalizedRoleId) return undefined
-  return {
-    role_id: normalizedRoleId,
-    role_name: 'fallback',
-    permissions: [],
-    menu_paths: [],
-  }
-}
-
-function toSidebarMenuItems(configItems?: MenuConfigItem[], parentKey = 'menu', seenPaths = new Set<string>()): SidebarMenuItem[] {
-  if (!Array.isArray(configItems)) return []
-
-  const mapped: Array<SidebarMenuItem | null> = configItems
-    .filter((item) => item && item.enabled !== false)
-    .map((item, index) => {
-      const label = typeof item.label === 'string' ? item.label.trim() : ''
-      if (!label) return null
-
-      let path = typeof item.path === 'string' ? item.path.trim() : undefined
-      if (path && seenPaths.has(path)) {
-        path = undefined
-      }
-      if (path) {
-        seenPaths.add(path)
-      }
-
-      const key = path ? `path:${path}` : `${parentKey}.${index}`
-      const children = toSidebarMenuItems(item.children, key, seenPaths)
-      if (!path && children.length === 0) return null
-
-      const result: SidebarMenuItem = {
-        key,
-        label,
-        icon: iconMap[item.icon || ''] || Circle,
-      }
-
-      if (path) result.path = path
-      if (Array.isArray(item.roles)) result.roles = item.roles
-      if (typeof item.permission === 'string' && item.permission.trim().length > 0) {
-        result.permission = item.permission.trim()
-      }
-      if (children.length > 0) result.children = children
-
-      return result
-    })
-
-  return mapped.filter((item): item is SidebarMenuItem => item !== null)
-}
-
-function flattenLeafItems(items: SidebarMenuItem[]): SidebarMenuItem[] {
-  return items.flatMap((item) => {
-    const self = item.path ? [item] : []
-    const children = item.children ? flattenLeafItems(item.children) : []
-    return [...self, ...children]
-  })
-}
-
-function collectParentKeys(items: SidebarMenuItem[]): string[] {
-  return items.flatMap((item) => {
-    if (!item.children || item.children.length === 0) return []
-    return [item.key, ...collectParentKeys(item.children)]
-  })
-}
-
-function findNodeByKey(items: SidebarMenuItem[], key: string): SidebarMenuItem | undefined {
-  for (const item of items) {
-    if (item.key === key) return item
-    if (item.children) {
-      const matched = findNodeByKey(item.children, key)
-      if (matched) return matched
-    }
-  }
-  return undefined
-}
-
-function isNodeActive(item: SidebarMenuItem, pathname: string): boolean {
-  if (item.path === pathname) return true
-  if (!item.children || item.children.length === 0) return false
-  return item.children.some((child) => isNodeActive(child, pathname))
-}
-
-function filterByKeyword(items: SidebarMenuItem[], keyword: string): SidebarMenuItem[] {
-  const normalized = keyword.trim().toLowerCase()
-  if (!normalized) return items
-
-  return items
-    .map((item) => {
-      const selfMatch =
-        item.label.toLowerCase().includes(normalized) ||
-        (item.path ? item.path.toLowerCase().includes(normalized) : false)
-
-      if (!item.children || item.children.length === 0) {
-        return selfMatch ? item : null
-      }
-
-      if (selfMatch) {
-        return item
-      }
-
-      const filteredChildren = filterByKeyword(item.children, normalized)
-      if (filteredChildren.length === 0) return null
-      return { ...item, children: filteredChildren }
-    })
-    .filter((item): item is SidebarMenuItem => item !== null)
-}
-
-function filterByRbac(items: SidebarMenuItem[], profile?: RbacProfile): SidebarMenuItem[] {
-  if (!profile) return items
-
-  const roleId = normalizeRoleId(profile.role_id)
-  const allowedPaths = new Set(profile.menu_paths || [])
-  const hasPathRule = allowedPaths.size > 0
-  const permissions = new Set(profile.permissions || [])
-  const hasLegacyMomentCompat = permissions.has(LEGACY_MOMENT_COMPAT_PERMISSION)
-
-  const hasPermissionAccess = (permission?: string): boolean => {
-    if (!permission || permissions.size === 0) return true
-    if (permissions.has(permission)) return true
-    if (permission === 'reports:read' && permissions.has('moments:report:read')) return true
-    if (permission === 'reports:handle' && permissions.has('moments:report:handle')) return true
-    if (hasLegacyMomentCompat && LEGACY_REPORT_COMPAT_PERMISSIONS.has(permission)) return true
-    return false
-  }
-
-  const hasPathAccess = (path?: string): boolean => {
-    if (!path || !hasPathRule) return true
-    if (allowedPaths.has(path)) return true
-    if (path === '/reports' && (allowedPaths.has('/moments/reports') || allowedPaths.has('/moments'))) {
-      return true
-    }
-    if (path === '/moments/reports' && allowedPaths.has('/reports')) {
-      return true
-    }
-    if (path === '/moments' && allowedPaths.has('/reports')) {
-      return true
-    }
-    if (hasLegacyMomentCompat && path === '/reports') return true
-    if (hasLegacyMomentCompat && path.startsWith('/moments')) return true
-    return false
-  }
-
-  const walk = (nodes: SidebarMenuItem[]): SidebarMenuItem[] => {
-    return nodes
-      .map((item) => {
-        const itemRoles = Array.isArray(item.roles)
-          ? item.roles.map((value) => Number(value)).filter((value) => Number.isFinite(value))
-          : []
-
-        const roleAllowed = !(itemRoles.length > 0 && roleId && !itemRoles.includes(roleId))
-        const permissionAllowed = hasPermissionAccess(item.permission)
-        const pathAllowed = hasPathAccess(item.path)
-        const selfAllowed = roleAllowed && permissionAllowed && pathAllowed
-        const filteredChildren = item.children ? walk(item.children) : []
-
-        if (filteredChildren.length > 0) {
-          if (selfAllowed) {
-            return { ...item, children: filteredChildren }
-          }
-          return { ...item, path: undefined, children: filteredChildren }
-        }
-
-        if (selfAllowed && item.path) {
-          return { ...item, children: undefined }
-        }
-
-        return null
-      })
-      .filter((item): item is SidebarMenuItem => item !== null)
-  }
-
-  const filtered = walk(items)
-  if (filtered.length > 0) return filtered
-
-  const fallback = flattenLeafItems(items).find((item) => item.path === '/dashboard')
-  return fallback ? [{ ...fallback, children: undefined }] : []
-}
-
-
-function filterByFeatures(items: SidebarMenuItem[], featureFlags?: FeatureFlags | null): SidebarMenuItem[] {
-  if (!featureFlags || Object.keys(featureFlags).length === 0) {
-    return items
-  }
-
-  const walk = (nodes: SidebarMenuItem[]): SidebarMenuItem[] => {
-    return nodes
-      .map((item) => {
-        const filteredChildren = item.children ? walk(item.children) : []
-        const featureKey = featureKeyForAdminPath(item.path)
-        const selfAllowed = isAdminFeatureEnabled(featureFlags, featureKey)
-
-        if (filteredChildren.length > 0) {
-          if (selfAllowed) {
-            return { ...item, children: filteredChildren }
-          }
-          return { ...item, path: undefined, children: filteredChildren }
-        }
-
-        if (selfAllowed && item.path) {
-          return { ...item, children: undefined }
-        }
-
-        return null
-      })
-      .filter((item): item is SidebarMenuItem => item !== null)
-  }
-
-  const filtered = walk(items)
-  if (filtered.length > 0) return filtered
-
-  const fallback = flattenLeafItems(items).find((item) => item.path === '/dashboard')
-  return fallback ? [{ ...fallback, children: undefined }] : []
-}
-
-function pickSafeMenuSource(configItems?: MenuConfigItem[]): MenuConfigItem[] {  if (Array.isArray(configItems) && configItems.length > 0) {
-    return configItems
-  }
-  return defaultConfig.items || []
-}
-
-
-function ensureRenderableMenu(
-  items: SidebarMenuItem[],
-  profile?: RbacProfile,
-  featureFlags?: FeatureFlags | null
-): SidebarMenuItem[] {
-  if (items.length > 0) return items
-  return filterByFeatures(
-    filterByRbac(toSidebarMenuItems(defaultConfig.items), profile),
-    featureFlags
-  )
-}
-function removeFavoriteLeaves(items: SidebarMenuItem[], favoriteSet: Set<string>): SidebarMenuItem[] {
-  return items
-    .map((item) => {
-      const nextChildren = item.children ? removeFavoriteLeaves(item.children, favoriteSet) : []
-      const keepPath = Boolean(item.path && !favoriteSet.has(item.path))
-
-      if (nextChildren.length > 0) {
-        if (keepPath) {
-          return { ...item, children: nextChildren }
-        }
-        return { ...item, path: undefined, children: nextChildren }
-      }
-
-      if (keepPath) {
-        return { ...item, children: undefined }
-      }
-
-      return null
-    })
-    .filter((item): item is SidebarMenuItem => item !== null)
-}
-
-function readFavoritePaths(): string[] {
-  if (typeof window === 'undefined') return []
-
-  try {
-    const raw = localStorage.getItem(SIDEBAR_FAVORITES_KEY)
-    if (!raw) return []
-    const parsed = JSON.parse(raw)
-    if (!Array.isArray(parsed)) return []
-    return parsed.filter((path) => typeof path === 'string')
-  } catch {
-    return []
-  }
-}
 
 export function Sidebar() {
   const location = useLocation()
   const currentRoleId = useAuthStore((state) => state.admin?.role_id)
   const { data: featureFlags } = useAdminFeatures()
+  const { data: adminEntries } = useAdminEntries()
   const { pendingReports, pendingFeedback } = useSidebarBadges()
   const badges: Record<string, number> = {
     '/reports': pendingReports,
@@ -430,9 +72,13 @@ export function Sidebar() {
         const normalizedItems = toSidebarMenuItems(sourceItems)
 
         const filteredItems = ensureRenderableMenu(
-          filterByFeatures(filterByRbac(normalizedItems, profile), featureFlags),
+          filterByAdminEntries(
+            filterByFeatures(filterByRbac(normalizedItems, profile), featureFlags),
+            adminEntries
+          ),
           profile,
-          featureFlags
+          featureFlags,
+          adminEntries
         )
         setTitle(data.title || defaultConfig.title || 'Imboy Admin')
         setMenuItems(filteredItems)
@@ -441,12 +87,16 @@ export function Sidebar() {
         if (cancelled) return
 
         const fallbackItems = ensureRenderableMenu(
-          filterByFeatures(
-            filterByRbac(toSidebarMenuItems(defaultConfig.items), profile),
-            featureFlags
+          filterByAdminEntries(
+            filterByFeatures(
+              filterByRbac(toSidebarMenuItems(defaultConfig.items), profile),
+              featureFlags
+            ),
+            adminEntries
           ),
           profile,
-          featureFlags
+          featureFlags,
+          adminEntries
         )
         setTitle(defaultConfig.title || 'Imboy Admin')
         setMenuItems(fallbackItems)
@@ -458,7 +108,7 @@ export function Sidebar() {
     return () => {
       cancelled = true
     }
-  }, [currentRoleId, featureFlags])
+  }, [currentRoleId, featureFlags, adminEntries])
 
   useEffect(() => {
     if (typeof window === 'undefined') return

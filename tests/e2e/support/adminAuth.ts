@@ -38,12 +38,6 @@ export function requireAdminCredentials(kind: CredentialKind = 'default'): Admin
   return credentials as AdminCredentials
 }
 
-export function requireChannelId(): string {
-  const channelId = readEnv('IMBOY_ADMIN_E2E_CHANNEL_ID')
-  test.skip(!channelId, '需要提供 IMBOY_ADMIN_E2E_CHANNEL_ID 才能执行频道消息治理 E2E')
-  return channelId as string
-}
-
 export async function loginAsAdmin(page: Page, credentials: AdminCredentials): Promise<void> {
   await page.goto('/login')
 

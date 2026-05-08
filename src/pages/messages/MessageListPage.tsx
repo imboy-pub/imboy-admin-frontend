@@ -1,5 +1,12 @@
-import { ReactNode, useState } from 'react'
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { JsonTree, highlightText, parsePayload } from './messageRenderingHelpers'
+import {
+  columnLabels,
+  scopeLabels,
+  scopeVariants,
+  type PayloadViewMode,
+} from './messageConstants'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -21,34 +28,6 @@ import { ManagedMessage, MessageListParams } from '@/types/message'
 import { formatDate, truncate } from '@/lib/utils'
 import { ColumnDef, VisibilityState, getCoreRowModel, useReactTable } from '@tanstack/react-table'
 import { toast } from 'sonner'
-
-const scopeLabels: Record<string, string> = {
-  c2c: '单聊',
-  c2g: '群聊',
-  c2s: '机器人',
-  s2c: '系统',
-}
-
-const scopeVariants: Record<string, 'success' | 'warning' | 'error' | 'info' | 'secondary'> = {
-  c2c: 'info',
-  c2g: 'success',
-  c2s: 'warning',
-  s2c: 'secondary',
-}
-
-const columnLabels: Record<string, string> = {
-  scope: '范围',
-  msg_id: '消息 ID',
-  from_id: '发送方',
-  to_id: '接收方',
-  msg_type: '类型',
-  action: '动作',
-  payload: '内容',
-  created_at: '创建时间',
-  actions: '操作',
-}
-
-type PayloadViewMode = 'pretty' | 'raw' | 'tree'
 
 export function MessageListPage() {
   const [params, setParams] = useState<MessageListParams>({
@@ -603,118 +582,6 @@ export function MessageListPage() {
           </div>
         </div>
       )}
-    </div>
-  )
-}
-
-function parsePayload(payload: string): { display: string; isJson: boolean; parsed: unknown } {
-  if (!payload) {
-    return { display: '-', isJson: false, parsed: null }
-  }
-  try {
-    const parsed = JSON.parse(payload) as unknown
-    return { display: JSON.stringify(parsed, null, 2), isJson: true, parsed }
-  } catch {
-    return { display: payload, isJson: false, parsed: payload }
-  }
-}
-
-function highlightText(text: string, keyword: string): ReactNode {
-  const target = keyword.trim()
-  if (!target) {
-    return text
-  }
-
-  const escaped = escapeRegExp(target)
-  const regex = new RegExp(`(${escaped})`, 'gi')
-  const parts = text.split(regex)
-
-  return parts.map((part, index) => {
-    if (part.toLowerCase() === target.toLowerCase()) {
-      return (
-        <mark key={`${part}-${index}`} className="rounded bg-yellow-200 px-0.5 text-black">
-          {part}
-        </mark>
-      )
-    }
-    return <span key={`${part}-${index}`}>{part}</span>
-  })
-}
-
-function escapeRegExp(input: string): string {
-  return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-}
-
-function formatPrimitive(value: unknown): string {
-  if (typeof value === 'string') {
-    return `"${value}"`
-  }
-  if (value === null) {
-    return 'null'
-  }
-  return String(value)
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
-interface JsonTreeProps {
-  value: unknown
-  keyword: string
-  depth?: number
-}
-
-function JsonTree({ value, keyword, depth = 0 }: JsonTreeProps) {
-  const style = { marginLeft: depth * 12 }
-
-  if (Array.isArray(value)) {
-    if (value.length === 0) {
-      return (
-        <div style={style} className="text-xs text-muted-foreground">
-          []
-        </div>
-      )
-    }
-    return (
-      <div style={style} className="space-y-1">
-        {value.map((item, idx) => (
-          <div key={`arr-${depth}-${idx}`} className="space-y-1">
-            <div className="text-xs text-muted-foreground">[{idx}]</div>
-            <JsonTree value={item} keyword={keyword} depth={depth + 1} />
-          </div>
-        ))}
-      </div>
-    )
-  }
-
-  if (isRecord(value)) {
-    const entries = Object.entries(value)
-    if (entries.length === 0) {
-      return (
-        <div style={style} className="text-xs text-muted-foreground">
-          {'{}'}
-        </div>
-      )
-    }
-    return (
-      <div style={style} className="space-y-1">
-        {entries.map(([key, child], idx) => (
-          <div key={`obj-${depth}-${key}-${idx}`} className="space-y-1">
-            <div className="text-xs">
-              <span className="font-semibold text-sky-700">{highlightText(key, keyword)}</span>
-              <span className="text-muted-foreground">: </span>
-            </div>
-            <JsonTree value={child} keyword={keyword} depth={depth + 1} />
-          </div>
-        ))}
-      </div>
-    )
-  }
-
-  return (
-    <div style={style} className="text-xs">
-      {highlightText(formatPrimitive(value), keyword)}
     </div>
   )
 }
