@@ -1,0 +1,150 @@
+# gitleaks config for imboy-admin-frontend
+# 关联：.claude/plans/quality-loop.md T1.4 (v1.1 polyrepo 适配)
+# 文档：https://github.com/gitleaks/gitleaks/blob/master/config/gitleaks.toml
+# 项目特性：React 19 + TypeScript + Vite + Radix UI + Zustand + TanStack Query/Table
+# 包管理：bun（lefthook 当前用 pnpm exec，规约外但不在本任务范围）
+# 测试：bun test (unit) + Playwright (E2E)
+# 双语文档：README.md (zh-CN 权威) + README.en.md (English mirror)
+
+title = "imboy-admin-frontend gitleaks config"
+
+[extend]
+useDefault = true
+
+# ---------------------------------------------------------------------------
+# 全局白名单
+# ---------------------------------------------------------------------------
+[allowlist]
+description = "imboy-admin-frontend 全局白名单：构建产物、依赖、生成代码、双语文档"
+
+paths = [
+    # Node 生态依赖与构建产物
+    '''node_modules/''',
+    '''pnpm-lock\.yaml''',
+    '''package-lock\.json''',
+    '''yarn\.lock''',
+    '''bun\.lockb''',
+    '''bun\.lock''',
+
+    # Vite / Next / Turbo / Webpack 构建产物
+    '''dist/''',
+    '''build/''',
+    '''out/''',
+    '''\.next/''',
+    '''\.nuxt/''',
+    '''\.turbo/''',
+    '''\.vite/''',
+    '''\.cache/''',
+    '''\.parcel-cache/''',
+
+    # 测试覆盖率 / Playwright 报告
+    '''coverage/''',
+    '''\.nyc_output/''',
+    '''playwright-report/''',
+    '''test-results/''',
+
+    # Storybook
+    '''storybook-static/''',
+
+    # codegen 输出（T3.4 之后）
+    '''src/api/_gen/''',
+    '''src/services/api/_gen/''',
+
+    # 二进制 / 媒体资产
+    '''(.*?)\.(jpg|jpeg|png|gif|webp|svg|ico|avif)$''',
+    '''(.*?)\.(woff|woff2|ttf|eot|otf)$''',
+    '''(.*?)\.(pdf|zip|tar|gz|bz2|7z|rar)$''',
+    '''(.*?)\.(mp3|mp4|wav|ogg|webm|mov|m4a|aac)$''',
+
+    # 测试 fixture
+    '''test/fixtures/''',
+    '''__fixtures__/''',
+    '''e2e/fixtures/''',
+    '''__snapshots__/''',
+    '''src/test/fixtures/''',
+
+    # 文档（含双语镜像）
+    '''docs/''',
+    '''README\.md''',
+    '''README\.en\.md''',
+    '''CHANGELOG\.md''',
+    '''CHANGELOG\.en\.md''',
+    '''CLAUDE\.md''',
+    '''CONTRIBUTING\.md''',
+    '''CONTRIBUTING\.en\.md''',
+    '''.*\.en\.md$''',
+
+    # 编辑器 / 版本控制元数据
+    '''\.git/''',
+    '''\.idea/''',
+    '''\.vscode/''',
+    '''\.husky/''',
+]
+
+# 占位符 / 示例 token
+regexes = [
+    '''(?i)(your[_-]?(api[_-]?key|secret|token)|<changeme>|placeholder|example[_-]?key|xxxxxxxx)''',
+    '''(?i)(00000000|11111111|deadbeef|cafebabe|abcdef00)[a-f0-9]{8,}''',
+    '''^[A-Za-z0-9+/]{8,31}={0,2}$''',
+]
+
+# ---------------------------------------------------------------------------
+# 前端项目特定规则
+# ---------------------------------------------------------------------------
+[[rules]]
+id = "admin-vite-public-env-leak"
+description = "VITE_* 公开变量中嵌入了高熵 secret（应只放可公开值）"
+regex = '''VITE_[A-Z_]+\s*=\s*['"]?[A-Za-z0-9+/=_\-]{40,}['"]?'''
+keywords = ["VITE_"]
+tags = ["secret", "vite", "env"]
+
+[rules.allowlist]
+description = "公开 ID 类（项目 ID / 公钥指纹 / Sentry DSN）允许长字符串"
+regexes = [
+    '''VITE_(SENTRY_DSN|PUBLIC_KEY|APP_ID|PROJECT_ID|BUILD_ID|API_BASE_URL)''',
+]
+
+[[rules]]
+id = "admin-firebase-api-key"
+description = "Firebase Web API Key 硬编码"
+regex = '''AIza[0-9A-Za-z_\-]{35}'''
+keywords = ["AIza"]
+tags = ["key", "firebase"]
+
+[[rules]]
+id = "admin-jwt-token-in-source"
+description = "JWT 形式 token 出现在源码（应只在 runtime cookie/storage 中）"
+regex = '''eyJ[A-Za-z0-9_\-]{10,}\.eyJ[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}'''
+keywords = ["eyJ"]
+tags = ["secret", "jwt"]
+
+[rules.allowlist]
+description = "测试 fixture / mock / .test / .spec / playwright e2e 中的合成 JWT 允许"
+paths = [
+    '''test/fixtures/''',
+    '''__fixtures__/''',
+    '''__mocks__/''',
+    '''e2e/''',
+    '''.*\.test\.[jt]sx?$''',
+    '''.*\.spec\.[jt]sx?$''',
+]
+
+[[rules]]
+id = "admin-private-key-pem"
+description = "PEM 格式私钥（RSA / EC / OpenSSH）出现在源码"
+regex = '''-----BEGIN (RSA |EC |OPENSSH |DSA |PGP )?PRIVATE KEY-----'''
+keywords = ["PRIVATE KEY"]
+tags = ["secret", "private-key"]
+
+[[rules]]
+id = "admin-tsid-numeric-misuse"
+description = "TSID 字段被声明为 number 类型（应使用 EntityId / string，详见 CLAUDE.md TSID 约定）"
+regex = '''(?i)\b(id|user[_-]?id|message[_-]?id|group[_-]?id|chat[_-]?id|tsid)\b\s*:\s*number\b'''
+keywords = ["id: number", "userId: number", "messageId: number", "groupId: number"]
+tags = ["lint", "tsid", "type-safety"]
+
+[rules.allowlist]
+description = "类型定义文件可能存在历史遗留，单独 PR 修复"
+paths = [
+    '''src/types/legacy/''',
+]

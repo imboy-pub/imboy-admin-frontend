@@ -1,0 +1,93 @@
+# imboy-admin-frontend 质量门 — ESLint + Typecheck + knip + Secrets
+#
+# 关联：.claude/plans/quality-loop.md v1.3 T4.1（v1.1 §301: 三仓各一份）
+# 与 ci.yml 互补：本 workflow 仅跑质量门（lint/typecheck/deadcode/secrets）
+# Ratchet 上限：lint 10 / typecheck 31 / knip 35 / gitleaks 40
+# 创建：2026-05-09 / iteration 74 / T4.1
+
+name: admin Quality Gate
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # ----------------------------------------------------------------
+  # 1) React lint + typecheck + knip (T2.6 落地的 pnpm run check 拆开)
+  # ----------------------------------------------------------------
+  react-lint:
+    name: ESLint + Typecheck + Knip
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: ESLint (ratchet — baseline 10 issues)
+        run: |
+          set -euo pipefail
+          bun run lint 2>&1 | tee lint.txt || true
+          issues=$(grep -cE "^\s+[0-9]+:[0-9]+\s+(error|warning)" lint.txt || true)
+          echo "lint_issues=$issues"
+          if [ "$issues" -gt 10 ]; then
+            echo "::error::ESLint issues $issues exceed baseline 10 (ratchet)"
+            exit 1
+          fi
+
+      - name: TypeScript typecheck (ratchet — baseline 31 errors)
+        run: |
+          set -euo pipefail
+          bun run typecheck 2>&1 | tee tc.txt || true
+          errors=$(grep -cE "error TS[0-9]+:" tc.txt || true)
+          echo "ts_errors=$errors"
+          if [ "$errors" -gt 31 ]; then
+            echo "::error::TypeScript errors $errors exceed baseline 31 (ratchet)"
+            exit 1
+          fi
+
+      - name: Knip dead-code (ratchet — baseline 35 findings)
+        run: |
+          set -euo pipefail
+          bun run deadcode 2>&1 | tee knip.txt || true
+          # knip 输出每行一个 finding（粗略统计 - tail 区段）
+          findings=$(grep -cE "^[A-Za-z@_].* (type|exports?|file|devDep)" knip.txt || true)
+          echo "knip_findings=$findings"
+          if [ "$findings" -gt 35 ]; then
+            echo "::warning::knip findings $findings exceed baseline 35 (soft ratchet)"
+          fi
+
+  # ----------------------------------------------------------------
+  # 2) Secrets — gitleaks (含自定义 admin-tsid-numeric-misuse 规则)
+  # ----------------------------------------------------------------
+  secrets-scan:
+    name: Secrets scan (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify no new leaks (ratchet — baseline 40)
+        run: |
+          set -euo pipefail
+          curl -fsSL https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz | tar -xz -C /tmp gitleaks
+          /tmp/gitleaks detect --no-git --config .gitleaks.toml --redact --no-banner \
+            --report-format json --report-path /tmp/leaks.json || true
+          count=$(jq '. | length' /tmp/leaks.json 2>/dev/null || echo 0)
+          echo "leaks=$count"
+          if [ "$count" -gt 40 ]; then
+            echo "::error::Gitleaks $count leaks, exceeds baseline 40 (ratchet)"
+            exit 1
+          fi

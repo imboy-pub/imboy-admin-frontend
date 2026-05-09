@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "preview": "vite preview",
     "test": "bun test",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
@@ -13,7 +14,10 @@
     "test:e2e:list": "playwright test --list",
     "test:e2e:install": "playwright install chromium",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "lint:fix": "eslint . --fix",
+    "typecheck": "tsc --noEmit -p tsconfig.app.json",
+    "deadcode": "knip",
+    "check": "eslint . && tsc --noEmit -p tsconfig.app.json && knip"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -37,6 +41,8 @@
     "zustand": "^5.0.11"
   },
   "devDependencies": {
+    "@commitlint/cli": "^20.5.3",
+    "@commitlint/config-conventional": "^20.5.3",
     "@eslint/js": "^9.39.1",
     "@playwright/test": "^1.59.0",
     "@tailwindcss/vite": "^4.1.18",
