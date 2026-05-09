@@ -12,6 +12,7 @@ import {
   replyFeedback,
 } from '@/modules/ops_governance/api'
 import { PaginatedResponse } from '@/types/api'
+import type { EntityId } from '@/types/common'
 import { formatDate } from '@/lib/utils'
 import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 import { ColumnDef, useReactTable, getCoreRowModel } from '@tanstack/react-table'
@@ -198,7 +199,7 @@ export function FeedbackListPage() {
 
   // 回复反馈
   const replyMutation = useMutation({
-    mutationFn: (params: { feedback_id: number; reply: string }) =>
+    mutationFn: (params: { feedback_id: EntityId; reply: string }) =>
       replyFeedback(params),
     onSuccess: (_result, variables) => {
       queryClient.setQueriesData<PaginatedResponse<Feedback>>(

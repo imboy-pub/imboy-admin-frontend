@@ -7,6 +7,7 @@ import { act } from 'react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { ChannelMessagePage } from './ChannelMessagePage'
 import client from '../../services/api/client'
+import type { EntityId } from '@/types/common'
 
 type AnyFn = (..._args: unknown[]) => unknown
 
@@ -26,7 +27,7 @@ const originalGet = mutableClient.get
 const originalPut = mutableClient.put
 const originalDelete = mutableClient.delete
 
-function makeMessage(id: number, page: number, isPinned = false) {
+function makeMessage(id: EntityId, page: number, isPinned = false) {
   return {
     id,
     channel_id: 8,
@@ -47,7 +48,7 @@ function makeGetResponse(page: number, size: number) {
       code: 0,
       msg: 'ok',
       payload: {
-        items: [makeMessage(page === 1 ? 101 : 201, page)],
+        items: [makeMessage(page === 1 ? '101' : '201', page)],
         page,
         size,
         total: 25,

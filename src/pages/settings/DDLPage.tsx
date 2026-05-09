@@ -15,12 +15,13 @@ import {
   saveDDL,
 } from '@/modules/ops_governance/api'
 import { formatDate } from '@/lib/utils'
+import type { EntityId } from '@/types/common'
 
 export function DDLPage() {
   const queryClient = useQueryClient()
   const [showForm, setShowForm] = useState(false)
   const [editingDDL, setEditingDDL] = useState<DDL | null>(null)
-  const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState<EntityId | null>(null)
   const [formData, setFormData] = useState<DDLSaveParams>({
     ddl: '',
     down_ddl: '',

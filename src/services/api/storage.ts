@@ -1,6 +1,7 @@
 import client from './client'
 import { requireApiPayload } from './responseAdapter'
 import type { PaginatedResponse } from '@/types/api'
+import type { EntityId } from '@/types/common'
 
 type StorageStats = {
   total_files: number
@@ -14,7 +15,7 @@ type StorageStats = {
 }
 
 export type StorageItem = {
-  id: number | string
+  id: EntityId
   md5: string
   mime_type: string
   path: string

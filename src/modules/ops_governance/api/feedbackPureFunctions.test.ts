@@ -8,9 +8,12 @@ import { describe, expect, it } from 'bun:test'
 // normalizeFeedback — feedback.ts
 // ---------------------------------------------------------------------------
 
+// EntityId mirror: 与 src/types/common.ts 一致；mirror 文件保持本地定义不 import
+type EntityId = string
+
 interface Feedback {
-  id: number
-  user_id: number
+  id: EntityId
+  user_id: EntityId
   content: string
   status: number
   created_at: string
@@ -22,19 +25,27 @@ interface Feedback {
 }
 
 type RawFeedback = Feedback & {
-  feedback_id?: number
+  feedback_id?: EntityId
   body?: string
   reply_body?: string
 }
 
+// 与 feedback.ts 同步：string-safe 收紧，避免 BIGINT TSID 经 Number() 精度丢失。
+function coerceFeedbackId(value: unknown): EntityId {
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    return trimmed.length > 0 ? trimmed : '0'
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value)
+  return '0'
+}
+
 function normalizeFeedback(item: RawFeedback): Feedback {
-  const id = Number(item.id ?? item.feedback_id ?? 0)
-  const userId = Number(item.user_id ?? 0)
   const status = Number(item.status)
   return {
     ...item,
-    id: Number.isFinite(id) ? id : 0,
-    user_id: Number.isFinite(userId) ? userId : 0,
+    id: coerceFeedbackId(item.id ?? item.feedback_id),
+    user_id: coerceFeedbackId(item.user_id),
     status: Number.isFinite(status) ? status : 1,
     content: item.content ?? item.body ?? '',
     reply: item.reply ?? item.reply_body,
@@ -43,8 +54,8 @@ function normalizeFeedback(item: RawFeedback): Feedback {
 
 describe('normalizeFeedback', () => {
   const base: RawFeedback = {
-    id: 1,
-    user_id: 2,
+    id: '1',
+    user_id: '2',
     content: '这个功能很棒',
     status: 0,
     created_at: '2024-01-01T00:00:00Z',
@@ -53,31 +64,29 @@ describe('normalizeFeedback', () => {
 
   it('maps standard fields directly', () => {
     const result = normalizeFeedback(base)
-    expect(result.id).toBe(1)
-    expect(result.user_id).toBe(2)
+    expect(result.id).toBe('1')
+    expect(result.user_id).toBe('2')
     expect(result.content).toBe('这个功能很棒')
     expect(result.status).toBe(0)
   })
 
-  it('uses feedback_id fallback when id is 0', () => {
-    const raw: RawFeedback = { ...base, id: 0, feedback_id: 99 }
-    // id=0, feedback_id=99 → Number(0 ?? 99) = Number(0) = 0 → uses id
-    // Actually: id ?? feedback_id ?? 0 → 0 is falsy but ?? checks null/undefined only
-    // So id=0 → 0 ?? 99 = 0 (0 is not null/undefined) → Number(0) = 0
-    expect(normalizeFeedback(raw).id).toBe(0)
+  it('returns sentinel "0" when id is empty string (?? does not fallback on empty string)', () => {
+    // '' ?? '99' = ''（?? 只对 null/undefined fallback），coerceFeedbackId('') → '0'
+    // 这是与原 number 版本不同的语义点：原版 0 ?? 99 = 0 → 0；新版 '' ?? '99' = '' → '0'
+    const raw = { ...base, id: '', feedback_id: '99' } as RawFeedback
+    expect(normalizeFeedback(raw).id).toBe('0')
   })
 
   it('uses feedback_id when id is undefined', () => {
-    const raw = { ...base, feedback_id: 55 } as RawFeedback
-    // id is undefined → undefined ?? 55 = 55 → Number(55) = 55
+    const raw = { ...base, feedback_id: '55' } as RawFeedback
     Object.assign(raw, { id: undefined })
-    expect(normalizeFeedback(raw).id).toBe(55)
+    expect(normalizeFeedback(raw).id).toBe('55')
   })
 
-  it('defaults id to 0 when both id and feedback_id are undefined', () => {
+  it('defaults id to sentinel "0" when both id and feedback_id are undefined', () => {
     const raw = { ...base } as RawFeedback
     Object.assign(raw, { id: undefined, feedback_id: undefined })
-    expect(normalizeFeedback(raw).id).toBe(0)
+    expect(normalizeFeedback(raw).id).toBe('0')
   })
 
   it('uses body fallback when content is undefined', () => {

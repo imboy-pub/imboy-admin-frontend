@@ -25,8 +25,8 @@ afterEach(() => {
 })
 
 const announcementFixture = {
-  id: 1,
-  adm_user_id: 10,
+  id: '1',
+  adm_user_id: '10',
   title: '系统维护通知',
   body: '今晚 22:00 进行系统维护',
   type: 'warning' as const,
@@ -105,7 +105,7 @@ describe('createAnnouncement', () => {
 
     mutableClient.post = async (_url: string, body: Record<string, unknown>) => {
       capturedBody = body
-      return { data: { code: 0, msg: 'ok', payload: { id: 42 } } }
+      return { data: { code: 0, msg: 'ok', payload: { id: '42' } } }
     }
 
     const formData: AnnouncementFormData = {
@@ -116,7 +116,7 @@ describe('createAnnouncement', () => {
     }
 
     const result = await createAnnouncement(formData)
-    expect(result.id).toBe(42)
+    expect(result.id).toBe('42')
     expect(capturedBody.title).toBe('新公告')
     expect(capturedBody.type).toBe('info')
   })
@@ -129,11 +129,11 @@ describe('updateAnnouncement', () => {
     mutableClient.put = async (url: string, body: Record<string, unknown>) => {
       expect(url).toBe('/announcement/update')
       capturedBody = body
-      return { data: { code: 0, msg: 'ok', payload: { id: 1 } } }
+      return { data: { code: 0, msg: 'ok', payload: { id: '1' } } }
     }
 
-    await updateAnnouncement(1, { title: '更新标题' })
-    expect(capturedBody.id).toBe(1)
+    await updateAnnouncement('1', { title: '更新标题' })
+    expect(capturedBody.id).toBe('1')
     expect(capturedBody.title).toBe('更新标题')
   })
 })
@@ -145,12 +145,12 @@ describe('deleteAnnouncement', () => {
     mutableClient.post = async (url: string, body: Record<string, unknown>) => {
       expect(url).toBe('/announcement/delete')
       capturedBody = body
-      return { data: { code: 0, msg: 'ok', payload: { id: 5 } } }
+      return { data: { code: 0, msg: 'ok', payload: { id: '5' } } }
     }
 
-    const result = await deleteAnnouncement(5)
-    expect(result.id).toBe(5)
-    expect(capturedBody.id).toBe(5)
+    const result = await deleteAnnouncement('5')
+    expect(result.id).toBe('5')
+    expect(capturedBody.id).toBe('5')
   })
 })
 
@@ -162,13 +162,13 @@ describe('publishAnnouncement / unpublishAnnouncement', () => {
     mutableClient.post = async (url: string, body: Record<string, unknown>) => {
       capturedUrl = url
       capturedBody = body
-      return { data: { code: 0, msg: 'ok', payload: { id: 3 } } }
+      return { data: { code: 0, msg: 'ok', payload: { id: '3' } } }
     }
 
-    const result = await publishAnnouncement(3)
+    const result = await publishAnnouncement('3')
     expect(capturedUrl).toBe('/announcement/publish')
-    expect(capturedBody.id).toBe(3)
-    expect(result.id).toBe(3)
+    expect(capturedBody.id).toBe('3')
+    expect(result.id).toBe('3')
   })
 
   it('unpublishAnnouncement sends POST to /announcement/unpublish', async () => {
@@ -176,10 +176,10 @@ describe('publishAnnouncement / unpublishAnnouncement', () => {
 
     mutableClient.post = async (url: string, _body: Record<string, unknown>) => {
       capturedUrl = url
-      return { data: { code: 0, msg: 'ok', payload: { id: 3 } } }
+      return { data: { code: 0, msg: 'ok', payload: { id: '3' } } }
     }
 
-    await unpublishAnnouncement(3)
+    await unpublishAnnouncement('3')
     expect(capturedUrl).toBe('/announcement/unpublish')
   })
 })

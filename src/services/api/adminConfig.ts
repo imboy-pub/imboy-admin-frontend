@@ -16,6 +16,7 @@ export type PermissionCatalogItem = {
 }
 
 export type RoleTemplateConfig = {
+  // gitleaks:allow — client-side RBAC role template local id (e.g. 1=super, 2=ops); not a backend TSID
   id: number
   name: string
   description: string

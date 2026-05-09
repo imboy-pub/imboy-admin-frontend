@@ -149,9 +149,9 @@ describe('deleteDDL', () => {
       return { data: { code: 0, msg: 'ok', payload: {} } }
     }
 
-    await deleteDDL(5)
+    await deleteDDL('5')
     expect(capturedUrl).toBe('/app_ddl/delete')
-    expect(capturedData.id).toBe(5)
+    expect(capturedData.id).toBe('5')
   })
 })
 
@@ -167,8 +167,8 @@ describe('getFeedbackListPayload', () => {
           code: 0, msg: 'ok',
           payload: {
             items: [
-              { id: 9, content: '功能体验很好', status: 0, uid: '7001', created_at: '2026-03-01' },
-              { id: 10, content: '登录有时候慢', status: 1, uid: '7002', created_at: '2026-03-02' },
+              { id: '9', content: '功能体验很好', status: 0, uid: '7001', created_at: '2026-03-01' },
+              { id: '10', content: '登录有时候慢', status: 1, uid: '7002', created_at: '2026-03-02' },
             ],
             page: 1, size: 20, total: 2, total_pages: 1,
           },
@@ -192,8 +192,8 @@ describe('replyFeedback', () => {
       return { data: { code: 0, msg: 'ok', payload: {} } }
     }
 
-    await replyFeedback({ feedback_id: 9, reply: '感谢您的反馈！' })
-    expect(capturedBody.feedback_id).toBe(9)
+    await replyFeedback({ feedback_id: '9', reply: '感谢您的反馈！' })
+    expect(capturedBody.feedback_id).toBe('9')
     // reply is sent as 'body' field per API contract
     expect(capturedBody.body).toBe('感谢您的反馈！')
   })

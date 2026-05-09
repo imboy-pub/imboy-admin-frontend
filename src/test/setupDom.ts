@@ -39,6 +39,7 @@ globalThis.Comment = window.Comment
 globalThis.DocumentFragment = window.DocumentFragment
 globalThis.requestAnimationFrame = (callback: FrameRequestCallback) =>
   setTimeout(() => callback(Date.now()), 0) as unknown as number
+// gitleaks:allow — DOM Web API standard signature: cancelAnimationFrame(handle: number); not a TSID
 globalThis.cancelAnimationFrame = (id: number) => clearTimeout(id)
 globalThis.localStorage = window.localStorage
 globalThis.sessionStorage = window.sessionStorage

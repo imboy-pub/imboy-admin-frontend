@@ -1,9 +1,10 @@
 import client from '@/services/api/client'
 import { requireApiPayload } from '@/services/api/responseAdapter'
 import { ApiResponse, PaginatedResponse } from '@/types/api'
+import type { EntityId } from '@/types/common'
 
 export interface DDL {
-  id: number
+  id: EntityId
   ddl: string
   down_ddl: string
   old_vsn: number
@@ -20,7 +21,7 @@ export interface DDLListParams {
 }
 
 export interface DDLSaveParams {
-  id?: number
+  id?: EntityId
   ddl: string
   down_ddl: string
   old_vsn: number
@@ -54,7 +55,7 @@ export async function saveDDL(data: DDLSaveParams): Promise<ApiResponse<DDL>> {
 /**
  * 删除 DDL 配置
  */
-export async function deleteDDL(id: number): Promise<ApiResponse<Record<string, never>>> {
+export async function deleteDDL(id: EntityId): Promise<ApiResponse<Record<string, never>>> {
   const response = await client.delete('/app_ddl/delete', {
     data: { id },
   })

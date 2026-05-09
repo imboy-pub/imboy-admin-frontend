@@ -144,7 +144,14 @@ keywords = ["id: number", "userId: number", "messageId: number", "groupId: numbe
 tags = ["lint", "tsid", "type-safety"]
 
 [rules.allowlist]
-description = "类型定义文件可能存在历史遗留，单独 PR 修复"
+description = "历史遗留类型 / DOM Web API polyfill / 客户端 RBAC 配置 + role 相关 / 泛型 adapter 单元测试（非后端 TSID）"
 paths = [
     '''src/types/legacy/''',
+    '''src/test/setupDom\.ts''',                          # DOM Web API: cancelAnimationFrame(handle: number) 标准签名
+    '''src/services/api/adminConfig\.ts''',               # 客户端 RBAC RoleTemplateConfig.id（本地 1=超管/2=运营）非后端 TSID
+    '''src/services/api/responseAdapter\.test\.ts''',     # ApiResponse<{ id: number }> 泛型 T 示例（adapter 行为单测），非业务 TSID 用法
+    '''src/modules/identity/api/roles\.ts''',             # RoleItem.id 客户端 RBAC role local id（1=super/2=ops/3=audit），非后端 TSID
+    '''src/modules/identity/api/rolesPureFunctions\.test\.ts''',  # 同上，role 纯函数测试 fixture
+    '''src/pages/admins/AdminListPage\.tsx''',            # RoleOption.id + DEFAULT_ROLE_OPTIONS 1/2/3 字面（客户端 RBAC），非后端 TSID
+    '''src/pages/admins/adminPureFunctions\.test\.ts''',  # 同上 admin 纯函数测试 fixture
 ]

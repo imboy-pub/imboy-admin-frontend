@@ -1,13 +1,14 @@
 import client from './client'
 import { requireApiPayload } from './responseAdapter'
 import type { PaginatedResponse } from '@/types/api'
+import type { EntityId } from '@/types/common'
 
 export type AnnouncementType = 'info' | 'warning' | 'important'
 export type AnnouncementStatus = -1 | 0 | 1 | 2
 
 export type Announcement = {
-  id: number
-  adm_user_id: number
+  id: EntityId
+  adm_user_id: EntityId
   title: string
   body: string
   type: AnnouncementType
@@ -53,30 +54,30 @@ export async function getAnnouncementList(
   }
 }
 
-export async function createAnnouncement(data: AnnouncementFormData): Promise<{ id: number }> {
+export async function createAnnouncement(data: AnnouncementFormData): Promise<{ id: EntityId }> {
   const response = await client.post('/announcement/create', data as unknown as Record<string, unknown>)
   return requireApiPayload(response.data, '/announcement/create')
 }
 
 export async function updateAnnouncement(
-  id: number,
+  id: EntityId,
   data: Partial<AnnouncementFormData>,
-): Promise<{ id: number }> {
+): Promise<{ id: EntityId }> {
   const response = await client.put('/announcement/update', { id, ...data } as unknown as Record<string, unknown>)
   return requireApiPayload(response.data, '/announcement/update')
 }
 
-export async function deleteAnnouncement(id: number): Promise<{ id: number }> {
+export async function deleteAnnouncement(id: EntityId): Promise<{ id: EntityId }> {
   const response = await client.post('/announcement/delete', { id })
   return requireApiPayload(response.data, '/announcement/delete')
 }
 
-export async function publishAnnouncement(id: number): Promise<{ id: number }> {
+export async function publishAnnouncement(id: EntityId): Promise<{ id: EntityId }> {
   const response = await client.post('/announcement/publish', { id })
   return requireApiPayload(response.data, '/announcement/publish')
 }
 
-export async function unpublishAnnouncement(id: number): Promise<{ id: number }> {
+export async function unpublishAnnouncement(id: EntityId): Promise<{ id: EntityId }> {
   const response = await client.post('/announcement/unpublish', { id })
   return requireApiPayload(response.data, '/announcement/unpublish')
 }

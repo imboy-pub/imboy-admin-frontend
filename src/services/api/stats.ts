@@ -1,6 +1,7 @@
 import client from './client'
 import { ApiResponse } from '@/types/api'
 import { requireApiPayload } from './responseAdapter'
+import type { EntityId } from '@/types/common'
 
 export interface OverviewStats {
   total_users: number
@@ -74,7 +75,7 @@ export async function getGroupStatsPayload(days = 7): Promise<GroupStats> {
 }
 
 export interface RankingItem {
-  id: number | string
+  id: EntityId
   nickname?: string
   account?: string
   name?: string

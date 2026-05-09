@@ -44,7 +44,7 @@ function renderDialog(props: Partial<React.ComponentProps<typeof AnnouncementFor
 }
 
 const sampleItem: Announcement = {
-  id: 1,
+  id: '1',
   title: '系统维护通知',
   body: '将于今晚22:00进行维护',
   type: 'warning',

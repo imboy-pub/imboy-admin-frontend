@@ -1,10 +1,11 @@
 import client from '@/services/api/client'
 import { requireApiPayload } from '@/services/api/responseAdapter'
 import { ApiResponse, PaginatedResponse } from '@/types/api'
+import type { EntityId } from '@/types/common'
 
 export interface Feedback {
-  id: number
-  user_id: number
+  id: EntityId
+  user_id: EntityId
   content: string
   status: number
   created_at: string
@@ -23,24 +24,33 @@ export interface FeedbackListParams {
 }
 
 export interface FeedbackReplyParams {
-  feedback_id: number
+  feedback_id: EntityId
   reply: string
 }
 
 type RawFeedback = Feedback & {
-  feedback_id?: number
+  feedback_id?: EntityId
   body?: string
   reply_body?: string
 }
 
+// 收紧到 EntityId(string)：避免 BIGINT TSID 经 Number() 精度丢失。
+// 哨兵 '0' 表示 invalid/missing（与原 number 0 哨兵语义一致）。
+function coerceFeedbackId(value: unknown): EntityId {
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    return trimmed.length > 0 ? trimmed : '0'
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value)
+  return '0'
+}
+
 function normalizeFeedback(item: RawFeedback): Feedback {
-  const id = Number(item.id ?? item.feedback_id ?? 0)
-  const userId = Number(item.user_id ?? 0)
   const status = Number(item.status)
   return {
     ...item,
-    id: Number.isFinite(id) ? id : 0,
-    user_id: Number.isFinite(userId) ? userId : 0,
+    id: coerceFeedbackId(item.id ?? item.feedback_id),
+    user_id: coerceFeedbackId(item.user_id),
     status: Number.isFinite(status) ? status : 1,
     content: item.content ?? item.body ?? '',
     reply: item.reply ?? item.reply_body,

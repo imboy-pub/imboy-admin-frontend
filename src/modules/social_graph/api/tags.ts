@@ -12,8 +12,8 @@ export interface UserTagListParams {
 }
 
 export interface UserTagItem {
-  id: number
-  creator_user_id: number
+  id: EntityId
+  creator_user_id: EntityId
   scene: number
   name: string
   subtitle?: string
