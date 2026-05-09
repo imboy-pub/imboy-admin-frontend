@@ -40,7 +40,7 @@ const announcementFixture = {
 
 describe('getAnnouncementList', () => {
   it('returns paginated response with items from payload.list', async () => {
-    mutableClient.get = async (url: string, config?: { params?: Record<string, unknown> }) => {
+    mutableClient.get = async (url: string, _config?: { params?: Record<string, unknown> }) => {
       expect(url).toBe('/announcement/index')
       return {
         data: {
@@ -103,7 +103,7 @@ describe('createAnnouncement', () => {
   it('sends POST to /announcement/create and returns id', async () => {
     let capturedBody: Record<string, unknown> = {}
 
-    mutableClient.post = async (url: string, body: Record<string, unknown>) => {
+    mutableClient.post = async (_url: string, body: Record<string, unknown>) => {
       capturedBody = body
       return { data: { code: 0, msg: 'ok', payload: { id: 42 } } }
     }

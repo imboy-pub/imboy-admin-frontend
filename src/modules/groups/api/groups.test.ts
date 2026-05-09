@@ -48,7 +48,7 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 describe('getGroupListPayload', () => {
   it('returns paginated group list from /group/list', async () => {
-    mutableClient.get = async (url: string, config?: { params?: Record<string, unknown> }) => {
+    mutableClient.get = async (url: string, _config?: { params?: Record<string, unknown> }) => {
       expect(url).toBe('/group/list')
       return {
         data: {

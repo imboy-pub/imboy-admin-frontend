@@ -48,7 +48,7 @@ const rbacFixture = {
 
 function mockSidebarFetch() {
   globalThis.fetch = async (input: RequestInfo | URL) => {
-    const url = String(input instanceof URL ? input.href : input)
+    const _url = String(input instanceof URL ? input.href : input)
     // Always return empty sidebar config
     const sidebarConfig = { code: 0, msg: 'ok', payload: { menus: [], version: '1.0' } }
     return new Response(JSON.stringify(sidebarConfig), {

@@ -178,7 +178,7 @@ describe('createAdmin', () => {
   it('sends required fields and omits empty optional fields', async () => {
     let capturedBody: Record<string, unknown> = {}
 
-    mutableClient.post = async (url: string, body: Record<string, unknown>) => {
+    mutableClient.post = async (_url: string, body: Record<string, unknown>) => {
       capturedBody = body
       return { data: { code: 0, msg: 'ok', payload: {} } }
     }

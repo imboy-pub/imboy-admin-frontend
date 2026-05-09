@@ -118,7 +118,7 @@ describe('FeedbackListPage flow', () => {
 
   it('shows loading state initially', async () => {
     // Delay the response to observe loading state
-    let resolveGet: (value: unknown) => void
+    let resolveGet: (_value: unknown) => void
     const pendingGet = new Promise((resolve) => { resolveGet = resolve })
 
     mutableClient.get = async (url: string) => {
@@ -203,9 +203,9 @@ describe('FeedbackListPage flow', () => {
       throw new Error(`unexpected GET url: ${url}`)
     }
 
-    let view: ReturnType<typeof renderPage>
+    let _view: ReturnType<typeof renderPage>
     await act(async () => {
-      view = renderPage()
+      _view = renderPage()
     })
 
     await waitFor(() => {

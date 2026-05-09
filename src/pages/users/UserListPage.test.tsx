@@ -97,7 +97,7 @@ describe('UserListPage flow', () => {
   it('loads and displays user list', async () => {
     const getCalls: string[] = []
 
-    mutableClient.get = async (url: string, config?: { params?: Record<string, unknown> }) => {
+    mutableClient.get = async (url: string, _config?: { params?: Record<string, unknown> }) => {
       getCalls.push(url)
       if (url === '/user/list') return makeUserListResponse()
       if (url === '/rbac/me') {

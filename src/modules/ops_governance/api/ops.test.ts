@@ -42,7 +42,7 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 describe('getVersionListPayload', () => {
   it('returns paginated version list from /app_version/index', async () => {
-    mutableClient.get = async (url: string, config?: { params?: Record<string, unknown> }) => {
+    mutableClient.get = async (url: string, _config?: { params?: Record<string, unknown> }) => {
       expect(url).toBe('/app_version/index')
       return {
         data: {
@@ -100,7 +100,7 @@ describe('deleteVersion', () => {
 // ---------------------------------------------------------------------------
 describe('getDDLListPayload', () => {
   it('injects ajax=1 and returns paginated DDL list from /app_ddl/index', async () => {
-    let capturedParams: Record<string, unknown> = {}
+    const capturedParams: Record<string, unknown> = {}
     mutableClient.get = async (url: string, config?: { params?: Record<string, unknown> }) => {
       expect(url).toBe('/app_ddl/index')
       Object.assign(capturedParams, config?.params ?? {})

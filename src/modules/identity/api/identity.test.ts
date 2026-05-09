@@ -34,7 +34,7 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 describe('getUserListPayload', () => {
   it('returns paginated user list from /user/list', async () => {
-    mutableClient.get = async (url: string, config?: { params?: Record<string, unknown> }) => {
+    mutableClient.get = async (url: string, _config?: { params?: Record<string, unknown> }) => {
       expect(url).toBe('/user/list')
       return {
         data: {
@@ -177,7 +177,7 @@ describe('getMessageListPayload', () => {
 
 describe('getMessageDetailPayload', () => {
   it('returns message detail from /message/detail', async () => {
-    mutableClient.get = async (url: string, config?: { params?: Record<string, unknown> }) => {
+    mutableClient.get = async (url: string, _config?: { params?: Record<string, unknown> }) => {
       expect(url).toBe('/message/detail')
       return {
         data: {

@@ -284,7 +284,7 @@ describe('resolveMomentReportBatchWithFallback', () => {
 
   it('falls back to individual calls when batch endpoint is unavailable (404)', async () => {
     let callCount = 0
-    mutableClient.post = async (url: unknown) => {
+    mutableClient.post = async (_url: unknown) => {
       callCount++
       // First call = batch endpoint → 404
       if (callCount === 1) {

@@ -1,6 +1,6 @@
 import '../test/setupDom'
 
-import { describe, expect, it, beforeEach, afterEach } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
 import { exportCsv, type CsvColumn } from './csvExport'
 
 // Capture state for assertions

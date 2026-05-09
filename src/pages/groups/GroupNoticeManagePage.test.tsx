@@ -50,7 +50,7 @@ describe('GroupNoticeManagePage flow', () => {
   })
 
   it('loads and displays group notices', async () => {
-    mutableClient.get = async (url: string, config?: { params?: Record<string, unknown> }) => {
+    mutableClient.get = async (url: string, _config?: { params?: Record<string, unknown> }) => {
       if (url === '/group/notice/list') {
         return {
           data: {

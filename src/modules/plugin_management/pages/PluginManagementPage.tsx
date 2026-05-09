@@ -96,7 +96,7 @@ function PluginCard({
   pendingAction,
 }: {
   plugin: PluginInfo
-  onAction: (action: string, plugin: PluginInfo) => void
+  onAction: (_action: string, _plugin: PluginInfo) => void
   pendingAction: string | null
 }) {
   const isPending = pendingAction !== null
