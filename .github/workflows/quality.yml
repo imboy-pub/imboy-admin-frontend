@@ -64,8 +64,15 @@ jobs:
         run: |
           set -euo pipefail
           bun run deadcode 2>&1 | tee knip.txt || true
-          # knip 输出每行一个 finding（粗略统计 - tail 区段）
-          findings=$(grep -cE "^[A-Za-z@_].* (type|exports?|file|devDep)" knip.txt || true)
+          # knip 输出 header 形式 "Unused devDependencies (1)" / "Unused exports (16)" / "Unused exported types (18)"
+          # 提取每个 header 括号内数字求和（跨所有类型 — function/interface/type/variable/devDep 等）
+          findings=$(awk '/^Unused [a-zA-Z ]+\([0-9]+\)/ {
+                          match($0, /\(([0-9]+)\)/, m); sum += m[1]+0
+                        } END {print sum+0}' knip.txt)
+          # awk match() 是 GNU 扩展，BSD awk 兼容降级
+          if [ -z "$findings" ] || [ "$findings" = "0" ]; then
+            findings=$(grep -oE "Unused [a-zA-Z ]+\([0-9]+\)" knip.txt | grep -oE "[0-9]+" | paste -sd+ - | bc 2>/dev/null || echo 0)
+          fi
           echo "knip_findings=$findings"
           if [ "$findings" -gt 35 ]; then
             echo "::warning::knip findings $findings exceed baseline 35 (soft ratchet)"
