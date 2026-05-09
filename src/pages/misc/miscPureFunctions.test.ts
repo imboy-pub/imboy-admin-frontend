@@ -19,12 +19,12 @@ function isValidPemFormat(value: string): boolean {
 
 describe('isValidPemFormat', () => {
   it('returns true for valid PEM public key', () => {
-    const pem = '-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkq...\n-----END PUBLIC KEY-----'
+    const pem = '-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkq...\n-----END PUBLIC KEY-----' // gitleaks:allow
     expect(isValidPemFormat(pem)).toBe(true)
   })
 
   it('returns true for valid RSA PRIVATE KEY', () => {
-    const pem = '-----BEGIN RSA PRIVATE KEY-----\ndata...\n-----END RSA PRIVATE KEY-----'
+    const pem = '-----BEGIN RSA PRIVATE KEY-----\ndata...\n-----END RSA PRIVATE KEY-----' // gitleaks:allow
     expect(isValidPemFormat(pem)).toBe(true)
   })
 
