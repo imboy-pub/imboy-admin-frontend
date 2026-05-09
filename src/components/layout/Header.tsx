@@ -178,8 +178,12 @@ export function Header() {
     }
 
     if (keyword.length < 2 || parseQuickJump(keyword)) {
+      // 立即清空避免 300ms 防抖窗口内 entityResults 与当前 keyword 错位显示
+      // TODO: 真重构方案：把状态清空合并入 performEntitySearch 内部 + 写组件单测
+      /* eslint-disable react-hooks/set-state-in-effect */
       setEntityResults([])
       setSearching(false)
+      /* eslint-enable react-hooks/set-state-in-effect */
       return
     }
 
@@ -217,7 +221,9 @@ export function Header() {
   }, [commandKeyword, quickJumpCommand, entityCommands])
 
   // 搜索结果变化时重置选中索引
+  // TODO: 真重构方案：移到 onChange/executeCommand 显式 reset，或 derive activeIndex
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setActiveIndex(0)
   }, [filteredCommands])
 
@@ -242,10 +248,14 @@ export function Header() {
 
   useEffect(() => {
     if (!commandOpen) {
+      // 关闭命令面板时清空全部搜索状态
+      // TODO: 真重构方案：抽 closeCommand callback 在 setCommandOpen(false) 调用方批量清空
+      /* eslint-disable react-hooks/set-state-in-effect */
       setCommandKeyword('')
       setActiveIndex(0)
       setEntityResults([])
       setSearching(false)
+      /* eslint-enable react-hooks/set-state-in-effect */
       return
     }
 
