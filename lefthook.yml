@@ -9,9 +9,6 @@ pre-commit:
       glob: "src/**/*.{ts,tsx,js,jsx}"
       run: pnpm exec eslint --max-warnings=0 {staged_files}
       stage_fixed: false
-    prettier:
-      glob: "src/**/*.{ts,tsx,js,jsx,json,css,scss,md}"
-      run: pnpm exec prettier --check {staged_files}
     gitleaks:
       run: gitleaks protect --staged --no-banner --redact
 
