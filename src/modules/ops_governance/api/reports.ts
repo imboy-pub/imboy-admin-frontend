@@ -112,11 +112,16 @@ export function isReportEndpointUnavailable(error: unknown): boolean {
     message.includes('invalid url')
 }
 
+function coerceEntityId(value: unknown): EntityId {
+  if (typeof value === 'string') return value.trim()
+  if (typeof value === 'number') return String(value)
+  return ''
+}
+
 function toFailedIds(raw: unknown): EntityId[] {
   if (!Array.isArray(raw)) return []
   return raw
-    .filter((item) => typeof item === 'string' || typeof item === 'number')
-    .map((item) => (typeof item === 'string' ? item.trim() : item))
+    .map((item) => coerceEntityId(item))
     .filter((item) => item !== '')
 }
 
@@ -203,14 +208,14 @@ function normalizeReport(raw: unknown, fallbackType: ReportTargetType): ReportTi
   const updatedAt = pickFirst(item, ['updated_at', 'modified_at'])
 
   return {
-    id: typeof id === 'number' || typeof id === 'string' ? id : '',
+    id: coerceEntityId(id),
     target_type: targetType,
-    target_id: typeof targetId === 'number' || typeof targetId === 'string' ? targetId : '',
-    reporter_uid: typeof reporterUid === 'number' || typeof reporterUid === 'string' ? reporterUid : '',
+    target_id: coerceEntityId(targetId),
+    reporter_uid: coerceEntityId(reporterUid),
     reason: String(reason ?? ''),
     description: String(description ?? ''),
     status: Number.isFinite(status) ? status : 0,
-    handled_by: typeof handledBy === 'number' || typeof handledBy === 'string' ? handledBy : '',
+    handled_by: coerceEntityId(handledBy),
     handled_at: typeof handledAt === 'string' && handledAt.length > 0 ? handledAt : null,
     created_at: String(createdAt ?? ''),
     updated_at: String(updatedAt ?? ''),

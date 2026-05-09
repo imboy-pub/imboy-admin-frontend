@@ -9,6 +9,7 @@ import { toast } from 'sonner'
 import { PageHeader, LoadingState, ErrorState, StatusBadge, DataTable, DataTablePagination, ConfirmDialog, FilterBar, BatchActionBar } from '@/components/shared'
 import { getGroupListPayload, dissolveGroup, GroupListParams } from '@/modules/groups/api'
 import { Group } from '@/types/group'
+import type { EntityId } from '@/types/common'
 import { formatDate } from '@/lib/utils'
 import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 import { ColumnDef, RowSelectionState, useReactTable, getCoreRowModel, getSortedRowModel, SortingState, VisibilityState } from '@tanstack/react-table'
@@ -52,7 +53,7 @@ export function GroupListPage() {
   const [showColumnPanel, setShowColumnPanel] = useState(false)
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean
-    gid: string | number
+    gid: EntityId
     title: string
   } | null>(null)
 
@@ -83,7 +84,7 @@ export function GroupListPage() {
   })
 
   const batchDissolveMutation = useMutation({
-    mutationFn: async ({ gids }: { gids: Array<string | number> }) =>
+    mutationFn: async ({ gids }: { gids: EntityId[] }) =>
       Promise.allSettled(gids.map((gid) => dissolveGroup(gid))),
     onSuccess: (results) => {
       const successCount = results.filter((item) => item.status === 'fulfilled').length

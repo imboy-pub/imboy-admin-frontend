@@ -20,6 +20,7 @@ import {
   getChannelSubscribersPayload,
   removeChannelSubscriber,
 } from '@/modules/channels/api'
+import type { EntityId } from '@/types/common'
 import { formatOptionalDate } from '@/lib/utils'
 import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 
@@ -35,7 +36,7 @@ export function ChannelSubscriberPage() {
   })
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean
-    userId: string | number
+    userId: EntityId
     nickname: string
   } | null>(null)
 
@@ -48,7 +49,7 @@ export function ChannelSubscriberPage() {
   })
 
   const removeMutation = useMutation({
-    mutationFn: (userId: string | number) => removeChannelSubscriber(channelId, userId),
+    mutationFn: (userId: EntityId) => removeChannelSubscriber(channelId, userId),
     onSuccess: () => {
       toast.success('订阅者已移除')
       queryClient.invalidateQueries({ queryKey: ['channel-subscribers', channelId] })

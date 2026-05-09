@@ -86,19 +86,16 @@ function normalizeHealth(raw: Record<string, unknown>): PluginHealth {
 // --- API functions ---
 
 export async function getPluginList(params?: PluginListParams): Promise<PluginInfo[]> {
+  type ListPayload = Record<string, unknown>[] | { items: Record<string, unknown>[] }
   const response = await client.get('/plugin/list', { params })
-  const payload = requireApiPayload<Record<string, unknown>[] | { items: Record<string, unknown>[] }>(
-    response.data as ApiResponse<Record<string, unknown>[]>,
+  const payload = requireApiPayload<ListPayload>(
+    response.data as ApiResponse<ListPayload>,
     '/plugin/list'
   )
-  const items = Array.isArray(payload)
+  const items: Record<string, unknown>[] = Array.isArray(payload)
     ? payload
-    : (payload as Record<string, unknown>).items ?? []
-  return items.map((item) =>
-    typeof item === 'object' && item !== null
-      ? normalizePlugin(item as Record<string, unknown>)
-      : (item as PluginInfo)
-  )
+    : Array.isArray(payload.items) ? payload.items : []
+  return items.map((item) => normalizePlugin(item))
 }
 
 export async function getPluginDetail(name: string): Promise<PluginInfo> {
@@ -215,15 +212,16 @@ export async function getPluginLogList(params?: PluginLogListParams): Promise<{
   total: number
   total_pages: number
 }> {
-  const response = await client.get('/plugin/logs', { params })
-  const payload = requireApiPayload<{
+  type LogListPayload = {
     items: Record<string, unknown>[]
     page: number
     size: number
     total: number
     total_pages: number
-  }>(
-    response.data as ApiResponse<Record<string, unknown>>,
+  }
+  const response = await client.get('/plugin/logs', { params })
+  const payload = requireApiPayload<LogListPayload>(
+    response.data as ApiResponse<LogListPayload>,
     '/plugin/logs'
   )
 

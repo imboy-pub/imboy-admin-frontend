@@ -10,6 +10,7 @@ import { PageHeader, LoadingState, ErrorState, StatusBadge, DataTable, DataTable
 import { pushNotification } from '@/components/shared/NotificationPanel'
 import { getUserListPayload, getUserDetailPayload, banUser, unbanUser, UserListParams } from '@/modules/identity/api'
 import { User } from '@/types/user'
+import type { EntityId } from '@/types/common'
 import { formatDate } from '@/lib/utils'
 import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 import { ColumnDef, RowSelectionState, useReactTable, getCoreRowModel, getSortedRowModel, SortingState, VisibilityState } from '@tanstack/react-table'
@@ -55,7 +56,7 @@ export function UserListPage() {
   const [confirmAction, setConfirmAction] = useState<{
     open: boolean
     type: 'ban' | 'unban'
-    uid: string | number
+    uid: EntityId
     nickname: string
   } | null>(null)
 

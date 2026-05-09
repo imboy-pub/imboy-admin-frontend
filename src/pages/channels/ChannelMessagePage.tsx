@@ -22,6 +22,7 @@ import {
   getChannelMessagesPayload,
   pinChannelMessage,
 } from '@/modules/channels/api'
+import type { EntityId } from '@/types/common'
 import { formatDate, truncate } from '@/lib/utils'
 import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 
@@ -37,7 +38,7 @@ export function ChannelMessagePage() {
   })
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean
-    messageId: string | number
+    messageId: EntityId
   } | null>(null)
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
   const [hiddenMessageIds, setHiddenMessageIds] = useState<Record<string, true>>({})
@@ -53,7 +54,7 @@ export function ChannelMessagePage() {
   const messages = (data?.items || []).filter((item) => !hiddenMessageIds[String(item.id)])
 
   const pinMutation = useMutation({
-    mutationFn: ({ messageId, pinned }: { messageId: string | number; pinned: boolean }) =>
+    mutationFn: ({ messageId, pinned }: { messageId: EntityId; pinned: boolean }) =>
       pinChannelMessage(channelId, messageId, pinned),
     onSuccess: (_, variables) => {
       toast.success(variables.pinned ? '消息已置顶' : '消息已取消置顶')
@@ -65,7 +66,7 @@ export function ChannelMessagePage() {
   })
 
   const deleteMutation = useMutation({
-    mutationFn: (messageId: string | number) => deleteChannelMessage(channelId, messageId),
+    mutationFn: (messageId: EntityId) => deleteChannelMessage(channelId, messageId),
     onSuccess: (_result, messageId) => {
       const deletedId = String(messageId)
       setHiddenMessageIds((prev) => ({ ...prev, [deletedId]: true }))
@@ -84,7 +85,7 @@ export function ChannelMessagePage() {
   })
 
   const batchDeleteMutation = useMutation({
-    mutationFn: async ({ ids }: { ids: Array<string | number> }) =>
+    mutationFn: async ({ ids }: { ids: EntityId[] }) =>
       Promise.allSettled(ids.map((msgId) => deleteChannelMessage(channelId, msgId))),
     onSuccess: (results, variables) => {
       const successCount = results.filter((r) => r.status === 'fulfilled').length
@@ -113,7 +114,7 @@ export function ChannelMessagePage() {
   })
 
   const batchPinMutation = useMutation({
-    mutationFn: async ({ ids, pinned }: { ids: Array<string | number>; pinned: boolean }) =>
+    mutationFn: async ({ ids, pinned }: { ids: EntityId[]; pinned: boolean }) =>
       Promise.allSettled(ids.map((msgId) => pinChannelMessage(channelId, msgId, pinned))),
     onSuccess: (results, variables) => {
       const successCount = results.filter((r) => r.status === 'fulfilled').length

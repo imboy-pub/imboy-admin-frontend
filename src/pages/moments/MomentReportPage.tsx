@@ -31,6 +31,7 @@ import {
   resolveMomentReport,
   resolveMomentReportBatchWithFallback,
 } from '@/modules/moments/api'
+import type { EntityId } from '@/types/common'
 import { useAdminPermission } from '@/hooks/useAdminPermission'
 import { useListQueryState } from '@/hooks/useListQueryState'
 import { formatDate } from '@/lib/utils'
@@ -43,13 +44,13 @@ type MomentReportPageQuery = {
 }
 
 type ResolveVariables = {
-  reportId: string | number
+  reportId: EntityId
   result: 1 | 2
   note: string
 }
 
 type BatchResolveVariables = {
-  reportIds: Array<string | number>
+  reportIds: EntityId[]
   result: 1 | 2
   note: string
 }

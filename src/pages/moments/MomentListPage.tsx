@@ -24,6 +24,7 @@ import {
   MomentItem,
   MomentListParams,
 } from '@/modules/moments/api'
+import type { EntityId } from '@/types/common'
 import { formatDate } from '@/lib/utils'
 import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 import { trackUxEvent } from '@/lib/uxTelemetry'
@@ -50,7 +51,7 @@ export function MomentListPage() {
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean
-    momentId: string | number
+    momentId: EntityId
   } | null>(null)
 
   const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
@@ -59,7 +60,7 @@ export function MomentListPage() {
   })
 
   const deleteMutation = useMutation({
-    mutationFn: ({ momentId, reason }: { momentId: string | number; reason: string }) =>
+    mutationFn: ({ momentId, reason }: { momentId: EntityId; reason: string }) =>
       deleteMoment(momentId, reason),
     onSuccess: () => {
       toast.success('动态已删除')
@@ -72,7 +73,7 @@ export function MomentListPage() {
   })
 
   const batchDeleteMutation = useMutation({
-    mutationFn: async ({ momentIds, reason }: { momentIds: Array<string | number>; reason: string }) =>
+    mutationFn: async ({ momentIds, reason }: { momentIds: EntityId[]; reason: string }) =>
       Promise.allSettled(momentIds.map((momentId) => deleteMoment(momentId, reason))),
     onSuccess: (results) => {
       const successCount = results.filter((item) => item.status === 'fulfilled').length

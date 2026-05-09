@@ -15,13 +15,14 @@ import {
   saveVersion,
   VersionSaveParams,
 } from '@/modules/ops_governance/api'
+import type { EntityId } from '@/types/common'
 import { formatDate } from '@/lib/utils'
 
 export function VersionPage() {
   const queryClient = useQueryClient()
   const [showForm, setShowForm] = useState(false)
   const [editingVersion, setEditingVersion] = useState<AppVersion | null>(null)
-  const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState<EntityId | null>(null)
   const [formData, setFormData] = useState<VersionSaveParams>({
     version: '',
     platform: 'android',

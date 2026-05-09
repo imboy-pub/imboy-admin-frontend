@@ -118,11 +118,16 @@ function isBatchResolveEndpointUnavailable(error: unknown): boolean {
     message.includes('endpoint unavailable')
 }
 
+function coerceEntityId(value: unknown): EntityId {
+  if (typeof value === 'string') return value.trim()
+  if (typeof value === 'number') return String(value)
+  return ''
+}
+
 function toFailedIds(raw: unknown): EntityId[] {
   if (!Array.isArray(raw)) return []
   return raw
-    .filter((item) => typeof item === 'string' || typeof item === 'number')
-    .map((item) => (typeof item === 'string' ? item.trim() : item))
+    .map((item) => coerceEntityId(item))
     .filter((item) => item !== '')
 }
 

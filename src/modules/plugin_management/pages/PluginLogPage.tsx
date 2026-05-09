@@ -33,14 +33,14 @@ const ACTION_LABELS: Record<PluginAction, string> = {
   force_uninstall: '强制卸载',
 }
 
-const ACTION_VARIANTS: Record<PluginAction, 'info' | 'success' | 'warning' | 'destructive' | 'default'> = {
+const ACTION_VARIANTS: Record<PluginAction, 'info' | 'success' | 'warning' | 'error' | 'secondary'> = {
   install: 'info',
   enable: 'success',
   disable: 'warning',
   upgrade: 'info',
-  uninstall: 'destructive',
+  uninstall: 'error',
   reset: 'warning',
-  force_uninstall: 'destructive',
+  force_uninstall: 'error',
 }
 
 export function PluginLogPage() {

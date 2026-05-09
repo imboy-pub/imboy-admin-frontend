@@ -8,6 +8,7 @@ import { toast } from 'sonner'
 import { useNavigate } from 'react-router-dom'
 import { PageHeader, LoadingState, ErrorState, StatusBadge, DataTable, DataTablePagination, ConfirmDialog, FilterBar, EntityDrawer, BatchActionBar } from '@/components/shared'
 import { getChannelListPayload, getChannelDetailPayload, deleteChannel, ChannelListParams, Channel } from '@/modules/channels/api'
+import type { EntityId } from '@/types/common'
 import { formatDate } from '@/lib/utils'
 import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 import { ColumnDef, useReactTable, getCoreRowModel, RowSelectionState } from '@tanstack/react-table'
@@ -93,7 +94,7 @@ export function ChannelListPage() {
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean
-    channelId: string | number
+    channelId: EntityId
     name: string
   } | null>(null)
 
@@ -136,7 +137,7 @@ export function ChannelListPage() {
 
   // 批量删除频道
   const batchDeleteMutation = useMutation({
-    mutationFn: async ({ ids }: { ids: Array<string | number> }) =>
+    mutationFn: async ({ ids }: { ids: EntityId[] }) =>
       Promise.allSettled(ids.map((id) => deleteChannel(id))),
     onSuccess: (results) => {
       const successCount = results.filter((r) => r.status === 'fulfilled').length

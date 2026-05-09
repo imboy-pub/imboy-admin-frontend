@@ -21,6 +21,7 @@ import {
   removeChannelAdmin,
   updateChannelAdminRole,
 } from '@/modules/channels/api'
+import type { EntityId } from '@/types/common'
 import { formatDate } from '@/lib/utils'
 import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 
@@ -42,7 +43,7 @@ export function ChannelAdminPage() {
   })
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean
-    userId: string | number
+    userId: EntityId
     nickname: string
     role: number
   } | null>(null)
@@ -56,7 +57,7 @@ export function ChannelAdminPage() {
   })
 
   const roleMutation = useMutation({
-    mutationFn: ({ userId, role }: { userId: string | number; role: number }) =>
+    mutationFn: ({ userId, role }: { userId: EntityId; role: number }) =>
       updateChannelAdminRole(channelId, userId, role),
     onSuccess: () => {
       toast.success('管理员角色已更新')
@@ -68,7 +69,7 @@ export function ChannelAdminPage() {
   })
 
   const removeMutation = useMutation({
-    mutationFn: (userId: string | number) => removeChannelAdmin(channelId, userId),
+    mutationFn: (userId: EntityId) => removeChannelAdmin(channelId, userId),
     onSuccess: () => {
       toast.success('管理员已移除')
       queryClient.invalidateQueries({ queryKey: ['channel-admins', channelId] })

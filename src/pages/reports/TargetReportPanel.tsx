@@ -38,6 +38,7 @@ import {
   type ReportListParams,
   type ReportTicket,
 } from '@/modules/ops_governance/api'
+import type { EntityId } from '@/types/common'
 import { trackUxEvent } from '@/lib/uxTelemetry'
 
 export type TargetReportPanelProps = {
@@ -56,13 +57,13 @@ type TargetReportQuery = {
 }
 
 type ResolveVariables = {
-  reportId: string | number
+  reportId: EntityId
   result: 1 | 2
   note: string
 }
 
 type BatchResolveVariables = {
-  reportIds: Array<string | number>
+  reportIds: EntityId[]
   result: 1 | 2
   note: string
 }
