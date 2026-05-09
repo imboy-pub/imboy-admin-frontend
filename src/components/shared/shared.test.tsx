@@ -23,6 +23,7 @@ import { PageHeader } from './PageHeader'
 import { ErrorBoundary } from './ErrorBoundary'
 import { StatusBadge } from './StatusBadge'
 import { StatsCard } from './StatsCard'
+import { Breadcrumb } from './Breadcrumb'
 import { FilterBar } from './FilterBar'
 import { ConfirmDialog } from './ConfirmDialog'
 import { Skeleton, TableSkeleton, StatsCardSkeleton, DashboardSkeleton, ListPageSkeleton } from './Skeleton'
@@ -294,7 +295,6 @@ describe('Breadcrumb — isDynamicSegment', () => {
 
 describe('Breadcrumb — renders route path', () => {
   it('renders home and route segments', () => {
-    const { Breadcrumb } = require('./Breadcrumb')
     const { getByText } = render(
       <MemoryRouter initialEntries={['/users']}>
         <Breadcrumb />
@@ -305,7 +305,6 @@ describe('Breadcrumb — renders route path', () => {
   })
 
   it('shows numeric ID as-is in breadcrumb', () => {
-    const { Breadcrumb } = require('./Breadcrumb')
     const { getByText } = render(
       <MemoryRouter initialEntries={['/users/1001']}>
         <Breadcrumb />
@@ -315,7 +314,6 @@ describe('Breadcrumb — renders route path', () => {
   })
 
   it('returns null for root path', () => {
-    const { Breadcrumb } = require('./Breadcrumb')
     const { container } = render(
       <MemoryRouter initialEntries={['/']}>
         <Breadcrumb />

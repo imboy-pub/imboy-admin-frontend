@@ -79,7 +79,7 @@ export function PushTokenListPage() {
     queryFn: () => listPushTokens(page, size),
   })
 
-  const rawList = data?.list ?? []
+  const rawList = useMemo(() => data?.list ?? [], [data])
   const total = data?.total ?? 0
   const stats = useTokenStats(rawList, total)
 
