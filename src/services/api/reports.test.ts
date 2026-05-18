@@ -4,7 +4,7 @@ import {
   getReportListPayload,
   isReportEndpointUnavailable,
   resolveReportBatchWithFallback,
-} from './reports'
+} from '@/modules/ops_governance/api/reports'
 
 type AnyFn = (..._args: unknown[]) => unknown
 type MutableClient = {
@@ -72,10 +72,10 @@ describe('reports service', () => {
       target_id: '88',
     })
     expect(payload.items[0]).toEqual({
-      id: 101,
+      id: '101',
       target_type: 'group',
-      target_id: 88,
-      reporter_uid: 3001,
+      target_id: '88',
+      reporter_uid: '3001',
       reason: '广告',
       description: '重复刷屏',
       status: 0,

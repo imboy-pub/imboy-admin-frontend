@@ -7,7 +7,7 @@ export type ReportProcessStep = {
   description: string
 }
 
-export type ReportPanelContext = {
+type ReportPanelContext = {
   targetType: ReportTargetType
   targetLabel: string
   governancePath: string

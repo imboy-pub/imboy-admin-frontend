@@ -4,7 +4,7 @@ import type { PaginatedResponse } from '@/types/api'
 import type { EntityId } from '@/types/common'
 
 export type AnnouncementType = 'info' | 'warning' | 'important'
-export type AnnouncementStatus = -1 | 0 | 1 | 2
+type AnnouncementStatus = -1 | 0 | 1 | 2
 
 export type Announcement = {
   id: EntityId

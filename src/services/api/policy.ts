@@ -27,7 +27,7 @@ export type E2eeMode = 'disabled' | 'optional' | 'required'
 export type AuditMode = 'none' | 'metadata' | 'full'
 export type RetentionPolicyMode = 'rolling_days' | 'infinite'
 
-export type RetentionPolicy = {
+type RetentionPolicy = {
   mode: RetentionPolicyMode
   days?: number
 }
@@ -43,7 +43,7 @@ export type Capabilities = {
 
 export type FeatureFlags = Partial<Record<FeatureName, boolean>>
 
-export type ProductProfile = 'community' | 'enterprise'
+type ProductProfile = 'community' | 'enterprise'
 
 export type PolicyConfig = {
   profile?: ProductProfile
@@ -52,20 +52,20 @@ export type PolicyConfig = {
   plugins?: Record<string, boolean>
 }
 
-export type FeatureMeta = {
+type FeatureMeta = {
   all: FeatureName[]
   plugin_managed: FeatureName[]
   standalone: FeatureName[]
   dependencies: Record<FeatureName, FeatureName[]>
 }
 
-export type CapabilityFieldMeta = {
+type CapabilityFieldMeta = {
   type: 'enum' | 'boolean' | 'object'
   options?: string[]
   fields?: Record<string, { type: string; options?: string[] }>
 }
 
-export type PolicyMetaResponse = {
+type PolicyMetaResponse = {
   profiles?: {
     supported: ProductProfile[]
     defaults: Record<ProductProfile, PolicyConfig>
@@ -74,7 +74,7 @@ export type PolicyMetaResponse = {
   features?: FeatureMeta
 }
 
-export type PolicyAdjustment = {
+type PolicyAdjustment = {
   saved?: unknown
   effective?: unknown
   reason?: string

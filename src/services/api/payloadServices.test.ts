@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it } from 'bun:test'
 import client from './client'
 import { getCurrentAdminPayload, loginPayload } from './auth'
-import { getUserListPayload } from './users'
-import { getGroupListPayload } from './groups'
-import { resolveMomentReportBatchWithFallback } from './moments'
+import { getUserListPayload } from '@/modules/identity/api/users'
+import { getGroupListPayload } from '@/modules/groups/api/public'
+import { resolveMomentReportBatchWithFallback } from '@/modules/moments/api/public'
 import {
   deleteChannelMessage,
   getChannelAdminsPayload,
@@ -17,10 +17,10 @@ import {
   removeChannelAdmin,
   removeChannelSubscriber,
   updateChannelAdminRole,
-} from './channels'
-import { getFeedbackListPayload } from './feedback'
-import { getVersionListPayload } from './versions'
-import { getDDLListPayload } from './ddl'
+} from '@/modules/channels/api/public'
+import { getFeedbackListPayload } from '@/modules/ops_governance/api/feedback'
+import { getVersionListPayload } from '@/modules/ops_governance/api/versions'
+import { getDDLListPayload } from '@/modules/ops_governance/api/ddl'
 import {
   getGroupStatsPayload,
   getMessageStatsPayload,
@@ -206,13 +206,13 @@ describe('payload-first services', () => {
       throw new Error(`unexpected POST url: ${url}`)
     }
 
-    const summary = await resolveMomentReportBatchWithFallback([701, 702], 2, 'batch_note')
+    const summary = await resolveMomentReportBatchWithFallback(['701', '702'], 2, 'batch_note')
 
     expect(postCalls.length).toBe(1)
     expect(postCalls[0]).toEqual({
       url: '/moment/report/batch_resolve',
       body: {
-        report_ids: [701, 702],
+        report_ids: ['701', '702'],
         result: 2,
         note: 'batch_note',
       },
@@ -222,7 +222,7 @@ describe('payload-first services', () => {
       total: 2,
       successCount: 1,
       failedCount: 1,
-      failedIds: [702],
+      failedIds: ['702'],
     })
   })
 
@@ -239,7 +239,7 @@ describe('payload-first services', () => {
       }
 
       if (url === '/moment/report/resolve') {
-        if (body.report_id === 702) {
+        if (body.report_id === '702') {
           throw {
             code: 500,
             msg: 'resolve failed',
@@ -257,7 +257,7 @@ describe('payload-first services', () => {
       throw new Error(`unexpected POST url: ${url}`)
     }
 
-    const summary = await resolveMomentReportBatchWithFallback([701, 702, 701], 1, 'fallback_note')
+    const summary = await resolveMomentReportBatchWithFallback(['701', '702', '701'], 1, 'fallback_note')
 
     expect(postCalls.map((item) => item.url)).toEqual([
       '/moment/report/batch_resolve',
@@ -265,12 +265,12 @@ describe('payload-first services', () => {
       '/moment/report/resolve',
     ])
     expect(postCalls[1]?.body).toEqual({
-      report_id: 701,
+      report_id: '701',
       result: 1,
       note: 'fallback_note',
     })
     expect(postCalls[2]?.body).toEqual({
-      report_id: 702,
+      report_id: '702',
       result: 1,
       note: 'fallback_note',
     })
@@ -279,7 +279,7 @@ describe('payload-first services', () => {
       total: 2,
       successCount: 1,
       failedCount: 1,
-      failedIds: [702],
+      failedIds: ['702'],
     })
   })
 

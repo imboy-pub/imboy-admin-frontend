@@ -9,6 +9,7 @@ import {
 } from '@/modules/moments/api'
 import { ApiResponse, PaginatedResponse } from '@/types/api'
 import type { EntityId } from '@/types/common'
+import { coerceEntityId } from '@/lib/entityId'
 
 type ApiErrorLike = {
   code?: number | string
@@ -110,12 +111,6 @@ export function isReportEndpointUnavailable(error: unknown): boolean {
     message.includes('method not allowed') ||
     message.includes('endpoint unavailable') ||
     message.includes('invalid url')
-}
-
-function coerceEntityId(value: unknown): EntityId {
-  if (typeof value === 'string') return value.trim()
-  if (typeof value === 'number') return String(value)
-  return ''
 }
 
 function toFailedIds(raw: unknown): EntityId[] {

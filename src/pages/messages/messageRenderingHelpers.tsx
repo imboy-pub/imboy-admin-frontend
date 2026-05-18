@@ -12,11 +12,11 @@ export function parsePayload(payload: string): { display: string; isJson: boolea
   }
 }
 
-export function escapeRegExp(input: string): string {
+function escapeRegExp(input: string): string {
   return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
-export function formatPrimitive(value: unknown): string {
+function formatPrimitive(value: unknown): string {
   if (typeof value === 'string') {
     return `"${value}"`
   }
@@ -26,7 +26,7 @@ export function formatPrimitive(value: unknown): string {
   return String(value)
 }
 
-export function isRecord(value: unknown): value is Record<string, unknown> {
+function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 

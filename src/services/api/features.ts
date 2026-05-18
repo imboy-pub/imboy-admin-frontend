@@ -4,11 +4,6 @@ import { AxiosRequestConfig } from 'axios'
 
 export type FeatureFlags = Record<string, boolean>
 
-export type AdminManifest = {
-  features: FeatureFlags
-  adminEntries: string[]
-}
-
 const FEATURE_CACHE_KEY = 'imboy_admin_feature_flags'
 const ADMIN_ENTRIES_CACHE_KEY = 'imboy_admin_entries'
 

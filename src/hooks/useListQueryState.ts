@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
-export type ListQueryValue = string | number | boolean | undefined
+type ListQueryValue = string | number | boolean | undefined
 
 type ListQueryState = Record<string, ListQueryValue>
 

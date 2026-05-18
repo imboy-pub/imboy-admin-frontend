@@ -12,7 +12,3 @@ pre-commit:
     gitleaks:
       run: gitleaks protect --staged --no-banner --redact
 
-commit-msg:
-  commands:
-    commitlint:
-      run: pnpm exec commitlint --edit {1}

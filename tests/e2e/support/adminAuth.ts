@@ -1,6 +1,6 @@
 import { expect, Page, test } from '@playwright/test'
 
-export const FIXED_TEST_CAPTCHA = '1234'
+const FIXED_TEST_CAPTCHA = '1234'
 
 type CredentialKind = 'default' | 'super'
 
@@ -14,7 +14,7 @@ function readEnv(name: string): string | undefined {
   return value && value.length > 0 ? value : undefined
 }
 
-export function getAdminCredentials(kind: CredentialKind = 'default'): AdminCredentials | null {
+function getAdminCredentials(kind: CredentialKind = 'default'): AdminCredentials | null {
   if (kind === 'super') {
     const account = readEnv('IMBOY_ADMIN_E2E_SUPER_ACCOUNT') || readEnv('IMBOY_ADMIN_E2E_ACCOUNT')
     const password = readEnv('IMBOY_ADMIN_E2E_SUPER_PASSWORD') || readEnv('IMBOY_ADMIN_E2E_PASSWORD')

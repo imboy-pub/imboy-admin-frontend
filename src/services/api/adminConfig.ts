@@ -23,7 +23,7 @@ export type RoleTemplateConfig = {
   permissions: string[]
 }
 
-export type AdminRbacConfig = {
+type AdminRbacConfig = {
   permissions?: PermissionCatalogItem[]
   roles?: RoleTemplateConfig[]
 }

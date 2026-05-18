@@ -1,12 +1,12 @@
 import type { ReactNode } from 'react'
 import type { OverviewStats } from '@/services/api/stats'
 
-export type DashboardTrendPoint = {
+type DashboardTrendPoint = {
   date: string
   [key: string]: string | number
 }
 
-export type DashboardPanelContext = {
+type DashboardPanelContext = {
   stats: OverviewStats | undefined
   userTrendData: DashboardTrendPoint[]
   messageTrendData: DashboardTrendPoint[]
