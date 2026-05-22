@@ -24,11 +24,7 @@ import {
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-
-function isValidPemFormat(value: string): boolean {
-  const trimmed = value.trim()
-  return /^-----BEGIN [A-Z ]+-----/.test(trimmed) && /-----END [A-Z ]+-----\s*$/.test(trimmed)
-}
+import { isValidPemFormat } from '@/lib/pemValidation'
 
 export function ComplianceKeyPage() {
   const navigate = useNavigate()

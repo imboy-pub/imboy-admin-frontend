@@ -147,7 +147,7 @@ export function LoginPage() {
         }
         refreshCaptcha()
       } catch (error) {
-        console.error('初始化登录页面失败:', error)
+        if (import.meta.env.DEV) console.error('初始化登录页面失败:', error)
       }
     }
     init()

@@ -31,6 +31,9 @@ test-results
 *.sw?
 .env.production
 .env.e2e
+.env
+.env.local
+.env.*.local
 
 # Erlang Common Test artifacts (from adjacent imboy backend)
 _build

@@ -73,11 +73,13 @@ export function trackUxEvent(event: UxEventName, payload: UxEventPayload = {}) {
     // Ignore event dispatch failures to avoid affecting core flows.
   }
 
-  try {
-    if (typeof window.__IMBOY_UX_TRACK__ === 'function') {
-      window.__IMBOY_UX_TRACK__(event, payload)
+  if (import.meta.env.DEV) {
+    try {
+      if (typeof window.__IMBOY_UX_TRACK__ === 'function') {
+        window.__IMBOY_UX_TRACK__(event, payload)
+      }
+    } catch {
+      // Ignore external telemetry failures.
     }
-  } catch {
-    // Ignore external telemetry failures.
   }
 }
