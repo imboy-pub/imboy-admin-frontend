@@ -23,6 +23,11 @@ export async function rejectLogoutApplication(uid: string, reason?: string): Pro
   return response.data
 }
 
+export async function approveLogoutApplication(uid: string): Promise<ApiResponse<{ uid: string; status: string }>> {
+  const response = await client.post('/user/logout_apply/approve', { uid })
+  return response.data
+}
+
 export async function exportLogoutApplicationCsvBlob(params: LogoutApplicationListParams): Promise<Blob> {
   const searchParams = new URLSearchParams()
   const entries = Object.entries(params) as Array<[string, unknown]>

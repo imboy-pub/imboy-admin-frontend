@@ -1,12 +1,13 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
-import { Search, Download, XCircle } from 'lucide-react'
+import { Search, Download, XCircle, CheckCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
+  ConfirmDialog,
   DataTable,
   DataTablePagination,
   ErrorState,
@@ -17,11 +18,13 @@ import {
   exportLogoutApplicationCsvBlob,
   getLogoutApplicationListPayload,
   rejectLogoutApplication,
+  approveLogoutApplication,
 } from '@/services/api/logoutApplications'
 import { formatDate, truncate } from '@/lib/utils'
 import { LogoutApplication, LogoutApplicationListParams } from '@/types/logoutApplication'
 
 export function LogoutApplicationListPage() {
+  const queryClient = useQueryClient()
   const [params, setParams] = useState<LogoutApplicationListParams>({
     page: 1,
     size: 10,
@@ -31,10 +34,40 @@ export function LogoutApplicationListPage() {
   const [fromTsInput, setFromTsInput] = useState('')
   const [toTsInput, setToTsInput] = useState('')
   const [isExporting, setIsExporting] = useState(false)
+  const [confirmUid, setConfirmUid] = useState<string | null>(null)
+  const [approveConfirmUid, setApproveConfirmUid] = useState<string | null>(null)
 
   const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
     queryKey: ['logout-applications', params],
     queryFn: () => getLogoutApplicationListPayload(params),
+  })
+
+  const rejectMutation = useMutation({
+    mutationFn: (uid: string) => rejectLogoutApplication(uid),
+    onSuccess: () => {
+      toast.success('已驳回注销申请')
+      void queryClient.invalidateQueries({ queryKey: ['logout-applications'] })
+    },
+    onError: (err: Error) => {
+      toast.error(`驳回失败: ${err.message}`)
+    },
+    onSettled: () => {
+      setConfirmUid(null)
+    },
+  })
+
+  const approveMutation = useMutation({
+    mutationFn: (uid: string) => approveLogoutApplication(uid),
+    onSuccess: () => {
+      toast.success('注销申请已审批通过')
+      void queryClient.invalidateQueries({ queryKey: ['logout-applications'] })
+    },
+    onError: (err: Error) => {
+      toast.error(`审批失败: ${err.message}`)
+    },
+    onSettled: () => {
+      setApproveConfirmUid(null)
+    },
   })
 
   const handleSearch = () => {
@@ -55,18 +88,6 @@ export function LogoutApplicationListPage() {
 
   const handlePageSizeChange = (size: number) => {
     setParams((prev) => ({ ...prev, page: 1, size }))
-  }
-
-  const handleReject = async (uid: string | number) => {
-    if (!window.confirm('确定要驳回此注销申请吗？用户账号将恢复正常状态。')) return
-    try {
-      await rejectLogoutApplication(String(uid))
-      toast.success('已驳回注销申请')
-      refetch()
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : '操作失败'
-      toast.error(msg)
-    }
   }
 
   const handleExportCsv = async () => {
@@ -166,14 +187,24 @@ export function LogoutApplicationListPage() {
         const status = row.original.user_status
         if (status !== 2) return <span className="text-muted-foreground text-xs">-</span>
         return (
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={() => handleReject(row.original.uid)}
-          >
-            <XCircle className="mr-1 h-3 w-3" />
-            驳回
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => setConfirmUid(String(row.original.uid))}
+            >
+              <XCircle className="mr-1 h-3 w-3" />
+              驳回
+            </Button>
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => setApproveConfirmUid(String(row.original.uid))}
+            >
+              <CheckCircle className="mr-1 h-3 w-3" />
+              通过
+            </Button>
+          </div>
         )
       },
     },
@@ -259,6 +290,32 @@ export function LogoutApplicationListPage() {
           )}
         </CardContent>
       </Card>
+
+      <ConfirmDialog
+        open={confirmUid !== null}
+        onOpenChange={(open) => { if (!open) setConfirmUid(null) }}
+        title="确认驳回"
+        description={`确定要驳回用户 ${confirmUid ?? ''} 的注销申请吗？用户账号将恢复正常状态。`}
+        confirmText="驳回"
+        onConfirm={() => {
+          if (confirmUid) void rejectMutation.mutateAsync(confirmUid)
+        }}
+        variant="destructive"
+        loading={rejectMutation.isPending}
+      />
+
+      <ConfirmDialog
+        open={approveConfirmUid !== null}
+        onOpenChange={(open) => { if (!open) setApproveConfirmUid(null) }}
+        title="确认审批通过"
+        description={`确定要审批通过用户 ${approveConfirmUid ?? ''} 的注销申请吗？该操作将注销用户账号，不可恢复。`}
+        confirmText="确认通过"
+        onConfirm={() => {
+          if (approveConfirmUid) void approveMutation.mutateAsync(approveConfirmUid)
+        }}
+        variant="destructive"
+        loading={approveMutation.isPending}
+      />
     </div>
   )
 }
