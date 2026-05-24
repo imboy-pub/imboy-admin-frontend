@@ -347,13 +347,19 @@ export async function deleteGroupNotice(
 /**
  * @deprecated Prefer `getGroupTagsPayload`.
  */
-export async function getGroupTags(gid: EntityId): Promise<ApiResponse<Record<string, unknown>>> {
-  const response = await client.get('/group/tag/list', { params: { gid } })
+export async function getGroupTags(
+  gid: EntityId,
+  params: GroupPaginationParams = { page: 1, size: 10 }
+): Promise<ApiResponse<Record<string, unknown>>> {
+  const response = await client.get('/group/tag/list', { params: { gid, ...params } })
   return response.data
 }
 
-export async function getGroupTagsPayload(gid: EntityId): Promise<GroupTagListPayload> {
-  const payload = requireApiPayload(await getGroupTags(gid), '/group/tag/list')
+export async function getGroupTagsPayload(
+  gid: EntityId,
+  params: GroupPaginationParams = { page: 1, size: 10 }
+): Promise<GroupTagListPayload> {
+  const payload = requireApiPayload(await getGroupTags(gid, params), '/group/tag/list')
   const rawItems = payload.items ?? payload.list
   const items = Array.isArray(rawItems) ? (rawItems as GroupTag[]) : []
   const totalRaw = payload.total
@@ -583,7 +589,7 @@ export async function restoreGroupTask(
 export async function getGroupGovernanceLogs(
   params: GroupGovernanceLogListParams = { page: 1, size: 10 }
 ): Promise<ApiResponse<PaginatedResponse<GroupGovernanceLog>>> {
-  const response = await client.get('/group/governance/log/list', { params })
+  const response = await client.get('/group/governance_log/list', { params })
   return response.data
 }
 
@@ -592,6 +598,6 @@ export async function getGroupGovernanceLogsPayload(
 ): Promise<PaginatedResponse<GroupGovernanceLog>> {
   return requireApiPayload(
     await getGroupGovernanceLogs(params),
-    '/group/governance/log/list'
+    '/group/governance_log/list'
   )
 }

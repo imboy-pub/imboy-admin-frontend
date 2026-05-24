@@ -49,6 +49,21 @@ export async function dissolveGroup(gid: EntityId): Promise<ApiResponse<Record<s
   return response.data
 }
 
+export interface UpdateGroupParams {
+  title?: string
+  introduction?: string
+  join_limit?: number
+  member_max?: number
+}
+
+export async function updateGroup(
+  gid: EntityId,
+  params: UpdateGroupParams
+): Promise<ApiResponse<Record<string, never>>> {
+  const response = await client.post('/group/update', { gid, ...params })
+  return response.data
+}
+
 /**
  * @deprecated Prefer `searchGroupsPayload` to consume typed payload directly.
  */
@@ -87,4 +102,12 @@ export async function getGroupMembersPayload(
   size = 20
 ): Promise<PaginatedResponse<GroupMember>> {
   return requireApiPayload(await getGroupMembers(gid, page, size), '/group/members')
+}
+
+export async function kickGroupMember(
+  gid: EntityId,
+  uid: EntityId
+): Promise<ApiResponse<{ gid: string; uid: string }>> {
+  const response = await client.post('/group/member/kick', { gid, uid })
+  return response.data
 }

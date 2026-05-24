@@ -87,7 +87,7 @@ export function GroupGovernanceLogPage() {
     return params
   }, [actionFilter, fromTsFilter, gid, keywordFilter, page, size, targetIdFilter, toTsFilter, uidFilter])
 
-  const { data, isLoading, error, refetch } = useQuery({
+  const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
     queryKey: ['group-governance-logs', queryParams],
     queryFn: () => getGroupGovernanceLogsPayload(queryParams),
     enabled: gid.length > 0,
@@ -297,6 +297,8 @@ export function GroupGovernanceLogPage() {
                 setSize(nextSize)
                 setPage(1)
               }}
+              dataUpdatedAt={dataUpdatedAt}
+              onRefresh={() => void refetch()}
             />
           )}
         </CardContent>

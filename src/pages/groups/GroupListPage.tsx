@@ -4,10 +4,10 @@ import { useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Search, Trash2, Eye, Download, SlidersHorizontal } from 'lucide-react'
+import { Search, Trash2, Eye, Download, SlidersHorizontal, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
-import { PageHeader, LoadingState, ErrorState, StatusBadge, DataTable, DataTablePagination, ConfirmDialog, FilterBar, BatchActionBar } from '@/components/shared'
-import { getGroupListPayload, dissolveGroup, GroupListParams } from '@/modules/groups/api'
+import { PageHeader, LoadingState, ErrorState, StatusBadge, DataTable, DataTablePagination, ConfirmDialog, FilterBar, BatchActionBar, EntityDrawer } from '@/components/shared'
+import { getGroupListPayload, dissolveGroup, updateGroup, GroupListParams } from '@/modules/groups/api'
 import { Group } from '@/types/group'
 import type { EntityId } from '@/types/common'
 import { formatDate } from '@/lib/utils'
@@ -56,6 +56,8 @@ export function GroupListPage() {
     gid: EntityId
     title: string
   } | null>(null)
+  const [editTarget, setEditTarget] = useState<Group | null>(null)
+  const [editForm, setEditForm] = useState({ title: '', introduction: '', join_limit: 0, member_max: 0 })
 
   const requestParams: GroupListParams = {
     page: params.page,
@@ -68,6 +70,17 @@ export function GroupListPage() {
   const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
     queryKey: ['groups', requestParams],
     queryFn: () => getGroupListPayload(requestParams),
+  })
+
+  const updateMutation = useMutation({
+    mutationFn: ({ gid, ...params }: { gid: EntityId; title?: string; introduction?: string; join_limit?: number; member_max?: number }) =>
+      updateGroup(gid, params),
+    onSuccess: () => {
+      toast.success('群组信息已更新')
+      setEditTarget(null)
+      queryClient.invalidateQueries({ queryKey: ['groups'] })
+    },
+    onError: (err: Error) => toast.error(`更新失败: ${err.message}`),
   })
 
   // 解散群组
@@ -260,6 +273,21 @@ export function GroupListPage() {
             <Button
               variant="ghost"
               size="icon"
+              title="编辑群组"
+              onClick={(event) => {
+                event.stopPropagation()
+                const g = row.original
+                setEditForm({ title: g.title || '', introduction: g.introduction || '', join_limit: g.join_limit || 0, member_max: g.member_max || 0 })
+                setEditTarget(g)
+              }}
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+          )}
+          {row.original.status === 1 && (
+            <Button
+              variant="ghost"
+              size="icon"
               title="解散群组"
               onClick={(event) => {
                 event.stopPropagation()
@@ -446,6 +474,54 @@ export function GroupListPage() {
           onConfirm={() => dissolveMutation.mutate(confirmDialog.gid)}
         />
       )}
+
+      <EntityDrawer
+        open={editTarget !== null}
+        onOpenChange={(open) => { if (!open) setEditTarget(null) }}
+        title={`编辑群组 #${editTarget?.id ?? ''}`}
+        subtitle={editTarget?.title}
+        actions={(
+          <>
+            <Button variant="outline" onClick={() => setEditTarget(null)} disabled={updateMutation.isPending}>取消</Button>
+            <Button
+              disabled={updateMutation.isPending}
+              onClick={() => {
+                if (!editTarget) return
+                updateMutation.mutate({
+                  gid: editTarget.id,
+                  title: editForm.title.trim() || undefined,
+                  introduction: editForm.introduction.trim() || undefined,
+                  join_limit: editForm.join_limit > 0 ? editForm.join_limit : undefined,
+                  member_max: editForm.member_max > 0 ? editForm.member_max : undefined,
+                })
+              }}
+            >
+              {updateMutation.isPending ? '保存中...' : '保存'}
+            </Button>
+          </>
+        )}
+      >
+        <div className="grid gap-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">群名称</label>
+            <Input value={editForm.title} onChange={(e) => setEditForm((p) => ({ ...p, title: e.target.value }))} placeholder="群名称" />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">简介</label>
+            <Input value={editForm.introduction} onChange={(e) => setEditForm((p) => ({ ...p, introduction: e.target.value }))} placeholder="群简介" />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">加入限制</label>
+              <Input type="number" min={0} value={editForm.join_limit} onChange={(e) => setEditForm((p) => ({ ...p, join_limit: Number(e.target.value) }))} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">成员上限</label>
+              <Input type="number" min={0} value={editForm.member_max} onChange={(e) => setEditForm((p) => ({ ...p, member_max: Number(e.target.value) }))} />
+            </div>
+          </div>
+        </div>
+      </EntityDrawer>
     </div>
   )
 }

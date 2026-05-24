@@ -2,10 +2,13 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, FileSearch, Trash2, Users, Settings } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { ArrowLeft, Edit, FileSearch, Trash2, Users, Settings } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageHeader, LoadingState, ErrorState, StatusBadge, ConfirmDialog } from '@/components/shared'
-import { getGroupDetailPayload, dissolveGroup } from '@/modules/groups/api'
+import { getGroupDetailPayload, dissolveGroup, updateGroup, UpdateGroupParams } from '@/modules/groups/api'
 import { formatDate } from '@/lib/utils'
 import { useState } from 'react'
 import { useAdminEntryEnabled } from '@/hooks/useAdminFeatures'
@@ -16,6 +19,8 @@ export function GroupDetailPage() {
   const queryClient = useQueryClient()
   const gid = id ?? ''
   const [showConfirm, setShowConfirm] = useState(false)
+  const [showEdit, setShowEdit] = useState(false)
+  const [editForm, setEditForm] = useState<UpdateGroupParams>({})
   const voteEnabled = useAdminEntryEnabled('group_vote')
   const scheduleEnabled = useAdminEntryEnabled('group_schedule')
   const taskEnabled = useAdminEntryEnabled('group_task')
@@ -25,6 +30,19 @@ export function GroupDetailPage() {
     queryKey: ['group', gid],
     queryFn: () => getGroupDetailPayload(gid),
     enabled: gid.length > 0,
+  })
+
+  // 编辑群组
+  const updateMutation = useMutation({
+    mutationFn: (params: UpdateGroupParams) => updateGroup(gid, params),
+    onSuccess: () => {
+      toast.success('群组信息已更新')
+      queryClient.invalidateQueries({ queryKey: ['group', gid] })
+      setShowEdit(false)
+    },
+    onError: (error: Error) => {
+      toast.error(`更新失败: ${error.message}`)
+    },
   })
 
   // 解散群组
@@ -131,6 +149,23 @@ export function GroupDetailPage() {
             </Button>
             {group.status === 1 && (
               <Button
+                variant="outline"
+                onClick={() => {
+                  setEditForm({
+                    title: group.title,
+                    introduction: group.introduction ?? '',
+                    join_limit: group.join_limit ?? 0,
+                    member_max: group.member_max ?? 500,
+                  })
+                  setShowEdit(true)
+                }}
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                编辑群组
+              </Button>
+            )}
+            {group.status === 1 && (
+              <Button
                 variant="destructive"
                 onClick={() => setShowConfirm(true)}
               >
@@ -141,6 +176,78 @@ export function GroupDetailPage() {
           </div>
         }
       />
+
+      {/* 编辑群组表单 */}
+      {showEdit && (
+        <Card>
+          <CardHeader>
+            <CardTitle>编辑群组信息</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form
+              onSubmit={(e) => { e.preventDefault(); updateMutation.mutate(editForm) }}
+              className="space-y-4"
+            >
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="group-title">群名称</Label>
+                  <Input
+                    id="group-title"
+                    value={editForm.title ?? ''}
+                    onChange={(e) => setEditForm((prev) => ({ ...prev, title: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="group-member-max">最大成员数</Label>
+                  <Input
+                    id="group-member-max"
+                    type="number"
+                    min={1}
+                    value={editForm.member_max ?? 500}
+                    onChange={(e) =>
+                      setEditForm((prev) => ({ ...prev, member_max: parseInt(e.target.value) || 500 }))
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="group-join-limit">加群限制</Label>
+                  <select
+                    id="group-join-limit"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value={editForm.join_limit ?? 0}
+                    onChange={(e) =>
+                      setEditForm((prev) => ({ ...prev, join_limit: parseInt(e.target.value) }))
+                    }
+                  >
+                    <option value={0}>自由加入</option>
+                    <option value={1}>需要审核</option>
+                  </select>
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="group-introduction">群简介</Label>
+                  <Textarea
+                    id="group-introduction"
+                    rows={3}
+                    value={editForm.introduction ?? ''}
+                    onChange={(e) =>
+                      setEditForm((prev) => ({ ...prev, introduction: e.target.value }))
+                    }
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={() => setShowEdit(false)}>
+                  取消
+                </Button>
+                <Button type="submit" disabled={updateMutation.isPending}>
+                  保存
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-6 md:grid-cols-3">
         {/* 基本信息 */}

@@ -379,7 +379,7 @@ describe('closeGroupTask', () => {
 describe('getGroupGovernanceLogsPayload', () => {
   it('returns paginated governance log list for gid', async () => {
     mutableClient.get = async (url: string, config?: { params?: Record<string, unknown> }) => {
-      expect(url).toBe('/group/governance/log/list')
+      expect(url).toBe('/group/governance_log/list')
       expect(config?.params?.gid).toBe('1001')
       return {
         data: {

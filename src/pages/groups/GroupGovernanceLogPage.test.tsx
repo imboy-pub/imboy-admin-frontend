@@ -64,7 +64,7 @@ describe('GroupGovernanceLogPage flow', () => {
     mutableClient.get = async (url: string, config?: { params?: Record<string, unknown> }) => {
       getCalls.push({ url, params: config?.params })
 
-      if (url === '/group/governance/log/list') {
+      if (url === '/group/governance_log/list') {
         return {
           data: {
             code: 0,
@@ -89,11 +89,11 @@ describe('GroupGovernanceLogPage flow', () => {
     })
 
     await waitFor(() => {
-      expect(getCalls.some((c) => c.url === '/group/governance/log/list')).toBe(true)
+      expect(getCalls.some((c) => c.url === '/group/governance_log/list')).toBe(true)
     })
 
     // Verify gid is passed correctly
-    expect(getCalls.find((c) => c.url === '/group/governance/log/list')?.params).toMatchObject({ group_id: '55' })
+    expect(getCalls.find((c) => c.url === '/group/governance_log/list')?.params).toMatchObject({ group_id: '55' })
 
     await waitFor(() => {
       expect(view.container.textContent).toContain('群治理审计日志')
@@ -117,7 +117,7 @@ describe('GroupGovernanceLogPage flow', () => {
 
   it('navigates back to group detail', async () => {
     mutableClient.get = async (url: string) => {
-      if (url === '/group/governance/log/list') {
+      if (url === '/group/governance_log/list') {
         return {
           data: {
             code: 0,

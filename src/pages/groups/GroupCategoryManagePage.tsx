@@ -58,7 +58,7 @@ export function GroupCategoryManagePage() {
 
   const uid = targetUid.trim()
 
-  const { data, isLoading, error, refetch } = useQuery({
+  const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
     queryKey: ['group-categories', gid, uid, page, size, keyword],
     queryFn: () =>
       getGroupCategoriesPayload({
@@ -209,6 +209,8 @@ export function GroupCategoryManagePage() {
                     setSize(nextSize)
                     setPage(1)
                   }}
+                  dataUpdatedAt={dataUpdatedAt}
+                  onRefresh={() => void refetch()}
                 />
               )}
             </>

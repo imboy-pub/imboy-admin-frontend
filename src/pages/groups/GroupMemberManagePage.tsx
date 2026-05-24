@@ -1,13 +1,15 @@
 import { useParams, useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ColumnDef,
   getCoreRowModel,
   useReactTable,
 } from '@tanstack/react-table'
-import { ArrowLeft, Download } from 'lucide-react'
+import { ArrowLeft, Download, UserMinus } from 'lucide-react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
+  ConfirmDialog,
   DataTable,
   DataTablePagination,
   LoadingState,
@@ -15,12 +17,12 @@ import {
   PageHeader,
   StatusBadge,
 } from '@/components/shared'
-import { getGroupMembersPayload } from '@/modules/groups/api'
+import { getGroupMembersPayload, kickGroupMember } from '@/modules/groups/api'
 import { formatDate } from '@/lib/utils'
 import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 import { useMemo, useState } from 'react'
-import { toast } from 'sonner'
 import type { GroupMember } from '@/types/group'
+import type { EntityId } from '@/types/common'
 
 const ROLE_MAP: Record<number, { label: string; variant: 'info' | 'secondary' | 'warning' }> = {
   1: { label: '群主', variant: 'info' },
@@ -31,14 +33,30 @@ const ROLE_MAP: Record<number, { label: string; variant: 'info' | 'secondary' | 
 export function GroupMemberManagePage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const gid = id ?? ''
   const [page, setPage] = useState(1)
   const [size, setSize] = useState(10)
+  const [kickTarget, setKickTarget] = useState<{ uid: EntityId; nickname: string } | null>(null)
 
   const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
     queryKey: ['group-members', gid, page, size],
     queryFn: () => getGroupMembersPayload(gid, page, size),
     enabled: gid.length > 0,
+  })
+
+  const kickMutation = useMutation({
+    mutationFn: ({ uid }: { uid: EntityId }) => kickGroupMember(gid, uid),
+    onSuccess: () => {
+      toast.success('成员已踢出')
+      void queryClient.invalidateQueries({ queryKey: ['group-members', gid] })
+    },
+    onError: (err: Error) => {
+      toast.error(`踢出失败: ${err.message}`)
+    },
+    onSettled: () => {
+      setKickTarget(null)
+    },
   })
 
   const columns = useMemo<ColumnDef<GroupMember>[]>(() => [
@@ -90,15 +108,31 @@ export function GroupMemberManagePage() {
     {
       id: 'actions',
       header: '操作',
-      cell: ({ row }) => (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate(`/users/${row.original.user_id}`)}
-        >
-          查看用户
-        </Button>
-      ),
+      cell: ({ row }) => {
+        const member = row.original
+        if (member.role === 1) {
+          return (
+            <Button variant="ghost" size="sm" onClick={() => navigate(`/users/${member.user_id}`)}>
+              查看用户
+            </Button>
+          )
+        }
+        return (
+          <div className="flex gap-2">
+            <Button variant="ghost" size="sm" onClick={() => navigate(`/users/${member.user_id}`)}>
+              查看用户
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              title="踢出成员"
+              onClick={() => setKickTarget({ uid: member.user_id, nickname: member.nickname || String(member.user_id) })}
+            >
+              <UserMinus className="h-4 w-4 text-destructive" />
+            </Button>
+          </div>
+        )
+      },
     },
   ], [navigate])
 
@@ -139,9 +173,9 @@ export function GroupMemberManagePage() {
               导出 CSV
             </Button>
             <Button variant="outline" onClick={() => navigate(`/groups/${gid}`)}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            返回群组详情
-          </Button>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              返回群组详情
+            </Button>
           </>
         }
       />
@@ -159,6 +193,19 @@ export function GroupMemberManagePage() {
           onRefresh={() => refetch()}
         />
       )}
+
+      <ConfirmDialog
+        open={kickTarget !== null}
+        onOpenChange={(open) => { if (!open) setKickTarget(null) }}
+        title="确认踢出成员"
+        description={`确定要将「${kickTarget?.nickname ?? ''}」踢出群组吗？该操作不可撤销。`}
+        confirmText="踢出"
+        variant="destructive"
+        loading={kickMutation.isPending}
+        onConfirm={() => {
+          if (kickTarget) void kickMutation.mutateAsync({ uid: kickTarget.uid })
+        }}
+      />
     </div>
   )
 }

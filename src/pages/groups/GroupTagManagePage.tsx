@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   ConfirmDialog,
   DataTable,
+  DataTablePagination,
   ErrorState,
   LoadingState,
   PageHeader,
@@ -29,15 +30,17 @@ export function GroupTagManagePage() {
   const queryClient = useQueryClient()
   const gid = id ?? ''
 
+  const [page, setPage] = useState(1)
+  const [size, setSize] = useState(10)
   const [confirmDeleteTagName, setConfirmDeleteTagName] = useState('')
   const { allowed: canDeleteTag } = useAdminPermission({
     permission: 'groups:tag:delete',
     roles: [1, 2],
   })
 
-  const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['group-tags', gid],
-    queryFn: () => getGroupTagsPayload(gid),
+  const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
+    queryKey: ['group-tags', gid, { page, size }],
+    queryFn: () => getGroupTagsPayload(gid, { page, size }),
     enabled: gid.length > 0,
   })
 
@@ -46,7 +49,7 @@ export function GroupTagManagePage() {
     onSuccess: async () => {
       toast.success('标签已删除')
       setConfirmDeleteTagName('')
-      await queryClient.invalidateQueries({ queryKey: ['group-tags', gid] })
+      await queryClient.invalidateQueries({ queryKey: ['group-tags', gid], exact: false })
     },
     onError: (err: Error) => {
       toast.error(`删除标签失败: ${err.message}`)
@@ -154,6 +157,16 @@ export function GroupTagManagePage() {
           <DataTable table={table} />
         </CardContent>
       </Card>
+
+      <DataTablePagination
+        page={page}
+        pageSize={size}
+        total={data?.total ?? 0}
+        onPageChange={setPage}
+        onPageSizeChange={(s) => { setSize(s); setPage(1) }}
+        dataUpdatedAt={dataUpdatedAt}
+        onRefresh={() => void refetch()}
+      />
 
       <ConfirmDialog
         open={canDeleteTag && confirmDeleteTagName.length > 0}
