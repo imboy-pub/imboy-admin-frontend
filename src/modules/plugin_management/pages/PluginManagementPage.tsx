@@ -21,6 +21,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
+  ConfirmDialog,
   ErrorState,
   LoadingState,
   PageHeader,
@@ -220,6 +221,7 @@ export function PluginManagementPage() {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const [pendingMap, setPendingMap] = useState<Record<string, string>>({})
+  const [uninstallTarget, setUninstallTarget] = useState<PluginInfo | null>(null)
 
   const { data: plugins, isLoading, error, refetch } = useQuery({
     queryKey: pluginKeys.list(),
@@ -287,6 +289,10 @@ export function PluginManagementPage() {
   })
 
   const handleAction = (action: string, plugin: PluginInfo) => {
+    if (action === 'uninstall') {
+      setUninstallTarget(plugin)
+      return
+    }
     setPendingMap((prev) => ({ ...prev, [plugin.name]: action }))
 
     const mutPromise = (() => {
@@ -403,6 +409,29 @@ export function PluginManagementPage() {
           ))}
         </div>
       )}
+
+      <ConfirmDialog
+        open={uninstallTarget !== null}
+        onOpenChange={(open) => { if (!open) setUninstallTarget(null) }}
+        title="确认卸载插件"
+        description={`确定要卸载插件 "${uninstallTarget?.name}"？此操作不可撤销。`}
+        confirmText="卸载"
+        onConfirm={() => {
+          if (!uninstallTarget) return
+          const name = uninstallTarget.name
+          setUninstallTarget(null)
+          setPendingMap((prev) => ({ ...prev, [name]: 'uninstall' }))
+          uninstallMut.mutateAsync(name).finally(() => {
+            setPendingMap((prev) => {
+              const next = { ...prev }
+              delete next[name]
+              return next
+            })
+          })
+        }}
+        variant="destructive"
+        loading={uninstallMut.isPending}
+      />
     </div>
   )
 }

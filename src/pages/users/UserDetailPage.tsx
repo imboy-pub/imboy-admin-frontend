@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button'
 import { ArrowLeft, UserX, UserCheck, Loader2, Smartphone, Users, MessageSquare, Tags, Bookmark, Shield, Clock, Activity } from 'lucide-react'
 import { toast } from 'sonner'
-import { PageHeader, LoadingState, ErrorState, StatusBadge } from '@/components/shared'
+import { ConfirmDialog, PageHeader, LoadingState, ErrorState, StatusBadge } from '@/components/shared'
 import { getUserDetailPayload, banUser, unbanUser } from '@/modules/identity/api'
 import { formatDate } from '@/lib/utils'
 import { cn } from '@/lib/utils'
@@ -50,6 +50,7 @@ export function UserDetailPage() {
   const queryClient = useQueryClient()
   const uid = id ?? ''
   const [activeTab, setActiveTab] = useState<DetailTab>('profile')
+  const [confirmAction, setConfirmAction] = useState<'ban' | 'unban' | null>(null)
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['user', uid],
@@ -67,6 +68,7 @@ export function UserDetailPage() {
     onError: (error: Error) => {
       toast.error(`封禁失败: ${error.message}`)
     },
+    onSettled: () => setConfirmAction(null),
   })
 
   const unbanMutation = useMutation({
@@ -79,6 +81,7 @@ export function UserDetailPage() {
     onError: (error: Error) => {
       toast.error(`解封失败: ${error.message}`)
     },
+    onSettled: () => setConfirmAction(null),
   })
 
   if (isLoading) {
@@ -115,7 +118,7 @@ export function UserDetailPage() {
             {user.status === 1 ? (
               <Button
                 variant="destructive"
-                onClick={() => banMutation.mutate(uid)}
+                onClick={() => setConfirmAction('ban')}
                 disabled={banMutation.isPending}
               >
                 {banMutation.isPending ? (
@@ -127,7 +130,7 @@ export function UserDetailPage() {
               </Button>
             ) : user.status === 0 ? (
               <Button
-                onClick={() => unbanMutation.mutate(uid)}
+                onClick={() => setConfirmAction('unban')}
                 disabled={unbanMutation.isPending}
               >
                 {unbanMutation.isPending ? (
@@ -312,7 +315,7 @@ export function UserDetailPage() {
                 <Button
                   variant="destructive"
                   className="w-full justify-start"
-                  onClick={() => banMutation.mutate(uid)}
+                  onClick={() => setConfirmAction('ban')}
                   disabled={banMutation.isPending}
                 >
                   {banMutation.isPending ? (
@@ -326,7 +329,7 @@ export function UserDetailPage() {
                 <Button
                   variant="outline"
                   className="w-full justify-start"
-                  onClick={() => unbanMutation.mutate(uid)}
+                  onClick={() => setConfirmAction('unban')}
                   disabled={unbanMutation.isPending}
                 >
                   {unbanMutation.isPending ? (
@@ -343,6 +346,24 @@ export function UserDetailPage() {
           </Card>
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirmAction !== null}
+        onOpenChange={(open) => { if (!open) setConfirmAction(null) }}
+        title={confirmAction === 'ban' ? '确认封禁' : '确认解封'}
+        description={
+          confirmAction === 'ban'
+            ? `确定要封禁用户 ${user.account}？封禁后该用户将无法登录。`
+            : `确定要解封用户 ${user.account}？解封后该用户将恢复正常登录权限。`
+        }
+        confirmText={confirmAction === 'ban' ? '封禁' : '解封'}
+        onConfirm={() => {
+          if (confirmAction === 'ban') void banMutation.mutateAsync(uid)
+          else if (confirmAction === 'unban') void unbanMutation.mutateAsync(uid)
+        }}
+        variant={confirmAction === 'ban' ? 'destructive' : 'default'}
+        loading={banMutation.isPending || unbanMutation.isPending}
+      />
     </div>
   )
 }

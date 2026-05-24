@@ -89,6 +89,7 @@ export function AuditLogPage() {
     isLoading: loadingMessage,
     error: messageError,
     refetch: refetchMessage,
+    dataUpdatedAt: messageDataUpdatedAt,
   } = useQuery({
     queryKey: ['audit-log', 'messages'],
     queryFn: () =>
@@ -104,6 +105,7 @@ export function AuditLogPage() {
     isLoading: loadingLogout,
     error: logoutError,
     refetch: refetchLogout,
+    dataUpdatedAt: logoutDataUpdatedAt,
   } = useQuery({
     queryKey: ['audit-log', 'logout-applications'],
     queryFn: () =>
@@ -112,6 +114,12 @@ export function AuditLogPage() {
         size: 100,
       }),
   })
+
+  const dataUpdatedAt = Math.max(messageDataUpdatedAt, logoutDataUpdatedAt)
+  const handleRefreshAll = () => {
+    void refetchMessage()
+    void refetchLogout()
+  }
 
   const {
     data: messageDetail,
@@ -326,10 +334,7 @@ export function AuditLogPage() {
     return (
       <ErrorState
         message="加载审计日志失败"
-        onRetry={() => {
-          void refetchMessage()
-          void refetchLogout()
-        }}
+        onRetry={handleRefreshAll}
       />
     )
   }
@@ -408,6 +413,11 @@ export function AuditLogPage() {
             </Button>
           </div>
 
+          {(messageData?.total ?? 0) >= 100 || (logoutData?.total ?? 0) >= 100 ? (
+            <p className="text-xs text-amber-600">
+              当前仅展示最近 100 条消息 + 100 条注销申请，如需更多数据请前往对应专页查看。
+            </p>
+          ) : null}
           <DataTable table={table} emptyMessage="暂无匹配的审计事件" />
           <DataTablePagination
             page={safePage}
@@ -418,6 +428,8 @@ export function AuditLogPage() {
               setPageSize(size)
               setPage(1)
             }}
+            dataUpdatedAt={dataUpdatedAt}
+            onRefresh={handleRefreshAll}
           />
         </CardContent>
       </Card>

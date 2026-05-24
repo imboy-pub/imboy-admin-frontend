@@ -5,7 +5,7 @@ import { Plus, Search, Megaphone, Eye, EyeOff, Trash2, Pin, Edit, Download } fro
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { PageHeader, LoadingState, ErrorState, ConfirmDialog } from '@/components/shared'
+import { PageHeader, LoadingState, ErrorState, ConfirmDialog, DataTablePagination } from '@/components/shared'
 import {
   getAnnouncementList,
   deleteAnnouncement,
@@ -32,14 +32,14 @@ const TYPE_MAP: Record<string, { label: string; color: string }> = {
 export function AnnouncementListPage() {
   const queryClient = useQueryClient()
   const [page, setPage] = useState(1)
-  const [size] = useState(10)
+  const [size, setSize] = useState(10)
   const [keyword, setKeyword] = useState('')
   const [searchKeyword, setSearchKeyword] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [editingItem, setEditingItem] = useState<Announcement | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Announcement | null>(null)
 
-  const { data, isLoading, error, refetch } = useQuery({
+  const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
     queryKey: ['announcements', page, size, searchKeyword],
     queryFn: () => getAnnouncementList({ page, size, keyword: searchKeyword || undefined }),
   })
@@ -84,7 +84,6 @@ export function AnnouncementListPage() {
   }, [queryClient])
 
   const items: Announcement[] = data?.items ?? []
-  const totalPages = data?.total_pages ?? 1
 
   const handleExportCsv = useCallback(() => {
     const currentItems: Announcement[] = data?.items ?? []
@@ -207,17 +206,15 @@ export function AnnouncementListPage() {
       )}
 
       {/* 分页 */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">
-            共 {data?.total ?? 0} 条，第 {page}/{totalPages} 页
-          </span>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>上一页</Button>
-            <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>下一页</Button>
-          </div>
-        </div>
-      )}
+      <DataTablePagination
+        page={page}
+        pageSize={size}
+        total={data?.total ?? 0}
+        onPageChange={setPage}
+        onPageSizeChange={(newSize) => { setSize(newSize); setPage(1) }}
+        dataUpdatedAt={dataUpdatedAt}
+        onRefresh={() => void refetch()}
+      />
 
       {/* 删除确认对话框 */}
       <ConfirmDialog

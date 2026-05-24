@@ -21,7 +21,7 @@ export function StorageOverviewPage() {
   const [keyword, setKeyword] = useState('')
   const [mimeFilter, setMimeFilter] = useState('')
   const [page, setPage] = useState(1)
-  const pageSize = 10
+  const [pageSize, setPageSize] = useState(10)
 
   const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useQuery({
     queryKey: ['storage', 'stats'],
@@ -258,7 +258,8 @@ export function StorageOverviewPage() {
                 pageSize={listData.size}
                 total={listData.total}
                 onPageChange={setPage}
-                onPageSizeChange={(_size) => {
+                onPageSizeChange={(newSize) => {
+                  setPageSize(newSize)
                   setPage(1)
                 }}
                 dataUpdatedAt={listDataUpdatedAt}

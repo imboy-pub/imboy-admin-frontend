@@ -58,7 +58,7 @@ export function PluginLogPage() {
     ...(pluginNameFilter.trim() ? { plugin_name: pluginNameFilter.trim() } : {}),
   }
 
-  const { data, isLoading, error, refetch } = useQuery({
+  const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
     queryKey: pluginLogKeys.list(queryParams),
     queryFn: () => getPluginLogList(queryParams),
   })
@@ -226,6 +226,8 @@ export function PluginLogPage() {
               setPageSize(size)
               setPage(1)
             }}
+            dataUpdatedAt={dataUpdatedAt}
+            onRefresh={() => void refetch()}
           />
         </CardContent>
       </Card>

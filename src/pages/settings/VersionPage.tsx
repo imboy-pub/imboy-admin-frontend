@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Plus, Trash2, Edit, Loader2, X } from 'lucide-react'
 import { toast } from 'sonner'
-import { PageHeader, LoadingState, ErrorState, StatusBadge, ConfirmDialog } from '@/components/shared'
+import { PageHeader, LoadingState, ErrorState, StatusBadge, ConfirmDialog, DataTablePagination } from '@/components/shared'
 import {
   AppVersion,
   deleteVersion,
@@ -20,6 +20,8 @@ import { formatDate } from '@/lib/utils'
 
 export function VersionPage() {
   const queryClient = useQueryClient()
+  const [page, setPage] = useState(1)
+  const [size, setSize] = useState(10)
   const [showForm, setShowForm] = useState(false)
   const [editingVersion, setEditingVersion] = useState<AppVersion | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<EntityId | null>(null)
@@ -32,9 +34,9 @@ export function VersionPage() {
   })
 
   // 获取版本列表
-  const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['versions'],
-    queryFn: () => getVersionListPayload({ page: 1, size: 50 }),
+  const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
+    queryKey: ['versions', { page, size }],
+    queryFn: () => getVersionListPayload({ page, size }),
   })
 
   // 保存版本
@@ -42,7 +44,7 @@ export function VersionPage() {
     mutationFn: saveVersion,
     onSuccess: () => {
       toast.success(editingVersion ? '版本已更新' : '版本已创建')
-      queryClient.invalidateQueries({ queryKey: ['versions'] })
+      queryClient.invalidateQueries({ queryKey: ['versions'], exact: false })
       resetForm()
     },
     onError: (error: Error) => {
@@ -55,7 +57,7 @@ export function VersionPage() {
     mutationFn: deleteVersion,
     onSuccess: () => {
       toast.success('版本已删除')
-      queryClient.invalidateQueries({ queryKey: ['versions'] })
+      queryClient.invalidateQueries({ queryKey: ['versions'], exact: false })
       setDeleteConfirm(null)
     },
     onError: (error: Error) => {
@@ -303,6 +305,16 @@ export function VersionPage() {
           </div>
         </CardContent>
       </Card>
+
+      <DataTablePagination
+        page={page}
+        pageSize={size}
+        total={data?.total ?? 0}
+        onPageChange={setPage}
+        onPageSizeChange={(s) => { setSize(s); setPage(1) }}
+        dataUpdatedAt={dataUpdatedAt}
+        onRefresh={() => void refetch()}
+      />
 
       {/* 删除确认对话框 */}
       <ConfirmDialog

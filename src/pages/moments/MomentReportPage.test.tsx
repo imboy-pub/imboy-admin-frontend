@@ -25,7 +25,6 @@ type ReportApiCall = {
 const mutableClient = client as unknown as MutableClient
 const originalGet = mutableClient.get
 const originalPost = mutableClient.post
-const originalPrompt = window.prompt
 
 function MomentDetailRouteProbe() {
   const { id = '' } = useParams()
@@ -87,7 +86,6 @@ describe('MomentReportPage flow', () => {
   afterEach(() => {
     mutableClient.get = originalGet
     mutableClient.post = originalPost
-    window.prompt = originalPrompt
     cleanup()
     useAuthStore.getState().logout()
   })
@@ -95,7 +93,6 @@ describe('MomentReportPage flow', () => {
   it('covers filter, pagination, single resolve and detail navigation', async () => {
     const getCalls: ReportApiCall[] = []
     const postCalls: Array<{ url: string; body: Record<string, unknown> }> = []
-    const promptMessages: string[] = []
 
     mutableClient.get = async (url: string, config?: { params?: Record<string, unknown> }) => {
       if (url === '/moment/report/list') {
@@ -144,12 +141,6 @@ describe('MomentReportPage flow', () => {
           payload: {},
         },
       }
-    }
-
-    window.prompt = (message?: string) => {
-      const text = String(message ?? '')
-      promptMessages.push(text)
-      return promptMessages.length === 1 ? '驳回备注' : '违规备注'
     }
 
     let view: ReturnType<typeof renderMomentReportPage>
@@ -211,22 +202,40 @@ describe('MomentReportPage flow', () => {
     })
 
     await waitFor(() => {
+      expect(document.querySelector('[role="dialog"]')).toBeTruthy()
+    })
+    await act(async () => {
+      const dlg = document.querySelector('[role="dialog"]')!
+      const btn = Array.from(dlg.querySelectorAll('button')).find(
+        (b) => b.textContent?.trim() === '驳回'
+      )!
+      fireEvent.click(btn)
+    })
+
+    await waitFor(() => {
       expect(postCalls.length).toBe(1)
     })
     await flushReactUpdates()
 
     expect(postCalls[0]).toEqual({
       url: '/moment/report/resolve',
-      body: {
-        report_id: 701,
-        result: 1,
-        note: '驳回备注',
-      },
+      body: { report_id: 701, result: 1, note: '' },
     })
 
     await act(async () => {
       const confirmButtons = view.getAllByTitle('确认违规')
       fireEvent.click(confirmButtons[0])
+    })
+
+    await waitFor(() => {
+      expect(document.querySelector('[role="dialog"]')).toBeTruthy()
+    })
+    await act(async () => {
+      const dlg = document.querySelector('[role="dialog"]')!
+      const btn = Array.from(dlg.querySelectorAll('button')).find(
+        (b) => b.textContent?.trim() === '确认违规'
+      )!
+      fireEvent.click(btn)
     })
 
     await waitFor(() => {
@@ -236,14 +245,8 @@ describe('MomentReportPage flow', () => {
 
     expect(postCalls[1]).toEqual({
       url: '/moment/report/resolve',
-      body: {
-        report_id: 701,
-        result: 2,
-        note: '违规备注',
-      },
+      body: { report_id: 701, result: 2, note: '' },
     })
-    expect(promptMessages[0]).toContain('驳回')
-    expect(promptMessages[1]).toContain('违规确认')
 
     await act(async () => {
       const viewButtons = view.getAllByTitle('查看动态')
@@ -343,7 +346,6 @@ describe('MomentReportPage flow', () => {
 
   it('supports keyboard shortcuts for focus switch and quick resolve', async () => {
     const postCalls: Array<{ url: string; body: Record<string, unknown> }> = []
-    const promptMessages: string[] = []
 
     mutableClient.get = async (url: string) => {
       if (url === '/moment/report/list') {
@@ -401,12 +403,6 @@ describe('MomentReportPage flow', () => {
       }
     }
 
-    window.prompt = (message?: string) => {
-      const text = String(message ?? '')
-      promptMessages.push(text)
-      return promptMessages.length === 1 ? '快捷驳回备注' : '快捷违规备注'
-    }
-
     const view = renderMomentReportPage({ allowed: true, loading: false })
 
     await view.findByText('朋友圈举报处理')
@@ -435,25 +431,43 @@ describe('MomentReportPage flow', () => {
     })
 
     await waitFor(() => {
+      expect(view.getByText('当前焦点：#702')).toBeTruthy()
+    })
+
+    await waitFor(() => {
+      expect(document.querySelector('[role="dialog"]')).toBeTruthy()
+    })
+    await act(async () => {
+      const dlg = document.querySelector('[role="dialog"]')!
+      const btn = Array.from(dlg.querySelectorAll('button')).find(
+        (b) => b.textContent?.trim() === '驳回'
+      )!
+      fireEvent.click(btn)
+    })
+
+    await waitFor(() => {
       expect(postCalls.length).toBe(1)
     })
     await flushReactUpdates()
 
     expect(postCalls[0]).toEqual({
       url: '/moment/report/resolve',
-      body: {
-        report_id: 701,
-        result: 1,
-        note: '快捷驳回备注',
-      },
-    })
-
-    await waitFor(() => {
-      expect(view.getByText('当前焦点：#702')).toBeTruthy()
+      body: { report_id: 701, result: 1, note: '' },
     })
 
     await act(async () => {
       fireEvent.keyDown(window, { key: 'v' })
+    })
+
+    await waitFor(() => {
+      expect(document.querySelector('[role="dialog"]')).toBeTruthy()
+    })
+    await act(async () => {
+      const dlg = document.querySelector('[role="dialog"]')!
+      const btn = Array.from(dlg.querySelectorAll('button')).find(
+        (b) => b.textContent?.trim() === '确认违规'
+      )!
+      fireEvent.click(btn)
     })
 
     await waitFor(() => {
@@ -463,14 +477,7 @@ describe('MomentReportPage flow', () => {
 
     expect(postCalls[1]).toEqual({
       url: '/moment/report/resolve',
-      body: {
-        report_id: 702,
-        result: 2,
-        note: '快捷违规备注',
-      },
+      body: { report_id: 702, result: 2, note: '' },
     })
-
-    expect(promptMessages[0]).toContain('驳回')
-    expect(promptMessages[1]).toContain('违规确认')
   })
 })

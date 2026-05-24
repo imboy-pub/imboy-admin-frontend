@@ -7,12 +7,21 @@ import {
   useReactTable,
 } from '@tanstack/react-table'
 import { useNavigate } from 'react-router-dom'
-import { CheckCircle2, Eye, Search, XCircle } from 'lucide-react'
+import { CheckCircle2, Eye, Loader2, Search, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import {
   BatchActionBar,
   DataTable,
@@ -98,6 +107,8 @@ export function MomentReportPage({ permissionOverride, showPageHeader = true }: 
   const [activeReportId, setActiveReportId] = useState<string | number | null>(null)
   const [lastBatchExecutionMode, setLastBatchExecutionMode] =
     useState<MomentReportBatchResolveSummary['mode'] | null>(null)
+  const [resolveDialog, setResolveDialog] = useState<{ report: MomentReport; result: 1 | 2 } | null>(null)
+  const [resolveNote, setResolveNote] = useState('')
   const clearRowSelection = useCallback(() => {
     setRowSelection((prev) => (Object.keys(prev).length === 0 ? prev : {}))
   }, [])
@@ -256,16 +267,20 @@ export function MomentReportPage({ permissionOverride, showPageHeader = true }: 
       report_id: report.id,
     })
 
-    const note = window.prompt(
-      result === 2 ? '输入“违规确认”备注（可选）' : '输入“驳回”备注（可选）',
-      ''
-    )
+    setResolveNote('')
+    setResolveDialog({ report, result })
+  }, [canHandleReports, handlePermissionLoading])
+
+  const handleResolveConfirm = useCallback(() => {
+    if (!resolveDialog) return
     resolveMutation.mutate({
-      reportId: report.id,
-      result,
-      note: note ?? '',
+      reportId: resolveDialog.report.id,
+      result: resolveDialog.result,
+      note: resolveNote,
     })
-  }, [canHandleReports, handlePermissionLoading, resolveMutation])
+    setResolveDialog(null)
+    setResolveNote('')
+  }, [resolveDialog, resolveNote, resolveMutation])
 
   const handlePageChange = (page: number) => {
     clearRowSelection()
@@ -632,6 +647,42 @@ export function MomentReportPage({ permissionOverride, showPageHeader = true }: 
           )}
         </CardContent>
       </Card>
+
+      <Dialog
+        open={resolveDialog !== null}
+        onOpenChange={(open) => { if (!open) { setResolveDialog(null); setResolveNote('') } }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{resolveDialog?.result === 2 ? '确认违规' : '驳回举报'}</DialogTitle>
+            <DialogDescription>
+              {resolveDialog?.result === 2
+                ? '将该举报标记为违规，此操作将联动内容治理。'
+                : '驳回该举报，标记为无效举报。'}
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            placeholder="处理备注（可选，Ctrl+Enter 确认）"
+            value={resolveNote}
+            onChange={(e) => setResolveNote(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && e.ctrlKey) handleResolveConfirm() }}
+            rows={3}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setResolveDialog(null); setResolveNote('') }}>
+              取消
+            </Button>
+            <Button
+              variant={resolveDialog?.result === 2 ? 'destructive' : 'default'}
+              onClick={handleResolveConfirm}
+              disabled={resolveMutation.isPending}
+            >
+              {resolveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {resolveDialog?.result === 2 ? '确认违规' : '驳回'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -39,7 +39,7 @@ export async function getStorageList(params: {
 }): Promise<PaginatedResponse<StorageItem>> {
   const response = await client.get('/storage/index', { params })
   const payload = requireApiPayload<Record<string, unknown>>(response.data, '/storage/index')
-  const list = (payload.list ?? []) as StorageItem[]
+  const list = (payload.items ?? payload.list ?? []) as StorageItem[]
   const page = (payload.page ?? 1) as number
   const size = (payload.size ?? 10) as number
   const total = (payload.total ?? 0) as number

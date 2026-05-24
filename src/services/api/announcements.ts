@@ -41,7 +41,7 @@ export async function getAnnouncementList(
 ): Promise<PaginatedResponse<Announcement>> {
   const response = await client.get('/announcement/index', { params })
   const payload = requireApiPayload<Record<string, unknown>>(response.data, '/announcement/index')
-  const list = (payload.list ?? []) as Announcement[]
+  const list = (payload.items ?? payload.list ?? []) as Announcement[]
   const page = (payload.page ?? 1) as number
   const size = (payload.size ?? 10) as number
   const total = (payload.total ?? 0) as number

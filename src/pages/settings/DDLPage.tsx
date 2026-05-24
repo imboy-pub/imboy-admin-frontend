@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Plus, Trash2, Edit, X } from 'lucide-react'
 import { toast } from 'sonner'
-import { PageHeader, LoadingState, ErrorState, StatusBadge, ConfirmDialog } from '@/components/shared'
+import { PageHeader, LoadingState, ErrorState, StatusBadge, ConfirmDialog, DataTablePagination } from '@/components/shared'
 import {
   DDL,
   DDLSaveParams,
@@ -19,6 +19,8 @@ import type { EntityId } from '@/types/common'
 
 export function DDLPage() {
   const queryClient = useQueryClient()
+  const [page, setPage] = useState(1)
+  const [size, setSize] = useState(10)
   const [showForm, setShowForm] = useState(false)
   const [editingDDL, setEditingDDL] = useState<DDL | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<EntityId | null>(null)
@@ -31,9 +33,9 @@ export function DDLPage() {
   })
 
   // 获取 DDL 列表
-  const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['ddl'],
-    queryFn: () => getDDLListPayload({ page: 1, size: 50 }),
+  const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
+    queryKey: ['ddl', { page, size }],
+    queryFn: () => getDDLListPayload({ page, size }),
   })
 
   // 保存 DDL
@@ -41,7 +43,7 @@ export function DDLPage() {
     mutationFn: saveDDL,
     onSuccess: () => {
       toast.success(editingDDL ? 'DDL 配置已更新' : 'DDL 配置已创建')
-      queryClient.invalidateQueries({ queryKey: ['ddl'] })
+      queryClient.invalidateQueries({ queryKey: ['ddl'], exact: false })
       resetForm()
     },
     onError: (error: Error) => {
@@ -54,7 +56,7 @@ export function DDLPage() {
     mutationFn: deleteDDL,
     onSuccess: () => {
       toast.success('DDL 配置已删除')
-      queryClient.invalidateQueries({ queryKey: ['ddl'] })
+      queryClient.invalidateQueries({ queryKey: ['ddl'], exact: false })
       setDeleteConfirm(null)
     },
     onError: (error: Error) => {
@@ -270,6 +272,16 @@ export function DDLPage() {
           </div>
         </CardContent>
       </Card>
+
+      <DataTablePagination
+        page={page}
+        pageSize={size}
+        total={data?.total ?? 0}
+        onPageChange={setPage}
+        onPageSizeChange={(s) => { setSize(s); setPage(1) }}
+        dataUpdatedAt={dataUpdatedAt}
+        onRefresh={() => void refetch()}
+      />
 
       {/* 删除确认对话框 */}
       <ConfirmDialog
