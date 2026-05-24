@@ -41,6 +41,7 @@ interface AdminListPayload extends PaginatedResponse<Admin> {
 const DEFAULT_ADMIN_LIST_ENDPOINTS = ['/admin/list', '/admins/list']
 const DEFAULT_ADMIN_CREATE_ENDPOINTS = ['/admin/create', '/admins/create']
 const DEFAULT_ADMIN_ASSIGN_ROLE_ENDPOINTS = ['/admin/assign_role', '/admin/role/update', '/admins/assign-role']
+const DEFAULT_ADMIN_DISABLE_ENDPOINTS = ['/admin/disable', '/admins/disable', '/admin/delete', '/admins/delete']
 
 function normalizeEndpoint(path: string): string {
   const trimmed = path.trim()
@@ -58,6 +59,7 @@ function buildEndpointCandidates(rawEnv: unknown, defaults: string[]): string[] 
 
 const ADMIN_LIST_ENDPOINTS = buildEndpointCandidates(import.meta.env.VITE_ADMIN_LIST_ENDPOINT, DEFAULT_ADMIN_LIST_ENDPOINTS)
 const ADMIN_CREATE_ENDPOINTS = buildEndpointCandidates(import.meta.env.VITE_ADMIN_CREATE_ENDPOINT, DEFAULT_ADMIN_CREATE_ENDPOINTS)
+const ADMIN_DISABLE_ENDPOINTS = buildEndpointCandidates(import.meta.env.VITE_ADMIN_DISABLE_ENDPOINT, DEFAULT_ADMIN_DISABLE_ENDPOINTS)
 const ADMIN_ASSIGN_ROLE_ENDPOINTS = buildEndpointCandidates(
   import.meta.env.VITE_ADMIN_ASSIGN_ROLE_ENDPOINT,
   DEFAULT_ADMIN_ASSIGN_ROLE_ENDPOINTS
@@ -326,4 +328,8 @@ export async function assignAdminRole(input: AssignAdminRoleInput): Promise<ApiR
     admin_id: input.admin_id,
     role_id: input.role_id,
   })
+}
+
+export async function disableAdmin(adminId: EntityId): Promise<ApiResponse<Record<string, never>>> {
+  return postToCandidates(ADMIN_DISABLE_ENDPOINTS, { admin_id: adminId })
 }

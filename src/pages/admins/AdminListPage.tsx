@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
-import { Activity, FileSearch, KeyRound, Plus, Shield, UserCircle, Download } from 'lucide-react'
+import { Activity, FileSearch, KeyRound, Plus, Shield, UserCircle, Download, Ban, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -21,10 +21,19 @@ import {
 import {
   assignAdminRole,
   createAdmin,
+  disableAdmin,
   getAdminListPayload,
   type AdminListParams,
   type CreateAdminInput,
 } from '@/services/api/admins'
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { getRoleListPayload } from '@/modules/identity'
 import { useListQueryState } from '@/hooks/useListQueryState'
 import { useAuthStore } from '@/stores/authStore'
@@ -99,6 +108,7 @@ export function AdminListPage() {
   const [statusFilter, setStatusFilter] = useState(String(params.status))
   const [roleFilter, setRoleFilter] = useState(String(params.role_id))
   const [createDrawerOpen, setCreateDrawerOpen] = useState(false)
+  const [disableConfirmId, setDisableConfirmId] = useState<string | null>(null)
 
   const { data: roleData } = useQuery({
     queryKey: ['roles', 'list', 'admin-page'],
@@ -139,6 +149,18 @@ export function AdminListPage() {
     },
     onError: (mutationError) => {
       toast.error(`创建管理员失败: ${getErrorMessage(mutationError)}`)
+    },
+  })
+
+  const disableMutation = useMutation({
+    mutationFn: (adminId: string) => disableAdmin(adminId),
+    onSuccess: () => {
+      toast.success('管理员已禁用')
+      setDisableConfirmId(null)
+      queryClient.invalidateQueries({ queryKey: ['admins'] })
+    },
+    onError: (mutationError) => {
+      toast.error(`禁用失败: ${getErrorMessage(mutationError)}`)
     },
   })
 
@@ -350,6 +372,28 @@ export function AdminListPage() {
         </span>
       ),
     },
+    {
+      id: 'actions',
+      header: '操作',
+      cell: ({ row }) => {
+        const admin = row.original
+        const isCurrent = String(admin.id) === currentAdminId
+        const isActive = admin.status === 1
+        if (isCurrent || !isActive) return null
+        return (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-destructive hover:text-destructive"
+            disabled={disableMutation.isPending}
+            onClick={() => setDisableConfirmId(String(admin.id))}
+          >
+            <Ban className="mr-1 h-4 w-4" />
+            禁用
+          </Button>
+        )
+      },
+    },
   ]
 
   const table = useReactTable({
@@ -470,6 +514,30 @@ export function AdminListPage() {
           />
         </CardContent>
       </Card>
+
+      <AlertDialog open={disableConfirmId !== null} onOpenChange={(open) => { if (!open) setDisableConfirmId(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认禁用管理员</AlertDialogTitle>
+            <AlertDialogDescription>
+              禁用后该管理员将无法登录，可通过修改状态恢复。确认继续？
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button variant="outline" onClick={() => setDisableConfirmId(null)} disabled={disableMutation.isPending}>
+              取消
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={disableMutation.isPending}
+              onClick={() => { if (disableConfirmId) disableMutation.mutate(disableConfirmId) }}
+            >
+              {disableMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              确认禁用
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <EntityDrawer
         open={createDrawerOpen}
