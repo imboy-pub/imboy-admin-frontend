@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Send, Loader2, PanelRightOpen, Download } from 'lucide-react'
+import { Send, Loader2, PanelRightOpen, Download, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageHeader, LoadingState, ErrorState, StatusBadge, DataTable, DataTablePagination, FilterBar, EntityDrawer } from '@/components/shared'
 import {
@@ -10,6 +10,7 @@ import {
   FeedbackListParams,
   getFeedbackListPayload,
   replyFeedback,
+  deleteFeedback,
 } from '@/modules/ops_governance/api'
 import { PaginatedResponse } from '@/types/api'
 import type { EntityId } from '@/types/common'
@@ -171,6 +172,7 @@ export function FeedbackListPage() {
   const [activeFeedback, setActiveFeedback] = useState<Feedback | null>(null)
   const [replyDraft, setReplyDraft] = useState('')
   const [workflowDialogOpen, setWorkflowDialogOpen] = useState(false)
+  const [deleteConfirmId, setDeleteConfirmId] = useState<EntityId | null>(null)
   const [templateEditorValue, setTemplateEditorValue] = useState('')
   const [slaEditorValue, setSlaEditorValue] = useState(String(DEFAULT_WORKFLOW_CONFIG.slaHours))
 
@@ -237,6 +239,18 @@ export function FeedbackListPage() {
     },
     onError: (error: Error) => {
       toast.error(`回复失败: ${error.message}`)
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (feedbackId: EntityId) => deleteFeedback(feedbackId),
+    onSuccess: () => {
+      toast.success('反馈已删除')
+      setDeleteConfirmId(null)
+      void queryClient.invalidateQueries({ queryKey: ['feedback'] })
+    },
+    onError: (mutationError: Error) => {
+      toast.error(`删除失败: ${mutationError.message}`)
     },
   })
 
@@ -393,21 +407,37 @@ export function FeedbackListPage() {
     },
     {
       id: 'actions',
-      header: '快捷处理',
+      header: '操作',
       cell: ({ row }) => {
         const hasReplied = row.original.status === 2 || row.original.status === 3
+        const isDeleted = row.original.status === -1
 
         return (
-          <Button
-            size="sm"
-            variant={hasReplied ? 'ghost' : 'outline'}
-            onClick={(event) => {
-              event.stopPropagation()
-              openFeedbackDrawer(row.original)
-            }}
-          >
-            {hasReplied ? '查看' : '回复'}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant={hasReplied ? 'ghost' : 'outline'}
+              onClick={(event) => {
+                event.stopPropagation()
+                openFeedbackDrawer(row.original)
+              }}
+            >
+              {hasReplied ? '查看' : '回复'}
+            </Button>
+            {!isDeleted && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-destructive hover:text-destructive"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  setDeleteConfirmId(row.original.id)
+                }}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
         )
       },
     },
@@ -599,6 +629,30 @@ export function FeedbackListPage() {
           </div>
         </div>
       </EntityDrawer>
+
+      <AlertDialog open={deleteConfirmId !== null} onOpenChange={(open) => { if (!open) setDeleteConfirmId(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认删除反馈</AlertDialogTitle>
+            <AlertDialogDescription>
+              该操作不可恢复，反馈将被软删除（status = -1）。确认继续？
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button variant="outline" onClick={() => setDeleteConfirmId(null)} disabled={deleteMutation.isPending}>
+              取消
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={deleteMutation.isPending}
+              onClick={() => { if (deleteConfirmId) deleteMutation.mutate(deleteConfirmId) }}
+            >
+              {deleteMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              确认删除
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={workflowDialogOpen} onOpenChange={setWorkflowDialogOpen}>
         <AlertDialogContent>

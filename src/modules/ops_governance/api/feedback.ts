@@ -68,3 +68,8 @@ export async function replyFeedback(data: FeedbackReplyParams): Promise<ApiRespo
   })
   return response.data
 }
+
+export async function deleteFeedback(feedbackId: EntityId): Promise<ApiResponse<Record<string, never>>> {
+  const response = await client.post('/feedback/delete', { feedback_id: feedbackId })
+  return response.data
+}
