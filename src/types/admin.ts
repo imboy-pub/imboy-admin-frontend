@@ -7,7 +7,7 @@ export interface Admin {
   avatar: string
   email?: string
   mobile?: string
-  role_id: number
+  role_id: number | number[]
   login_count: number
   last_login_ip: string
   last_login_at: string

@@ -1,31 +1,18 @@
 import { Circle } from 'lucide-react'
 import type { MenuConfigItem } from '@/services/api/adminConfig'
-import type { RbacProfile } from '@/services/api/rbac'
 import { featureKeyForAdminPath, isAdminFeatureEnabled, adminEntryForPath, isAdminEntryEnabled, type FeatureFlags } from '@/services/api/features'
 import {
   defaultConfig,
   iconMap,
-  LEGACY_MOMENT_COMPAT_PERMISSION,
-  LEGACY_REPORT_COMPAT_PERMISSIONS,
   SIDEBAR_FAVORITES_KEY,
   type SidebarMenuItem,
 } from './sidebarSchema'
 
 export function normalizeRoleId(value: unknown): number | undefined {
-  const roleId = Number(value)
+  const v = Array.isArray(value) ? value[0] : value
+  const roleId = Number(v)
   if (!Number.isFinite(roleId) || roleId <= 0) return undefined
   return roleId
-}
-
-export function fallbackRbacProfile(roleId?: number): RbacProfile | undefined {
-  const normalizedRoleId = normalizeRoleId(roleId)
-  if (!normalizedRoleId) return undefined
-  return {
-    role_id: normalizedRoleId,
-    role_name: 'fallback',
-    permissions: [],
-    menu_paths: [],
-  }
 }
 
 export function toSidebarMenuItems(configItems?: MenuConfigItem[], parentKey = 'menu', seenPaths = new Set<string>()): SidebarMenuItem[] {
@@ -125,40 +112,8 @@ export function filterByKeyword(items: SidebarMenuItem[], keyword: string): Side
     .filter((item): item is SidebarMenuItem => item !== null)
 }
 
-export function filterByRbac(items: SidebarMenuItem[], profile?: RbacProfile): SidebarMenuItem[] {
-  if (!profile) return items
-
-  const roleId = normalizeRoleId(profile.role_id)
-  const allowedPaths = new Set(profile.menu_paths || [])
-  const hasPathRule = allowedPaths.size > 0
-  const permissions = new Set(profile.permissions || [])
-  const hasLegacyMomentCompat = permissions.has(LEGACY_MOMENT_COMPAT_PERMISSION)
-
-  const hasPermissionAccess = (permission?: string): boolean => {
-    if (!permission || permissions.size === 0) return true
-    if (permissions.has(permission)) return true
-    if (permission === 'reports:read' && permissions.has('moments:report:read')) return true
-    if (permission === 'reports:handle' && permissions.has('moments:report:handle')) return true
-    if (hasLegacyMomentCompat && LEGACY_REPORT_COMPAT_PERMISSIONS.has(permission)) return true
-    return false
-  }
-
-  const hasPathAccess = (path?: string): boolean => {
-    if (!path || !hasPathRule) return true
-    if (allowedPaths.has(path)) return true
-    if (path === '/reports' && (allowedPaths.has('/moments/reports') || allowedPaths.has('/moments'))) {
-      return true
-    }
-    if (path === '/moments/reports' && allowedPaths.has('/reports')) {
-      return true
-    }
-    if (path === '/moments' && allowedPaths.has('/reports')) {
-      return true
-    }
-    if (hasLegacyMomentCompat && path === '/reports') return true
-    if (hasLegacyMomentCompat && path.startsWith('/moments')) return true
-    return false
-  }
+export function filterByRbac(items: SidebarMenuItem[], roleId?: number): SidebarMenuItem[] {
+  if (roleId === undefined) return items
 
   const walk = (nodes: SidebarMenuItem[]): SidebarMenuItem[] => {
     return nodes
@@ -166,24 +121,14 @@ export function filterByRbac(items: SidebarMenuItem[], profile?: RbacProfile): S
         const itemRoles = Array.isArray(item.roles)
           ? item.roles.map((value) => Number(value)).filter((value) => Number.isFinite(value))
           : []
-
-        const roleAllowed = !(itemRoles.length > 0 && roleId && !itemRoles.includes(roleId))
-        const permissionAllowed = hasPermissionAccess(item.permission)
-        const pathAllowed = hasPathAccess(item.path)
-        const selfAllowed = roleAllowed && permissionAllowed && pathAllowed
+        const roleAllowed = itemRoles.length === 0 || itemRoles.includes(roleId)
         const filteredChildren = item.children ? walk(item.children) : []
 
         if (filteredChildren.length > 0) {
-          if (selfAllowed) {
-            return { ...item, children: filteredChildren }
-          }
+          if (roleAllowed) return { ...item, children: filteredChildren }
           return { ...item, path: undefined, children: filteredChildren }
         }
-
-        if (selfAllowed && item.path) {
-          return { ...item, children: undefined }
-        }
-
+        if (roleAllowed && item.path) return { ...item, children: undefined }
         return null
       })
       .filter((item): item is SidebarMenuItem => item !== null)
@@ -275,14 +220,14 @@ export function pickSafeMenuSource(configItems?: MenuConfigItem[]): MenuConfigIt
 
 export function ensureRenderableMenu(
   items: SidebarMenuItem[],
-  profile?: RbacProfile,
+  roleId?: number,
   featureFlags?: FeatureFlags | null,
   adminEntries?: string[] | null
 ): SidebarMenuItem[] {
   if (items.length > 0) return items
   return filterByAdminEntries(
     filterByFeatures(
-      filterByRbac(toSidebarMenuItems(defaultConfig.items), profile),
+      filterByRbac(toSidebarMenuItems(defaultConfig.items), roleId),
       featureFlags
     ),
     adminEntries

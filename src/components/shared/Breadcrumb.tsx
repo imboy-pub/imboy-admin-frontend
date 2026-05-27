@@ -63,6 +63,7 @@ export function Breadcrumb() {
   let currentPath = ''
   for (const segment of segments) {
     currentPath += `/${segment}`
+    if (currentPath === '/dashboard') continue
     if (isDynamicSegment(segment)) {
       items.push({ label: segment, path: currentPath })
     } else {
@@ -76,7 +77,7 @@ export function Breadcrumb() {
       {items.map((item, index) => {
         const isLast = index === items.length - 1
         return (
-          <span key={item.path} className="flex items-center gap-1">
+          <span key={`${item.path}-${index}`} className="flex items-center gap-1">
             <ChevronRight className="h-3.5 w-3.5" />
             {isLast ? (
               <span className="font-medium text-foreground">{item.label}</span>

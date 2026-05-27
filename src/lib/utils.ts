@@ -7,7 +7,7 @@ export function cn(...inputs: ClassValue[]) {
 
 export function formatOptionalDate(value?: string | null): string {
   if (!value) return '-'
-  const parsed = new Date(value)
+  const parsed = /^\d+$/.test(value) ? new Date(Number(value)) : new Date(value)
   if (Number.isNaN(parsed.getTime())) return value
   return formatDate(parsed)
 }

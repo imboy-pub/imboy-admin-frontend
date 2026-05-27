@@ -15,7 +15,7 @@ export interface LoginResponse {
   account: string
   nickname: string
   avatar: string
-  role_id: number
+  role_id: number | number[]
   next: string
 }
 

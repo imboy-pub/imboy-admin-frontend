@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useAuthStore } from '@/stores/authStore'
 import { getCaptchaUrl, getLoginPage, loginPayload } from '@/modules/identity/api'
+import { clearRbacUnavailable } from '@/services/api/rbac'
 import { encryptLoginPassword } from '@/lib/passwordCrypto'
 import { useSetupGuard } from '@/hooks/useSetupGuard'
 import { LoadingState } from '@/components/shared'
@@ -181,6 +182,7 @@ export function LoginPage() {
         status: 1,
         created_at: '',
       })
+      clearRbacUnavailable()
       toast.success('登录成功')
       navigate(normalizeNextRoute(loginData.next))
     } catch (error: unknown) {

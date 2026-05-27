@@ -3,6 +3,7 @@ import { LogOut, User, Key, ChevronRight } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { useNavigate } from 'react-router-dom'
 import { logout as logoutApi } from '@/modules/identity'
+import { formatOptionalDate } from '@/lib/utils'
 
 export function AdminProfilePanel() {
   const { admin, logout } = useAuthStore()
@@ -55,9 +56,9 @@ export function AdminProfilePanel() {
                 </div>
               </div>
               <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-                <span className="rounded-full bg-muted px-2 py-0.5">{roleLabel[admin?.role_id ?? 0] || '未知角色'}</span>
+                <span className="rounded-full bg-muted px-2 py-0.5">{roleLabel[Array.isArray(admin?.role_id) ? admin.role_id[0] : (admin?.role_id ?? 0)] || '未知角色'}</span>
                 {admin?.last_login_at && (
-                  <span>最近登录 {admin.last_login_at}</span>
+                  <span>最近登录 {formatOptionalDate(admin.last_login_at)}</span>
                 )}
               </div>
             </div>

@@ -149,7 +149,7 @@ export function PushTokenListPage() {
         <Input
           placeholder="搜索用户 ID、设备类型、平台..."
           value={searchText}
-          onChange={(e) => setSearchText(e.target.value)}
+          onChange={(e) => { setSearchText(e.target.value); setPage(1) }}
           className="pl-9"
         />
       </div>

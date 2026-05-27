@@ -60,6 +60,13 @@ function markRbacUnavailable() {
   }
 }
 
+export function clearRbacUnavailable() {
+  rbacUnavailableInSession = false
+  if (typeof window !== 'undefined') {
+    sessionStorage.removeItem(RBAC_UNAVAILABLE_KEY)
+  }
+}
+
 function isRbacUnavailable(): boolean {
   if (rbacUnavailableInSession) return true
   if (typeof window === 'undefined') return false

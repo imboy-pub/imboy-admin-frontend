@@ -37,6 +37,7 @@ const GroupScheduleManagePage = lazy(() => import('@/modules/groups').then((m) =
 const GroupTaskManagePage = lazy(() => import('@/modules/groups').then((m) => ({ default: m.GroupTaskManagePage })))
 const GroupGovernanceLogPage = lazy(() => import('@/modules/groups').then((m) => ({ default: m.GroupGovernanceLogPage })))
 const GroupContextGatewayPage = lazy(() => import('@/modules/groups').then((m) => ({ default: m.GroupContextGatewayPage })))
+const GroupTaskListPage = lazy(() => import('@/pages/groups/GroupTaskListPage').then((m) => ({ default: m.GroupTaskListPage })))
 
 const MessageListPage = lazy(() => import('@/modules/messages').then((m) => ({ default: m.MessageListPage })))
 const MomentListPage = lazy(() => import('@/modules/moments').then((m) => ({ default: m.MomentListPage })))
@@ -146,6 +147,16 @@ function App() {
                 />
 
                 {/* 群组管理 */}
+                <Route
+                  path="/groups/tasks"
+                  element={(
+                    <PermissionRoute permission="groups:task:read" roles={[1, 2]}>
+                      <FeatureRoute feature="group_task">
+                        <GroupTaskListPage />
+                      </FeatureRoute>
+                    </PermissionRoute>
+                  )}
+                />
                 <Route
                   path="/groups"
                   element={(

@@ -89,8 +89,9 @@ const modules: SettingsModule[] = [
   },
 ]
 
-function roleLabel(roleId?: number): string {
-  switch (roleId) {
+function roleLabel(roleId?: number | number[]): string {
+  const id = Array.isArray(roleId) ? roleId[0] : roleId
+  switch (id) {
     case 1:
       return '超级管理员'
     case 2:
@@ -98,7 +99,7 @@ function roleLabel(roleId?: number): string {
     case 3:
       return '审计管理员'
     default:
-      return `角色 #${roleId ?? 0}`
+      return `角色 #${id ?? 0}`
   }
 }
 

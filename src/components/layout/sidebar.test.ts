@@ -1,8 +1,7 @@
 /**
- * Inline mirror tests for private pure functions in components/layout/Sidebar.tsx:
- *   normalizeRoleId, fallbackRbacProfile, toSidebarMenuItems,
- *   flattenLeafItems, collectParentKeys, findNodeByKey,
- *   isNodeActive, filterByKeyword, filterByRbac, filterByFeatures,
+ * Inline mirror tests for pure functions in components/layout/sidebarFilters.ts:
+ *   normalizeRoleId, toSidebarMenuItems, flattenLeafItems, collectParentKeys,
+ *   findNodeByKey, isNodeActive, filterByKeyword, filterByRbac, filterByFeatures,
  *   pickSafeMenuSource, removeFavoriteLeaves, readFavoritePaths
  */
 import '../../test/setupDom'
@@ -32,24 +31,12 @@ type MenuConfigItem = {
   children?: MenuConfigItem[]
 }
 
-type RbacProfile = {
-  role_id: number
-  role_name: string
-  permissions: string[]
-  menu_paths: string[]
-}
-
 type FeatureFlags = Record<string, boolean>
 
 // ---------------------------------------------------------------------------
 // Constants + mirrors
 // ---------------------------------------------------------------------------
 
-const LEGACY_MOMENT_COMPAT_PERMISSION = 'messages:read'
-const LEGACY_REPORT_COMPAT_PERMISSIONS = new Set([
-  'moments:read', 'moments:delete', 'moments:report:read', 'moments:report:handle',
-  'reports:read', 'reports:handle',
-])
 const SIDEBAR_FAVORITES_KEY = 'imboy_admin_sidebar_favorites'
 
 const iconMap: Record<string, string> = {
@@ -63,15 +50,10 @@ const defaultConfigItems: MenuConfigItem[] = [
 ]
 
 function normalizeRoleId(value: unknown): number | undefined {
-  const roleId = Number(value)
+  const v = Array.isArray(value) ? value[0] : value
+  const roleId = Number(v)
   if (!Number.isFinite(roleId) || roleId <= 0) return undefined
   return roleId
-}
-
-function fallbackRbacProfile(roleId?: number): RbacProfile | undefined {
-  const normalizedRoleId = normalizeRoleId(roleId)
-  if (!normalizedRoleId) return undefined
-  return { role_id: normalizedRoleId, role_name: 'fallback', permissions: [], menu_paths: [] }
 }
 
 function toSidebarMenuItems(
@@ -157,34 +139,8 @@ function filterByKeyword(items: SidebarMenuItem[], keyword: string): SidebarMenu
     .filter((item): item is SidebarMenuItem => item !== null)
 }
 
-function filterByRbac(items: SidebarMenuItem[], profile?: RbacProfile): SidebarMenuItem[] {
-  if (!profile) return items
-
-  const roleId = normalizeRoleId(profile.role_id)
-  const allowedPaths = new Set(profile.menu_paths || [])
-  const hasPathRule = allowedPaths.size > 0
-  const permissions = new Set(profile.permissions || [])
-  const hasLegacyMomentCompat = permissions.has(LEGACY_MOMENT_COMPAT_PERMISSION)
-
-  const hasPermissionAccess = (permission?: string): boolean => {
-    if (!permission || permissions.size === 0) return true
-    if (permissions.has(permission)) return true
-    if (permission === 'reports:read' && permissions.has('moments:report:read')) return true
-    if (permission === 'reports:handle' && permissions.has('moments:report:handle')) return true
-    if (hasLegacyMomentCompat && LEGACY_REPORT_COMPAT_PERMISSIONS.has(permission)) return true
-    return false
-  }
-
-  const hasPathAccess = (path?: string): boolean => {
-    if (!path || !hasPathRule) return true
-    if (allowedPaths.has(path)) return true
-    if (path === '/reports' && (allowedPaths.has('/moments/reports') || allowedPaths.has('/moments'))) return true
-    if (path === '/moments/reports' && allowedPaths.has('/reports')) return true
-    if (path === '/moments' && allowedPaths.has('/reports')) return true
-    if (hasLegacyMomentCompat && path === '/reports') return true
-    if (hasLegacyMomentCompat && path.startsWith('/moments')) return true
-    return false
-  }
+function filterByRbac(items: SidebarMenuItem[], roleId?: number): SidebarMenuItem[] {
+  if (roleId === undefined) return items
 
   const walk = (nodes: SidebarMenuItem[]): SidebarMenuItem[] => {
     return nodes
@@ -192,17 +148,14 @@ function filterByRbac(items: SidebarMenuItem[], profile?: RbacProfile): SidebarM
         const itemRoles = Array.isArray(item.roles)
           ? item.roles.map((v) => Number(v)).filter((v) => Number.isFinite(v))
           : []
-        const roleAllowed = !(itemRoles.length > 0 && roleId && !itemRoles.includes(roleId))
-        const permissionAllowed = hasPermissionAccess(item.permission)
-        const pathAllowed = hasPathAccess(item.path)
-        const selfAllowed = roleAllowed && permissionAllowed && pathAllowed
+        const roleAllowed = itemRoles.length === 0 || itemRoles.includes(roleId)
         const filteredChildren = item.children ? walk(item.children) : []
 
         if (filteredChildren.length > 0) {
-          if (selfAllowed) return { ...item, children: filteredChildren }
+          if (roleAllowed) return { ...item, children: filteredChildren }
           return { ...item, path: undefined, children: filteredChildren }
         }
-        if (selfAllowed && item.path) return { ...item, children: undefined }
+        if (roleAllowed && item.path) return { ...item, children: undefined }
         return null
       })
       .filter((item): item is SidebarMenuItem => item !== null)
@@ -329,26 +282,6 @@ describe('normalizeRoleId', () => {
   })
 })
 
-// ---------------------------------------------------------------------------
-// fallbackRbacProfile
-// ---------------------------------------------------------------------------
-
-describe('fallbackRbacProfile', () => {
-  it('returns RbacProfile for valid role_id', () => {
-    const profile = fallbackRbacProfile(1)
-    expect(profile?.role_id).toBe(1)
-    expect(profile?.role_name).toBe('fallback')
-    expect(profile?.permissions).toEqual([])
-  })
-
-  it('returns undefined for roleId 0', () => {
-    expect(fallbackRbacProfile(0)).toBeUndefined()
-  })
-
-  it('returns undefined when roleId is undefined', () => {
-    expect(fallbackRbacProfile(undefined)).toBeUndefined()
-  })
-})
 
 // ---------------------------------------------------------------------------
 // toSidebarMenuItems
@@ -529,54 +462,29 @@ describe('filterByKeyword', () => {
 // ---------------------------------------------------------------------------
 
 describe('filterByRbac', () => {
-  it('returns all items when no profile provided', () => {
+  it('returns all items when no roleId provided', () => {
     expect(filterByRbac([makeItem('k', '/x', 'X')], undefined)).toHaveLength(1)
   })
 
   it('filters out items not in allowed role list', () => {
     const item: SidebarMenuItem = { key: 'k', path: '/admin', label: 'Admin', icon: 'X', roles: [1] }
-    const profile: RbacProfile = { role_id: 2, role_name: 'moderator', permissions: [], menu_paths: [] }
-    expect(filterByRbac([item], profile).some((i) => i.path === '/admin')).toBe(false)
+    expect(filterByRbac([item], 2).some((i) => i.path === '/admin')).toBe(false)
   })
 
   it('allows items for matching role', () => {
     const item: SidebarMenuItem = { key: 'k', path: '/users', label: 'Users', icon: 'X', roles: [1, 2] }
-    const profile: RbacProfile = { role_id: 2, role_name: 'moderator', permissions: [], menu_paths: [] }
-    expect(filterByRbac([item], profile)).toHaveLength(1)
+    expect(filterByRbac([item], 2)).toHaveLength(1)
   })
 
-  it('respects permission filter', () => {
-    const item: SidebarMenuItem = { key: 'k', path: '/logs', label: 'Logs', icon: 'X', permission: 'logs:view' }
-    const profile: RbacProfile = { role_id: 1, role_name: 'admin', permissions: ['users:read'], menu_paths: [] }
-    expect(filterByRbac([item], profile).some((i) => i.path === '/logs')).toBe(false)
-  })
-
-  it('grants access when permission matches', () => {
-    const item: SidebarMenuItem = { key: 'k', path: '/logs', label: 'Logs', icon: 'X', permission: 'logs:view' }
-    const profile: RbacProfile = { role_id: 1, role_name: 'admin', permissions: ['logs:view'], menu_paths: [] }
-    expect(filterByRbac([item], profile)).toHaveLength(1)
-  })
-
-  it('legacy compat: messages:read grants access to reports:read', () => {
-    const item: SidebarMenuItem = { key: 'k', path: '/reports', label: 'Reports', icon: 'X', permission: 'reports:read' }
-    const profile: RbacProfile = { role_id: 2, role_name: 'mod', permissions: ['messages:read'], menu_paths: [] }
-    expect(filterByRbac([item], profile)).toHaveLength(1)
-  })
-
-  it('respects menu_paths filter when set', () => {
-    const allowed: SidebarMenuItem = { key: 'k1', path: '/dashboard', label: 'Dash', icon: 'X' }
-    const denied: SidebarMenuItem = { key: 'k2', path: '/settings', label: 'Settings', icon: 'X' }
-    const profile: RbacProfile = { role_id: 1, role_name: 'admin', permissions: [], menu_paths: ['/dashboard'] }
-    const result = filterByRbac([allowed, denied], profile)
-    expect(result.some((i) => i.path === '/dashboard')).toBe(true)
-    expect(result.some((i) => i.path === '/settings')).toBe(false)
+  it('allows items with no roles restriction', () => {
+    const item: SidebarMenuItem = { key: 'k', path: '/dashboard', label: 'Dash', icon: 'X' }
+    expect(filterByRbac([item], 3)).toHaveLength(1)
   })
 
   it('falls back to dashboard when all items filtered out', () => {
     const dashboard: SidebarMenuItem = { key: 'd', path: '/dashboard', label: 'Dash', icon: 'X', roles: [1] }
     const other: SidebarMenuItem = { key: 'o', path: '/other', label: 'Other', icon: 'X', roles: [1] }
-    const profile: RbacProfile = { role_id: 2, role_name: 'mod', permissions: [], menu_paths: [] }
-    const result = filterByRbac([dashboard, other], profile)
+    const result = filterByRbac([dashboard, other], 2)
     expect(result.some((i) => i.path === '/dashboard')).toBe(true)
   })
 })

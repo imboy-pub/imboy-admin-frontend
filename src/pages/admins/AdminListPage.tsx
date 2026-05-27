@@ -187,10 +187,11 @@ export function AdminListPage() {
     ? createForm.role_id
     : (roleOptions[0]?.id || 2)
 
-  const resolveRoleLabel = (roleId: number): string => {
-    const matched = roleLabelMap.get(roleId)
+  const resolveRoleLabel = (roleId: number | number[]): string => {
+    const id = Array.isArray(roleId) ? roleId[0] : roleId
+    const matched = roleLabelMap.get(id)
     if (matched) return matched
-    return `角色 #${roleId}`
+    return `角色 #${id}`
   }
 
   const handleSearch = () => {

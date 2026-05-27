@@ -8,7 +8,6 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { getMyRbacProfilePayload, RbacProfile } from '@/services/api/rbac'
 import { useAuthStore } from '@/stores/authStore'
 import { fetchSidebarMenuConfig } from '@/services/api/adminConfig'
 import { useAdminFeatures, useAdminEntries } from '@/hooks/useAdminFeatures'
@@ -21,7 +20,6 @@ import {
 import {
   collectParentKeys,
   ensureRenderableMenu,
-  fallbackRbacProfile,
   filterByAdminEntries,
   filterByFeatures,
   filterByKeyword,
@@ -56,27 +54,19 @@ export function Sidebar() {
 
   useEffect(() => {
     let cancelled = false
+    const roleId = normalizeRoleId(currentRoleId)
 
     const loadMenuConfig = async () => {
-      let profile: RbacProfile | undefined
-      try {
-        profile = await getMyRbacProfilePayload()
-      } catch {
-        profile = fallbackRbacProfile(currentRoleId)
-      }
-
       try {
         const data = await fetchSidebarMenuConfig()
         if (cancelled) return
-        const sourceItems = pickSafeMenuSource(data.items)
-        const normalizedItems = toSidebarMenuItems(sourceItems)
-
+        const normalizedItems = toSidebarMenuItems(pickSafeMenuSource(data.items))
         const filteredItems = ensureRenderableMenu(
           filterByAdminEntries(
-            filterByFeatures(filterByRbac(normalizedItems, profile), featureFlags),
+            filterByFeatures(filterByRbac(normalizedItems, roleId), featureFlags),
             adminEntries
           ),
-          profile,
+          roleId,
           featureFlags,
           adminEntries
         )
@@ -85,16 +75,12 @@ export function Sidebar() {
         setExpandedKeys(collectParentKeys(filteredItems))
       } catch {
         if (cancelled) return
-
         const fallbackItems = ensureRenderableMenu(
           filterByAdminEntries(
-            filterByFeatures(
-              filterByRbac(toSidebarMenuItems(defaultConfig.items), profile),
-              featureFlags
-            ),
+            filterByFeatures(filterByRbac(toSidebarMenuItems(defaultConfig.items), roleId), featureFlags),
             adminEntries
           ),
-          profile,
+          roleId,
           featureFlags,
           adminEntries
         )
@@ -105,9 +91,7 @@ export function Sidebar() {
     }
 
     loadMenuConfig()
-    return () => {
-      cancelled = true
-    }
+    return () => { cancelled = true }
   }, [currentRoleId, featureFlags, adminEntries])
 
   useEffect(() => {
@@ -120,10 +104,7 @@ export function Sidebar() {
   }, [favoritePaths])
 
   const normalizedKeyword = keyword.trim().toLowerCase()
-  const roleBasedFallbackProfile = useMemo(
-    () => fallbackRbacProfile(normalizeRoleId(currentRoleId)),
-    [currentRoleId]
-  )
+  const roleId = useMemo(() => normalizeRoleId(currentRoleId), [currentRoleId])
 
   const filteredItems = useMemo(() => {
     if (!normalizedKeyword) return menuItems
@@ -144,15 +125,12 @@ export function Sidebar() {
     if (filteredItems.length > 0) return filteredItems
 
     const fallback = ensureRenderableMenu(
-      filterByFeatures(
-        filterByRbac(toSidebarMenuItems(defaultConfig.items), roleBasedFallbackProfile),
-        featureFlags
-      ),
-      roleBasedFallbackProfile,
+      filterByFeatures(filterByRbac(toSidebarMenuItems(defaultConfig.items), roleId), featureFlags),
+      roleId,
       featureFlags
     )
     return normalizedKeyword ? filterByKeyword(fallback, normalizedKeyword) : fallback
-  }, [filteredItems, normalizedKeyword, roleBasedFallbackProfile, featureFlags])
+  }, [filteredItems, normalizedKeyword, roleId, featureFlags])
 
   const flatFilteredItems = useMemo(() => flattenLeafItems(displayItems), [displayItems])
 
