@@ -52,6 +52,36 @@ export async function getStorageList(params: {
   }
 }
 
+export async function disableAttachment(id: string): Promise<void> {
+  requireApiPayload((await client.post('/storage/disable', { id })).data, '/storage/disable')
+}
+
+export async function enableAttachment(id: string): Promise<void> {
+  requireApiPayload((await client.post('/storage/enable', { id })).data, '/storage/enable')
+}
+
+export async function deleteAttachment(id: string): Promise<void> {
+  requireApiPayload((await client.post('/storage/delete', { id })).data, '/storage/delete')
+}
+
+export type OrphanStats = { count: number; total_size: number }
+
+export async function getOrphanStats(ageDays = 30): Promise<OrphanStats> {
+  return requireApiPayload<OrphanStats>(
+    (await client.get('/storage/orphan', { params: { age_days: ageDays } })).data,
+    '/storage/orphan'
+  )
+}
+
+export type CleanupResult = { cleaned: number; errors: number }
+
+export async function cleanupOrphans(ageDays = 30): Promise<CleanupResult> {
+  return requireApiPayload<CleanupResult>(
+    (await client.post('/storage/orphan/cleanup', { age_days: ageDays })).data,
+    '/storage/orphan/cleanup'
+  )
+}
+
 export function formatFileSize(bytes: number): string {
   if (bytes === 0) return '0 B'
   const k = 1024

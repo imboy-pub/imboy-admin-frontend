@@ -1,3 +1,5 @@
+> [imboy.pub 根目录](../CLAUDE.md) > **imboy-admin-frontend（React 管理后台）**
+
 # IMBoy Admin Frontend - AI 上下文文档 / AI Context Document
 
 > **最后更新 / Last updated**: 2026-04-11
@@ -169,6 +171,9 @@ bun run lint        # eslint
 ---
 
 ## 变更记录
+
+### 2026-05-28
+- 添加面包屑导航（链接到根级 CLAUDE.md）
 
 ### 2026-04-04
 - 创建 CLAUDE.md
