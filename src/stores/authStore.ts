@@ -19,7 +19,20 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'imboy-admin-auth',
-      partialize: (_state) => ({ admin: _state.admin, isAuthenticated: _state.isAuthenticated }),
+      // 落盘脱敏：剔除 PII（email/mobile/last_login_ip/login_count），降低 XSS 读取 localStorage 的暴露面。
+      // 运行时内存中的 admin 仍为完整对象；这些字段未被生产代码消费，刷新后为空不影响 UI。
+      partialize: (_state) => ({
+        admin: _state.admin
+          ? {
+              ..._state.admin,
+              email: undefined,
+              mobile: undefined,
+              last_login_ip: '',
+              login_count: 0,
+            }
+          : null,
+        isAuthenticated: _state.isAuthenticated,
+      }),
     }
   )
 )
