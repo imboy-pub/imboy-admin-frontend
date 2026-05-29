@@ -260,7 +260,7 @@ export async function getChannelSubscribers(
   channelId: EntityId,
   params: ChannelGovernanceListParams = { page: 1, size: 10 }
 ): Promise<ApiResponse<PaginatedResponse<ChannelSubscriber>>> {
-  const response = await client.get(`/channel/detail/${channelId}/subscribers`, { params })
+  const response = await client.get(`/channel/${channelId}/subscribers`, { params })
   return response.data
 }
 
@@ -270,7 +270,7 @@ export async function getChannelSubscribersPayload(
 ): Promise<PaginatedResponse<ChannelSubscriber>> {
   return requireApiPayload(
     await getChannelSubscribers(channelId, params),
-    '/channel/detail/:id/subscribers'
+    '/channel/:id/subscribers'
   )
 }
 
@@ -278,7 +278,7 @@ export async function removeChannelSubscriber(
   channelId: EntityId,
   userId: EntityId
 ): Promise<ApiResponse<Record<string, never>>> {
-  const response = await client.delete(`/channel/detail/${channelId}/subscriber/${userId}`)
+  const response = await client.delete(`/channel/${channelId}/subscriber/${userId}`)
   return response.data
 }
 
@@ -286,7 +286,7 @@ export async function getChannelAdmins(
   channelId: EntityId,
   params: ChannelGovernanceListParams = { page: 1, size: 10 }
 ): Promise<ApiResponse<PaginatedResponse<ChannelAdmin>>> {
-  const response = await client.get(`/channel/detail/${channelId}/admins`, { params })
+  const response = await client.get(`/channel/${channelId}/admins`, { params })
   return response.data
 }
 
@@ -296,7 +296,7 @@ export async function getChannelAdminsPayload(
 ): Promise<PaginatedResponse<ChannelAdmin>> {
   return requireApiPayload(
     await getChannelAdmins(channelId, params),
-    '/channel/detail/:id/admins'
+    '/channel/:id/admins'
   )
 }
 
@@ -305,7 +305,7 @@ export async function updateChannelAdminRole(
   userId: EntityId,
   role: number
 ): Promise<ApiResponse<Record<string, never>>> {
-  const response = await client.put(`/channel/detail/${channelId}/admin/${userId}/role`, { role })
+  const response = await client.put(`/channel/${channelId}/admin/${userId}/role`, { role })
   return response.data
 }
 
@@ -313,7 +313,7 @@ export async function removeChannelAdmin(
   channelId: EntityId,
   userId: EntityId
 ): Promise<ApiResponse<Record<string, never>>> {
-  const response = await client.delete(`/channel/detail/${channelId}/admin/${userId}`)
+  const response = await client.delete(`/channel/${channelId}/admin/${userId}`)
   return response.data
 }
 
@@ -321,7 +321,7 @@ export async function getChannelInvitations(
   channelId: EntityId,
   params: ChannelGovernanceListParams = { page: 1, size: 10 }
 ): Promise<ApiResponse<PaginatedResponse<ChannelInvitation>>> {
-  const response = await client.get(`/channel/detail/${channelId}/invitations`, { params })
+  const response = await client.get(`/channel/${channelId}/invitations`, { params })
   return response.data
 }
 
@@ -331,7 +331,7 @@ export async function getChannelInvitationsPayload(
 ): Promise<PaginatedResponse<ChannelInvitation>> {
   return requireApiPayload(
     await getChannelInvitations(channelId, params),
-    '/channel/detail/:id/invitations'
+    '/channel/:id/invitations'
   )
 }
 
@@ -339,7 +339,7 @@ export async function getChannelOrders(
   channelId: EntityId,
   params: ChannelGovernanceListParams = { page: 1, size: 10 }
 ): Promise<ApiResponse<PaginatedResponse<ChannelOrder>>> {
-  const response = await client.get(`/channel/detail/${channelId}/orders`, { params })
+  const response = await client.get(`/channel/${channelId}/orders`, { params })
   return response.data
 }
 
@@ -349,18 +349,18 @@ export async function getChannelOrdersPayload(
 ): Promise<PaginatedResponse<ChannelOrder>> {
   return requireApiPayload(
     await getChannelOrders(channelId, params),
-    '/channel/detail/:id/orders'
+    '/channel/:id/orders'
   )
 }
 
 export async function getChannelStats(channelId: EntityId): Promise<ApiResponse<ChannelStats>> {
-  const response = await client.get(`/channel/detail/${channelId}/stats`)
+  const response = await client.get(`/channel/${channelId}/stats`)
   return response.data
 }
 
 export async function getChannelStatsPayload(channelId: EntityId): Promise<ChannelStats> {
   return requireApiPayload(
     await getChannelStats(channelId),
-    '/channel/detail/:id/stats'
+    '/channel/:id/stats'
   )
 }

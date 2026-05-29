@@ -58,7 +58,7 @@ describe('ChannelInvitationPage flow', () => {
     const getCalls: InvitationApiCall[] = []
 
     mutableClient.get = async (url: string, config?: { params?: Record<string, unknown> }) => {
-      if (url !== '/channel/detail/8/invitations') {
+      if (url !== '/channel/8/invitations') {
         throw new Error(`unexpected GET url: ${url}`)
       }
 

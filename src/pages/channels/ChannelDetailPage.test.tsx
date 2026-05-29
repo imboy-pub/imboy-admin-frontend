@@ -85,7 +85,7 @@ describe('ChannelDetailPage flow', () => {
         }
       }
 
-      if (url === '/channel/detail/8/stats') {
+      if (url === '/channel/8/stats') {
         return {
           data: {
             code: 0,
@@ -131,7 +131,7 @@ describe('ChannelDetailPage flow', () => {
 
     await waitFor(() => {
       expect(getCalls.includes('/channel/detail/8')).toBe(true)
-      expect(getCalls.includes('/channel/detail/8/stats')).toBe(true)
+      expect(getCalls.includes('/channel/8/stats')).toBe(true)
     })
 
     await view.findByText('频道详情')
@@ -208,7 +208,7 @@ describe('ChannelDetailPage flow', () => {
           },
         }
       }
-      if (url === '/channel/detail/8/stats') {
+      if (url === '/channel/8/stats') {
         return {
           data: {
             code: 0, msg: 'ok',

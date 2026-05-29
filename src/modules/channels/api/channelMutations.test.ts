@@ -152,7 +152,7 @@ describe('removeChannelSubscriber', () => {
       return { data: { code: 0, msg: 'ok' } }
     }
     await removeChannelSubscriber('channel-A', 'user-B')
-    expect(capturedUrl).toBe('/channel/detail/channel-A/subscriber/user-B')
+    expect(capturedUrl).toBe('/channel/channel-A/subscriber/user-B')
   })
 })
 
@@ -176,7 +176,7 @@ describe('updateChannelAdminRole', () => {
       return { data: { code: 0, msg: 'ok' } }
     }
     await updateChannelAdminRole('ch-99', 'user-42', 3)
-    expect(capturedUrl).toBe('/channel/detail/ch-99/admin/user-42/role')
+    expect(capturedUrl).toBe('/channel/ch-99/admin/user-42/role')
     expect((capturedBody as { role: number }).role).toBe(3)
   })
 })
@@ -199,6 +199,6 @@ describe('removeChannelAdmin', () => {
       return { data: { code: 0, msg: 'ok' } }
     }
     await removeChannelAdmin('ch-77', 'admin-5')
-    expect(capturedUrl).toBe('/channel/detail/ch-77/admin/admin-5')
+    expect(capturedUrl).toBe('/channel/ch-77/admin/admin-5')
   })
 })

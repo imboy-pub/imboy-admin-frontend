@@ -78,7 +78,7 @@ describe('ChannelOrderPage flow', () => {
     const getCalls: OrderApiCall[] = []
 
     mutableClient.get = async (url: string, config?: { params?: Record<string, unknown> }) => {
-      if (url !== '/channel/detail/8/orders') {
+      if (url !== '/channel/8/orders') {
         throw new Error(`unexpected GET url: ${url}`)
       }
 

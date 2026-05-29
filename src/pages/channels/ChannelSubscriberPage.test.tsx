@@ -62,7 +62,7 @@ describe('ChannelSubscriberPage flow', () => {
     const deleteCalls: string[] = []
 
     mutableClient.get = async (url: string, config?: { params?: Record<string, unknown> }) => {
-      if (url !== '/channel/detail/8/subscribers') {
+      if (url !== '/channel/8/subscribers') {
         throw new Error(`unexpected GET url: ${url}`)
       }
 
@@ -147,7 +147,7 @@ describe('ChannelSubscriberPage flow', () => {
       expect(deleteCalls.length).toBe(1)
     })
 
-    expect(deleteCalls[0]).toBe('/channel/detail/8/subscriber/2001')
+    expect(deleteCalls[0]).toBe('/channel/8/subscriber/2001')
 
     await act(async () => {
       fireEvent.click(view.getByRole('button', { name: '下一页' }))

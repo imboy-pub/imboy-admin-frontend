@@ -371,7 +371,7 @@ describe('payload-first services', () => {
     expect(response.code).toBe(0)
   })
 
-  it('getChannelSubscribersPayload reads /channel/detail/:id/subscribers and forwards params', async () => {
+  it('getChannelSubscribersPayload reads /channel/:id/subscribers and forwards params', async () => {
     let capturedUrl = ''
     let capturedParams: Record<string, unknown> | undefined
     mutableClient.get = async (url: string, config: { params?: Record<string, unknown> }) => {
@@ -393,12 +393,12 @@ describe('payload-first services', () => {
     }
 
     const payload = await getChannelSubscribersPayload(8, { page: 1, size: 10 })
-    expect(capturedUrl).toBe('/channel/detail/8/subscribers')
+    expect(capturedUrl).toBe('/channel/8/subscribers')
     expect(capturedParams).toEqual({ page: 1, size: 10 })
     expect(payload.items[0]?.id).toBe(1)
   })
 
-  it('removeChannelSubscriber sends DELETE /channel/detail/:id/subscriber/:user_id', async () => {
+  it('removeChannelSubscriber sends DELETE /channel/:id/subscriber/:user_id', async () => {
     let capturedUrl = ''
     mutableClient.delete = async (url: string) => {
       capturedUrl = url
@@ -412,11 +412,11 @@ describe('payload-first services', () => {
     }
 
     const response = await removeChannelSubscriber(8, 2001)
-    expect(capturedUrl).toBe('/channel/detail/8/subscriber/2001')
+    expect(capturedUrl).toBe('/channel/8/subscriber/2001')
     expect(response.code).toBe(0)
   })
 
-  it('getChannelAdminsPayload reads /channel/detail/:id/admins and forwards params', async () => {
+  it('getChannelAdminsPayload reads /channel/:id/admins and forwards params', async () => {
     let capturedUrl = ''
     let capturedParams: Record<string, unknown> | undefined
     mutableClient.get = async (url: string, config: { params?: Record<string, unknown> }) => {
@@ -438,12 +438,12 @@ describe('payload-first services', () => {
     }
 
     const payload = await getChannelAdminsPayload(8, { page: 1, size: 10 })
-    expect(capturedUrl).toBe('/channel/detail/8/admins')
+    expect(capturedUrl).toBe('/channel/8/admins')
     expect(capturedParams).toEqual({ page: 1, size: 10 })
     expect(payload.items[0]?.role).toBe(2)
   })
 
-  it('updateChannelAdminRole sends PUT /channel/detail/:id/admin/:user_id/role', async () => {
+  it('updateChannelAdminRole sends PUT /channel/:id/admin/:user_id/role', async () => {
     let capturedUrl = ''
     let capturedBody: Record<string, unknown> | undefined
     mutableClient.put = async (url: string, body: Record<string, unknown>) => {
@@ -459,12 +459,12 @@ describe('payload-first services', () => {
     }
 
     const response = await updateChannelAdminRole(8, 3001, 2)
-    expect(capturedUrl).toBe('/channel/detail/8/admin/3001/role')
+    expect(capturedUrl).toBe('/channel/8/admin/3001/role')
     expect(capturedBody).toEqual({ role: 2 })
     expect(response.code).toBe(0)
   })
 
-  it('removeChannelAdmin sends DELETE /channel/detail/:id/admin/:user_id', async () => {
+  it('removeChannelAdmin sends DELETE /channel/:id/admin/:user_id', async () => {
     let capturedUrl = ''
     mutableClient.delete = async (url: string) => {
       capturedUrl = url
@@ -478,11 +478,11 @@ describe('payload-first services', () => {
     }
 
     const response = await removeChannelAdmin(8, 3001)
-    expect(capturedUrl).toBe('/channel/detail/8/admin/3001')
+    expect(capturedUrl).toBe('/channel/8/admin/3001')
     expect(response.code).toBe(0)
   })
 
-  it('getChannelInvitationsPayload reads /channel/detail/:id/invitations and forwards params', async () => {
+  it('getChannelInvitationsPayload reads /channel/:id/invitations and forwards params', async () => {
     let capturedUrl = ''
     let capturedParams: Record<string, unknown> | undefined
     mutableClient.get = async (url: string, config: { params?: Record<string, unknown> }) => {
@@ -504,12 +504,12 @@ describe('payload-first services', () => {
     }
 
     const payload = await getChannelInvitationsPayload(8, { page: 1, size: 10 })
-    expect(capturedUrl).toBe('/channel/detail/8/invitations')
+    expect(capturedUrl).toBe('/channel/8/invitations')
     expect(capturedParams).toEqual({ page: 1, size: 10 })
     expect(payload.items[0]?.id).toBe(11)
   })
 
-  it('getChannelOrdersPayload reads /channel/detail/:id/orders and forwards params', async () => {
+  it('getChannelOrdersPayload reads /channel/:id/orders and forwards params', async () => {
     let capturedUrl = ''
     let capturedParams: Record<string, unknown> | undefined
     mutableClient.get = async (url: string, config: { params?: Record<string, unknown> }) => {
@@ -531,13 +531,13 @@ describe('payload-first services', () => {
     }
 
     const payload = await getChannelOrdersPayload(8, { page: 2, size: 20 })
-    expect(capturedUrl).toBe('/channel/detail/8/orders')
+    expect(capturedUrl).toBe('/channel/8/orders')
     expect(capturedParams).toEqual({ page: 2, size: 20 })
     expect(payload.page).toBe(2)
     expect(payload.items[0]?.id).toBe(21)
   })
 
-  it('getChannelStatsPayload reads /channel/detail/:id/stats', async () => {
+  it('getChannelStatsPayload reads /channel/:id/stats', async () => {
     let capturedUrl = ''
     mutableClient.get = async (url: string) => {
       capturedUrl = url
@@ -557,7 +557,7 @@ describe('payload-first services', () => {
     }
 
     const payload = await getChannelStatsPayload(8)
-    expect(capturedUrl).toBe('/channel/detail/8/stats')
+    expect(capturedUrl).toBe('/channel/8/stats')
     expect(payload.subscriber_count).toBe(32)
     expect(payload.total_reactions).toBe(145)
   })

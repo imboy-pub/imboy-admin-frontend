@@ -70,7 +70,7 @@ describe('ChannelAdminPage flow', () => {
     const deleteCalls: string[] = []
 
     mutableClient.get = async (url: string, config?: { params?: Record<string, unknown> }) => {
-      if (url !== '/channel/detail/8/admins') {
+      if (url !== '/channel/8/admins') {
         throw new Error(`unexpected GET url: ${url}`)
       }
 
@@ -157,7 +157,7 @@ describe('ChannelAdminPage flow', () => {
     })
 
     expect(putCalls[0]).toEqual({
-      url: '/channel/detail/8/admin/3001/role',
+      url: '/channel/8/admin/3001/role',
       body: { role: 2 },
     })
 
@@ -183,7 +183,7 @@ describe('ChannelAdminPage flow', () => {
       expect(deleteCalls.length).toBe(1)
     })
 
-    expect(deleteCalls[0]).toBe('/channel/detail/8/admin/3001')
+    expect(deleteCalls[0]).toBe('/channel/8/admin/3001')
 
     await act(async () => {
       fireEvent.click(view.getByRole('button', { name: '下一页' }))
