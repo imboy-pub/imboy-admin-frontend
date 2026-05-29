@@ -138,10 +138,6 @@ describe('ChannelOrderPage flow', () => {
       expect(view.container.textContent).toContain('order-user')
     })
 
-    // Debug: log available buttons before clicking
-    const buttons = view.container.querySelectorAll('button')
-    console.log('Available buttons:', Array.from(buttons).map(b => b.textContent || b.getAttribute('aria-label') || b.getAttribute('name')).slice(0, 50))
-
     await act(async () => {
       fireEvent.click(view.getByRole('button', { name: '下一页' }))
     })

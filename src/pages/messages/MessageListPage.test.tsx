@@ -270,7 +270,6 @@ describe('MessageListPage flow', () => {
     const getCalls: MessageListCall[] = []
 
     const mockGet = vi.fn().mockImplementation(async (url: string, config?: { params?: Record<string, unknown> }) => {
-      console.log('Mock get called with URL:', url)
       if (url !== '/message/list') {
         throw new Error(`unexpected GET url: ${url}`)
       }
