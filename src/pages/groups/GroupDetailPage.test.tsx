@@ -20,7 +20,6 @@ const groupDetailFixture = {
   title: 'test-group-title',
   introduction: 'group intro',
   owner_uid: '9001',
-  owner: { id: '9001', nickname: 'owner-user', avatar: '' },
   member_count: 5,
   member_max: 500,
   type: 1,

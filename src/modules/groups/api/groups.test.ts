@@ -83,7 +83,7 @@ describe('getGroupDetailPayload', () => {
             id: '1001',
             title: '技术交流群',
             status: 1,
-            owner: { id: '8001', nickname: '群主', avatar: '' },
+            owner_uid: '8001',
           },
         },
       }
@@ -91,7 +91,7 @@ describe('getGroupDetailPayload', () => {
 
     const result = await getGroupDetailPayload('1001')
     expect(result.id).toBe('1001')
-    expect(result.owner.nickname).toBe('群主')
+    expect(result.owner_uid).toBe('8001')
   })
 })
 

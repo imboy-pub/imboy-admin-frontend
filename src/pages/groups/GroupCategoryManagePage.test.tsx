@@ -19,7 +19,6 @@ const groupDetailFixture = {
   id: '55',
   title: 'test-group',
   owner_uid: '9001',
-  owner: { id: '9001', nickname: 'owner', avatar: '' },
   member_count: 3,
   type: 1,
   status: 1,

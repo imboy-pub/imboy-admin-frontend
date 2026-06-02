@@ -50,11 +50,11 @@ export function GroupCategoryManagePage() {
 
   useEffect(() => {
     if (targetUid.trim()) return
-    const ownerId = groupDetail?.owner?.id
+    const ownerId = groupDetail?.owner_uid
     if (ownerId) {
       setTargetUid(String(ownerId))
     }
-  }, [groupDetail?.owner?.id, targetUid])
+  }, [groupDetail?.owner_uid, targetUid])
 
   const uid = targetUid.trim()
 

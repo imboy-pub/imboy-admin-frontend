@@ -28,9 +28,7 @@ export async function getGroupListPayload(
   return requireApiPayload(await getGroupList(params), '/group/list')
 }
 
-export type GroupDetail = Group & {
-  owner: { id: string; nickname: string; avatar: string }
-}
+export type GroupDetail = Group
 
 /**
  * @deprecated Prefer `getGroupDetailPayload` to consume typed payload directly.
