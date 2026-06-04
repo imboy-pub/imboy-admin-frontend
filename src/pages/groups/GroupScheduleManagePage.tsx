@@ -26,6 +26,7 @@ import {
 import { formatDate } from '@/lib/utils'
 import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 import { useAdminPermission } from '@/hooks/useAdminPermission'
+import { getErrorMessage } from '@/lib/errorUtils'
 
 function normalizeTimestamp(value?: string | number): string {
   if (value === undefined || value === null || value === '') return '-'
@@ -91,8 +92,8 @@ export function GroupScheduleManagePage() {
         await refetchDetail()
       }
     },
-    onError: (err: Error) => {
-      toast.error(`取消日程失败: ${err.message}`)
+    onError: (err: unknown) => {
+      toast.error(`取消日程失败: ${getErrorMessage(err)}`)
     },
   })
 
@@ -107,8 +108,8 @@ export function GroupScheduleManagePage() {
         await refetchDetail()
       }
     },
-    onError: (err: Error) => {
-      toast.error(`恢复日程失败: ${err.message}`)
+    onError: (err: unknown) => {
+      toast.error(`恢复日程失败: ${getErrorMessage(err)}`)
     },
   })
 

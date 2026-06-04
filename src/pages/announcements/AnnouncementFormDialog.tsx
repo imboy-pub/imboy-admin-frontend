@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
+import { getErrorMessage } from '@/lib/errorUtils'
 import {
   createAnnouncement,
   updateAnnouncement,
@@ -55,7 +56,7 @@ export function AnnouncementFormDialog({ item, open, onOpenChange, onSuccess }: 
       onOpenChange(false)
       onSuccess()
     },
-    onError: (err: Error) => toast.error(`操作失败: ${err.message}`),
+    onError: (err: unknown) => toast.error(`操作失败: ${getErrorMessage(err)}`),
   })
 
   const handleSubmit = () => {

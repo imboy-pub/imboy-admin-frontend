@@ -25,6 +25,7 @@ import {
 import type { EntityId } from '@/types/common'
 import { formatDate, truncate } from '@/lib/utils'
 import { exportCsv, type CsvColumn } from '@/lib/csvExport'
+import { getErrorMessage } from '@/lib/errorUtils'
 
 export function ChannelMessagePage() {
   const { id } = useParams<{ id: string }>()
@@ -60,8 +61,8 @@ export function ChannelMessagePage() {
       toast.success(variables.pinned ? '消息已置顶' : '消息已取消置顶')
       queryClient.invalidateQueries({ queryKey: ['channel-messages', channelId] })
     },
-    onError: (err: Error) => {
-      toast.error(`操作失败: ${err.message}`)
+    onError: (err: unknown) => {
+      toast.error(`操作失败: ${getErrorMessage(err)}`)
     },
   })
 
@@ -79,8 +80,8 @@ export function ChannelMessagePage() {
       toast.success('消息已删除')
       setConfirmDialog(null)
     },
-    onError: (err: Error) => {
-      toast.error(`删除失败: ${err.message}`)
+    onError: (err: unknown) => {
+      toast.error(`删除失败: ${getErrorMessage(err)}`)
     },
   })
 
@@ -108,8 +109,8 @@ export function ChannelMessagePage() {
       if (failedCount > 0) toast.error(`批量删除失败：${failedCount} 条消息`)
       setRowSelection({})
     },
-    onError: (err: Error) => {
-      toast.error(`批量删除失败: ${err.message}`)
+    onError: (err: unknown) => {
+      toast.error(`批量删除失败: ${getErrorMessage(err)}`)
     },
   })
 
@@ -123,8 +124,8 @@ export function ChannelMessagePage() {
       queryClient.invalidateQueries({ queryKey: ['channel-messages', channelId] })
       setRowSelection({})
     },
-    onError: (err: Error) => {
-      toast.error(`批量操作失败: ${err.message}`)
+    onError: (err: unknown) => {
+      toast.error(`批量操作失败: ${getErrorMessage(err)}`)
     },
   })
 

@@ -45,6 +45,7 @@ import { useAdminPermission } from '@/hooks/useAdminPermission'
 import { useListQueryState } from '@/hooks/useListQueryState'
 import { formatDate } from '@/lib/utils'
 import { trackUxEvent } from '@/lib/uxTelemetry'
+import { getErrorMessage } from '@/lib/errorUtils'
 
 type MomentReportPageQuery = {
   page: number
@@ -151,9 +152,9 @@ export function MomentReportPage({ permissionOverride, showPageHeader = true }: 
         phase: 'failed',
         selected_count: 1,
         report_id: variables.reportId,
-        message: err.message,
+        message: getErrorMessage(err),
       })
-      toast.error(`处理失败: ${err.message}`)
+      toast.error(`处理失败: ${getErrorMessage(err)}`)
     },
   })
 
@@ -183,8 +184,8 @@ export function MomentReportPage({ permissionOverride, showPageHeader = true }: 
       queryClient.invalidateQueries({ queryKey: ['moments'] })
       clearRowSelection()
     },
-    onError: (err: Error) => {
-      toast.error(`批量处理失败: ${err.message}`)
+    onError: (err: unknown) => {
+      toast.error(`批量处理失败: ${getErrorMessage(err)}`)
     },
   })
 

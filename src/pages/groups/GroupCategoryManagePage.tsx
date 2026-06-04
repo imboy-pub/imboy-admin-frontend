@@ -23,6 +23,7 @@ import {
 } from '@/services/api/groupEnhancements'
 import { getGroupDetailPayload } from '@/modules/groups/api'
 import { useAdminPermission } from '@/hooks/useAdminPermission'
+import { getErrorMessage } from '@/lib/errorUtils'
 
 export function GroupCategoryManagePage() {
   const { id } = useParams<{ id: string }>()
@@ -79,8 +80,8 @@ export function GroupCategoryManagePage() {
       setConfirmDeleteCategoryName('')
       await queryClient.invalidateQueries({ queryKey: ['group-categories', gid, uid] })
     },
-    onError: (err: Error) => {
-      toast.error(`删除分类失败: ${err.message}`)
+    onError: (err: unknown) => {
+      toast.error(`删除分类失败: ${getErrorMessage(err)}`)
     },
   })
 

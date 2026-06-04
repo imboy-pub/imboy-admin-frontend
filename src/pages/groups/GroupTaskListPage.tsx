@@ -25,6 +25,7 @@ import {
 import { formatOptionalDate } from '@/lib/utils'
 import { useAdminPermission } from '@/hooks/useAdminPermission'
 import type { EntityId } from '@/types/common'
+import { getErrorMessage } from '@/lib/errorUtils'
 
 const TASK_STATUS_LABELS: Record<number, string> = {
   1: '进行中',
@@ -76,8 +77,8 @@ export function GroupTaskListPage() {
       setConfirmCloseTaskId('')
       await queryClient.invalidateQueries({ queryKey: ['group-task-list', activeGroupId] })
     },
-    onError: (err: Error) => {
-      toast.error(`强制关闭任务失败: ${err.message}`)
+    onError: (err: unknown) => {
+      toast.error(`强制关闭任务失败: ${getErrorMessage(err)}`)
     },
   })
 

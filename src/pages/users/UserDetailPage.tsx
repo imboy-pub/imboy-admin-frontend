@@ -9,6 +9,7 @@ import { ConfirmDialog, PageHeader, LoadingState, ErrorState, StatusBadge } from
 import { getUserDetailPayload, banUser, unbanUser } from '@/modules/identity/api'
 import { formatDate } from '@/lib/utils'
 import { cn } from '@/lib/utils'
+import { getErrorMessage } from '@/lib/errorUtils'
 
 type DetailTab = 'profile' | 'stats' | 'actions'
 
@@ -65,8 +66,8 @@ export function UserDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['user', uid] })
       queryClient.invalidateQueries({ queryKey: ['users'] })
     },
-    onError: (error: Error) => {
-      toast.error(`封禁失败: ${error.message}`)
+    onError: (error: unknown) => {
+      toast.error(`封禁失败: ${getErrorMessage(error)}`)
     },
     onSettled: () => setConfirmAction(null),
   })
@@ -78,8 +79,8 @@ export function UserDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['user', uid] })
       queryClient.invalidateQueries({ queryKey: ['users'] })
     },
-    onError: (error: Error) => {
-      toast.error(`解封失败: ${error.message}`)
+    onError: (error: unknown) => {
+      toast.error(`解封失败: ${getErrorMessage(error)}`)
     },
     onSettled: () => setConfirmAction(null),
   })

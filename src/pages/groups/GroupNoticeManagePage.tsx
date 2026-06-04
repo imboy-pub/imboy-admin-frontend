@@ -25,6 +25,7 @@ import {
 import { formatOptionalDate } from '@/lib/utils'
 import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 import { useAdminPermission } from '@/hooks/useAdminPermission'
+import { getErrorMessage } from '@/lib/errorUtils'
 
 export function GroupNoticeManagePage() {
   const { id } = useParams<{ id: string }>()
@@ -69,8 +70,8 @@ export function GroupNoticeManagePage() {
       }
       await queryClient.invalidateQueries({ queryKey: ['group-notices', gid] })
     },
-    onError: (err: Error) => {
-      toast.error(`删除公告失败: ${err.message}`)
+    onError: (err: unknown) => {
+      toast.error(`删除公告失败: ${getErrorMessage(err)}`)
     },
   })
 

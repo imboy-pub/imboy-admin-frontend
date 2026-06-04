@@ -15,6 +15,7 @@ import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 import { ColumnDef, RowSelectionState, useReactTable, getCoreRowModel, getSortedRowModel, SortingState, VisibilityState } from '@tanstack/react-table'
 import { useListQueryState } from '@/hooks/useListQueryState'
 import { trackUxEvent } from '@/lib/uxTelemetry'
+import { getErrorMessage } from '@/lib/errorUtils'
 
 type GroupListPageQuery = {
   page: number
@@ -80,7 +81,7 @@ export function GroupListPage() {
       setEditTarget(null)
       queryClient.invalidateQueries({ queryKey: ['groups'] })
     },
-    onError: (err: Error) => toast.error(`更新失败: ${err.message}`),
+    onError: (err: unknown) => toast.error(`更新失败: ${getErrorMessage(err)}`),
   })
 
   // 解散群组
@@ -91,8 +92,8 @@ export function GroupListPage() {
       queryClient.invalidateQueries({ queryKey: ['groups'] })
       setConfirmDialog(null)
     },
-    onError: (error: Error) => {
-      toast.error(`解散失败: ${error.message}`)
+    onError: (error: unknown) => {
+      toast.error(`解散失败: ${getErrorMessage(error)}`)
     },
   })
 
@@ -113,8 +114,8 @@ export function GroupListPage() {
       queryClient.invalidateQueries({ queryKey: ['groups'] })
       setRowSelection({})
     },
-    onError: (error: Error) => {
-      toast.error(`批量解散失败: ${error.message}`)
+    onError: (error: unknown) => {
+      toast.error(`批量解散失败: ${getErrorMessage(error)}`)
     },
   })
 

@@ -24,6 +24,7 @@ import {
 import type { EntityId } from '@/types/common'
 import { formatDate } from '@/lib/utils'
 import { exportCsv, type CsvColumn } from '@/lib/csvExport'
+import { getErrorMessage } from '@/lib/errorUtils'
 
 const ROLE_LABELS: Record<number, string> = {
   1: '管理员',
@@ -63,8 +64,8 @@ export function ChannelAdminPage() {
       toast.success('管理员角色已更新')
       queryClient.invalidateQueries({ queryKey: ['channel-admins', channelId] })
     },
-    onError: (err: Error) => {
-      toast.error(`角色更新失败: ${err.message}`)
+    onError: (err: unknown) => {
+      toast.error(`角色更新失败: ${getErrorMessage(err)}`)
     },
   })
 
@@ -75,8 +76,8 @@ export function ChannelAdminPage() {
       queryClient.invalidateQueries({ queryKey: ['channel-admins', channelId] })
       setConfirmDialog(null)
     },
-    onError: (err: Error) => {
-      toast.error(`移除失败: ${err.message}`)
+    onError: (err: unknown) => {
+      toast.error(`移除失败: ${getErrorMessage(err)}`)
     },
   })
 

@@ -12,6 +12,7 @@ import { getGroupDetailPayload, dissolveGroup, updateGroup, UpdateGroupParams } 
 import { formatDate } from '@/lib/utils'
 import { useState } from 'react'
 import { useAdminEntryEnabled } from '@/hooks/useAdminFeatures'
+import { getErrorMessage } from '@/lib/errorUtils'
 
 export function GroupDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -40,8 +41,8 @@ export function GroupDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['group', gid] })
       setShowEdit(false)
     },
-    onError: (error: Error) => {
-      toast.error(`更新失败: ${error.message}`)
+    onError: (error: unknown) => {
+      toast.error(`更新失败: ${getErrorMessage(error)}`)
     },
   })
 
@@ -53,8 +54,8 @@ export function GroupDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['groups'] })
       navigate('/groups')
     },
-    onError: (error: Error) => {
-      toast.error(`解散失败: ${error.message}`)
+    onError: (error: unknown) => {
+      toast.error(`解散失败: ${getErrorMessage(error)}`)
     },
   })
 

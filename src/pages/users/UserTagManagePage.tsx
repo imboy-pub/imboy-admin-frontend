@@ -24,6 +24,7 @@ import {
 } from '@/modules/social_graph/api'
 import { formatOptionalDate } from '@/lib/utils'
 import { exportCsv, type CsvColumn } from '@/lib/csvExport'
+import { getErrorMessage } from '@/lib/errorUtils'
 
 const SCENE_OPTIONS = [
   { value: 'friend', label: '好友标签' },
@@ -65,8 +66,8 @@ export function UserTagManagePage() {
       setConfirmDeleteTagName('')
       await queryClient.invalidateQueries({ queryKey: ['user-tags', uid] })
     },
-    onError: (err: Error) => {
-      toast.error(`删除标签失败: ${err.message}`)
+    onError: (err: unknown) => {
+      toast.error(`删除标签失败: ${getErrorMessage(err)}`)
     },
   })
 

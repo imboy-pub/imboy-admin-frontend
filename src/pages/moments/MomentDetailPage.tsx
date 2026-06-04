@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { ConfirmDialog, ErrorState, LoadingState, PageHeader, StatusBadge } from '@/components/shared'
 import { deleteMoment, getMomentDetailPayload, MomentReport } from '@/modules/moments/api'
 import { formatDate } from '@/lib/utils'
+import { getErrorMessage } from '@/lib/errorUtils'
 
 const visibilityLabels: Record<number, string> = {
   0: '公开',
@@ -39,8 +40,8 @@ export function MomentDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['moment-reports'] })
       navigate('/moments')
     },
-    onError: (err: Error) => {
-      toast.error(`删除失败: ${err.message}`)
+    onError: (err: unknown) => {
+      toast.error(`删除失败: ${getErrorMessage(err)}`)
     },
   })
 

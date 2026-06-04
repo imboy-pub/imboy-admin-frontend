@@ -17,6 +17,7 @@ import {
 } from '@/modules/ops_governance/api'
 import type { EntityId } from '@/types/common'
 import { formatDate } from '@/lib/utils'
+import { getErrorMessage } from '@/lib/errorUtils'
 
 export function VersionPage() {
   const queryClient = useQueryClient()
@@ -47,8 +48,8 @@ export function VersionPage() {
       queryClient.invalidateQueries({ queryKey: ['versions'], exact: false })
       resetForm()
     },
-    onError: (error: Error) => {
-      toast.error(`保存失败: ${error.message}`)
+    onError: (error: unknown) => {
+      toast.error(`保存失败: ${getErrorMessage(error)}`)
     },
   })
 
@@ -60,8 +61,8 @@ export function VersionPage() {
       queryClient.invalidateQueries({ queryKey: ['versions'], exact: false })
       setDeleteConfirm(null)
     },
-    onError: (error: Error) => {
-      toast.error(`删除失败: ${error.message}`)
+    onError: (error: unknown) => {
+      toast.error(`删除失败: ${getErrorMessage(error)}`)
     },
   })
 

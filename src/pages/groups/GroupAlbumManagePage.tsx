@@ -24,6 +24,7 @@ import {
 import { formatOptionalDate } from '@/lib/utils'
 import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 import { useAdminPermission } from '@/hooks/useAdminPermission'
+import { getErrorMessage } from '@/lib/errorUtils'
 
 export function GroupAlbumManagePage() {
   const { id } = useParams<{ id: string }>()
@@ -68,8 +69,8 @@ export function GroupAlbumManagePage() {
       }
       await queryClient.invalidateQueries({ queryKey: ['group-albums', gid] })
     },
-    onError: (err: Error) => {
-      toast.error(`删除相册失败: ${err.message}`)
+    onError: (err: unknown) => {
+      toast.error(`删除相册失败: ${getErrorMessage(err)}`)
     },
   })
 

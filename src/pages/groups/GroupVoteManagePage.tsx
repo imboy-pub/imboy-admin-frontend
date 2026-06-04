@@ -25,6 +25,7 @@ import {
 import { formatOptionalDate } from '@/lib/utils'
 import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 import { useAdminPermission } from '@/hooks/useAdminPermission'
+import { getErrorMessage } from '@/lib/errorUtils'
 
 export function GroupVoteManagePage() {
   const { id } = useParams<{ id: string }>()
@@ -68,8 +69,8 @@ export function GroupVoteManagePage() {
         await refetchDetail()
       }
     },
-    onError: (err: Error) => {
-      toast.error(`结束投票失败: ${err.message}`)
+    onError: (err: unknown) => {
+      toast.error(`结束投票失败: ${getErrorMessage(err)}`)
     },
   })
 

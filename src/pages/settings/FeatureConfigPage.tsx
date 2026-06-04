@@ -20,6 +20,7 @@ import {
   type FeatureFlags,
 } from '@/services/api/policy'
 import { adminFeatureQueryKey } from '@/services/api/features'
+import { getErrorMessage } from '@/lib/errorUtils'
 
 type FeatureDisplay = {
   name: FeatureName
@@ -77,8 +78,8 @@ export function FeatureConfigPage() {
       queryClient.invalidateQueries({ queryKey: policyQueryKey() })
       queryClient.invalidateQueries({ queryKey: adminFeatureQueryKey() })
     },
-    onError: (err: Error) => {
-      toast.error(`保存失败: ${err.message}`)
+    onError: (err: unknown) => {
+      toast.error(`保存失败: ${getErrorMessage(err)}`)
     },
   })
 
@@ -88,8 +89,8 @@ export function FeatureConfigPage() {
       setPreviewData(data)
       setShowPreview(true)
     },
-    onError: (err: Error) => {
-      toast.error(`预览失败: ${err.message}`)
+    onError: (err: unknown) => {
+      toast.error(`预览失败: ${getErrorMessage(err)}`)
     },
   })
 

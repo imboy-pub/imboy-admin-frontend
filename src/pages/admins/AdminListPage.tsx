@@ -39,6 +39,7 @@ import { useListQueryState } from '@/hooks/useListQueryState'
 import { useAuthStore } from '@/stores/authStore'
 import { formatDate } from '@/lib/utils'
 import { exportCsv } from '@/lib/csvExport'
+import { getErrorMessage } from '@/lib/errorUtils'
 import type { Admin } from '@/types/admin'
 
 type AdminListPageQuery = {

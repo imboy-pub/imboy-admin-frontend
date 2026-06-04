@@ -12,6 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { getErrorMessage } from '@/lib/errorUtils'
 import {
   listMutedUsers,
   unmuteUser,
@@ -46,8 +47,8 @@ export function MutedUsersPage() {
       toast.success('解禁成功')
       void queryClient.invalidateQueries({ queryKey: mutedUsersQueryKey() })
     },
-    onError: (err: Error) => {
-      toast.error(`解禁失败: ${err.message}`)
+    onError: (err: unknown) => {
+      toast.error(`解禁失败: ${getErrorMessage(err)}`)
     },
     onSettled: () => {
       setConfirmUid(null)
@@ -64,8 +65,8 @@ export function MutedUsersPage() {
       setSelectedUids(new Set())
       void queryClient.invalidateQueries({ queryKey: mutedUsersQueryKey() })
     },
-    onError: (err: Error) => {
-      toast.error(`批量解禁失败: ${err.message}`)
+    onError: (err: unknown) => {
+      toast.error(`批量解禁失败: ${getErrorMessage(err)}`)
     },
     onSettled: () => {
       setShowBatchConfirm(false)
@@ -108,7 +109,7 @@ export function MutedUsersPage() {
   }
 
   if (error) {
-    return <ErrorState message={error.message} onRetry={() => void refetch()} />
+    return <ErrorState message={getErrorMessage(error)} onRetry={() => void refetch()} />
   }
 
   // TODO: Backend API does not support pagination yet. Apply client-side limit to avoid

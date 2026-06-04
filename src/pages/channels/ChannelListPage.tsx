@@ -14,6 +14,7 @@ import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 import { ColumnDef, useReactTable, getCoreRowModel, RowSelectionState } from '@tanstack/react-table'
 import { useListQueryState } from '@/hooks/useListQueryState'
 import { trackUxEvent } from '@/lib/uxTelemetry'
+import { getErrorMessage } from '@/lib/errorUtils'
 
 type ChannelListPageQuery = {
   page: number
@@ -130,8 +131,8 @@ export function ChannelListPage() {
       queryClient.invalidateQueries({ queryKey: ['channels'] })
       setConfirmDialog(null)
     },
-    onError: (error: Error) => {
-      toast.error(`删除失败: ${error.message}`)
+    onError: (error: unknown) => {
+      toast.error(`删除失败: ${getErrorMessage(error)}`)
     },
   })
 
@@ -147,8 +148,8 @@ export function ChannelListPage() {
       queryClient.invalidateQueries({ queryKey: ['channels'] })
       setRowSelection({})
     },
-    onError: (error: Error) => {
-      toast.error(`批量删除失败: ${error.message}`)
+    onError: (error: unknown) => {
+      toast.error(`批量删除失败: ${getErrorMessage(error)}`)
     },
   })
 

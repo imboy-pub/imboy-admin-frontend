@@ -24,6 +24,7 @@ import {
 } from '@/modules/social_graph/api'
 import { formatOptionalDate } from '@/lib/utils'
 import { exportCsv, type CsvColumn } from '@/lib/csvExport'
+import { getErrorMessage } from '@/lib/errorUtils'
 
 const COLLECT_KIND_OPTIONS = [
   { value: 0, label: '全部' },
@@ -79,8 +80,8 @@ export function UserCollectManagePage() {
       setConfirmRemoveKindId('')
       await queryClient.invalidateQueries({ queryKey: ['user-collects', uid] })
     },
-    onError: (err: Error) => {
-      toast.error(`移除收藏失败: ${err.message}`)
+    onError: (err: unknown) => {
+      toast.error(`移除收藏失败: ${getErrorMessage(err)}`)
     },
   })
 

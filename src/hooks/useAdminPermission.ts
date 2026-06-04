@@ -85,12 +85,20 @@ export function useAdminPermission(options: UseAdminPermissionOptions = {}) {
       return normalizedPermissions.some((item) => roleTemplatePermissions.has(item))
     }
 
+    // 安全设计说明：
+    // 仅当权限数据已完成加载（rbacLoading/configLoading 均为 false）但确实没有
+    // 细粒度权限配置时，才降级为角色级别放行（fail-open by design）。
+    // 加载中时（rbacLoading || configLoading 为 true）返回 false，
+    // 避免在数据到来之前意外开放访问。
+    if (rbacLoading || configLoading) return false
     return roleAllowed
   }, [
     hasPermissionConstraint,
     normalizedPermissions,
     rbacProfile?.permissions,
     roleTemplatePermissions,
+    rbacLoading,
+    configLoading,
     roleAllowed,
   ])
 

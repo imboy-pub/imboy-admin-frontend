@@ -21,6 +21,7 @@ import {
   type RetentionPolicyMode,
 } from '@/services/api/policy'
 import { Switch } from '@/components/ui/switch'
+import { getErrorMessage } from '@/lib/errorUtils'
 
 type SelectOption<T extends string> = {
   value: T
@@ -74,8 +75,8 @@ export function CapabilityConfigPage() {
       setPendingCapabilities(null)
       queryClient.invalidateQueries({ queryKey: policyQueryKey() })
     },
-    onError: (err: Error) => {
-      toast.error(`保存失败: ${err.message}`)
+    onError: (err: unknown) => {
+      toast.error(`保存失败: ${getErrorMessage(err)}`)
     },
   })
 

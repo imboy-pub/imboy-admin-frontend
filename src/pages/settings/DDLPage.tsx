@@ -16,6 +16,7 @@ import {
 } from '@/modules/ops_governance/api'
 import { formatDate } from '@/lib/utils'
 import type { EntityId } from '@/types/common'
+import { getErrorMessage } from '@/lib/errorUtils'
 
 export function DDLPage() {
   const queryClient = useQueryClient()
@@ -46,8 +47,8 @@ export function DDLPage() {
       queryClient.invalidateQueries({ queryKey: ['ddl'], exact: false })
       resetForm()
     },
-    onError: (error: Error) => {
-      toast.error(`保存失败: ${error.message}`)
+    onError: (error: unknown) => {
+      toast.error(`保存失败: ${getErrorMessage(error)}`)
     },
   })
 
@@ -59,8 +60,8 @@ export function DDLPage() {
       queryClient.invalidateQueries({ queryKey: ['ddl'], exact: false })
       setDeleteConfirm(null)
     },
-    onError: (error: Error) => {
-      toast.error(`删除失败: ${error.message}`)
+    onError: (error: unknown) => {
+      toast.error(`删除失败: ${getErrorMessage(error)}`)
     },
   })
 

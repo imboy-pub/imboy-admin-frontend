@@ -15,6 +15,7 @@ import {
 } from '@/services/api/announcements'
 import { exportCsv } from '@/lib/csvExport'
 import { AnnouncementFormDialog } from './AnnouncementFormDialog'
+import { getErrorMessage } from '@/lib/errorUtils'
 
 const STATUS_MAP: Record<number, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
   [-1]: { label: '已删除', variant: 'destructive' },
@@ -51,7 +52,7 @@ export function AnnouncementListPage() {
       setDeleteTarget(null)
       queryClient.invalidateQueries({ queryKey: ['announcements'] })
     },
-    onError: (err: Error) => toast.error(`删除失败: ${err.message}`),
+    onError: (err: unknown) => toast.error(`删除失败: ${getErrorMessage(err)}`),
   })
 
   const publishMutation = useMutation({
@@ -60,7 +61,7 @@ export function AnnouncementListPage() {
       toast.success('公告已发布')
       queryClient.invalidateQueries({ queryKey: ['announcements'] })
     },
-    onError: (err: Error) => toast.error(`发布失败: ${err.message}`),
+    onError: (err: unknown) => toast.error(`发布失败: ${getErrorMessage(err)}`),
   })
 
   const unpublishMutation = useMutation({
@@ -69,7 +70,7 @@ export function AnnouncementListPage() {
       toast.success('公告已撤回')
       queryClient.invalidateQueries({ queryKey: ['announcements'] })
     },
-    onError: (err: Error) => toast.error(`撤回失败: ${err.message}`),
+    onError: (err: unknown) => toast.error(`撤回失败: ${getErrorMessage(err)}`),
   })
 
   const handleSearch = useCallback(() => {

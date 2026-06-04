@@ -49,6 +49,7 @@ import {
 } from '@/modules/ops_governance/api'
 import type { EntityId } from '@/types/common'
 import { trackUxEvent } from '@/lib/uxTelemetry'
+import { getErrorMessage } from '@/lib/errorUtils'
 
 export type TargetReportPanelProps = {
   targetType: NonMomentReportTargetType
@@ -168,9 +169,9 @@ export function TargetReportPanel({
         selected_count: 1,
         report_id: variables.reportId,
         target_type: targetType,
-        message: err.message,
+        message: getErrorMessage(err),
       })
-      toast.error(`处理失败: ${err.message}`)
+      toast.error(`处理失败: ${getErrorMessage(err)}`)
     },
   })
 
@@ -199,8 +200,8 @@ export function TargetReportPanel({
       queryClient.invalidateQueries({ queryKey: ['reports', targetType] })
       clearRowSelection()
     },
-    onError: (err: Error) => {
-      toast.error(`批量处理失败: ${err.message}`)
+    onError: (err: unknown) => {
+      toast.error(`批量处理失败: ${getErrorMessage(err)}`)
     },
   })
 

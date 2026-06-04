@@ -25,6 +25,7 @@ import {
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { isValidPemFormat } from '@/lib/pemValidation'
+import { getErrorMessage } from '@/lib/errorUtils'
 
 export function ComplianceKeyPage() {
   const navigate = useNavigate()
@@ -49,7 +50,7 @@ export function ComplianceKeyPage() {
       setPublicKey('')
       setPrivateKeyEncrypted('')
     },
-    onError: (err: Error) => toast.error(`创建失败: ${err.message}`),
+    onError: (err: unknown) => toast.error(`创建失败: ${getErrorMessage(err)}`),
   })
 
   const revokeMutation = useMutation({
@@ -59,11 +60,11 @@ export function ComplianceKeyPage() {
       queryClient.invalidateQueries({ queryKey: complianceKeyQueryKey() })
       setRevokeTarget(null)
     },
-    onError: (err: Error) => toast.error(`撤销失败: ${err.message}`),
+    onError: (err: unknown) => toast.error(`撤销失败: ${getErrorMessage(err)}`),
   })
 
   if (isLoading) return <LoadingState />
-  if (error) return <ErrorState message={error.message} onRetry={refetch} />
+  if (error) return <ErrorState message={getErrorMessage(error)} onRetry={refetch} />
 
   const keys = data?.list ?? []
 

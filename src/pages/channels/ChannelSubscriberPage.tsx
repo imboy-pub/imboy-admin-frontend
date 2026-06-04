@@ -23,6 +23,7 @@ import {
 import type { EntityId } from '@/types/common'
 import { formatOptionalDate } from '@/lib/utils'
 import { exportCsv, type CsvColumn } from '@/lib/csvExport'
+import { getErrorMessage } from '@/lib/errorUtils'
 
 export function ChannelSubscriberPage() {
   const { id } = useParams<{ id: string }>()
@@ -55,8 +56,8 @@ export function ChannelSubscriberPage() {
       queryClient.invalidateQueries({ queryKey: ['channel-subscribers', channelId] })
       setConfirmDialog(null)
     },
-    onError: (err: Error) => {
-      toast.error(`移除失败: ${err.message}`)
+    onError: (err: unknown) => {
+      toast.error(`移除失败: ${getErrorMessage(err)}`)
     },
   })
 

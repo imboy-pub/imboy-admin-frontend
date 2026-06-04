@@ -23,6 +23,7 @@ import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 import { useMemo, useState } from 'react'
 import type { GroupMember } from '@/types/group'
 import type { EntityId } from '@/types/common'
+import { getErrorMessage } from '@/lib/errorUtils'
 
 const ROLE_MAP: Record<number, { label: string; variant: 'info' | 'secondary' | 'warning' }> = {
   1: { label: '群主', variant: 'info' },
@@ -51,8 +52,8 @@ export function GroupMemberManagePage() {
       toast.success('成员已踢出')
       void queryClient.invalidateQueries({ queryKey: ['group-members', gid] })
     },
-    onError: (err: Error) => {
-      toast.error(`踢出失败: ${err.message}`)
+    onError: (err: unknown) => {
+      toast.error(`踢出失败: ${getErrorMessage(err)}`)
     },
     onSettled: () => {
       setKickTarget(null)

@@ -16,6 +16,7 @@ import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 import { ColumnDef, RowSelectionState, useReactTable, getCoreRowModel, getSortedRowModel, SortingState, VisibilityState } from '@tanstack/react-table'
 import { useListQueryState } from '@/hooks/useListQueryState'
 import { trackUxEvent } from '@/lib/uxTelemetry'
+import { getErrorMessage } from '@/lib/errorUtils'
 
 type UserListPageQuery = {
   page: number
@@ -92,8 +93,8 @@ export function UserListPage() {
       pushNotification({ type: 'warning', title: '用户封禁', message: `管理员执行了用户封禁操作` })
       queryClient.invalidateQueries({ queryKey: ['users'] })
     },
-    onError: (error: Error) => {
-      toast.error(`封禁失败: ${error.message}`)
+    onError: (error: unknown) => {
+      toast.error(`封禁失败: ${getErrorMessage(error)}`)
     },
   })
 
@@ -105,8 +106,8 @@ export function UserListPage() {
       pushNotification({ type: 'info', title: '用户解封', message: `管理员执行了用户解封操作` })
       queryClient.invalidateQueries({ queryKey: ['users'] })
     },
-    onError: (error: Error) => {
-      toast.error(`解封失败: ${error.message}`)
+    onError: (error: unknown) => {
+      toast.error(`解封失败: ${getErrorMessage(error)}`)
     },
   })
 
@@ -129,8 +130,8 @@ export function UserListPage() {
       queryClient.invalidateQueries({ queryKey: ['users'] })
       setRowSelection({})
     },
-    onError: (error: Error) => {
-      toast.error(`批量封禁失败: ${error.message}`)
+    onError: (error: unknown) => {
+      toast.error(`批量封禁失败: ${getErrorMessage(error)}`)
     },
   })
 
@@ -153,8 +154,8 @@ export function UserListPage() {
       queryClient.invalidateQueries({ queryKey: ['users'] })
       setRowSelection({})
     },
-    onError: (error: Error) => {
-      toast.error(`批量解封失败: ${error.message}`)
+    onError: (error: unknown) => {
+      toast.error(`批量解封失败: ${getErrorMessage(error)}`)
     },
   })
 

@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { useListQueryState } from '@/hooks/useListQueryState'
 import { trackUxEvent } from '@/lib/uxTelemetry'
+import { getErrorMessage } from '@/lib/errorUtils'
 import {
   fetchFeedbackWorkflowConfig,
   getDefaultFeedbackWorkflowEditableConfig,
@@ -237,8 +238,8 @@ export function FeedbackListPage() {
       setActiveFeedback(null)
       setReplyDraft('')
     },
-    onError: (error: Error) => {
-      toast.error(`回复失败: ${error.message}`)
+    onError: (error: unknown) => {
+      toast.error(`回复失败: ${getErrorMessage(error)}`)
     },
   })
 
@@ -249,8 +250,8 @@ export function FeedbackListPage() {
       setDeleteConfirmId(null)
       void queryClient.invalidateQueries({ queryKey: ['feedback'] })
     },
-    onError: (mutationError: Error) => {
-      toast.error(`删除失败: ${mutationError.message}`)
+    onError: (mutationError: unknown) => {
+      toast.error(`删除失败: ${getErrorMessage(mutationError)}`)
     },
   })
 
@@ -270,12 +271,12 @@ export function FeedbackListPage() {
         : '后端保存不可用，已写入本地兜底配置')
       setWorkflowDialogOpen(false)
     },
-    onError: (mutationError: Error) => {
+    onError: (mutationError: unknown) => {
       trackUxEvent('ux_feedback_workflow_save', {
         phase: 'failed',
-        message: mutationError.message,
+        message: getErrorMessage(mutationError),
       })
-      toast.error(`保存模板配置失败: ${mutationError.message}`)
+      toast.error(`保存模板配置失败: ${getErrorMessage(mutationError)}`)
     },
   })
 

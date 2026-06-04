@@ -23,6 +23,7 @@ import {
 import { formatOptionalDate } from '@/lib/utils'
 import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 import { useAdminPermission } from '@/hooks/useAdminPermission'
+import { getErrorMessage } from '@/lib/errorUtils'
 
 export function GroupTagManagePage() {
   const { id } = useParams<{ id: string }>()
@@ -51,8 +52,8 @@ export function GroupTagManagePage() {
       setConfirmDeleteTagName('')
       await queryClient.invalidateQueries({ queryKey: ['group-tags', gid], exact: false })
     },
-    onError: (err: Error) => {
-      toast.error(`删除标签失败: ${err.message}`)
+    onError: (err: unknown) => {
+      toast.error(`删除标签失败: ${getErrorMessage(err)}`)
     },
   })
 

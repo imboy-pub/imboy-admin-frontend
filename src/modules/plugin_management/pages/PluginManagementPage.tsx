@@ -306,13 +306,18 @@ export function PluginManagementPage() {
       }
     })()
 
-    mutPromise.finally(() => {
-      setPendingMap((prev) => {
-        const next = { ...prev }
-        delete next[plugin.name]
-        return next
+    mutPromise
+      .catch((err: unknown) => {
+        const errObj = err as { msg?: string; message?: string }
+        toast.error(errObj?.msg || errObj?.message || '操作失败，请重试')
       })
-    })
+      .finally(() => {
+        setPendingMap((prev) => {
+          const next = { ...prev }
+          delete next[plugin.name]
+          return next
+        })
+      })
   }
 
   if (isLoading) {

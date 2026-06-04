@@ -13,6 +13,7 @@ import {
   getOrphanStats, cleanupOrphans,
 } from '@/services/api/storage'
 import { formatDate } from '@/lib/utils'
+import { getErrorMessage } from '@/lib/errorUtils'
 
 function mimeGroup(mimeType: string): string {
   if (mimeType.startsWith('image/')) return 'image'
@@ -62,19 +63,19 @@ export function StorageOverviewPage() {
   const disableMutation = useMutation({
     mutationFn: (id: string) => disableAttachment(id),
     onSuccess: () => { toast.success('已禁用'); invalidateStorage() },
-    onError: (err: Error) => { toast.error(`禁用失败: ${err.message}`) },
+    onError: (err: unknown) => { toast.error(`禁用失败: ${getErrorMessage(err)}`) },
   })
 
   const enableMutation = useMutation({
     mutationFn: (id: string) => enableAttachment(id),
     onSuccess: () => { toast.success('已启用'); invalidateStorage() },
-    onError: (err: Error) => { toast.error(`启用失败: ${err.message}`) },
+    onError: (err: unknown) => { toast.error(`启用失败: ${getErrorMessage(err)}`) },
   })
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deleteAttachment(id),
     onSuccess: () => { toast.success('已软删除'); invalidateStorage() },
-    onError: (err: Error) => { toast.error(`删除失败: ${err.message}`) },
+    onError: (err: unknown) => { toast.error(`删除失败: ${getErrorMessage(err)}`) },
   })
 
   const cleanupMutation = useMutation({
@@ -87,7 +88,7 @@ export function StorageOverviewPage() {
       setOrphanQueryEnabled(false)
       invalidateStorage()
     },
-    onError: (err: Error) => { toast.error(`清理失败: ${err.message}`) },
+    onError: (err: unknown) => { toast.error(`清理失败: ${getErrorMessage(err)}`) },
   })
 
   const handleActionConfirm = () => {

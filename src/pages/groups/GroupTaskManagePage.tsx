@@ -32,6 +32,7 @@ import {
 import { formatOptionalDate } from '@/lib/utils'
 import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 import { useAdminPermission } from '@/hooks/useAdminPermission'
+import { getErrorMessage } from '@/lib/errorUtils'
 
 export function GroupTaskManagePage() {
   const { id } = useParams<{ id: string }>()
@@ -113,8 +114,8 @@ export function GroupTaskManagePage() {
         await refetchDetail()
       }
     },
-    onError: (err: Error) => {
-      toast.error(`强制结束任务失败: ${err.message}`)
+    onError: (err: unknown) => {
+      toast.error(`强制结束任务失败: ${getErrorMessage(err)}`)
     },
   })
 
@@ -128,8 +129,8 @@ export function GroupTaskManagePage() {
       await refetchPendingReview()
       await refetchDetail()
     },
-    onError: (err: Error) => {
-      toast.error(`任务批改失败: ${err.message}`)
+    onError: (err: unknown) => {
+      toast.error(`任务批改失败: ${getErrorMessage(err)}`)
     },
   })
 
@@ -143,8 +144,8 @@ export function GroupTaskManagePage() {
       }
       await queryClient.invalidateQueries({ queryKey: ['group-tasks', gid] })
     },
-    onError: (err: Error) => {
-      toast.error(`删除任务失败: ${err.message}`)
+    onError: (err: unknown) => {
+      toast.error(`删除任务失败: ${getErrorMessage(err)}`)
     },
   })
 
@@ -160,8 +161,8 @@ export function GroupTaskManagePage() {
         await refetchDetail()
       }
     },
-    onError: (err: Error) => {
-      toast.error(`恢复任务失败: ${err.message}`)
+    onError: (err: unknown) => {
+      toast.error(`恢复任务失败: ${getErrorMessage(err)}`)
     },
   })
 

@@ -16,7 +16,8 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { LoadingState } from '@/components/shared'
-import { getSetupStatus, initSetup } from '@/modules/identity'
+import { getSetupStatus, initSetup, getLoginPage } from '@/modules/identity'
+import { encryptLoginPassword } from '@/lib/passwordCrypto'
 
 /**
  * SetupPage — 首启初始化向导（P0-5）
@@ -69,6 +70,7 @@ export function SetupPage() {
   const [alreadyInitialized, setAlreadyInitialized] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [publicKey, setPublicKey] = useState('')
 
   const {
     register,
@@ -78,15 +80,19 @@ export function SetupPage() {
     resolver: zodResolver(setupSchema),
   })
 
-  // 挂载时检查是否已初始化，防重复访问
+  // 挂载时检查是否已初始化，并同步获取 RSA 公钥，防重复访问
   useEffect(() => {
     let active = true
 
     const check = async () => {
       try {
-        const status = await getSetupStatus()
+        const [status, loginMeta] = await Promise.all([
+          getSetupStatus(),
+          getLoginPage(),
+        ])
         if (!active) return
         setAlreadyInitialized(status.initialized)
+        setPublicKey(loginMeta.public_key)
       } catch {
         // 网络错误时允许继续展示表单，让用户尝试提交
         if (active) setAlreadyInitialized(false)
@@ -104,9 +110,14 @@ export function SetupPage() {
   const onSubmit = async (data: SetupForm) => {
     setSubmitting(true)
     try {
+      const encryptedPwd = await encryptLoginPassword(data.password, publicKey)
+      if (!encryptedPwd) {
+        toast.error('加密初始化失败，请刷新页面后重试')
+        return
+      }
       await initSetup({
         account: data.account,
-        password: data.password,
+        password: encryptedPwd,
         nickname: data.nickname,
       })
       toast.success('超级管理员创建成功，请登录')

@@ -22,6 +22,7 @@ import {
 } from '@/services/api/logoutApplications'
 import { formatDate, truncate } from '@/lib/utils'
 import { LogoutApplication, LogoutApplicationListParams } from '@/types/logoutApplication'
+import { getErrorMessage } from '@/lib/errorUtils'
 
 export function LogoutApplicationListPage() {
   const queryClient = useQueryClient()
@@ -48,8 +49,8 @@ export function LogoutApplicationListPage() {
       toast.success('已驳回注销申请')
       void queryClient.invalidateQueries({ queryKey: ['logout-applications'] })
     },
-    onError: (err: Error) => {
-      toast.error(`驳回失败: ${err.message}`)
+    onError: (err: unknown) => {
+      toast.error(`驳回失败: ${getErrorMessage(err)}`)
     },
     onSettled: () => {
       setConfirmUid(null)
@@ -62,8 +63,8 @@ export function LogoutApplicationListPage() {
       toast.success('注销申请已审批通过')
       void queryClient.invalidateQueries({ queryKey: ['logout-applications'] })
     },
-    onError: (err: Error) => {
-      toast.error(`审批失败: ${err.message}`)
+    onError: (err: unknown) => {
+      toast.error(`审批失败: ${getErrorMessage(err)}`)
     },
     onSettled: () => {
       setApproveConfirmUid(null)
@@ -104,7 +105,7 @@ export function LogoutApplicationListPage() {
       URL.revokeObjectURL(url)
       toast.success('已开始下载导出文件')
     } catch (err) {
-      const msg = err instanceof Error ? err.message : '导出失败'
+      const msg = err instanceof Error ? getErrorMessage(err) : '导出失败'
       toast.error(msg)
     } finally {
       setIsExporting(false)

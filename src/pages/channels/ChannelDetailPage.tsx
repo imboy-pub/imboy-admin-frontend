@@ -13,6 +13,7 @@ import { ChannelUpdateParams, deleteChannel, getChannelDetailPayload, getChannel
 import { formatDate } from '@/lib/utils'
 import { useAdminFeatures, useAdminEntryEnabled } from '@/hooks/useAdminFeatures'
 import { isAdminFeatureEnabled } from '@/services/api/features'
+import { getErrorMessage } from '@/lib/errorUtils'
 
 type ChannelForm = {
   name: string
@@ -71,8 +72,8 @@ export function ChannelDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['channels'] })
       navigate('/channels')
     },
-    onError: (err: Error) => {
-      toast.error(`删除失败: ${err.message}`)
+    onError: (err: unknown) => {
+      toast.error(`删除失败: ${getErrorMessage(err)}`)
     },
   })
 
@@ -86,8 +87,8 @@ export function ChannelDetailPage() {
       setIsEditing(false)
       void refetch()
     },
-    onError: (err: Error) => {
-      toast.error(`更新失败: ${err.message}`)
+    onError: (err: unknown) => {
+      toast.error(`更新失败: ${getErrorMessage(err)}`)
     },
   })
 

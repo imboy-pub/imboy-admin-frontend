@@ -25,6 +25,7 @@ import {
 import { formatOptionalDate } from '@/lib/utils'
 import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 import { useAdminPermission } from '@/hooks/useAdminPermission'
+import { getErrorMessage } from '@/lib/errorUtils'
 
 export function GroupFileManagePage() {
   const { id } = useParams<{ id: string }>()
@@ -77,8 +78,8 @@ export function GroupFileManagePage() {
       }
       await queryClient.invalidateQueries({ queryKey: ['group-files', gid] })
     },
-    onError: (err: Error) => {
-      toast.error(`删除文件失败: ${err.message}`)
+    onError: (err: unknown) => {
+      toast.error(`删除文件失败: ${getErrorMessage(err)}`)
     },
   })
 

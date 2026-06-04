@@ -28,6 +28,7 @@ import type { EntityId } from '@/types/common'
 import { formatDate } from '@/lib/utils'
 import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 import { trackUxEvent } from '@/lib/uxTelemetry'
+import { getErrorMessage } from '@/lib/errorUtils'
 
 const visibilityLabels: Record<number, string> = {
   0: '公开',
@@ -67,8 +68,8 @@ export function MomentListPage() {
       queryClient.invalidateQueries({ queryKey: ['moments'] })
       setConfirmDialog(null)
     },
-    onError: (err: Error) => {
-      toast.error(`删除失败: ${err.message}`)
+    onError: (err: unknown) => {
+      toast.error(`删除失败: ${getErrorMessage(err)}`)
     },
   })
 
@@ -89,8 +90,8 @@ export function MomentListPage() {
       queryClient.invalidateQueries({ queryKey: ['moments'] })
       setRowSelection({})
     },
-    onError: (error: Error) => {
-      toast.error(`批量删除失败: ${error.message}`)
+    onError: (error: unknown) => {
+      toast.error(`批量删除失败: ${getErrorMessage(error)}`)
     },
   })
 
