@@ -40,6 +40,8 @@ import { useAuthStore } from '@/stores/authStore'
 import { formatDate } from '@/lib/utils'
 import { exportCsv } from '@/lib/csvExport'
 import { getErrorMessage } from '@/lib/errorUtils'
+import { getLoginPage } from '@/modules/identity'
+import { encryptLoginPassword } from '@/lib/passwordCrypto'
 import type { Admin } from '@/types/admin'
 
 type AdminListPageQuery = {
@@ -70,15 +72,6 @@ const DEFAULT_ROLE_OPTIONS: RoleOption[] = [
   { id: 2, name: '运营管理员' },
   { id: 3, name: '审计管理员' },
 ]
-
-function getErrorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message
-  if (!error || typeof error !== 'object') return String(error)
-  const record = error as { msg?: string; message?: string }
-  if (typeof record.msg === 'string' && record.msg.length > 0) return record.msg
-  if (typeof record.message === 'string' && record.message.length > 0) return record.message
-  return String(error)
-}
 
 function buildInitialCreateForm(roleOptions: RoleOption[]): CreateAdminForm {
   return {
@@ -241,7 +234,7 @@ export function AdminListPage() {
     })
   }
 
-  const handleCreateAdmin = () => {
+  const handleCreateAdmin = async () => {
     const account = createForm.account.trim()
     const pwd = createForm.pwd.trim()
 
@@ -258,9 +251,22 @@ export function AdminListPage() {
       return
     }
 
+    let encryptedPwd = pwd
+    try {
+      const pageData = await getLoginPage()
+      const encrypted = await encryptLoginPassword(pwd, pageData.public_key)
+      if (!encrypted) {
+        toast.error('密码加密失败，请刷新页面后重试')
+        return
+      }
+      encryptedPwd = encrypted
+    } catch {
+      toast.error('密码加密失败，请刷新页面后重试')
+      return
+    }
     createMutation.mutate({
       account,
-      pwd,
+      pwd: encryptedPwd,
       nickname: createForm.nickname.trim(),
       email: createForm.email.trim(),
       mobile: createForm.mobile.trim(),

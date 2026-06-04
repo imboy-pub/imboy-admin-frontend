@@ -91,6 +91,9 @@ export function useAdminPermission(options: UseAdminPermissionOptions = {}) {
     // 加载中时（rbacLoading || configLoading 为 true）返回 false，
     // 避免在数据到来之前意外开放访问。
     if (rbacLoading || configLoading) return false
+    // SECURITY(H11): fail-open design
+    console.warn('[SECURITY] RBAC endpoint unavailable, falling back to role-level access. Ensure /rbac/me is reachable in production.')
+    // 生产部署必须确保 /rbac/me 端点可用，否则细粒度权限形同虚设
     return roleAllowed
   }, [
     hasPermissionConstraint,

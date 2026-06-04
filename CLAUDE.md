@@ -9,64 +9,9 @@
 
 ---
 
-## 📘 文档双语强制规则 / Bilingual Documentation Rule (MANDATORY)
+## 文档双语规则 (MANDATORY)
 
-> **适用范围 / Scope**：本项目（imboy-admin-frontend 管理后台）所有新增 / 修改的 Markdown 文档（README、CHANGELOG、docs/**、src/**/*.md、.github/**、CONTRIBUTING、release notes 等）必须遵守本规则。
-> All new or modified Markdown docs in this project (imboy-admin-frontend) — README, CHANGELOG, docs/**, src/**/*.md, .github/**, CONTRIBUTING, release notes, etc. — MUST follow this rule.
-
-### 1. 强制双语 / Bilingual mandatory
-
-- 面向用户 / 贡献者 / 运维的文档必须同时提供 **简体中文 + English** 两种语言。
-- User / contributor / ops-facing docs MUST provide both **Simplified Chinese** and **English**.
-
-### 2. 组织方式（二选一）/ Organization (pick one)
-
-- **方式 A — 单文件并排 / Pattern A — Side-by-side**
-  每个小节按 `中文 / English` 同节并排或上下段落对照。适合短文档（README hero 段、CHANGELOG 条目、issue/PR 模板、组件注释）。
-  Each section uses `中文 / English` side-by-side or stacked paragraphs. Use for short docs (README hero, CHANGELOG entries, issue/PR templates, component notes).
-
-- **方式 B — 文件后缀分离 / Pattern B — Separate files by suffix**
-  `README.md`（中文权威）+ `README.en.md`（英文镜像）；两个文件顶部互加语言切换链接 `[English](README.en.md) | 简体中文`。适合长文档（architecture、模块边界规则、E2E 测试指南、国际化方案）。
-  `README.md` (Chinese authoritative) + `README.en.md` (English mirror); both files have a language switcher at the top. Use for long docs (architecture, module boundary rules, E2E test guide, i18n strategy).
-
-### 3. 权威语言 / Source of truth
-
-- **简体中文为权威版本**；英文版基于中文翻译。**中文先改，英文在同一次 PR 内同步跟进**，禁止出现只改中文不改英文或反之。
-- **Simplified Chinese is the source of truth**; English mirrors Chinese. **Update Chinese first, sync English in the same PR**. Never ship one language without the other.
-
-### 4. 代码块与命令行原样保留 / Code and CLI verbatim
-
-- TypeScript / TSX 代码、bun / pnpm 命令、`package.json` 片段、ESLint / Vite 配置、错误堆栈不翻译。
-- TypeScript / TSX code, bun / pnpm commands, `package.json` snippets, ESLint / Vite configs, error stacks are NOT translated.
-
-### 5. 术语一致性 / Terminology consistency
-
-- 关键术语首次出现时给出对照：`首启向导 (First-run Setup Wizard)`、`会话 (Conversation)`、`模块边界 (Module Boundary)`、`权限矩阵 (Permission Matrix)`、`分页 (Pagination)`、`路由守卫 (Route Guard)`、`仪表盘 (Dashboard)`、`E2E 测试 (End-to-end Test)`。
-- Key terms come with a translation pair on first occurrence.
-
-### 6. 应用内 i18n 与文档双语的区别 / App i18n vs Doc bilingual
-
-- 本规则只约束**开发 / 运维 Markdown 文档**；应用内文案由 React i18n 方案负责（见 `src/lib/i18n/`），二者互不替代。
-- This rule only covers **developer / ops Markdown docs**; in-app strings are driven by the React i18n layer (`src/lib/i18n/`). The two do not replace each other.
-
-### 7. 例外（可仅保留中文）/ Exceptions (Chinese-only allowed)
-
-- `.claude/plan/*`、`.claude/memory/*`、内部会议纪要、个人研发笔记
-- `.claude/plan/*`, `.claude/memory/*`, internal meeting notes, personal dev notes
-
-### 8. AI 编码代理契约 / AI Coding Agent Contract
-
-当 AI 代理（Claude Code / Cursor / Copilot）收到「写文档 / 改文档 / 新建 .md」类任务时：
-1. **默认双语输出**，无需用户额外提示。
-2. 修改已有单语文档时，**主动补齐**缺失的语言。
-3. 新建文档时，短文档走方式 A，长文档走方式 B。
-4. Commit message 前缀 `docs(bilingual):`。
-
-When an AI agent (Claude Code / Cursor / Copilot) is asked to write, modify, or create Markdown docs:
-1. **Default to bilingual output**, no extra user prompt needed.
-2. When editing an existing single-language doc, **proactively add** the missing language.
-3. For new docs, use Pattern A (short) or Pattern B (long) as appropriate.
-4. Use `docs(bilingual):` commit message prefix.
+> 见根级 [CLAUDE.md](../CLAUDE.md#双语文档规则--bilingual-documentation-rule-mandatory)
 
 ---
 
@@ -153,20 +98,7 @@ interface User {
 
 ### 命令参考
 
-```bash
-# 开发
-bun run dev
-
-# 构建
-bun run build       # tsc -b && vite build
-
-# 测试
-bun test            # 单元测试
-bun run test:e2e    # Playwright E2E
-
-# 代码检查
-bun run lint        # eslint
-```
+> 见 [README.md](./README.md) — 常用命令章节。
 
 ---
 

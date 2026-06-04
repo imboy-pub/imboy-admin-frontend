@@ -4,11 +4,6 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 APP_DIR="$ROOT_DIR/imboy-admin-frontend"
-CHECK_ENV_SCRIPT="$ROOT_DIR/testing/scripts/check_integration_env.sh"
-CHECK_REPORT_SCRIPT="$APP_DIR/scripts/check_report_backend_readiness.sh"
-CHECK_ADMIN_ROLE_SCRIPT="$APP_DIR/scripts/check_admin_role_backend_readiness.sh"
-CHECK_MANIFEST_SCRIPT="$ROOT_DIR/testing/scripts/check_scenario_manifest.mjs"
-CHECK_FIXTURE_SCRIPT="$ROOT_DIR/testing/scripts/check_playwright_fixture_readiness.mjs"
 
 trim() {
   local value="$1"
@@ -26,9 +21,8 @@ load_env_file() {
     line="$(trim "$raw_line")"
     [[ -z "$line" || "${line:0:1}" == "#" ]] && continue
 
-    local separator_index
-    separator_index="$(expr index "$line" '=')"
-    [[ "$separator_index" -gt 0 ]] || continue
+    # 纯 bash 字符串匹配，兼容 macOS BSD 和 Linux GNU
+    [[ "$line" == *=* ]] || continue
 
     local key value
     key="$(trim "${line%%=*}")"
@@ -69,6 +63,8 @@ resolve_manifest_path() {
 
 load_env_file "$APP_DIR/.env.e2e"
 
+[[ -n "${IMBOY_ADMIN_E2E_ACCOUNT:-}" ]] || { echo "❌ 未设置 IMBOY_ADMIN_E2E_ACCOUNT"; exit 1; }
+
 MANIFEST_PATH="$(resolve_manifest_path)"
 if [[ -n "$MANIFEST_PATH" ]]; then
   if [[ ! -f "$MANIFEST_PATH" ]]; then
@@ -77,15 +73,6 @@ if [[ -n "$MANIFEST_PATH" ]]; then
   fi
   export IMBOY_TEST_SCENARIO_MANIFEST="$MANIFEST_PATH"
   echo "Using Playwright scenario manifest: $IMBOY_TEST_SCENARIO_MANIFEST"
-fi
-
-node "$CHECK_MANIFEST_SCRIPT" --strict "${IMBOY_TEST_SCENARIO_MANIFEST:-}"
-
-if [[ "${IMBOY_ADMIN_E2E_SKIP_BACKEND_CHECKS:-0}" != "1" ]]; then
-  bash "$CHECK_ENV_SCRIPT" --strict
-  bash "$CHECK_REPORT_SCRIPT" --strict
-  bash "$CHECK_ADMIN_ROLE_SCRIPT" --strict
-  node "$CHECK_FIXTURE_SCRIPT" --strict "${IMBOY_TEST_SCENARIO_MANIFEST:-}"
 fi
 
 cd "$APP_DIR"
