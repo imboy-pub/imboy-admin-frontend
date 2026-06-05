@@ -107,22 +107,15 @@ node ../testing/scripts/check_scenario_manifest.mjs --strict ../testing/fixtures
 node ../testing/scripts/check_playwright_fixture_readiness.mjs --strict ../testing/fixtures/three-end-first-batch.local.json
 ```
 
-推荐入口：
+运行 E2E 测试：
 
 ```bash
-bash scripts/run_playwright_e2e_gate.sh
+bun run test:e2e              # 运行全部 E2E
+bun run test:e2e:headed       # 有头模式
+PLAYWRIGHT_DISABLE_WEBSERVER=1 bun run test:e2e:list  # 仅枚举用例
 ```
 
-仅做配置解析与用例枚举：
-
-```bash
-PLAYWRIGHT_DISABLE_WEBSERVER=1 bun run test:e2e:list
-```
-
-需要注意：
-
-- `scripts/run_playwright_e2e_gate.sh` 会自动加载 `imboy-admin-frontend/.env.e2e`，并在真正执行 Playwright 前先做 manifest 校验；未设置 `IMBOY_ADMIN_E2E_SKIP_BACKEND_CHECKS=1` 时，还会自动做后端 readiness 与 fixture readiness 预检。
-- `playwright.config.ts` 会自动读取 `imboy-admin-frontend/.env.e2e`，命令行显式传入的环境变量优先级更高。
+`playwright.config.ts` 会自动读取 `.env.e2e`，命令行显式传入的环境变量优先级更高。
 - 管理后台登录验证码在 `local/dev/test` 环境支持固定验证码 `1234`，用于浏览器自动化；生产环境不生效。
 - 普通登录用例使用 `IMBOY_ADMIN_E2E_ACCOUNT` / `IMBOY_ADMIN_E2E_PASSWORD`。
 - 管理员与角色页建议使用超级管理员账号，可单独提供 `IMBOY_ADMIN_E2E_SUPER_ACCOUNT` / `IMBOY_ADMIN_E2E_SUPER_PASSWORD`。
