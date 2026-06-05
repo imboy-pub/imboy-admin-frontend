@@ -33,7 +33,10 @@ test.describe('用户管理 / User Management', () => {
 
     await searchInput.fill('test')
     await page.keyboard.press('Enter')
-    await page.waitForTimeout(500)
+    await page.waitForResponse(
+      (resp) => resp.url().includes('/adm/') && resp.request().method() === 'GET',
+      { timeout: 5_000 },
+    ).catch(() => page.waitForTimeout(300))
 
     const filteredCount = await page.locator('table tbody tr').count()
     const hasEmpty = await page.getByText(/暂无数据|No data|未找到/i).isVisible()
@@ -41,7 +44,10 @@ test.describe('用户管理 / User Management', () => {
 
     await searchInput.clear()
     await page.keyboard.press('Enter')
-    await page.waitForTimeout(500)
+    await page.waitForResponse(
+      (resp) => resp.url().includes('/adm/') && resp.request().method() === 'GET',
+      { timeout: 5_000 },
+    ).catch(() => page.waitForTimeout(300))
   })
 
   test('分页控件正常工作 / pagination controls work', async ({ page }) => {
@@ -54,7 +60,10 @@ test.describe('用户管理 / User Management', () => {
     if (await nextBtn.isEnabled()) {
       const firstRowBefore = await page.locator('table tbody tr').first().innerText()
       await nextBtn.click()
-      await page.waitForTimeout(400)
+      await page.waitForResponse(
+        (resp) => resp.url().includes('/adm/') && resp.request().method() === 'GET',
+        { timeout: 5_000 },
+      ).catch(() => page.waitForTimeout(300))
       const firstRowAfter = await page.locator('table tbody tr').first().innerText()
       expect(firstRowAfter).not.toBe(firstRowBefore)
     }
