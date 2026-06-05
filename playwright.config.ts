@@ -38,7 +38,7 @@ const disableWebServer = process.env.PLAYWRIGHT_DISABLE_WEBSERVER === '1'
 export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: false,
-  workers: 1,
+  workers: process.env.CI ? 2 : '50%',
   timeout: 60_000,
   expect: {
     timeout: 10_000,
