@@ -4,6 +4,7 @@ import {
   AppWindow,
   ArrowRight,
   Bell,
+  Building2,
   DatabaseZap,
   FileSearch,
   KeyRound,
@@ -27,6 +28,12 @@ type SettingsModule = {
 }
 
 const modules: SettingsModule[] = [
+  {
+    title: '产品套餐',
+    description: '切换社区版 / 企业版套餐，查看各档位默认能力配置对比。',
+    path: '/settings/profile',
+    icon: Building2,
+  },
   {
     title: '功能开关',
     description: '管理系统功能模块的启用状态（频道、朋友圈、群组增强等）。',

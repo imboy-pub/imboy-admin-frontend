@@ -59,6 +59,7 @@ const UserTagManagePage = lazy(() => import('@/modules/social_graph').then((m) =
 const UserCollectManagePage = lazy(() => import('@/modules/social_graph').then((m) => ({ default: m.UserCollectManagePage })))
 const SettingsHomePage = lazy(() => import('@/pages/settings/SettingsHomePage').then((m) => ({ default: m.SettingsHomePage })))
 const FeatureConfigPage = lazy(() => import('@/pages/settings/FeatureConfigPage').then((m) => ({ default: m.FeatureConfigPage })))
+const ProfileSwitchPage = lazy(() => import('@/pages/settings/ProfileSwitchPage').then((m) => ({ default: m.ProfileSwitchPage })))
 const CapabilityConfigPage = lazy(() => import('@/pages/settings/CapabilityConfigPage').then((m) => ({ default: m.CapabilityConfigPage })))
 const ComplianceKeyPage = lazy(() => import('@/pages/settings/ComplianceKeyPage').then((m) => ({ default: m.ComplianceKeyPage })))
 const AdminListPage = lazy(() => import('@/pages/admins/AdminListPage').then((m) => ({ default: m.AdminListPage })))
@@ -428,6 +429,14 @@ function App() {
                   element={(
                     <PermissionRoute permission="settings:view" roles={[1]}>
                       <FeatureConfigPage />
+                    </PermissionRoute>
+                  )}
+                />
+                <Route
+                  path="/settings/profile"
+                  element={(
+                    <PermissionRoute permission="settings:view" roles={[1]}>
+                      <ProfileSwitchPage />
                     </PermissionRoute>
                   )}
                 />

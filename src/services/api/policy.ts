@@ -3,7 +3,7 @@ import { requireApiPayload } from './responseAdapter'
 
 // --- Query Key ---
 
-export function policyQueryKey(type: 'effective' | 'saved' | 'meta' = 'effective') {
+export function policyQueryKey(type: 'effective' | 'saved' | 'meta' | 'bootstrap' = 'effective') {
   return ['policy', type] as const
 }
 
@@ -22,8 +22,8 @@ export type FeatureName =
   | 'group_schedule'
   | 'group_task'
 
-export type StorageMode = 'archived' | 'secure_e2ee'
-export type E2eeMode = 'disabled' | 'optional' | 'required'
+export type StorageMode = 'archived' | 'compliance_e2ee' | 'secure_e2ee'
+export type E2eeMode = 'disabled' | 'optional' | 'compliance' | 'required'
 export type AuditMode = 'none' | 'metadata' | 'full'
 export type RetentionPolicyMode = 'rolling_days' | 'infinite'
 
@@ -52,11 +52,18 @@ export type PolicyConfig = {
   plugins?: Record<string, boolean>
 }
 
+type FeatureFieldMeta = {
+  type: 'boolean'
+  managed_by?: string
+  dependencies?: FeatureName[]
+}
+
 type FeatureMeta = {
   all: FeatureName[]
   plugin_managed: FeatureName[]
   standalone: FeatureName[]
   dependencies: Record<FeatureName, FeatureName[]>
+  catalog?: Record<string, FeatureFieldMeta>
 }
 
 type CapabilityFieldMeta = {
@@ -123,6 +130,16 @@ export function buildPolicyConfig(
 
 // --- API 调用 ---
 
+export async function getPolicyMeta(): Promise<PolicyMetaResponse> {
+  const response = await client.get('/admin/config/policy/meta')
+  return requireApiPayload<PolicyMetaResponse>(response.data, '/admin/config/policy/meta')
+}
+
+export async function getBootstrapConfig(): Promise<PolicyResponse> {
+  const response = await client.get('/admin/config/policy/bootstrap')
+  return requireApiPayload<PolicyResponse>(response.data, '/admin/config/policy/bootstrap')
+}
+
 export async function getPolicyEffective(): Promise<PolicyResponse> {
   const response = await client.get('/admin/config/policy')
   return requireApiPayload<PolicyResponse>(response.data, '/admin/config/policy')
@@ -133,7 +150,7 @@ export async function previewPolicyChange(payload: PolicyConfig): Promise<Policy
   return requireApiPayload<PolicyResponse>(response.data, '/admin/config/policy/preview')
 }
 
-export async function savePolicyChange(payload: PolicyConfig): Promise<PolicyConfig> {
+export async function savePolicyChange(payload: PolicyConfig): Promise<PolicyResponse> {
   const response = await client.put('/admin/config/policy', payload)
-  return requireApiPayload<PolicyConfig>(response.data, '/admin/config/policy')
+  return requireApiPayload<PolicyResponse>(response.data, '/admin/config/policy')
 }
