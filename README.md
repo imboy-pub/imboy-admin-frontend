@@ -75,13 +75,7 @@ bun run build
 
 ## Playwright 浏览器 E2E
 
-已补 Playwright 骨架，首批覆盖：
-
-- 登录并进入仪表盘
-- 举报中心目标切换 + 单条处理 + 批量处理
-- 管理员中心创建管理员 + 分配角色
-- 角色权限页创建角色 + 保存权限
-- 频道消息治理页基础加载 + 置顶 + 删除
+E2E 场景见 `tests/e2e/` 目录。
 
 运行前准备：
 
@@ -174,7 +168,7 @@ GitHub Actions：`.github/workflows/ci.yml`
 
 - 页面：`src/pages`
 - 组件：`src/components`
-- API：`src/services/api`
+- API：新代码一律放 `src/modules/*/api`；`src/services/api` 仅余历史共享层，不新增
 - 状态：`src/stores`
 - 类型：`src/types`
 

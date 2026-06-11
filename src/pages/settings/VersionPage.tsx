@@ -18,11 +18,19 @@ import {
 import type { EntityId } from '@/types/common'
 import { formatDate } from '@/lib/utils'
 import { getErrorMessage } from '@/lib/errorUtils'
+import { useListQueryState } from '@/hooks/useListQueryState'
+
+type VersionPageQuery = {
+  page: number
+  size: number
+}
 
 export function VersionPage() {
   const queryClient = useQueryClient()
-  const [page, setPage] = useState(1)
-  const [size, setSize] = useState(10)
+  const { state: params, setState: setParams } = useListQueryState<VersionPageQuery>({
+    page: 1,
+    size: 10,
+  })
   const [showForm, setShowForm] = useState(false)
   const [editingVersion, setEditingVersion] = useState<AppVersion | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<EntityId | null>(null)
@@ -36,8 +44,8 @@ export function VersionPage() {
 
   // 获取版本列表
   const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
-    queryKey: ['versions', { page, size }],
-    queryFn: () => getVersionListPayload({ page, size }),
+    queryKey: ['versions', { page: params.page, size: params.size }],
+    queryFn: () => getVersionListPayload({ page: params.page, size: params.size }),
   })
 
   // 保存版本
@@ -308,11 +316,11 @@ export function VersionPage() {
       </Card>
 
       <DataTablePagination
-        page={page}
-        pageSize={size}
+        page={params.page}
+        pageSize={params.size}
         total={data?.total ?? 0}
-        onPageChange={setPage}
-        onPageSizeChange={(s) => { setSize(s); setPage(1) }}
+        onPageChange={(p) => setParams({ page: p })}
+        onPageSizeChange={(s) => setParams({ size: s, page: 1 })}
         dataUpdatedAt={dataUpdatedAt}
         onRefresh={() => void refetch()}
       />

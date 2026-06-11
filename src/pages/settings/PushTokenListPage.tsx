@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/table'
 import { listPushTokens, pushTokenQueryKey } from '@/services/api/pushToken'
 import type { PushToken } from '@/services/api/pushToken'
+import { useListQueryState } from '@/hooks/useListQueryState'
 
 function truncateToken(token: string, maxLen = 20): string {
   if (token.length <= maxLen) return token
@@ -62,10 +63,17 @@ function useTokenStats(list: PushToken[], total: number) {
   }, [list, total])
 }
 
+type PushTokenListQuery = {
+  page: number
+  size: number
+}
+
 export function PushTokenListPage() {
   const navigate = useNavigate()
-  const [page, setPage] = useState(1)
-  const [size, setSize] = useState(10)
+  const { state: params, setState: setParams } = useListQueryState<PushTokenListQuery>({
+    page: 1,
+    size: 10,
+  })
   const [searchText, setSearchText] = useState('')
 
   const {
@@ -75,8 +83,8 @@ export function PushTokenListPage() {
     refetch,
     dataUpdatedAt,
   } = useQuery({
-    queryKey: pushTokenQueryKey(page, size),
-    queryFn: () => listPushTokens(page, size),
+    queryKey: pushTokenQueryKey(params.page, params.size),
+    queryFn: () => listPushTokens(params.page, params.size),
   })
 
   const rawList = useMemo(() => data?.list ?? [], [data])
@@ -149,7 +157,7 @@ export function PushTokenListPage() {
         <Input
           placeholder="搜索用户 ID、设备类型、平台..."
           value={searchText}
-          onChange={(e) => { setSearchText(e.target.value); setPage(1) }}
+          onChange={(e) => { setSearchText(e.target.value); setParams({ page: 1 }) }}
           className="pl-9"
         />
       </div>
@@ -200,14 +208,11 @@ export function PushTokenListPage() {
       </div>
 
       <DataTablePagination
-        page={page}
-        pageSize={size}
+        page={params.page}
+        pageSize={params.size}
         total={total}
-        onPageChange={setPage}
-        onPageSizeChange={(newSize) => {
-          setSize(newSize)
-          setPage(1)
-        }}
+        onPageChange={(p) => setParams({ page: p })}
+        onPageSizeChange={(newSize) => setParams({ size: newSize, page: 1 })}
         dataUpdatedAt={dataUpdatedAt}
         onRefresh={() => void refetch()}
       />

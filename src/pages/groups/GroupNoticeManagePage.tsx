@@ -26,6 +26,12 @@ import { formatOptionalDate } from '@/lib/utils'
 import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 import { useAdminPermission } from '@/hooks/useAdminPermission'
 import { getErrorMessage } from '@/lib/errorUtils'
+import { useListQueryState } from '@/hooks/useListQueryState'
+
+type GroupNoticeManageQuery = {
+  page: number
+  size: number
+}
 
 export function GroupNoticeManagePage() {
   const { id } = useParams<{ id: string }>()
@@ -33,8 +39,10 @@ export function GroupNoticeManagePage() {
   const queryClient = useQueryClient()
   const gid = id ?? ''
 
-  const [page, setPage] = useState(1)
-  const [size, setSize] = useState(10)
+  const { state: params, setState: setParams } = useListQueryState<GroupNoticeManageQuery>({
+    page: 1,
+    size: 10,
+  })
   const [selectedNoticeId, setSelectedNoticeId] = useState('')
   const [confirmDeleteNoticeId, setConfirmDeleteNoticeId] = useState('')
   const { allowed: canDeleteNotice } = useAdminPermission({
@@ -43,8 +51,8 @@ export function GroupNoticeManagePage() {
   })
 
   const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
-    queryKey: ['group-notices', gid, page, size],
-    queryFn: () => getGroupNoticesPayload(gid, { page, size }),
+    queryKey: ['group-notices', gid, params.page, params.size],
+    queryFn: () => getGroupNoticesPayload(gid, { page: params.page, size: params.size }),
     enabled: gid.length > 0,
   })
 
@@ -214,14 +222,11 @@ export function GroupNoticeManagePage() {
 
           {data && (
             <DataTablePagination
-              page={data.page}
-              pageSize={data.size}
+              page={params.page}
+              pageSize={params.size}
               total={data.total}
-              onPageChange={setPage}
-              onPageSizeChange={(nextSize) => {
-                setSize(nextSize)
-                setPage(1)
-              }}
+              onPageChange={(p) => setParams({ page: p })}
+              onPageSizeChange={(s) => setParams({ size: s, page: 1 })}
               dataUpdatedAt={dataUpdatedAt}
               onRefresh={() => refetch()}
             />

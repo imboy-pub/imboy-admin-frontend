@@ -26,6 +26,12 @@ import { formatOptionalDate } from '@/lib/utils'
 import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 import { useAdminPermission } from '@/hooks/useAdminPermission'
 import { getErrorMessage } from '@/lib/errorUtils'
+import { useListQueryState } from '@/hooks/useListQueryState'
+
+type GroupVoteManageQuery = {
+  page: number
+  size: number
+}
 
 export function GroupVoteManagePage() {
   const { id } = useParams<{ id: string }>()
@@ -33,8 +39,10 @@ export function GroupVoteManagePage() {
   const queryClient = useQueryClient()
   const gid = id ?? ''
 
-  const [page, setPage] = useState(1)
-  const [size, setSize] = useState(10)
+  const { state: params, setState: setParams } = useListQueryState<GroupVoteManageQuery>({
+    page: 1,
+    size: 10,
+  })
   const [selectedVoteId, setSelectedVoteId] = useState('')
   const [confirmCloseVoteId, setConfirmCloseVoteId] = useState('')
   const { allowed: canCloseVote } = useAdminPermission({
@@ -43,8 +51,8 @@ export function GroupVoteManagePage() {
   })
 
   const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
-    queryKey: ['group-votes', gid, page, size],
-    queryFn: () => getGroupVotesPayload(gid, { page, size }),
+    queryKey: ['group-votes', gid, params.page, params.size],
+    queryFn: () => getGroupVotesPayload(gid, { page: params.page, size: params.size }),
     enabled: gid.length > 0,
   })
 
@@ -202,14 +210,11 @@ export function GroupVoteManagePage() {
 
           {data && (
             <DataTablePagination
-              page={data.page}
-              pageSize={data.size}
+              page={params.page}
+              pageSize={params.size}
               total={data.total}
-              onPageChange={setPage}
-              onPageSizeChange={(nextSize) => {
-                setSize(nextSize)
-                setPage(1)
-              }}
+              onPageChange={(p) => setParams({ page: p })}
+              onPageSizeChange={(s) => setParams({ size: s, page: 1 })}
               dataUpdatedAt={dataUpdatedAt}
               onRefresh={() => refetch()}
             />

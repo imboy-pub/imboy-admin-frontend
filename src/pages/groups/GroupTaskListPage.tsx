@@ -26,6 +26,7 @@ import { formatOptionalDate } from '@/lib/utils'
 import { useAdminPermission } from '@/hooks/useAdminPermission'
 import type { EntityId } from '@/types/common'
 import { getErrorMessage } from '@/lib/errorUtils'
+import { useListQueryState } from '@/hooks/useListQueryState'
 
 const TASK_STATUS_LABELS: Record<number, string> = {
   1: '进行中',
@@ -39,17 +40,26 @@ const TASK_STATUS_VARIANTS: Record<number, 'success' | 'warning' | 'secondary'> 
   3: 'secondary',
 }
 
+type GroupTaskListQuery = {
+  page: number
+  size: number
+  statusFilter: number
+  activeGroupId: string
+}
+
 export function GroupTaskListPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
-  // 群组ID筛选（输入后触发查询）
-  const [groupIdInput, setGroupIdInput] = useState('')
-  const [activeGroupId, setActiveGroupId] = useState<EntityId>('')
+  const { state: params, setState: setParams } = useListQueryState<GroupTaskListQuery>({
+    page: 1,
+    size: 10,
+    statusFilter: -1,
+    activeGroupId: '',
+  })
 
-  const [page, setPage] = useState(1)
-  const [size, setSize] = useState(10)
-  const [statusFilter, setStatusFilter] = useState(-1)
+  // 群组ID输入框本地状态（提交前）
+  const [groupIdInput, setGroupIdInput] = useState(params.activeGroupId || '')
 
   const [selectedTaskId, setSelectedTaskId] = useState('')
   const [confirmCloseTaskId, setConfirmCloseTaskId] = useState('')
@@ -60,14 +70,14 @@ export function GroupTaskListPage() {
   })
 
   const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
-    queryKey: ['group-task-list', activeGroupId, page, size, statusFilter],
+    queryKey: ['group-task-list', params.activeGroupId, params.page, params.size, params.statusFilter],
     queryFn: () =>
-      getGroupTasksPayload(activeGroupId, {
-        page,
-        size,
-        status: statusFilter >= 1 ? statusFilter : undefined,
+      getGroupTasksPayload(params.activeGroupId as EntityId, {
+        page: params.page,
+        size: params.size,
+        status: params.statusFilter >= 1 ? params.statusFilter : undefined,
       }),
-    enabled: activeGroupId.length > 0,
+    enabled: params.activeGroupId.length > 0,
   })
 
   const closeMutation = useMutation({
@@ -75,7 +85,7 @@ export function GroupTaskListPage() {
     onSuccess: async () => {
       toast.success('任务已强制关闭')
       setConfirmCloseTaskId('')
-      await queryClient.invalidateQueries({ queryKey: ['group-task-list', activeGroupId] })
+      await queryClient.invalidateQueries({ queryKey: ['group-task-list', params.activeGroupId] })
     },
     onError: (err: unknown) => {
       toast.error(`强制关闭任务失败: ${getErrorMessage(err)}`)
@@ -88,15 +98,13 @@ export function GroupTaskListPage() {
       toast.error('请输入群组ID')
       return
     }
-    setActiveGroupId(trimmed)
-    setPage(1)
+    setParams({ activeGroupId: trimmed, page: 1 })
     setSelectedTaskId('')
     setConfirmCloseTaskId('')
   }
 
   const handleStatusChange = (value: string) => {
-    setStatusFilter(Number(value))
-    setPage(1)
+    setParams({ statusFilter: Number(value), page: 1 })
   }
 
   const columns: ColumnDef<GroupTask>[] = useMemo(
@@ -238,7 +246,7 @@ export function GroupTaskListPage() {
                 data-testid="status-filter"
                 aria-label="状态筛选"
                 className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-                value={String(statusFilter)}
+                value={String(params.statusFilter)}
                 onChange={(e) => handleStatusChange(e.target.value)}
               >
                 <option value="-1">全部</option>
@@ -256,27 +264,27 @@ export function GroupTaskListPage() {
         <CardHeader>
           <CardTitle>
             任务列表
-            {activeGroupId && (
+            {params.activeGroupId && (
               <span className="ml-2 font-mono text-sm font-normal text-muted-foreground">
-                群组 {activeGroupId}
+                群组 {params.activeGroupId}
               </span>
             )}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {!activeGroupId && (
+          {!params.activeGroupId && (
             <p className="text-sm text-muted-foreground">请先输入群组ID并点击查询</p>
           )}
 
-          {activeGroupId && isLoading && (
+          {params.activeGroupId && isLoading && (
             <LoadingState message="加载任务列表..." />
           )}
 
-          {activeGroupId && error && (
+          {params.activeGroupId && error && (
             <ErrorState message="加载任务列表失败" onRetry={() => refetch()} />
           )}
 
-          {activeGroupId && !isLoading && !error && (
+          {params.activeGroupId && !isLoading && !error && (
             <>
               <DataTable
                 table={table}
@@ -288,11 +296,8 @@ export function GroupTaskListPage() {
                   page={data.page}
                   pageSize={data.size}
                   total={data.total}
-                  onPageChange={setPage}
-                  onPageSizeChange={(nextSize) => {
-                    setSize(nextSize)
-                    setPage(1)
-                  }}
+                  onPageChange={(p) => setParams({ page: p })}
+                  onPageSizeChange={(nextSize) => setParams({ size: nextSize, page: 1 })}
                   dataUpdatedAt={dataUpdatedAt}
                   onRefresh={() => refetch()}
                 />
@@ -317,7 +322,7 @@ export function GroupTaskListPage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => navigate(`/groups/${activeGroupId}/tasks`)}
+                onClick={() => navigate(`/groups/${params.activeGroupId}/tasks`)}
               >
                 <Eye className="mr-2 h-4 w-4" />
                 前往群任务管理

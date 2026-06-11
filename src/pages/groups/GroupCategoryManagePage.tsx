@@ -24,6 +24,14 @@ import {
 import { getGroupDetailPayload } from '@/modules/groups/api'
 import { useAdminPermission } from '@/hooks/useAdminPermission'
 import { getErrorMessage } from '@/lib/errorUtils'
+import { useListQueryState } from '@/hooks/useListQueryState'
+
+type GroupCategoryManageQuery = {
+  page: number
+  size: number
+  keyword: string
+  targetUid: string
+}
 
 export function GroupCategoryManagePage() {
   const { id } = useParams<{ id: string }>()
@@ -31,10 +39,13 @@ export function GroupCategoryManagePage() {
   const queryClient = useQueryClient()
   const gid = id ?? ''
 
-  const [targetUid, setTargetUid] = useState('')
-  const [keyword, setKeyword] = useState('')
-  const [page, setPage] = useState(1)
-  const [size, setSize] = useState(10)
+  const { state: params, setState: setParams } = useListQueryState<GroupCategoryManageQuery>({
+    page: 1,
+    size: 10,
+    keyword: '',
+    targetUid: '',
+  })
+
   const [confirmDeleteCategoryId, setConfirmDeleteCategoryId] = useState<string>('')
   const [confirmDeleteCategoryName, setConfirmDeleteCategoryName] = useState<string>('')
 
@@ -50,24 +61,24 @@ export function GroupCategoryManagePage() {
   })
 
   useEffect(() => {
-    if (targetUid.trim()) return
+    if (params.targetUid.trim()) return
     const ownerId = groupDetail?.owner_uid
     if (ownerId) {
-      setTargetUid(String(ownerId))
+      setParams({ targetUid: String(ownerId) })
     }
-  }, [groupDetail?.owner_uid, targetUid])
+  }, [groupDetail?.owner_uid, params.targetUid, setParams])
 
-  const uid = targetUid.trim()
+  const uid = params.targetUid.trim()
 
   const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
-    queryKey: ['group-categories', gid, uid, page, size, keyword],
+    queryKey: ['group-categories', gid, uid, params.page, params.size, params.keyword],
     queryFn: () =>
       getGroupCategoriesPayload({
         gid,
         uid,
-        page,
-        size,
-        keyword: keyword.trim() || undefined,
+        page: params.page,
+        size: params.size,
+        keyword: params.keyword.trim() || undefined,
       }),
     enabled: gid.length > 0 && uid.length > 0,
   })
@@ -169,19 +180,17 @@ export function GroupCategoryManagePage() {
           </p>
           <div className="flex flex-col gap-2 md:flex-row">
             <Input
-              value={targetUid}
+              value={params.targetUid}
               onChange={(event) => {
-                setTargetUid(event.target.value)
-                setPage(1)
+                setParams({ targetUid: event.target.value, page: 1 })
               }}
               placeholder="输入用户 UID"
               className="md:max-w-sm"
             />
             <Input
-              value={keyword}
+              value={params.keyword}
               onChange={(event) => {
-                setKeyword(event.target.value)
-                setPage(1)
+                setParams({ keyword: event.target.value, page: 1 })
               }}
               placeholder="分类名称关键词（可选）"
               className="md:max-w-sm"
@@ -205,11 +214,8 @@ export function GroupCategoryManagePage() {
                   page={data.page}
                   pageSize={data.size}
                   total={data.total}
-                  onPageChange={setPage}
-                  onPageSizeChange={(nextSize) => {
-                    setSize(nextSize)
-                    setPage(1)
-                  }}
+                  onPageChange={(p) => setParams({ page: p })}
+                  onPageSizeChange={(s) => setParams({ size: s, page: 1 })}
                   dataUpdatedAt={dataUpdatedAt}
                   onRefresh={() => void refetch()}
                 />
@@ -228,7 +234,7 @@ export function GroupCategoryManagePage() {
           }
         }}
         title="确认删除分类"
-        description={`确定要删除分类「${confirmDeleteCategoryName}」吗？该用户该分类下的群会迁移到“未分类”。`}
+        description={`确定要删除分类「${confirmDeleteCategoryName}」吗？该用户该分类下的群会迁移到"未分类"。`}
         confirmText="删除"
         variant="destructive"
         loading={deleteMutation.isPending}

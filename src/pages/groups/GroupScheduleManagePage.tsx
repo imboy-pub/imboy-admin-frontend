@@ -27,6 +27,7 @@ import { formatDate } from '@/lib/utils'
 import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 import { useAdminPermission } from '@/hooks/useAdminPermission'
 import { getErrorMessage } from '@/lib/errorUtils'
+import { useListQueryState } from '@/hooks/useListQueryState'
 
 function normalizeTimestamp(value?: string | number): string {
   if (value === undefined || value === null || value === '') return '-'
@@ -44,14 +45,21 @@ function normalizeTimestamp(value?: string | number): string {
   return formatDate(parsed)
 }
 
+type GroupScheduleManageQuery = {
+  page: number
+  size: number
+}
+
 export function GroupScheduleManagePage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const gid = id ?? ''
 
-  const [page, setPage] = useState(1)
-  const [size, setSize] = useState(10)
+  const { state: params, setState: setParams } = useListQueryState<GroupScheduleManageQuery>({
+    page: 1,
+    size: 10,
+  })
   const [selectedScheduleId, setSelectedScheduleId] = useState('')
   const [confirmCancelScheduleId, setConfirmCancelScheduleId] = useState('')
   const [confirmRestoreScheduleId, setConfirmRestoreScheduleId] = useState('')
@@ -65,8 +73,8 @@ export function GroupScheduleManagePage() {
   })
 
   const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
-    queryKey: ['group-schedules', gid, page, size],
-    queryFn: () => getGroupSchedulesPayload(gid, { page, size }),
+    queryKey: ['group-schedules', gid, params.page, params.size],
+    queryFn: () => getGroupSchedulesPayload(gid, { page: params.page, size: params.size }),
     enabled: gid.length > 0,
   })
 
@@ -257,14 +265,11 @@ export function GroupScheduleManagePage() {
 
           {data && (
             <DataTablePagination
-              page={data.page}
-              pageSize={data.size}
+              page={params.page}
+              pageSize={params.size}
               total={data.total}
-              onPageChange={setPage}
-              onPageSizeChange={(nextSize) => {
-                setSize(nextSize)
-                setPage(1)
-              }}
+              onPageChange={(p) => setParams({ page: p })}
+              onPageSizeChange={(s) => setParams({ size: s, page: 1 })}
               dataUpdatedAt={dataUpdatedAt}
               onRefresh={() => refetch()}
             />
@@ -362,7 +367,7 @@ export function GroupScheduleManagePage() {
         open={canCancelSchedule && confirmCancelScheduleId.length > 0}
         onOpenChange={(open) => setConfirmCancelScheduleId(open ? confirmCancelScheduleId : '')}
         title="确认取消日程"
-        description={`确定要取消日程 ${confirmCancelScheduleId} 吗？可通过“恢复日程”撤销。`}
+        description={`确定要取消日程 ${confirmCancelScheduleId} 吗？可通过"恢复日程"撤销。`}
         confirmText="取消日程"
         variant="destructive"
         loading={cancelMutation.isPending}

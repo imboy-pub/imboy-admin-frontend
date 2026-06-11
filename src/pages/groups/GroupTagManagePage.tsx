@@ -24,6 +24,12 @@ import { formatOptionalDate } from '@/lib/utils'
 import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 import { useAdminPermission } from '@/hooks/useAdminPermission'
 import { getErrorMessage } from '@/lib/errorUtils'
+import { useListQueryState } from '@/hooks/useListQueryState'
+
+type GroupTagManageQuery = {
+  page: number
+  size: number
+}
 
 export function GroupTagManagePage() {
   const { id } = useParams<{ id: string }>()
@@ -31,8 +37,10 @@ export function GroupTagManagePage() {
   const queryClient = useQueryClient()
   const gid = id ?? ''
 
-  const [page, setPage] = useState(1)
-  const [size, setSize] = useState(10)
+  const { state: params, setState: setParams } = useListQueryState<GroupTagManageQuery>({
+    page: 1,
+    size: 10,
+  })
   const [confirmDeleteTagName, setConfirmDeleteTagName] = useState('')
   const { allowed: canDeleteTag } = useAdminPermission({
     permission: 'groups:tag:delete',
@@ -40,8 +48,8 @@ export function GroupTagManagePage() {
   })
 
   const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
-    queryKey: ['group-tags', gid, { page, size }],
-    queryFn: () => getGroupTagsPayload(gid, { page, size }),
+    queryKey: ['group-tags', gid, { page: params.page, size: params.size }],
+    queryFn: () => getGroupTagsPayload(gid, { page: params.page, size: params.size }),
     enabled: gid.length > 0,
   })
 
@@ -160,11 +168,11 @@ export function GroupTagManagePage() {
       </Card>
 
       <DataTablePagination
-        page={page}
-        pageSize={size}
+        page={params.page}
+        pageSize={params.size}
         total={data?.total ?? 0}
-        onPageChange={setPage}
-        onPageSizeChange={(s) => { setSize(s); setPage(1) }}
+        onPageChange={(p) => setParams({ page: p })}
+        onPageSizeChange={(s) => setParams({ size: s, page: 1 })}
         dataUpdatedAt={dataUpdatedAt}
         onRefresh={() => void refetch()}
       />

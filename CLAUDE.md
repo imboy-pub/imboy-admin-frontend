@@ -21,7 +21,6 @@
 imboy-admin-frontend/
 ├── src/
 │   ├── components/    # 通用 UI 组件
-│   ├── contexts/      # React Context
 │   ├── hooks/         # 自定义 Hooks
 │   ├── lib/           # 工具函数
 │   ├── modules/       # 业务模块
@@ -33,9 +32,11 @@ imboy-admin-frontend/
 │   └── types/         # TypeScript 类型定义
 │       ├── admin.ts
 │       ├── api.ts
+│       ├── common.ts
 │       ├── group.ts
 │       ├── logoutApplication.ts
 │       ├── message.ts
+│       ├── systemHealth.ts
 │       └── user.ts
 ├── package.json
 └── vite.config.ts
@@ -94,7 +95,7 @@ interface User {
 **规则**:
 - 所有 TSID 字段必须使用 `EntityId`，不直接写 `string`
 - 不要用 `Number(id)` 或 `parseInt(id)` 处理 TSID
-- 详见：`imboy/doc/api/tsid-field-convention.md`
+- 详见：`imboy/docs/api/tsid-field-convention.md`
 
 ### 命令参考
 
@@ -103,6 +104,11 @@ interface User {
 ---
 
 ## 变更记录
+
+### 2026-06-11
+- URL state 迁移进度：18/18（T17 step3 完成）
+  - 全部列表页已从本地 `useState(page/size/filters)` 迁移到 `useListQueryState`
+  - 迁移范围：announcements / logs / settings(DDL/Version/PushToken) / storage / groups(11页) / plugin_management
 
 ### 2026-05-28
 - 添加面包屑导航（链接到根级 CLAUDE.md）

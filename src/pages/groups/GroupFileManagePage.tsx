@@ -26,6 +26,14 @@ import { formatOptionalDate } from '@/lib/utils'
 import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 import { useAdminPermission } from '@/hooks/useAdminPermission'
 import { getErrorMessage } from '@/lib/errorUtils'
+import { useListQueryState } from '@/hooks/useListQueryState'
+
+type GroupFileManageQuery = {
+  page: number
+  size: number
+  keyword: string
+  category: string
+}
 
 export function GroupFileManagePage() {
   const { id } = useParams<{ id: string }>()
@@ -33,10 +41,13 @@ export function GroupFileManagePage() {
   const queryClient = useQueryClient()
   const gid = id ?? ''
 
-  const [page, setPage] = useState(1)
-  const [size, setSize] = useState(10)
-  const [keyword, setKeyword] = useState('')
-  const [category, setCategory] = useState('')
+  const { state: params, setState: setParams } = useListQueryState<GroupFileManageQuery>({
+    page: 1,
+    size: 10,
+    keyword: '',
+    category: '',
+  })
+
   const [selectedFileId, setSelectedFileId] = useState('')
   const [confirmDeleteFileId, setConfirmDeleteFileId] = useState('')
   const { allowed: canDeleteFile } = useAdminPermission({
@@ -45,13 +56,13 @@ export function GroupFileManagePage() {
   })
 
   const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
-    queryKey: ['group-files', gid, page, size, keyword, category],
+    queryKey: ['group-files', gid, params.page, params.size, params.keyword, params.category],
     queryFn: () =>
       getGroupFilesPayload(gid, {
-        page,
-        size,
-        keyword: keyword.trim() || undefined,
-        category: category.trim() || undefined,
+        page: params.page,
+        size: params.size,
+        keyword: params.keyword.trim() || undefined,
+        category: params.category.trim() || undefined,
       }),
     enabled: gid.length > 0,
   })
@@ -210,18 +221,16 @@ export function GroupFileManagePage() {
           <div className="flex flex-col gap-2 md:flex-row">
             <Input
               placeholder="关键词（文件名）"
-              value={keyword}
+              value={params.keyword}
               onChange={(event) => {
-                setKeyword(event.target.value)
-                setPage(1)
+                setParams({ keyword: event.target.value, page: 1 })
               }}
             />
             <Input
               placeholder="分类（可选）"
-              value={category}
+              value={params.category}
               onChange={(event) => {
-                setCategory(event.target.value)
-                setPage(1)
+                setParams({ category: event.target.value, page: 1 })
               }}
             />
           </div>
@@ -236,10 +245,9 @@ export function GroupFileManagePage() {
               page={data.page}
               pageSize={data.size}
               total={data.total}
-              onPageChange={setPage}
+              onPageChange={(p) => setParams({ page: p })}
               onPageSizeChange={(nextSize) => {
-                setSize(nextSize)
-                setPage(1)
+                setParams({ size: nextSize, page: 1 })
               }}
               dataUpdatedAt={dataUpdatedAt}
               onRefresh={() => refetch()}

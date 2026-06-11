@@ -16,6 +16,7 @@ import {
 import { exportCsv } from '@/lib/csvExport'
 import { AnnouncementFormDialog } from './AnnouncementFormDialog'
 import { getErrorMessage } from '@/lib/errorUtils'
+import { useListQueryState } from '@/hooks/useListQueryState'
 
 const STATUS_MAP: Record<number, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
   [-1]: { label: '已删除', variant: 'destructive' },
@@ -30,19 +31,29 @@ const TYPE_MAP: Record<string, { label: string; color: string }> = {
   important: { label: '重要', color: 'bg-red-100 text-red-700' },
 }
 
+type AnnouncementListQuery = {
+  page: number
+  size: number
+  keyword: string
+}
+
 export function AnnouncementListPage() {
   const queryClient = useQueryClient()
-  const [page, setPage] = useState(1)
-  const [size, setSize] = useState(10)
-  const [keyword, setKeyword] = useState('')
-  const [searchKeyword, setSearchKeyword] = useState('')
+
+  const { state: params, setState: setParams } = useListQueryState<AnnouncementListQuery>({
+    page: 1,
+    size: 10,
+    keyword: '',
+  })
+  const [localKeyword, setLocalKeyword] = useState(params.keyword || '')
+
   const [showForm, setShowForm] = useState(false)
   const [editingItem, setEditingItem] = useState<Announcement | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Announcement | null>(null)
 
   const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
-    queryKey: ['announcements', page, size, searchKeyword],
-    queryFn: () => getAnnouncementList({ page, size, keyword: searchKeyword || undefined }),
+    queryKey: ['announcements', params.page, params.size, params.keyword],
+    queryFn: () => getAnnouncementList({ page: params.page, size: params.size, keyword: params.keyword || undefined }),
   })
 
   const deleteMutation = useMutation({
@@ -74,9 +85,8 @@ export function AnnouncementListPage() {
   })
 
   const handleSearch = useCallback(() => {
-    setSearchKeyword(keyword)
-    setPage(1)
-  }, [keyword])
+    setParams({ keyword: localKeyword, page: 1 })
+  }, [localKeyword, setParams])
 
   const handleFormSuccess = useCallback(() => {
     setShowForm(false)
@@ -116,8 +126,8 @@ export function AnnouncementListPage() {
           <div className="relative">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input
-              value={keyword}
-              onChange={(e) => setKeyword(e.target.value)}
+              value={localKeyword}
+              onChange={(e) => setLocalKeyword(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
               placeholder="搜索公告标题"
               className="h-9 w-64 rounded-md border pl-8 pr-3 text-sm outline-none focus:border-primary"
@@ -208,11 +218,11 @@ export function AnnouncementListPage() {
 
       {/* 分页 */}
       <DataTablePagination
-        page={page}
-        pageSize={size}
+        page={params.page}
+        pageSize={params.size}
         total={data?.total ?? 0}
-        onPageChange={setPage}
-        onPageSizeChange={(newSize) => { setSize(newSize); setPage(1) }}
+        onPageChange={(p) => setParams({ page: p })}
+        onPageSizeChange={(s) => setParams({ size: s, page: 1 })}
         dataUpdatedAt={dataUpdatedAt}
         onRefresh={() => void refetch()}
       />

@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
 import { FileSearch, Download } from 'lucide-react'
@@ -16,6 +15,7 @@ import {
 } from '@/components/shared'
 import { formatDate } from '@/lib/utils'
 import { exportCsv, type CsvColumn } from '@/lib/csvExport'
+import { useListQueryState } from '@/hooks/useListQueryState'
 import {
   getPluginLogList,
   pluginLogKeys,
@@ -43,19 +43,29 @@ const ACTION_VARIANTS: Record<PluginAction, 'info' | 'success' | 'warning' | 'er
   force_uninstall: 'error',
 }
 
+type PluginLogQuery = {
+  page: number
+  size: number
+  action: string
+  result: string
+  plugin_name: string
+}
+
 export function PluginLogPage() {
-  const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(10)
-  const [actionFilter, setActionFilter] = useState<'all' | PluginAction>('all')
-  const [resultFilter, setResultFilter] = useState<'all' | 'success' | 'failure'>('all')
-  const [pluginNameFilter, setPluginNameFilter] = useState('')
+  const { state: params, setState: setParams } = useListQueryState<PluginLogQuery>({
+    page: 1,
+    size: 10,
+    action: 'all',
+    result: 'all',
+    plugin_name: '',
+  })
 
   const queryParams = {
-    page,
-    size: pageSize,
-    ...(actionFilter !== 'all' ? { action: actionFilter } : {}),
-    ...(resultFilter !== 'all' ? { result: resultFilter } : {}),
-    ...(pluginNameFilter.trim() ? { plugin_name: pluginNameFilter.trim() } : {}),
+    page: params.page,
+    size: params.size,
+    ...(params.action !== 'all' ? { action: params.action as PluginAction } : {}),
+    ...(params.result !== 'all' ? { result: params.result as 'success' | 'failure' } : {}),
+    ...(params.plugin_name.trim() ? { plugin_name: params.plugin_name.trim() } : {}),
   }
 
   const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
@@ -155,10 +165,9 @@ export function PluginLogPage() {
           <div className="flex flex-wrap items-center gap-3">
             <select
               className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-              value={actionFilter}
+              value={params.action}
               onChange={(e) => {
-                setActionFilter(e.target.value as 'all' | PluginAction)
-                setPage(1)
+                setParams({ action: e.target.value, page: 1 })
               }}
             >
               <option value="all">全部操作</option>
@@ -172,10 +181,9 @@ export function PluginLogPage() {
 
             <select
               className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-              value={resultFilter}
+              value={params.result}
               onChange={(e) => {
-                setResultFilter(e.target.value as 'all' | 'success' | 'failure')
-                setPage(1)
+                setParams({ result: e.target.value, page: 1 })
               }}
             >
               <option value="all">全部结果</option>
@@ -186,10 +194,9 @@ export function PluginLogPage() {
             <Input
               className="max-w-xs"
               placeholder="按插件名称搜索"
-              value={pluginNameFilter}
+              value={params.plugin_name}
               onChange={(e) => {
-                setPluginNameFilter(e.target.value)
-                setPage(1)
+                setParams({ plugin_name: e.target.value, page: 1 })
               }}
             />
 
@@ -218,14 +225,11 @@ export function PluginLogPage() {
 
           <DataTable table={table} emptyMessage="暂无插件操作日志" />
           <DataTablePagination
-            page={page}
-            pageSize={pageSize}
+            page={params.page}
+            pageSize={params.size}
             total={total}
-            onPageChange={setPage}
-            onPageSizeChange={(size) => {
-              setPageSize(size)
-              setPage(1)
-            }}
+            onPageChange={(p) => setParams({ page: p })}
+            onPageSizeChange={(s) => setParams({ size: s, page: 1 })}
             dataUpdatedAt={dataUpdatedAt}
             onRefresh={() => void refetch()}
           />

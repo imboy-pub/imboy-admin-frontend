@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, HardDrive, Image, FileVideo, FileText, File, Upload, RefreshCw, Download, Loader2 } from 'lucide-react'
@@ -14,6 +14,14 @@ import {
 } from '@/services/api/storage'
 import { formatDate } from '@/lib/utils'
 import { getErrorMessage } from '@/lib/errorUtils'
+import { useListQueryState } from '@/hooks/useListQueryState'
+
+type StorageOverviewQuery = {
+  page: number
+  pageSize: number
+  keyword: string
+  mimeFilter: string
+}
 
 function mimeGroup(mimeType: string): string {
   if (mimeType.startsWith('image/')) return 'image'
@@ -25,10 +33,14 @@ function mimeGroup(mimeType: string): string {
 export function StorageOverviewPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const [keyword, setKeyword] = useState('')
-  const [mimeFilter, setMimeFilter] = useState('')
-  const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(10)
+
+  const { state: params, setState: setParams } = useListQueryState<StorageOverviewQuery>({
+    page: 1,
+    pageSize: 10,
+    keyword: '',
+    mimeFilter: '',
+  })
+  const [localKeyword, setLocalKeyword] = useState(params.keyword || '')
 
   const [ageDays, setAgeDays] = useState(30)
   const [orphanQueryEnabled, setOrphanQueryEnabled] = useState(false)
@@ -41,12 +53,12 @@ export function StorageOverviewPage() {
   })
 
   const { data: listData, isLoading: listLoading, refetch: refetchList, dataUpdatedAt: listDataUpdatedAt } = useQuery({
-    queryKey: ['storage', 'list', { page, pageSize, mimeFilter, keyword }],
+    queryKey: ['storage', 'list', { page: params.page, pageSize: params.pageSize, mimeFilter: params.mimeFilter, keyword: params.keyword }],
     queryFn: () => getStorageList({
-      page,
-      size: pageSize,
-      mime_type: mimeFilter || undefined,
-      keyword: keyword.trim() || undefined,
+      page: params.page,
+      size: params.pageSize,
+      mime_type: params.mimeFilter || undefined,
+      keyword: params.keyword.trim() || undefined,
     }),
   })
 
@@ -99,6 +111,10 @@ export function StorageOverviewPage() {
     else if (type === 'delete') deleteMutation.mutate(id)
     setPendingAction(null)
   }
+
+  const handleSearch = useCallback(() => {
+    setParams({ keyword: localKeyword, page: 1 })
+  }, [localKeyword, setParams])
 
   const actionLoading = disableMutation.isPending || enableMutation.isPending || deleteMutation.isPending
 
@@ -183,14 +199,18 @@ export function StorageOverviewPage() {
           <div className="mb-4 flex flex-wrap items-center gap-3">
             <Input
               placeholder="搜索文件名或路径..."
-              value={keyword}
-              onChange={(e) => { setKeyword(e.target.value); setPage(1) }}
+              value={localKeyword}
+              onChange={(e) => setLocalKeyword(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleSearch() }}
               className="max-w-xs"
             />
+            <Button variant="outline" size="sm" onClick={handleSearch}>
+              搜索
+            </Button>
             <select
               className="h-10 min-w-36 rounded-md border border-input bg-background px-3 text-sm"
-              value={mimeFilter}
-              onChange={(e) => { setMimeFilter(e.target.value); setPage(1) }}
+              value={params.mimeFilter}
+              onChange={(e) => setParams({ mimeFilter: e.target.value, page: 1 })}
             >
               <option value="">全部类型</option>
               <option value="image/">图片</option>
@@ -303,18 +323,18 @@ export function StorageOverviewPage() {
                 </table>
               </div>
               <DataTablePagination
-                page={listData.page}
-                pageSize={listData.size}
+                page={params.page}
+                pageSize={params.pageSize}
                 total={listData.total}
-                onPageChange={setPage}
-                onPageSizeChange={(newSize) => { setPageSize(newSize); setPage(1) }}
+                onPageChange={(p) => setParams({ page: p })}
+                onPageSizeChange={(s) => setParams({ pageSize: s, page: 1 })}
                 dataUpdatedAt={listDataUpdatedAt}
                 onRefresh={() => refetchList()}
               />
             </>
           ) : (
             <p className="text-center text-muted-foreground py-8">
-              {keyword || mimeFilter ? '没有匹配的文件' : '暂无文件数据'}
+              {params.keyword || params.mimeFilter ? '没有匹配的文件' : '暂无文件数据'}
             </p>
           )}
         </CardContent>

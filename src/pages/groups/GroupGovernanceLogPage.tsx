@@ -22,6 +22,7 @@ import {
 import { formatOptionalDate, truncate } from '@/lib/utils'
 import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 import { toast } from 'sonner'
+import { useListQueryState } from '@/hooks/useListQueryState'
 
 function normalizeTimestamp(value: string): string | undefined {
   const normalized = value.trim()
@@ -43,49 +44,62 @@ function summarizeExtra(extra?: Record<string, unknown>): string {
     .join(' | ')
 }
 
+type GroupGovernanceLogQuery = {
+  page: number
+  size: number
+  uidFilter: string
+  actionFilter: string
+  targetIdFilter: string
+  keywordFilter: string
+  fromTsFilter: string
+  toTsFilter: string
+}
+
 export function GroupGovernanceLogPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const gid = id ?? ''
 
-  const [page, setPage] = useState(1)
-  const [size, setSize] = useState(10)
+  const { state: params, setState: setParams } = useListQueryState<GroupGovernanceLogQuery>({
+    page: 1,
+    size: 10,
+    uidFilter: '',
+    actionFilter: '',
+    targetIdFilter: '',
+    keywordFilter: '',
+    fromTsFilter: '',
+    toTsFilter: '',
+  })
+
   const [selectedBody, setSelectedBody] = useState('')
 
-  const [uidInput, setUidInput] = useState('')
-  const [actionInput, setActionInput] = useState('')
-  const [targetIdInput, setTargetIdInput] = useState('')
-  const [keywordInput, setKeywordInput] = useState('')
-  const [fromTsInput, setFromTsInput] = useState('')
-  const [toTsInput, setToTsInput] = useState('')
-
-  const [uidFilter, setUidFilter] = useState('')
-  const [actionFilter, setActionFilter] = useState('')
-  const [targetIdFilter, setTargetIdFilter] = useState('')
-  const [keywordFilter, setKeywordFilter] = useState('')
-  const [fromTsFilter, setFromTsFilter] = useState('')
-  const [toTsFilter, setToTsFilter] = useState('')
+  const [uidInput, setUidInput] = useState(params.uidFilter || '')
+  const [actionInput, setActionInput] = useState(params.actionFilter || '')
+  const [targetIdInput, setTargetIdInput] = useState(params.targetIdFilter || '')
+  const [keywordInput, setKeywordInput] = useState(params.keywordFilter || '')
+  const [fromTsInput, setFromTsInput] = useState(params.fromTsFilter || '')
+  const [toTsInput, setToTsInput] = useState(params.toTsFilter || '')
 
   const queryParams = useMemo<GroupGovernanceLogListParams>(() => {
-    const params: GroupGovernanceLogListParams = {
-      page,
-      size,
+    const p: GroupGovernanceLogListParams = {
+      page: params.page,
+      size: params.size,
       group_id: gid,
     }
-    if (uidFilter) {
-      params.uid = uidFilter
+    if (params.uidFilter) {
+      p.uid = params.uidFilter
     }
-    if (actionFilter) params.action = actionFilter
-    if (targetIdFilter) params.target_id = targetIdFilter
-    if (keywordFilter) params.keyword = keywordFilter
+    if (params.actionFilter) p.action = params.actionFilter
+    if (params.targetIdFilter) p.target_id = params.targetIdFilter
+    if (params.keywordFilter) p.keyword = params.keywordFilter
 
-    const fromTs = normalizeTimestamp(fromTsFilter)
-    if (fromTs) params.from_ts = fromTs
-    const toTs = normalizeTimestamp(toTsFilter)
-    if (toTs) params.to_ts = toTs
+    const fromTs = normalizeTimestamp(params.fromTsFilter)
+    if (fromTs) p.from_ts = fromTs
+    const toTs = normalizeTimestamp(params.toTsFilter)
+    if (toTs) p.to_ts = toTs
 
-    return params
-  }, [actionFilter, fromTsFilter, gid, keywordFilter, page, size, targetIdFilter, toTsFilter, uidFilter])
+    return p
+  }, [params.actionFilter, params.fromTsFilter, gid, params.keywordFilter, params.page, params.size, params.targetIdFilter, params.toTsFilter, params.uidFilter])
 
   const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
     queryKey: ['group-governance-logs', queryParams],
@@ -241,13 +255,15 @@ export function GroupGovernanceLogPage() {
           <div className="flex items-center gap-2">
             <Button
               onClick={() => {
-                setUidFilter(uidInput.trim())
-                setActionFilter(actionInput.trim())
-                setTargetIdFilter(targetIdInput.trim())
-                setKeywordFilter(keywordInput.trim())
-                setFromTsFilter(fromTsInput.trim())
-                setToTsFilter(toTsInput.trim())
-                setPage(1)
+                setParams({
+                  uidFilter: uidInput.trim(),
+                  actionFilter: actionInput.trim(),
+                  targetIdFilter: targetIdInput.trim(),
+                  keywordFilter: keywordInput.trim(),
+                  fromTsFilter: fromTsInput.trim(),
+                  toTsFilter: toTsInput.trim(),
+                  page: 1,
+                })
               }}
             >
               <Search className="mr-2 h-4 w-4" />
@@ -262,13 +278,15 @@ export function GroupGovernanceLogPage() {
                 setKeywordInput('')
                 setFromTsInput('')
                 setToTsInput('')
-                setUidFilter('')
-                setActionFilter('')
-                setTargetIdFilter('')
-                setKeywordFilter('')
-                setFromTsFilter('')
-                setToTsFilter('')
-                setPage(1)
+                setParams({
+                  uidFilter: '',
+                  actionFilter: '',
+                  targetIdFilter: '',
+                  keywordFilter: '',
+                  fromTsFilter: '',
+                  toTsFilter: '',
+                  page: 1,
+                })
               }}
             >
               重置
@@ -289,14 +307,11 @@ export function GroupGovernanceLogPage() {
 
           {data && (
             <DataTablePagination
-              page={data.page}
-              pageSize={data.size}
+              page={params.page}
+              pageSize={params.size}
               total={data.total}
-              onPageChange={setPage}
-              onPageSizeChange={(nextSize) => {
-                setSize(nextSize)
-                setPage(1)
-              }}
+              onPageChange={(p) => setParams({ page: p })}
+              onPageSizeChange={(s) => setParams({ size: s, page: 1 })}
               dataUpdatedAt={dataUpdatedAt}
               onRefresh={() => void refetch()}
             />

@@ -20,6 +20,7 @@ import { getLogoutApplicationListPayload } from '@/services/api/logoutApplicatio
 import { formatDate, truncate } from '@/lib/utils'
 import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 import { MessageScope } from '@/types/message'
+import { useListQueryState } from '@/hooks/useListQueryState'
 
 type AuditEventType = 'message' | 'logout_apply'
 
@@ -35,6 +36,13 @@ type AuditEvent = {
   responseJson: Record<string, unknown>
   msgId?: string
   msgScope?: MessageScope
+}
+
+type AuditLogQuery = {
+  page: number
+  size: number
+  keyword: string
+  eventTypeFilter: string
 }
 
 function toTimestamp(value: unknown): number {
@@ -78,10 +86,12 @@ function prettyJson(value: unknown): string {
 
 export function AuditLogPage() {
   const navigate = useNavigate()
-  const [keyword, setKeyword] = useState('')
-  const [eventTypeFilter, setEventTypeFilter] = useState<'all' | AuditEventType>('all')
-  const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(10)
+  const { state: params, setState: setParams } = useListQueryState<AuditLogQuery>({
+    page: 1,
+    size: 10,
+    keyword: '',
+    eventTypeFilter: 'all',
+  })
   const [selectedEvent, setSelectedEvent] = useState<AuditEvent | null>(null)
 
   const {
@@ -201,21 +211,21 @@ export function AuditLogPage() {
   }, [logoutData?.items, messageData?.items])
 
   const filteredEvents = useMemo(() => {
-    const normalizedKeyword = keyword.trim().toLowerCase()
+    const normalizedKeyword = params.keyword.trim().toLowerCase()
     return events.filter((event) => {
-      const typeMatch = eventTypeFilter === 'all' || event.eventType === eventTypeFilter
+      const typeMatch = params.eventTypeFilter === 'all' || event.eventType === params.eventTypeFilter
       if (!typeMatch) return false
       if (!normalizedKeyword) return true
 
       const fullText = `${event.summary} ${event.detail} ${event.actor} ${event.target}`.toLowerCase()
       return fullText.includes(normalizedKeyword)
     })
-  }, [eventTypeFilter, events, keyword])
+  }, [params.eventTypeFilter, events, params.keyword])
 
   const total = filteredEvents.length
-  const totalPages = Math.max(1, Math.ceil(total / pageSize))
-  const safePage = Math.min(Math.max(1, page), totalPages)
-  const pageEvents = filteredEvents.slice((safePage - 1) * pageSize, safePage * pageSize)
+  const totalPages = Math.max(1, Math.ceil(total / params.size))
+  const safePage = Math.min(Math.max(1, params.page), totalPages)
+  const pageEvents = filteredEvents.slice((safePage - 1) * params.size, safePage * params.size)
 
   const detailRequestJson = useMemo(() => {
     if (!selectedEvent) return {}
@@ -371,10 +381,9 @@ export function AuditLogPage() {
               <ArrowRightLeft className="h-4 w-4 text-muted-foreground" />
               <select
                 className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-                value={eventTypeFilter}
+                value={params.eventTypeFilter}
                 onChange={(event) => {
-                  setEventTypeFilter(event.target.value as 'all' | AuditEventType)
-                  setPage(1)
+                  setParams({ eventTypeFilter: event.target.value, page: 1 })
                 }}
               >
                 <option value="all">全部事件</option>
@@ -385,10 +394,9 @@ export function AuditLogPage() {
             <Input
               className="max-w-md"
               placeholder="搜索UID、账号、摘要、详情关键字"
-              value={keyword}
+              value={params.keyword}
               onChange={(event) => {
-                setKeyword(event.target.value)
-                setPage(1)
+                setParams({ keyword: event.target.value, page: 1 })
               }}
             />
             <Button
@@ -421,13 +429,10 @@ export function AuditLogPage() {
           <DataTable table={table} emptyMessage="暂无匹配的审计事件" />
           <DataTablePagination
             page={safePage}
-            pageSize={pageSize}
+            pageSize={params.size}
             total={total}
-            onPageChange={setPage}
-            onPageSizeChange={(size) => {
-              setPageSize(size)
-              setPage(1)
-            }}
+            onPageChange={(p) => setParams({ page: p })}
+            onPageSizeChange={(s) => setParams({ size: s, page: 1 })}
             dataUpdatedAt={dataUpdatedAt}
             onRefresh={handleRefreshAll}
           />

@@ -33,6 +33,14 @@ import { formatOptionalDate } from '@/lib/utils'
 import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 import { useAdminPermission } from '@/hooks/useAdminPermission'
 import { getErrorMessage } from '@/lib/errorUtils'
+import { useListQueryState } from '@/hooks/useListQueryState'
+
+type GroupTaskQuery = {
+  page: number
+  size: number
+  statusFilter: number
+  deletedFilter: number
+}
 
 export function GroupTaskManagePage() {
   const { id } = useParams<{ id: string }>()
@@ -40,10 +48,13 @@ export function GroupTaskManagePage() {
   const queryClient = useQueryClient()
   const gid = id ?? ''
 
-  const [page, setPage] = useState(1)
-  const [size, setSize] = useState(10)
-  const [statusFilter, setStatusFilter] = useState(-1)
-  const [deletedFilter, setDeletedFilter] = useState(0)
+  const { state: params, setState: setParams } = useListQueryState<GroupTaskQuery>({
+    page: 1,
+    size: 10,
+    statusFilter: -1,
+    deletedFilter: 0,
+  })
+
   const [selectedTaskId, setSelectedTaskId] = useState('')
   const [selectedAssignmentId, setSelectedAssignmentId] = useState('')
   const [reviewScoreInput, setReviewScoreInput] = useState('')
@@ -70,13 +81,13 @@ export function GroupTaskManagePage() {
   })
 
   const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
-    queryKey: ['group-tasks', gid, page, size, statusFilter, deletedFilter],
+    queryKey: ['group-tasks', gid, params.page, params.size, params.statusFilter, params.deletedFilter],
     queryFn: () =>
       getGroupTasksPayload(gid, {
-        page,
-        size,
-        status: statusFilter >= 1 ? statusFilter : undefined,
-        deleted: deletedFilter === 1 ? 1 : undefined,
+        page: params.page,
+        size: params.size,
+        status: params.statusFilter >= 1 ? params.statusFilter : undefined,
+        deleted: params.deletedFilter === 1 ? 1 : undefined,
       }),
     enabled: gid.length > 0,
   })
@@ -221,7 +232,7 @@ export function GroupTaskManagePage() {
         header: '操作',
         cell: ({ row }) => (
           <div className="flex items-center gap-1">
-            {deletedFilter === 0 && (
+            {params.deletedFilter === 0 && (
               <>
                 <Button
                   variant="ghost"
@@ -253,7 +264,7 @@ export function GroupTaskManagePage() {
                 )}
               </>
             )}
-            {deletedFilter === 1 && canRestoreTask && (
+            {params.deletedFilter === 1 && canRestoreTask && (
               <Button
                 variant="ghost"
                 size="icon"
@@ -267,7 +278,7 @@ export function GroupTaskManagePage() {
         ),
       },
     ],
-    [canCloseTask, canDeleteTask, canRestoreTask, deletedFilter]
+    [canCloseTask, canDeleteTask, canRestoreTask, params.deletedFilter]
   )
 
   const tasks = data?.items || []
@@ -350,10 +361,9 @@ export function GroupTaskManagePage() {
               data-testid="group-task-status-filter"
               aria-label="状态筛选"
               className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-              value={String(statusFilter)}
+              value={String(params.statusFilter)}
               onChange={(event) => {
-                setStatusFilter(Number(event.target.value))
-                setPage(1)
+                setParams({ statusFilter: Number(event.target.value), page: 1 })
               }}
             >
               <option value="-1">全部</option>
@@ -364,10 +374,9 @@ export function GroupTaskManagePage() {
             <span className="text-sm text-muted-foreground">数据视图</span>
             <select
               className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-              value={String(deletedFilter)}
+              value={String(params.deletedFilter)}
               onChange={(event) => {
-                setDeletedFilter(Number(event.target.value))
-                setPage(1)
+                setParams({ deletedFilter: Number(event.target.value), page: 1 })
                 setSelectedTaskId('')
                 setSelectedAssignmentId('')
               }}
@@ -403,19 +412,16 @@ export function GroupTaskManagePage() {
 
           <DataTable
             table={table}
-            onRowClick={deletedFilter === 0 ? (row) => setSelectedTaskId(String(row.id)) : undefined}
+            onRowClick={params.deletedFilter === 0 ? (row) => setSelectedTaskId(String(row.id)) : undefined}
           />
 
           {data && (
             <DataTablePagination
-              page={data.page}
-              pageSize={data.size}
+              page={params.page}
+              pageSize={params.size}
               total={data.total}
-              onPageChange={setPage}
-              onPageSizeChange={(nextSize) => {
-                setSize(nextSize)
-                setPage(1)
-              }}
+              onPageChange={(p) => setParams({ page: p })}
+              onPageSizeChange={(s) => setParams({ size: s, page: 1 })}
               dataUpdatedAt={dataUpdatedAt}
               onRefresh={() => refetch()}
             />
@@ -428,7 +434,7 @@ export function GroupTaskManagePage() {
           <CardTitle>任务详情</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {deletedFilter === 1 && (
+          {params.deletedFilter === 1 && (
             <p className="text-sm text-muted-foreground">已删除视图不提供详情，可直接执行恢复操作</p>
           )}
           {!selectedTaskId && (
@@ -488,7 +494,7 @@ export function GroupTaskManagePage() {
         </CardContent>
       </Card>
 
-      {deletedFilter === 0 && (
+      {params.deletedFilter === 0 && (
         <Card>
           <CardHeader>
             <CardTitle>待批改提交</CardTitle>
