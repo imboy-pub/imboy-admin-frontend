@@ -14,7 +14,7 @@ import { TopLoadingBar } from '@/components/shared/TopLoadingBar'
 
 // Route-level code splitting — each page loads on demand
 const DashboardPage = lazy(() => import('@/pages/dashboard/DashboardPage').then((m) => ({ default: m.DashboardPage })))
-const LogoutApplicationListPage = lazy(() => import('@/pages/logoutApplications/LogoutApplicationListPage').then((m) => ({ default: m.LogoutApplicationListPage })))
+const LogoutApplicationListPage = lazy(() => import('@/pages/logout-applications/LogoutApplicationListPage').then((m) => ({ default: m.LogoutApplicationListPage })))
 
 const ChannelListPage = lazy(() => import('@/modules/channels').then((m) => ({ default: m.ChannelListPage })))
 const ChannelDetailPage = lazy(() => import('@/modules/channels').then((m) => ({ default: m.ChannelDetailPage })))

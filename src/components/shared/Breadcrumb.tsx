@@ -21,7 +21,7 @@ const LABEL_MAP: Record<string, string> = {
   admins: '管理员',
   roles: '角色权限',
   logs: '日志审计',
-  logoutApplications: '注销申请',
+  'logout-applications': '注销申请',
   context: '群上下文入口',
   forbidden: '无权限',
   votes: '投票管理',
