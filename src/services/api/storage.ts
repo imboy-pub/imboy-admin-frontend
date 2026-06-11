@@ -64,7 +64,7 @@ export async function deleteAttachment(id: string): Promise<void> {
   requireApiPayload((await client.post('/storage/delete', { id })).data, '/storage/delete')
 }
 
-export type OrphanStats = { count: number; total_size: number }
+type OrphanStats = { count: number; total_size: number }
 
 export async function getOrphanStats(ageDays = 30): Promise<OrphanStats> {
   return requireApiPayload<OrphanStats>(
@@ -73,7 +73,7 @@ export async function getOrphanStats(ageDays = 30): Promise<OrphanStats> {
   )
 }
 
-export type CleanupResult = { cleaned: number; errors: number }
+type CleanupResult = { cleaned: number; errors: number }
 
 export async function cleanupOrphans(ageDays = 30): Promise<CleanupResult> {
   return requireApiPayload<CleanupResult>(

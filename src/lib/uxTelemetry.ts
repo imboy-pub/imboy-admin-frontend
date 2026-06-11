@@ -1,4 +1,4 @@
-export type UxEventName =
+type UxEventName =
   | 'ux_filter_apply'
   | 'ux_saved_view_use'
   | 'ux_batch_action_execute'
@@ -8,7 +8,7 @@ export type UxEventName =
   | 'ux_destructive_action_undone'
   | string
 
-export type UxEventPayload = Record<string, unknown>
+type UxEventPayload = Record<string, unknown>
 
 export const UX_EVENT_DISPATCH = 'imboy:ux-event'
 const UX_EVENT_SESSION_KEY = 'imboy.ux.session_id'

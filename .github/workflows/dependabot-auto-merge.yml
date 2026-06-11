@@ -35,7 +35,8 @@ jobs:
       # ── patch：approve + 开启 auto-merge（squash）──────────────────
       - name: Approve patch PR
         if: steps.meta.outputs.update-type == 'version-update:semver-patch'
-        run: gh pr review "$PR_URL" --approve --body "Auto-approved: patch version update"
+        run: |
+          gh pr review "$PR_URL" --approve --body "Auto-approved: patch version update"
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -50,7 +51,8 @@ jobs:
       # ── minor：approve + label，等人工合并 ────────────────────────
       - name: Approve minor PR
         if: steps.meta.outputs.update-type == 'version-update:semver-minor'
-        run: gh pr review "$PR_URL" --approve --body "Auto-approved: minor version update. 需人工确认后合并。"
+        run: |
+          gh pr review "$PR_URL" --approve --body "Auto-approved: minor version update. 需人工确认后合并。"
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

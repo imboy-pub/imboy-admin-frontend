@@ -51,7 +51,7 @@ import type { EntityId } from '@/types/common'
 import { trackUxEvent } from '@/lib/uxTelemetry'
 import { getErrorMessage } from '@/lib/errorUtils'
 
-export type TargetReportPanelProps = {
+type TargetReportPanelProps = {
   targetType: NonMomentReportTargetType
   targetLabel: string
   governancePath: string

@@ -13,6 +13,9 @@ node_modules
 dist
 dist-ssr
 *.local
+
+# 包管理器统一使用 bun；禁止 pnpm-lock 漂移
+pnpm-lock.yaml
 playwright-report
 test-results
 

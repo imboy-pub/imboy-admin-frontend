@@ -4,7 +4,7 @@ const FIXED_TEST_CAPTCHA = '1234'
 
 type CredentialKind = 'default' | 'super'
 
-export type AdminCredentials = {
+type AdminCredentials = {
   account: string
   password: string
 }

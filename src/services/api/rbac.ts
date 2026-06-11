@@ -3,7 +3,7 @@ import { ApiResponse } from '@/types/api'
 import { requireApiPayload } from './responseAdapter'
 import { AxiosRequestConfig } from 'axios'
 
-export interface RbacProfile {
+interface RbacProfile {
   role_id: number
   role_ids?: number[]
   role_name: string

@@ -14,6 +14,7 @@
  */
 import '../test/setupDom'
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
+import type { SetupGuardState } from './useSetupGuard'
 
 // Expose localStorage from JSDOM window
 if (typeof globalThis.localStorage === 'undefined') {
@@ -163,7 +164,6 @@ describe('useTheme — localStorage resolution', () => {
 // ---------------------------------------------------------------------------
 // useSetupGuard — async logic (tested by simulating getSetupStatus calls)
 // ---------------------------------------------------------------------------
-type SetupGuardState = { loading: boolean; needSetup: boolean; error: string | null }
 
 async function runSetupGuardLogic(
   statusFn: () => Promise<{ initialized: boolean }>
