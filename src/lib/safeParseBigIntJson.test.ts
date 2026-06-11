@@ -1,19 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-
-// Re-implement the function here for isolated testing since it's not exported from client.ts
-function safeParseBigIntJson(text: string): unknown {
-  const trimmed = text.trim()
-  if (trimmed.length === 0 || (trimmed[0] !== '{' && trimmed[0] !== '[')) {
-    return JSON.parse(text)
-  }
-
-  const safeText = trimmed.replace(
-    /(?<=[:,[\s])(-?\d{16,})(?=[,\]}\s])/g,
-    '"$1"'
-  )
-
-  return JSON.parse(safeText)
-}
+import { safeParseBigIntJson } from './safeParseBigIntJson'
 
 describe('safeParseBigIntJson', () => {
   it('converts large integers (>=16 digits) to strings', () => {
