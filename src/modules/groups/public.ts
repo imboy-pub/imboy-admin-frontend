@@ -10,6 +10,7 @@ export { GroupFileManagePage } from '@/pages/groups/GroupFileManagePage'
 export { GroupAlbumManagePage } from '@/pages/groups/GroupAlbumManagePage'
 export { GroupScheduleManagePage } from '@/pages/groups/GroupScheduleManagePage'
 export { GroupTaskManagePage } from '@/pages/groups/GroupTaskManagePage'
+export { GroupTaskListPage } from '@/pages/groups/GroupTaskListPage'
 export { GroupGovernanceLogPage } from '@/pages/groups/GroupGovernanceLogPage'
 export { GroupContextGatewayPage } from '@/pages/groups/GroupContextGatewayPage'
 

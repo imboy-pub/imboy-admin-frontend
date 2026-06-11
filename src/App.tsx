@@ -37,7 +37,7 @@ const GroupScheduleManagePage = lazy(() => import('@/modules/groups').then((m) =
 const GroupTaskManagePage = lazy(() => import('@/modules/groups').then((m) => ({ default: m.GroupTaskManagePage })))
 const GroupGovernanceLogPage = lazy(() => import('@/modules/groups').then((m) => ({ default: m.GroupGovernanceLogPage })))
 const GroupContextGatewayPage = lazy(() => import('@/modules/groups').then((m) => ({ default: m.GroupContextGatewayPage })))
-const GroupTaskListPage = lazy(() => import('@/pages/groups/GroupTaskListPage').then((m) => ({ default: m.GroupTaskListPage })))
+const GroupTaskListPage = lazy(() => import('@/modules/groups').then((m) => ({ default: m.GroupTaskListPage })))
 
 const MessageListPage = lazy(() => import('@/modules/messages').then((m) => ({ default: m.MessageListPage })))
 const MomentListPage = lazy(() => import('@/modules/moments').then((m) => ({ default: m.MomentListPage })))

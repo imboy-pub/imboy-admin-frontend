@@ -118,6 +118,25 @@ export default defineConfig([
           },
         ],
       }],
+      // no-restricted-imports 只检查静态 import；以下补齐动态 import() 的同等边界约束
+      'no-restricted-syntax': ['error',
+        {
+          selector: "ImportExpression > Literal[value=/^@\\/modules\\/[^/]+\\/.+/]",
+          message: "Import module surfaces from `@/modules/<domain>` only; do not reach into module internals (dynamic import()).",
+        },
+        {
+          selector: "ImportExpression > Literal[value=/^@\\/pages\\/(auth|users|roles|reports|feedback|channels|messages|moments|groups)\\//]",
+          message: "Use `@/modules/<domain>` instead of importing domain pages directly (dynamic import()).",
+        },
+        {
+          selector: "ImportExpression > Literal[value=/^@\\/pages\\/settings\\/(VersionPage|DDLPage)/]",
+          message: "Use `@/modules/ops_governance` instead of importing governance pages directly (dynamic import()).",
+        },
+        {
+          selector: "ImportExpression > Literal[value=/^@\\/services\\/api\\/(auth|users|roles|reports|feedback|versions|ddl|channels|messages|moments|groups|groupEnhancements)$/]",
+          message: "Use `@/modules/<domain>` instead of bypassing module boundaries (dynamic import()).",
+        },
+      ],
     },
   },
 ])
