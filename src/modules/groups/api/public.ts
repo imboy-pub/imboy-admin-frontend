@@ -106,7 +106,7 @@ export async function getGroupMembersPayload(
 export async function kickGroupMember(
   gid: EntityId,
   uid: EntityId
-): Promise<ApiResponse<{ gid: string; uid: string }>> {
+): Promise<ApiResponse<{ gid: EntityId; uid: EntityId }>> {
   const response = await client.post('/group/member/kick', { gid, uid })
   return response.data
 }

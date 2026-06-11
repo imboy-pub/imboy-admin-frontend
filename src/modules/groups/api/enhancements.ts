@@ -7,7 +7,7 @@ import type { EntityId } from '@/types/common'
 export interface GroupVote {
   id: EntityId
   group_id: EntityId
-  vote_id: string
+  vote_id: EntityId
   title: string
   description?: string
   creator_id?: EntityId
@@ -21,7 +21,7 @@ export interface GroupVote {
 
 export interface GroupVoteOption {
   id?: EntityId
-  option_id: string
+  option_id: EntityId
   option_text: string
   vote_count?: number
 }
@@ -32,7 +32,7 @@ export interface GroupVoteDetail extends GroupVote {
 
 export interface GroupSchedule {
   id: EntityId
-  schedule_id: string
+  schedule_id: EntityId
   group_id: EntityId
   title: string
   description?: string
@@ -104,7 +104,7 @@ export interface GroupCategoryListParams {
 export interface GroupFile {
   id: EntityId
   group_id: EntityId
-  file_id: string
+  file_id: EntityId
   file_name?: string
   file_category?: string
   file_size?: number
@@ -125,7 +125,7 @@ export interface GroupFileListParams {
 export interface GroupAlbum {
   id: EntityId
   group_id: EntityId
-  album_id: string
+  album_id: EntityId
   album_name?: string
   album_cover?: string
   creator_id?: EntityId
@@ -138,7 +138,7 @@ export interface GroupAlbum {
 export interface GroupTask {
   id: EntityId
   group_id: EntityId
-  task_id: string
+  task_id: EntityId
   title: string
   description?: string
   creator_id?: EntityId
@@ -158,7 +158,7 @@ export interface GroupTaskListParams {
 
 export interface GroupTaskAssignment {
   id: EntityId
-  task_id: string
+  task_id: EntityId
   user_id: EntityId
   status: number
   submitted_at?: string | null

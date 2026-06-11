@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Menu } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import type { EntityId } from '@/types/common'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { trackUxEvent } from '@/lib/uxTelemetry'
@@ -22,7 +23,7 @@ type CommandItem = {
 
 type EntitySearchResult = {
   type: 'user' | 'group' | 'channel'
-  id: string | number
+  id: EntityId
   name: string
   subtitle?: string
 }

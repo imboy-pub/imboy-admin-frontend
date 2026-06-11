@@ -2,6 +2,7 @@ import client from '@/services/api/client'
 import { requireApiPayload } from '@/services/api/responseAdapter'
 import { ApiResponse } from '@/types/api'
 import { Admin } from '@/types/admin'
+import type { EntityId } from '@/types/common'
 
 export interface LoginParams {
   account: string
@@ -11,7 +12,7 @@ export interface LoginParams {
 }
 
 export interface LoginResponse {
-  id: string
+  id: EntityId
   account: string
   nickname: string
   avatar: string
