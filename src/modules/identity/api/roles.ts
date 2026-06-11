@@ -8,6 +8,7 @@ import {
   tryWithFallback,
   tryPutWithPostFallback,
 } from '@/lib/endpointCandidates'
+import { ROLE_PICKER_FETCH_SIZE } from '@/lib/pagination'
 
 export interface RoleItem {
   id: number
@@ -193,7 +194,7 @@ async function getRoleListByConfigFallback(): Promise<RoleListPayload> {
 export async function getRoleList(): Promise<ApiResponse<unknown>> {
   return getFromCandidates(ROLE_LIST_ENDPOINTS, {
     page: 1,
-    size: 200,
+    size: ROLE_PICKER_FETCH_SIZE,
     status: -1,
   })
 }

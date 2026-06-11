@@ -1,5 +1,6 @@
 import client from '@/services/api/client'
 import { requireApiPayload } from '@/services/api/responseAdapter'
+import { DEFAULT_PAGE_SIZE } from '@/lib/pagination'
 import { ApiResponse, PaginatedResponse } from '@/types/api'
 import type { EntityId } from '@/types/common'
 
@@ -540,7 +541,7 @@ export async function deleteGroupTask(
  */
 export async function getGroupTaskPendingReviews(
   taskId: string,
-  params: GroupTaskPendingReviewListParams = { page: 1, size: 20 }
+  params: GroupTaskPendingReviewListParams = { page: 1, size: DEFAULT_PAGE_SIZE }
 ): Promise<ApiResponse<PaginatedResponse<GroupTaskAssignment>>> {
   const response = await client.get('/group/task/pending_review', {
     params: { task_id: taskId, ...params },
@@ -550,7 +551,7 @@ export async function getGroupTaskPendingReviews(
 
 export async function getGroupTaskPendingReviewsPayload(
   taskId: string,
-  params: GroupTaskPendingReviewListParams = { page: 1, size: 20 }
+  params: GroupTaskPendingReviewListParams = { page: 1, size: DEFAULT_PAGE_SIZE }
 ): Promise<PaginatedResponse<GroupTaskAssignment>> {
   return requireApiPayload(
     await getGroupTaskPendingReviews(taskId, params),

@@ -1,5 +1,6 @@
 import client from '@/services/api/client'
 import { requireApiPayload } from '@/services/api/responseAdapter'
+import { DEFAULT_PAGE_SIZE } from '@/lib/pagination'
 import { ApiResponse, PaginatedResponse } from '@/types/api'
 import { User } from '@/types/user'
 import type { EntityId } from '@/types/common'
@@ -57,7 +58,7 @@ export async function unbanUser(uid: EntityId): Promise<ApiResponse<Record<strin
 export async function searchUsers(
   keyword: string,
   page = 1,
-  size = 20
+  size = DEFAULT_PAGE_SIZE
 ): Promise<ApiResponse<PaginatedResponse<User>>> {
   const response = await client.get('/user/search', { params: { keyword, page, size } })
   return response.data

@@ -1,5 +1,6 @@
 import client from '@/services/api/client'
 import { requireApiPayload } from '@/services/api/responseAdapter'
+import { DEFAULT_PAGE_SIZE } from '@/lib/pagination'
 import { ApiResponse, PaginatedResponse } from '@/types/api'
 import { Group, GroupMember } from '@/types/group'
 import type { EntityId } from '@/types/common'
@@ -68,7 +69,7 @@ export async function updateGroup(
 export async function searchGroups(
   keyword: string,
   page = 1,
-  size = 20
+  size = DEFAULT_PAGE_SIZE
 ): Promise<ApiResponse<PaginatedResponse<Group>>> {
   const response = await client.get('/group/search', { params: { keyword, page, size } })
   return response.data
@@ -77,7 +78,7 @@ export async function searchGroups(
 export async function searchGroupsPayload(
   keyword: string,
   page = 1,
-  size = 20
+  size = DEFAULT_PAGE_SIZE
 ): Promise<PaginatedResponse<Group>> {
   return requireApiPayload(await searchGroups(keyword, page, size), '/group/search')
 }
@@ -88,7 +89,7 @@ export async function searchGroupsPayload(
 export async function getGroupMembers(
   gid: EntityId,
   page = 1,
-  size = 20
+  size = DEFAULT_PAGE_SIZE
 ): Promise<ApiResponse<PaginatedResponse<GroupMember>>> {
   const response = await client.get('/group/members', { params: { gid, page, size } })
   return response.data
@@ -97,7 +98,7 @@ export async function getGroupMembers(
 export async function getGroupMembersPayload(
   gid: EntityId,
   page = 1,
-  size = 20
+  size = DEFAULT_PAGE_SIZE
 ): Promise<PaginatedResponse<GroupMember>> {
   return requireApiPayload(await getGroupMembers(gid, page, size), '/group/members')
 }
