@@ -12,7 +12,7 @@ ImBoy 管理后台前端（React + TypeScript + Vite + Bun）。
 
 ## Migration Status / 迁移状态（2026-03-29 — 闭环）
 
-> Workspace Modular + Plugin Architecture 迁移已全部完成（Task 0-17）。
+> Workspace Modular + Plugin Architecture 迁移已全部完成（Task 0-17）；兼容 shim（`services/api/groupEnhancements`、`services/api/auth`）已于 2026-06 移除。
 
 - Stable public entries: `src/modules/identity/public.ts`, `src/modules/social_graph/public.ts`, `src/modules/groups/public.ts`, `src/modules/channels/public.ts`, `src/modules/messages/public.ts`, `src/modules/moments/public.ts`, `src/modules/ops_governance/public.ts`.
 - Module-owned API implementations: `src/modules/identity/api/{auth,users,roles}.ts`, `src/modules/social_graph/api/{tags,collects}.ts`, `src/modules/channels/api/public.ts`, `src/modules/groups/api/public.ts`, `src/modules/messages/api/public.ts`, `src/modules/moments/api/public.ts`, `src/modules/ops_governance/api/{reports,feedback,versions,ddl}.ts`.

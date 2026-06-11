@@ -2,7 +2,7 @@ import client from './client'
 import { ApiResponse, PaginatedResponse } from '@/types/api'
 import { Admin } from '@/types/admin'
 import { requireApiPayload } from './responseAdapter'
-import { getCurrentAdminPayload } from './auth'
+import { getCurrentAdminPayload } from '@/modules/identity/api/auth'
 import type { EntityId } from '@/types/common'
 
 type ApiErrorLike = {

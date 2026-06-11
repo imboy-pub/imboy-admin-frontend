@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'bun:test'
 import client from './client'
-import { getCurrentAdminPayload, loginPayload } from './auth'
+import { getCurrentAdminPayload, loginPayload } from '@/modules/identity/api/auth'
 import { getUserListPayload } from '@/modules/identity/api/users'
 import { getGroupListPayload } from '@/modules/groups/api/public'
 import { resolveMomentReportBatchWithFallback } from '@/modules/moments/api/public'

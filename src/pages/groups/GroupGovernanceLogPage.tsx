@@ -18,7 +18,7 @@ import {
   getGroupGovernanceLogsPayload,
   GroupGovernanceLog,
   GroupGovernanceLogListParams,
-} from '@/services/api/groupEnhancements'
+} from '@/modules/groups/api/enhancements'
 import { formatOptionalDate, truncate } from '@/lib/utils'
 import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 import { toast } from 'sonner'

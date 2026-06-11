@@ -20,7 +20,7 @@ import {
   deleteGroupCategory,
   getGroupCategoriesPayload,
   GroupCategory,
-} from '@/services/api/groupEnhancements'
+} from '@/modules/groups/api/enhancements'
 import { getGroupDetailPayload } from '@/modules/groups/api'
 import { useAdminPermission } from '@/hooks/useAdminPermission'
 import { getErrorMessage } from '@/lib/errorUtils'

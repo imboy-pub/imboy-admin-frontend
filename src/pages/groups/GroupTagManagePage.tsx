@@ -19,7 +19,7 @@ import {
   deleteGroupTag,
   getGroupTagsPayload,
   GroupTag,
-} from '@/services/api/groupEnhancements'
+} from '@/modules/groups/api/enhancements'
 import { formatOptionalDate } from '@/lib/utils'
 import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 import { useAdminPermission } from '@/hooks/useAdminPermission'

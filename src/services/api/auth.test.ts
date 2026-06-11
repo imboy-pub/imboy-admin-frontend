@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { normalizeLoginMeta } from './auth'
+import { normalizeLoginMeta } from '@/modules/identity/api/auth'
 
 describe('normalizeLoginMeta', () => {
   it('fills defaults when fields are missing', () => {
