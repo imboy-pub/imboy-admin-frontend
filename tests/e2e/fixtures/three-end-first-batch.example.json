@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "_comment": "管理后台三端联调 E2E 场景清单示例。复制为 three-end-first-batch.local.json 并把所有 <...> 占位符替换为管理后台 UI 或 /adm 接口返回的真实 TSID 后再跑。结构由 tests/e2e/support/scenarioManifest.ts 消费；缺失字段时对应用例会 test.skip。",
+  "scenarios": {
+    "adm_e2e_02_report_center_resolve": {
+      "group": {
+        "reportId": "<group_report_tsid>",
+        "targetId": "<group_tsid>",
+        "expectedResult": "reject"
+      },
+      "channel": {
+        "reportId": "<channel_report_tsid>",
+        "targetId": "<channel_tsid>",
+        "expectedResult": "violation"
+      },
+      "user": {
+        "reportId": "<user_report_tsid>",
+        "targetId": "<user_tsid>",
+        "expectedResult": "reject"
+      }
+    },
+    "adm_e2e_03_report_center_batch": {
+      "group": {
+        "reportIds": ["<group_report_tsid_1>", "<group_report_tsid_2>"],
+        "targetId": "<group_tsid>",
+        "expectedResult": "reject"
+      },
+      "channel": {
+        "reportIds": ["<channel_report_tsid_1>", "<channel_report_tsid_2>"],
+        "targetId": "<channel_tsid>",
+        "expectedResult": "violation"
+      },
+      "user": {
+        "reportIds": ["<user_report_tsid_1>", "<user_report_tsid_2>"],
+        "targetId": "<user_tsid>",
+        "expectedResult": "reject"
+      }
+    },
+    "adm_e2e_05_channel_message_govern": {
+      "channelId": "<channel_tsid>",
+      "pinMessageId": "<pin_message_tsid>",
+      "deleteMessageId": "<delete_message_tsid>"
+    }
+  }
+}

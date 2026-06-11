@@ -86,10 +86,10 @@ bun run build
 运行前准备：
 
 1. 启动本地后端与前端。
-2. 在仓库根目录准备统一场景清单，例如：
+2. 在本仓库 `tests/e2e/fixtures/` 下准备统一场景清单，例如：
 
 ```bash
-cp testing/fixtures/three-end-first-batch.example.json testing/fixtures/three-end-first-batch.local.json
+cp tests/e2e/fixtures/three-end-first-batch.example.json tests/e2e/fixtures/three-end-first-batch.local.json
 ```
 
 3. 在 `imboy-admin-frontend` 下准备 `.env.e2e`，可直接参考 `.env.e2e.example`。
@@ -103,8 +103,7 @@ bun run test:e2e:install
 推荐先做 preflight：
 
 ```bash
-node ../testing/scripts/check_scenario_manifest.mjs --strict ../testing/fixtures/three-end-first-batch.local.json
-node ../testing/scripts/check_playwright_fixture_readiness.mjs --strict ../testing/fixtures/three-end-first-batch.local.json
+node tests/e2e/scripts/check_scenario_manifest.mjs --strict tests/e2e/fixtures/three-end-first-batch.local.json
 ```
 
 运行 E2E 测试：
@@ -121,7 +120,7 @@ PLAYWRIGHT_DISABLE_WEBSERVER=1 bun run test:e2e:list  # 仅枚举用例
 - 管理员与角色页建议使用超级管理员账号，可单独提供 `IMBOY_ADMIN_E2E_SUPER_ACCOUNT` / `IMBOY_ADMIN_E2E_SUPER_PASSWORD`。
 - 举报中心和频道消息治理页依赖共享场景清单中的固定工单 / 固定消息数据。
 - `reportId` / `reportIds` / `channelId` / `pinMessageId` / `deleteMessageId` 应填写管理后台 UI 或 `/adm` 接口返回的 ID，而不是默认假设数据库自增主键。
-- `testing/fixtures/three-end-first-batch.example.json` 现在只保留结构占位值，复制成 `.local.json` 并替换为真实 ID 后再跑。
+- `tests/e2e/fixtures/three-end-first-batch.example.json` 现在只保留结构占位值，复制成 `.local.json` 并替换为真实 ID 后再跑。
 - `IMBOY_ADMIN_E2E_CHANNEL_ID` 仍可作为频道 ID 的兜底变量，但推荐统一写进场景清单。
 
 ## Architecture Gates / 架构门禁
