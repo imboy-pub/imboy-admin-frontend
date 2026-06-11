@@ -1,17 +1,18 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, Circle, Plus, Save, ShieldCheck, SlidersHorizontal } from 'lucide-react'
+import { Plus, Save, ShieldCheck, SlidersHorizontal } from 'lucide-react'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
-import { EntityDrawer, ErrorState, LoadingState, PageHeader } from '@/components/shared'
+import { ErrorState, LoadingState, PageHeader } from '@/components/shared'
 import { cn } from '@/lib/utils'
 import { getCurrentAdminPayload } from '@/modules/identity/api'
 import { getMyRbacProfilePayload } from '@/services/api/rbac'
 import { fetchSidebarMenuConfig, type PermissionCatalogItem, type RoleTemplateConfig } from '@/services/api/adminConfig'
 import { createRole, getRoleListPayload, updateRolePermissions } from '@/modules/identity/api'
+import { PermissionMatrix } from './PermissionMatrix'
+import { CreateRoleDrawer } from './CreateRoleDrawer'
 
 type PermissionItem = PermissionCatalogItem
 type RoleTemplate = RoleTemplateConfig
@@ -738,100 +739,24 @@ export function RolePermissionPage() {
         </Card>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>权限矩阵（审阅）</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-sm">
-              <thead>
-                <tr className="border-b">
-                  <th className="px-3 py-2 text-left">权限</th>
-                  <th className="px-3 py-2 text-left">模块</th>
-                  <th className="px-3 py-2 text-left">路径</th>
-                  {roleTemplates.map((role) => (
-                    <th key={role.id} className="px-3 py-2 text-center">
-                      {role.name}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filteredPermissions.map((item) => (
-                  <tr key={item.key} className="border-b last:border-0">
-                    <td className="px-3 py-2 font-medium">{item.name}</td>
-                    <td className="px-3 py-2 text-muted-foreground">{item.module}</td>
-                    <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{item.path}</td>
-                    {roleTemplates.map((role) => {
-                      const allowed = rolePermissionSets.get(role.id)?.has(item.key) || false
-                      return (
-                        <td key={`${item.key}-${role.id}`} className="px-3 py-2 text-center">
-                          {allowed ? (
-                            <Check className="mx-auto h-4 w-4 text-green-600" />
-                          ) : (
-                            <Circle className="mx-auto h-4 w-4 text-muted-foreground/40" />
-                          )}
-                        </td>
-                      )
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+      <PermissionMatrix
+        filteredPermissions={filteredPermissions}
+        roleTemplates={roleTemplates}
+        rolePermissionSets={rolePermissionSets}
+      />
 
-      <EntityDrawer
+      <CreateRoleDrawer
         open={createDrawerOpen}
         onOpenChange={setCreateDrawerOpen}
-        title="新增角色"
-        subtitle="创建新角色并设置初始权限集合（可留空后续编辑）"
-        actions={(
-          <>
-            <Button
-              variant="outline"
-              onClick={() => setCreateDrawerOpen(false)}
-              disabled={createRoleMutation.isPending}
-            >
-              取消
-            </Button>
-            <Button onClick={handleCreateRole} disabled={createRoleMutation.isPending}>
-              {createRoleMutation.isPending ? '创建中...' : '确认创建'}
-            </Button>
-          </>
-        )}
-      >
-        <div className="grid gap-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">角色名 *</label>
-            <Input
-              placeholder="例如：内容巡检管理员"
-              value={createRoleName}
-              onChange={(event) => setCreateRoleName(event.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">角色描述</label>
-            <Textarea
-              placeholder="可选"
-              value={createRoleDescription}
-              onChange={(event) => setCreateRoleDescription(event.target.value)}
-              rows={3}
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">初始权限键（可选）</label>
-            <Textarea
-              placeholder="支持逗号、空格或换行分隔，例如：reports:read, reports:handle"
-              value={createRolePermissions}
-              onChange={(event) => setCreateRolePermissions(event.target.value)}
-              rows={4}
-            />
-          </div>
-        </div>
-      </EntityDrawer>
+        roleName={createRoleName}
+        onRoleNameChange={setCreateRoleName}
+        roleDescription={createRoleDescription}
+        onRoleDescriptionChange={setCreateRoleDescription}
+        rolePermissions={createRolePermissions}
+        onRolePermissionsChange={setCreateRolePermissions}
+        onConfirm={handleCreateRole}
+        isPending={createRoleMutation.isPending}
+      />
     </div>
   )
 }
