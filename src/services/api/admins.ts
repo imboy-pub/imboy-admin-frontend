@@ -4,12 +4,12 @@ import { Admin } from '@/types/admin'
 import { requireApiPayload } from './responseAdapter'
 import { getCurrentAdminPayload } from '@/modules/identity/api/auth'
 import type { EntityId } from '@/types/common'
-
-type ApiErrorLike = {
-  code?: number | string
-  msg?: string
-  message?: string
-}
+import {
+  buildEndpointCandidates,
+  isEndpointUnavailable,
+  tryWithFallback,
+  tryPutWithPostFallback,
+} from '@/lib/endpointCandidates'
 
 export interface AdminListParams {
   page?: number
@@ -43,19 +43,6 @@ const DEFAULT_ADMIN_CREATE_ENDPOINTS = ['/admin/create', '/admins/create']
 const DEFAULT_ADMIN_ASSIGN_ROLE_ENDPOINTS = ['/admin/assign_role', '/admin/role/update', '/admins/assign-role']
 const DEFAULT_ADMIN_DISABLE_ENDPOINTS = ['/admin/disable', '/admins/disable', '/admin/delete', '/admins/delete']
 
-function normalizeEndpoint(path: string): string {
-  const trimmed = path.trim()
-  if (!trimmed) return ''
-  return trimmed.startsWith('/') ? trimmed : `/${trimmed}`
-}
-
-function buildEndpointCandidates(rawEnv: unknown, defaults: string[]): string[] {
-  const configured = typeof rawEnv === 'string'
-    ? rawEnv.split(',').map((item) => normalizeEndpoint(item)).filter((item) => item.length > 0)
-    : []
-
-  return Array.from(new Set([...configured, ...defaults.map((item) => normalizeEndpoint(item)).filter((item) => item.length > 0)]))
-}
 
 const ADMIN_LIST_ENDPOINTS = buildEndpointCandidates(import.meta.env.VITE_ADMIN_LIST_ENDPOINT, DEFAULT_ADMIN_LIST_ENDPOINTS)
 const ADMIN_CREATE_ENDPOINTS = buildEndpointCandidates(import.meta.env.VITE_ADMIN_CREATE_ENDPOINT, DEFAULT_ADMIN_CREATE_ENDPOINTS)
@@ -65,35 +52,6 @@ const ADMIN_ASSIGN_ROLE_ENDPOINTS = buildEndpointCandidates(
   DEFAULT_ADMIN_ASSIGN_ROLE_ENDPOINTS
 )
 
-function toErrorCode(error: unknown): number | undefined {
-  if (!error || typeof error !== 'object') return undefined
-  const record = error as ApiErrorLike
-  const parsed = Number(record.code)
-  return Number.isFinite(parsed) ? parsed : undefined
-}
-
-function toErrorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message
-  if (!error || typeof error !== 'object') return String(error)
-  const record = error as ApiErrorLike
-  if (typeof record.msg === 'string' && record.msg.length > 0) return record.msg
-  if (typeof record.message === 'string' && record.message.length > 0) return record.message
-  return String(error)
-}
-
-function isAdminRbacEndpointUnavailable(error: unknown): boolean {
-  const code = toErrorCode(error)
-  if (code === 404 || code === 405 || code === 501) {
-    return true
-  }
-
-  const message = toErrorMessage(error).toLowerCase()
-  return message.includes('not found') ||
-    message.includes('404') ||
-    message.includes('method not allowed') ||
-    message.includes('endpoint unavailable') ||
-    message.includes('invalid url')
-}
 
 function toPositiveInt(value: unknown, fallback: number): number {
   const parsed = Number(value)
@@ -177,93 +135,29 @@ function normalizeAdminListPayload(payload: unknown): PaginatedResponse<Admin> {
   }
 }
 
-async function getFromCandidates(
-  endpoints: string[],
-  params?: Record<string, unknown>
-): Promise<ApiResponse<unknown>> {
-  let lastError: unknown = new Error('No endpoint candidates configured')
-
-  for (const endpoint of endpoints) {
-    try {
-      const response = await client.get(endpoint, { params })
-      return response.data as ApiResponse<unknown>
-    } catch (error) {
-      lastError = error
-      if (isAdminRbacEndpointUnavailable(error)) {
-        if (import.meta.env.DEV) {
-          console.warn(`[admins] GET ${endpoint} unavailable, trying next candidate:`, toErrorMessage(error))
-        }
-        continue
-      }
-      throw error
-    }
-  }
-
-  throw lastError
+function getFromCandidates(endpoints: string[], params?: Record<string, unknown>): Promise<ApiResponse<unknown>> {
+  return tryWithFallback(
+    endpoints,
+    (ep) => client.get(ep, { params }).then((r) => r.data as ApiResponse<unknown>),
+    '[admins] GET'
+  )
 }
 
-async function postToCandidates(
-  endpoints: string[],
-  body: Record<string, unknown>
-): Promise<ApiResponse<Record<string, never>>> {
-  let lastError: unknown = new Error('No endpoint candidates configured')
-
-  for (const endpoint of endpoints) {
-    try {
-      const response = await client.post(endpoint, body)
-      return response.data as ApiResponse<Record<string, never>>
-    } catch (error) {
-      lastError = error
-      if (isAdminRbacEndpointUnavailable(error)) {
-        if (import.meta.env.DEV) {
-          console.warn(`[admins] POST ${endpoint} unavailable, trying next candidate:`, toErrorMessage(error))
-        }
-        continue
-      }
-      throw error
-    }
-  }
-
-  throw lastError
+function postToCandidates(endpoints: string[], body: Record<string, unknown>): Promise<ApiResponse<Record<string, never>>> {
+  return tryWithFallback(
+    endpoints,
+    (ep) => client.post(ep, body).then((r) => r.data as ApiResponse<Record<string, never>>),
+    '[admins] POST'
+  )
 }
 
-async function putOrPostToCandidates(
-  endpoints: string[],
-  body: Record<string, unknown>
-): Promise<ApiResponse<Record<string, never>>> {
-  let lastError: unknown = new Error('No endpoint candidates configured')
-
-  for (const endpoint of endpoints) {
-    try {
-      const response = await client.put(endpoint, body)
-      return response.data as ApiResponse<Record<string, never>>
-    } catch (putError) {
-      if (!isAdminRbacEndpointUnavailable(putError)) {
-        throw putError
-      }
-
-      lastError = putError
-      if (import.meta.env.DEV) {
-        console.warn(`[admins] PUT ${endpoint} unavailable, falling back to POST:`, toErrorMessage(putError))
-      }
-
-      try {
-        const response = await client.post(endpoint, body)
-        return response.data as ApiResponse<Record<string, never>>
-      } catch (postError) {
-        lastError = postError
-        if (isAdminRbacEndpointUnavailable(postError)) {
-          if (import.meta.env.DEV) {
-            console.warn(`[admins] POST ${endpoint} also unavailable, trying next candidate:`, toErrorMessage(postError))
-          }
-          continue
-        }
-        throw postError
-      }
-    }
-  }
-
-  throw lastError
+function putOrPostToCandidates(endpoints: string[], body: Record<string, unknown>): Promise<ApiResponse<Record<string, never>>> {
+  return tryPutWithPostFallback(
+    endpoints,
+    (ep) => client.put(ep, body).then((r) => r.data as ApiResponse<Record<string, never>>),
+    (ep) => client.post(ep, body).then((r) => r.data as ApiResponse<Record<string, never>>),
+    '[admins]'
+  )
 }
 
 async function getAdminList(
@@ -283,7 +177,7 @@ export async function getAdminListPayload(
       source: 'list',
     }
   } catch (error) {
-    if (!isAdminRbacEndpointUnavailable(error)) {
+    if (!isEndpointUnavailable(error)) {
       throw error
     }
 
