@@ -70,6 +70,14 @@ const SystemHealthPage = lazy(() => import('@/pages/system-health/SystemHealthPa
 const PluginManagementPage = lazy(() => import('@/modules/plugin_management').then((m) => ({ default: m.PluginManagementPage })))
 const PluginLogPage = lazy(() => import('@/modules/plugin_management').then((m) => ({ default: m.PluginLogPage })))
 
+// 财务管理模块
+const WalletListPage = lazy(() => import('@/modules/finance').then((m) => ({ default: m.WalletListPage })))
+const RechargeOrderListPage = lazy(() => import('@/modules/finance').then((m) => ({ default: m.RechargeOrderListPage })))
+const PaymentTransactionListPage = lazy(() => import('@/modules/finance').then((m) => ({ default: m.PaymentTransactionListPage })))
+const BillingPlanListPage = lazy(() => import('@/modules/finance').then((m) => ({ default: m.BillingPlanListPage })))
+const BillingSubscriptionListPage = lazy(() => import('@/modules/finance').then((m) => ({ default: m.BillingSubscriptionListPage })))
+const BillingInvoiceListPage = lazy(() => import('@/modules/finance').then((m) => ({ default: m.BillingInvoiceListPage })))
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -561,6 +569,56 @@ function App() {
                   element={(
                     <PermissionRoute permission="analytics:view" roles={[1, 2]}>
                       <AnalyticsPage />
+                    </PermissionRoute>
+                  )}
+                />
+
+                {/* 财务管理 */}
+                <Route
+                  path="/wallets"
+                  element={(
+                    <PermissionRoute permission="finance:read" roles={[1, 2]}>
+                      <WalletListPage />
+                    </PermissionRoute>
+                  )}
+                />
+                <Route
+                  path="/recharge-orders"
+                  element={(
+                    <PermissionRoute permission="finance:read" roles={[1, 2]}>
+                      <RechargeOrderListPage />
+                    </PermissionRoute>
+                  )}
+                />
+                <Route
+                  path="/payment-transactions"
+                  element={(
+                    <PermissionRoute permission="finance:read" roles={[1, 2]}>
+                      <PaymentTransactionListPage />
+                    </PermissionRoute>
+                  )}
+                />
+                <Route
+                  path="/billing-plans"
+                  element={(
+                    <PermissionRoute permission="finance:read" roles={[1, 2]}>
+                      <BillingPlanListPage />
+                    </PermissionRoute>
+                  )}
+                />
+                <Route
+                  path="/billing-subscriptions"
+                  element={(
+                    <PermissionRoute permission="finance:read" roles={[1, 2]}>
+                      <BillingSubscriptionListPage />
+                    </PermissionRoute>
+                  )}
+                />
+                <Route
+                  path="/billing-invoices"
+                  element={(
+                    <PermissionRoute permission="finance:read" roles={[1, 2]}>
+                      <BillingInvoiceListPage />
                     </PermissionRoute>
                   )}
                 />

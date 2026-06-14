@@ -16,6 +16,11 @@ import {
   HeartPulse,
   HardDrive,
   Puzzle,
+  Wallet,
+  CreditCard,
+  DollarSign,
+  Receipt,
+  TrendingUp,
   type LucideIcon,
 } from 'lucide-react'
 import type { SidebarMenuConfig } from '@/services/api/adminConfig'
@@ -50,6 +55,11 @@ export const iconMap: Record<string, LucideIcon> = {
   HeartPulse,
   HardDrive,
   Puzzle,
+  Wallet,
+  CreditCard,
+  DollarSign,
+  Receipt,
+  TrendingUp,
 }
 
 export const defaultConfig: SidebarMenuConfig = {
@@ -85,6 +95,18 @@ export const defaultConfig: SidebarMenuConfig = {
         { path: '/messages', icon: 'MessageSquare', label: '消息管理', roles: [1, 2, 3], permission: 'messages:read' },
         { path: '/logout-applications', icon: 'UserMinus', label: '注销申请', roles: [1, 2, 3], permission: 'logout_applications:read' },
         { path: '/logs', icon: 'FileText', label: '日志审计', roles: [1, 3], permission: 'logs:view' },
+      ],
+    },
+    {
+      label: '财务管理',
+      icon: 'Wallet',
+      children: [
+        { path: '/wallets', icon: 'Wallet', label: '钱包管理', roles: [1, 2], permission: 'finance:read' },
+        { path: '/recharge-orders', icon: 'CreditCard', label: '充值订单', roles: [1, 2], permission: 'finance:read' },
+        { path: '/payment-transactions', icon: 'DollarSign', label: '支付流水', roles: [1, 2], permission: 'finance:read' },
+        { path: '/billing-plans', icon: 'TrendingUp', label: '套餐管理', roles: [1, 2], permission: 'finance:read' },
+        { path: '/billing-subscriptions', icon: 'Receipt', label: '订阅管理', roles: [1, 2], permission: 'finance:read' },
+        { path: '/billing-invoices', icon: 'FileText', label: '账单管理', roles: [1, 2], permission: 'finance:read' },
       ],
     },
     {
