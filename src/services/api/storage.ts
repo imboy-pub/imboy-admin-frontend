@@ -64,6 +64,13 @@ export async function deleteAttachment(id: string): Promise<void> {
   requireApiPayload((await client.post('/storage/delete', { id })).data, '/storage/delete')
 }
 
+export async function getDownloadUrl(id: string): Promise<{ url: string }> {
+  return requireApiPayload<{ url: string }>(
+    (await client.get('/storage/download', { params: { id } })).data,
+    '/storage/download'
+  )
+}
+
 type OrphanStats = { count: number; total_size: number }
 
 export async function getOrphanStats(ageDays = 30): Promise<OrphanStats> {

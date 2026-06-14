@@ -10,6 +10,7 @@ import { PageHeader, LoadingState, StatsCard, DataTablePagination, StatusBadge, 
 import {
   getStorageStats, getStorageList, formatFileSize, type StorageItem,
   disableAttachment, enableAttachment, deleteAttachment,
+  getDownloadUrl,
   getOrphanStats, cleanupOrphans,
 } from '@/services/api/storage'
 import { formatDate } from '@/lib/utils'
@@ -46,6 +47,7 @@ export function StorageOverviewPage() {
   const [orphanQueryEnabled, setOrphanQueryEnabled] = useState(false)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [pendingAction, setPendingAction] = useState<{ type: 'disable' | 'enable' | 'delete'; id: string } | null>(null)
+  const [downloadingId, setDownloadingId] = useState<string | null>(null)
 
   const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useQuery({
     queryKey: ['storage', 'stats'],
@@ -115,6 +117,18 @@ export function StorageOverviewPage() {
   const handleSearch = useCallback(() => {
     setParams({ keyword: localKeyword, page: 1 })
   }, [localKeyword, setParams])
+
+  const handleDownload = useCallback(async (id: string) => {
+    try {
+      setDownloadingId(id)
+      const { url } = await getDownloadUrl(id)
+      window.open(url, '_blank', 'noopener,noreferrer')
+    } catch (err: unknown) {
+      toast.error(`下载失败: ${getErrorMessage(err)}`)
+    } finally {
+      setDownloadingId(null)
+    }
+  }, [])
 
   const actionLoading = disableMutation.isPending || enableMutation.isPending || deleteMutation.isPending
 
@@ -270,17 +284,19 @@ export function StorageOverviewPage() {
                           </td>
                           <td className="py-3 text-right">
                             <div className="flex items-center justify-end gap-1">
-                              {item.url && (
-                                <a
-                                  href={item.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center text-xs text-primary hover:underline px-1"
-                                >
+                              <button
+                                type="button"
+                                onClick={() => handleDownload(item.id)}
+                                disabled={downloadingId === item.id}
+                                className="inline-flex items-center text-xs text-primary hover:underline px-1 disabled:opacity-50"
+                              >
+                                {downloadingId === item.id ? (
+                                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                ) : (
                                   <Download className="mr-1 h-3 w-3" />
-                                  下载
-                                </a>
-                              )}
+                                )}
+                                下载
+                              </button>
                               {item.status === 1 && (
                                 <Button
                                   variant="outline"
