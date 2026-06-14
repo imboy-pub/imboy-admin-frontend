@@ -77,6 +77,7 @@ const PaymentTransactionListPage = lazy(() => import('@/modules/finance').then((
 const BillingPlanListPage = lazy(() => import('@/modules/finance').then((m) => ({ default: m.BillingPlanListPage })))
 const BillingSubscriptionListPage = lazy(() => import('@/modules/finance').then((m) => ({ default: m.BillingSubscriptionListPage })))
 const BillingInvoiceListPage = lazy(() => import('@/modules/finance').then((m) => ({ default: m.BillingInvoiceListPage })))
+const PricingPage = lazy(() => import('@/pages/pricing/PricingPage').then((m) => ({ default: m.PricingPage })))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -619,6 +620,14 @@ function App() {
                   element={(
                     <PermissionRoute permission="finance:read" roles={[1, 2]}>
                       <BillingInvoiceListPage />
+                    </PermissionRoute>
+                  )}
+                />
+                <Route
+                  path="/pricing"
+                  element={(
+                    <PermissionRoute permission="finance:read" roles={[1, 2]}>
+                      <PricingPage />
                     </PermissionRoute>
                   )}
                 />

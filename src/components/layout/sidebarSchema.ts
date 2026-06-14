@@ -107,6 +107,7 @@ export const defaultConfig: SidebarMenuConfig = {
         { path: '/billing-plans', icon: 'TrendingUp', label: '套餐管理', roles: [1, 2], permission: 'finance:read' },
         { path: '/billing-subscriptions', icon: 'Receipt', label: '订阅管理', roles: [1, 2], permission: 'finance:read' },
         { path: '/billing-invoices', icon: 'FileText', label: '账单管理', roles: [1, 2], permission: 'finance:read' },
+        { path: '/pricing', icon: 'DollarSign', label: '产品定价', roles: [1, 2], permission: 'finance:read' },
       ],
     },
     {
