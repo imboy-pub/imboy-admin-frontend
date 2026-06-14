@@ -96,11 +96,11 @@ export function MutedUsersPage() {
     })
   }
 
-  const toggleSelectAll = (list: { uid: string }[]) => {
+  const toggleSelectAll = (list: { uid: string; user_id?: string }[]) => {
     if (selectedUids.size === list.length) {
       setSelectedUids(new Set())
     } else {
-      setSelectedUids(new Set(list.map((u) => u.uid)))
+      setSelectedUids(new Set(list.map((u) => u.user_id ?? u.uid)))
     }
   }
 
@@ -166,30 +166,33 @@ export function MutedUsersPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {list.map((user) => (
-                <TableRow key={user.uid}>
-                  <TableCell>
-                    <Checkbox
-                      checked={selectedUids.has(user.uid)}
-                      onCheckedChange={() => toggleSelect(user.uid)}
-                    />
-                  </TableCell>
-                  <TableCell className="font-mono text-sm">{user.uid}</TableCell>
-                  <TableCell>
-                    {new Date(user.mute_until * 1000).toLocaleString('zh-CN')}
-                  </TableCell>
-                  <TableCell>{formatRemaining(user.remaining_seconds)}</TableCell>
-                  <TableCell>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setConfirmUid(user.uid)}
-                    >
-                      解禁
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {list.map((user) => {
+                const userId = user.user_id ?? user.uid
+                return (
+                  <TableRow key={userId}>
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedUids.has(userId)}
+                        onCheckedChange={() => toggleSelect(userId)}
+                      />
+                    </TableCell>
+                    <TableCell className="font-mono text-sm">{userId}</TableCell>
+                    <TableCell>
+                      {new Date(user.mute_until * 1000).toLocaleString('zh-CN')}
+                    </TableCell>
+                    <TableCell>{formatRemaining(user.remaining_seconds)}</TableCell>
+                    <TableCell>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setConfirmUid(userId)}
+                      >
+                        解禁
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
             </TableBody>
           </Table>
         </div>

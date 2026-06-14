@@ -4,6 +4,7 @@ import type { EntityId } from '@/types/common'
 
 interface MutedUser {
   uid: EntityId
+  user_id?: EntityId
   mute_until: number
   remaining_seconds: number
 }

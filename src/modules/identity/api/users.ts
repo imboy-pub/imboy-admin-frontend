@@ -34,7 +34,7 @@ export type UserDetail = User & {
  * @deprecated Prefer `getUserDetailPayload` to consume typed payload directly.
  */
 export async function getUserDetail(uid: EntityId): Promise<ApiResponse<UserDetail>> {
-  const response = await client.get('/user/detail', { params: { uid } })
+  const response = await client.get('/user/detail', { params: { user_id: uid } })
   return response.data
 }
 
@@ -43,12 +43,12 @@ export async function getUserDetailPayload(uid: EntityId): Promise<UserDetail> {
 }
 
 export async function banUser(uid: EntityId): Promise<ApiResponse<Record<string, never>>> {
-  const response = await client.post('/user/ban', { uid })
+  const response = await client.post('/user/ban', { user_id: uid })
   return response.data
 }
 
 export async function unbanUser(uid: EntityId): Promise<ApiResponse<Record<string, never>>> {
-  const response = await client.post('/user/unban', { uid })
+  const response = await client.post('/user/unban', { user_id: uid })
   return response.data
 }
 
@@ -64,6 +64,6 @@ export async function searchUsers(
   return response.data
 }
 
-export async function searchUsersPayload(keyword: string, page = 1, size = 20): Promise<PaginatedResponse<User>> {
+export async function searchUsersPayload(keyword: string, page = 1, size = DEFAULT_PAGE_SIZE): Promise<PaginatedResponse<User>> {
   return requireApiPayload(await searchUsers(keyword, page, size), '/user/search')
 }
