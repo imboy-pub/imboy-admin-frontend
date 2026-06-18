@@ -9,17 +9,33 @@ interface MutedUser {
   remaining_seconds: number
 }
 
-interface MutedUserListResponse {
+export interface MutedUserListParams {
+  page?: number
+  size?: number
+}
+
+export interface MutedUserListResponse {
   list: MutedUser[]
+  total: number
+  page: number
+  size: number
 }
 
-export function mutedUsersQueryKey() {
-  return ['muted-users', 'list'] as const
+export function mutedUsersQueryKey(params?: MutedUserListParams) {
+  return ['muted-users', 'list', params ?? {}] as const
 }
 
-export async function listMutedUsers(): Promise<MutedUserListResponse> {
-  const res = await client.get('/admin/muted_users/list')
-  return requireApiPayload<MutedUserListResponse>(res.data, 'muted_users/list')
+export async function listMutedUsers(
+  params: MutedUserListParams = { page: 1, size: 50 }
+): Promise<MutedUserListResponse> {
+  const res = await client.get('/admin/muted_users/list', { params })
+  const payload = requireApiPayload<Partial<MutedUserListResponse>>(res.data, 'muted_users/list')
+  return {
+    list: payload.list ?? [],
+    total: payload.total ?? (payload.list?.length ?? 0),
+    page: payload.page ?? params.page ?? 1,
+    size: payload.size ?? params.size ?? 50,
+  }
 }
 
 export async function unmuteUser(uid: EntityId): Promise<void> {

@@ -112,13 +112,8 @@ export function MutedUsersPage() {
     return <ErrorState message={getErrorMessage(error)} onRetry={() => void refetch()} />
   }
 
-  // TODO: Backend API does not support pagination yet. Apply client-side limit to avoid
-  // rendering performance issues with very large lists. Remove this once the backend
-  // supports page/size parameters in /admin/muted_users/list.
-  const CLIENT_PAGE_LIMIT = 200
-  const fullList = data?.list ?? []
-  const list = fullList.slice(0, CLIENT_PAGE_LIMIT)
-  const isTruncated = fullList.length > CLIENT_PAGE_LIMIT
+  const list = data?.list ?? []
+  const total = data?.total ?? list.length
 
   return (
     <div className="space-y-6">
@@ -138,9 +133,9 @@ export function MutedUsersPage() {
         }
       />
 
-      {isTruncated && (
+      {total > list.length && (
         <p className="text-sm text-amber-700">
-          当前共 {fullList.length} 个禁言用户，仅展示前 {CLIENT_PAGE_LIMIT} 条。
+          当前共 {total} 个禁言用户，本页显示 {list.length} 条。
         </p>
       )}
 

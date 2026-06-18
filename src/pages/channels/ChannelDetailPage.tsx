@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Loader2, Pencil, Trash2, Users, MessageSquare, Shield, Mail, FileText } from 'lucide-react'
+import { ArrowLeft, Loader2, Pencil, Trash2, Users, MessageSquare, Shield, Mail, FileText, DollarSign } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { ConfirmDialog, ErrorState, LoadingState, PageHeader, StatusBadge } from '@/components/shared'
-import { ChannelUpdateParams, deleteChannel, getChannelDetailPayload, getChannelStatsPayload, updateChannel } from '@/modules/channels/api'
+import { ChannelUpdateParams, ChannelPriceParams, deleteChannel, getChannelDetailPayload, getChannelStatsPayload, setChannelPrice, updateChannel } from '@/modules/channels/api'
 import { formatDate } from '@/lib/utils'
 import { useAdminFeatures, useAdminEntryEnabled } from '@/hooks/useAdminFeatures'
 import { isAdminFeatureEnabled } from '@/services/api/features'
@@ -21,6 +21,14 @@ type ChannelForm = {
   type: number
   status: number
   avatar: string
+  description: string
+}
+
+type ChannelPriceForm = {
+  price_yuan: string
+  original_price_yuan: string
+  currency: string
+  subscription_type: number
   description: string
 }
 
@@ -42,6 +50,16 @@ function toFormData(channel: {
   }
 }
 
+function toPriceFormData(channel: { price?: number; original_price?: number; currency?: string; subscription_type?: number }): ChannelPriceForm {
+  return {
+    price_yuan: channel.price ? (channel.price / 100).toFixed(2) : '',
+    original_price_yuan: channel.original_price ? (channel.original_price / 100).toFixed(2) : '',
+    currency: channel.currency ?? 'CNY',
+    subscription_type: channel.subscription_type ?? 1,
+    description: '',
+  }
+}
+
 export function ChannelDetailPage() {
   const { id } = useParams<{ id: string }>()
   const [searchParams] = useSearchParams()
@@ -51,6 +69,8 @@ export function ChannelDetailPage() {
   const [showConfirm, setShowConfirm] = useState(false)
   const [isEditing, setIsEditing] = useState(() => searchParams.get('edit') === '1')
   const [formData, setFormData] = useState<ChannelForm | null>(null)
+  const [isPriceEditing, setIsPriceEditing] = useState(false)
+  const [priceFormData, setPriceFormData] = useState<ChannelPriceForm | null>(null)
   const { data: featureFlags } = useAdminFeatures()
   const channelEntryEnabled = useAdminEntryEnabled('channel')
 
@@ -89,6 +109,20 @@ export function ChannelDetailPage() {
     },
     onError: (err: unknown) => {
       toast.error(`更新失败: ${getErrorMessage(err)}`)
+    },
+  })
+
+  const priceMutation = useMutation({
+    mutationFn: (payload: ChannelPriceParams) => setChannelPrice(channelId, payload),
+    onSuccess: () => {
+      toast.success('频道价格已更新')
+      queryClient.invalidateQueries({ queryKey: ['channel', channelId] })
+      setPriceFormData(null)
+      setIsPriceEditing(false)
+      void refetch()
+    },
+    onError: (err: unknown) => {
+      toast.error(`价格更新失败: ${getErrorMessage(err)}`)
     },
   })
 
@@ -363,6 +397,135 @@ export function ChannelDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      {channel.type === 2 && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="flex items-center gap-2">
+              <DollarSign className="h-5 w-5" />
+              频道价格
+            </CardTitle>
+            {!isPriceEditing && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setPriceFormData(toPriceFormData(channel))
+                  setIsPriceEditing(true)
+                }}
+              >
+                <Pencil className="h-4 w-4 mr-1" />
+                设置价格
+              </Button>
+            )}
+          </CardHeader>
+          <CardContent>
+            {isPriceEditing && priceFormData ? (
+              <div className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="price-yuan">价格（元）</Label>
+                    <Input
+                      id="price-yuan"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={priceFormData.price_yuan}
+                      onChange={(e) => setPriceFormData((prev) => prev ? { ...prev, price_yuan: e.target.value } : prev)}
+                      placeholder="例如 9.90"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="original-price-yuan">原价（元，可选）</Label>
+                    <Input
+                      id="original-price-yuan"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={priceFormData.original_price_yuan}
+                      onChange={(e) => setPriceFormData((prev) => prev ? { ...prev, original_price_yuan: e.target.value } : prev)}
+                      placeholder="例如 19.90"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="currency">货币</Label>
+                    <select
+                      id="currency"
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      value={priceFormData.currency}
+                      onChange={(e) => setPriceFormData((prev) => prev ? { ...prev, currency: e.target.value } : prev)}
+                    >
+                      <option value="CNY">CNY 人民币</option>
+                      <option value="USD">USD 美元</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="subscription-type">订阅类型</Label>
+                    <select
+                      id="subscription-type"
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      value={String(priceFormData.subscription_type)}
+                      onChange={(e) => setPriceFormData((prev) => prev ? { ...prev, subscription_type: Number(e.target.value) } : prev)}
+                    >
+                      <option value="1">一次性</option>
+                      <option value="2">月订阅</option>
+                      <option value="3">年订阅</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => { setPriceFormData(null); setIsPriceEditing(false) }}
+                    disabled={priceMutation.isPending}
+                  >
+                    取消
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      const priceFen = Math.round(parseFloat(priceFormData.price_yuan || '0') * 100)
+                      if (priceFen <= 0) { toast.error('价格必须大于 0'); return }
+                      const originalFen = priceFormData.original_price_yuan
+                        ? Math.round(parseFloat(priceFormData.original_price_yuan) * 100)
+                        : undefined
+                      priceMutation.mutate({
+                        price_fen: priceFen,
+                        original_price_fen: originalFen,
+                        currency: priceFormData.currency,
+                        subscription_type: priceFormData.subscription_type,
+                        description: priceFormData.description,
+                      })
+                    }}
+                    disabled={priceMutation.isPending}
+                  >
+                    {priceMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                    保存价格
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <dl className="grid grid-cols-2 gap-4">
+                <div>
+                  <dt className="text-sm text-muted-foreground">当前价格</dt>
+                  <dd className="font-medium">
+                    {channel.price ? `${(channel.price / 100).toFixed(2)} ${channel.currency ?? 'CNY'}` : '未设置'}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-sm text-muted-foreground">原价</dt>
+                  <dd>{channel.original_price ? `${(channel.original_price / 100).toFixed(2)} ${channel.currency ?? 'CNY'}` : '-'}</dd>
+                </div>
+                <div>
+                  <dt className="text-sm text-muted-foreground">订阅类型</dt>
+                  <dd>
+                    {{ 1: '一次性', 2: '月订阅', 3: '年订阅' }[channel.subscription_type ?? 1] ?? '-'}
+                  </dd>
+                </div>
+              </dl>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <ConfirmDialog
         open={showConfirm}

@@ -15,6 +15,10 @@ export interface Channel {
   status: number
   created_at: string
   updated_at: string
+  price?: number
+  currency?: string
+  original_price?: number
+  subscription_type?: number
 }
 
 export interface ChannelListParams {
@@ -36,6 +40,14 @@ export interface ChannelUpdateParams {
   custom_id?: string
   description?: string
   avatar?: string
+}
+
+export interface ChannelPriceParams {
+  price_fen: number
+  original_price_fen?: number
+  currency?: string
+  subscription_type?: number
+  description?: string
 }
 
 export interface ChannelMessage {
@@ -363,4 +375,12 @@ export async function getChannelStatsPayload(channelId: EntityId): Promise<Chann
     await getChannelStats(channelId),
     '/channel/:id/stats'
   )
+}
+
+export async function setChannelPrice(
+  channelId: EntityId,
+  data: ChannelPriceParams
+): Promise<ApiResponse<Record<string, never>>> {
+  const response = await client.put(`/channel/${channelId}/price`, data)
+  return response.data
 }
