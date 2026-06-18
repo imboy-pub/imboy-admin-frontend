@@ -18,6 +18,7 @@ import {
   unmuteUser,
   unmuteUsers,
   mutedUsersQueryKey,
+  type MutedUser,
 } from '@/services/api/mutedUsers'
 
 function formatRemaining(seconds: number): string {
@@ -83,7 +84,7 @@ export function MutedUsersPage() {
     refetch,
   } = useQuery({
     queryKey: mutedUsersQueryKey(),
-    queryFn: listMutedUsers,
+    queryFn: () => listMutedUsers(),
     refetchInterval: isMutating ? false : 30000,
   })
 
@@ -161,7 +162,7 @@ export function MutedUsersPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {list.map((user) => {
+              {list.map((user: MutedUser) => {
                 const userId = user.user_id ?? user.uid
                 return (
                   <TableRow key={userId}>

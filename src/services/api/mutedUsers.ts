@@ -2,7 +2,7 @@ import client from './client'
 import { requireApiPayload } from './responseAdapter'
 import type { EntityId } from '@/types/common'
 
-interface MutedUser {
+export interface MutedUser {
   uid: EntityId
   user_id?: EntityId
   mute_until: number
