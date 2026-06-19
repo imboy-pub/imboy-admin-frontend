@@ -69,6 +69,7 @@ export interface WalletTransactionListParams {
 export async function getWalletTransactionList(
   params: WalletTransactionListParams
 ): Promise<ApiResponse<PaginatedResponse<WalletTransaction>>> {
+  if (!params.user_id) throw new Error('user_id is required for wallet transactions')
   const { user_id, ...query } = params
   const response = await client.get(
     `${FINANCE_BASE}/wallet/${user_id}/transactions`,

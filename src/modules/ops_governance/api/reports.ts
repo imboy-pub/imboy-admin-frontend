@@ -381,7 +381,10 @@ async function resolveBatchByEndpoint(
   total: number
 ): Promise<Pick<ReportBatchResolveSummary, 'successCount' | 'failedCount' | 'failedIds'>> {
   const response = await client.post(endpoint, body)
-  const payload = (response.data as ApiResponse<Record<string, unknown>>).payload
+  const payload = requireApiPayload(
+    response.data as ApiResponse<Record<string, unknown>>,
+    endpoint
+  )
   return parseBatchSummaryPayload(payload, total)
 }
 

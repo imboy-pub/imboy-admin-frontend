@@ -512,8 +512,8 @@ export function AdminListPage() {
         <CardContent className="space-y-4">
           <DataTable table={table} emptyMessage="暂无管理员数据" />
           <DataTablePagination
-            page={params.page}
-            pageSize={params.size}
+            page={data?.page ?? params.page}
+            pageSize={data?.size ?? params.size}
             total={data?.total || 0}
             onPageChange={handlePageChange}
             onPageSizeChange={handlePageSizeChange}

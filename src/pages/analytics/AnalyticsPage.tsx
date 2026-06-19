@@ -290,7 +290,7 @@ export function AnalyticsPage() {
               <ResponsiveContainer width="100%" height={240}>
                 <PieChart>
                   <Pie data={groupDistribution} cx="50%" cy="50%" innerRadius={50} outerRadius={80} dataKey="value" label={pieLabel}>
-                    {groupDistribution.map((_, i) => <Cell key={i} fill={COLORS[i + 2]} />)}
+                    {groupDistribution.map((_, i) => <Cell key={`group-${i}`} fill={COLORS[(i + 2) % COLORS.length]} />)}
                   </Pie>
                   <Tooltip />
                 </PieChart>
