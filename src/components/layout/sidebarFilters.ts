@@ -186,7 +186,8 @@ export function filterByAdminEntries(items: SidebarMenuItem[], adminEntries?: st
       .map((item) => {
         const filteredChildren = item.children ? walk(item.children) : []
         const entry = adminEntryForPath(item.path)
-        const selfAllowed = isAdminEntryEnabled(adminEntries, entry ?? '')
+        // null entry means the path has no admin-entry gate → always visible
+        const selfAllowed = entry === null || isAdminEntryEnabled(adminEntries, entry)
 
         if (filteredChildren.length > 0) {
           if (selfAllowed) {
