@@ -102,9 +102,12 @@ export function AnalyticsPage() {
 
   // 数据转换
   const userTrend = userStats?.daily_new?.map((d: DailyCount) => ({ date: d.date, 新用户: d.count })) ?? []
-  const msgTrend = messageStats?.daily_c2c?.map((d: DailyCount, i: number) => ({
-    date: d.date, 单聊: d.count, 群聊: messageStats?.daily_c2g?.[i]?.count ?? 0,
-  })) ?? []
+  const msgTrend = (() => {
+    const c2cMap = new Map((messageStats?.daily_c2c ?? []).map((d: DailyCount) => [d.date, d.count]))
+    const c2gMap = new Map((messageStats?.daily_c2g ?? []).map((d: DailyCount) => [d.date, d.count]))
+    const allDates = [...new Set([...c2cMap.keys(), ...c2gMap.keys()])].sort()
+    return allDates.map((date) => ({ date, 单聊: c2cMap.get(date) ?? 0, 群聊: c2gMap.get(date) ?? 0 }))
+  })()
   const groupTrend = groupStats?.daily_new?.map((d: DailyCount) => ({ date: d.date, 新群组: d.count })) ?? []
 
   // 消息总量趋势

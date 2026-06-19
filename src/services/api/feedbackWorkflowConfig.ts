@@ -1,3 +1,5 @@
+import client from '@/services/api/client'
+
 type FeedbackWorkflowConfigSource = 'backend' | 'local' | 'default'
 
 type FeedbackWorkflowConfig = {
@@ -25,8 +27,8 @@ type FeedbackWorkflowBackendPayload = {
 // contains only non-sensitive display preferences (reply templates, SLA hours). Persisting
 // across sessions improves UX when the backend is unavailable. No tokens or secrets are stored.
 const FEEDBACK_WORKFLOW_LOCAL_KEY = 'imboy.feedback-workflow-config.v1'
-const DEFAULT_FEEDBACK_WORKFLOW_CONFIG_URL = '/adm/admin/config/feedback-workflow'
-const DEFAULT_FEEDBACK_WORKFLOW_CONFIG_SAVE_URL = '/adm/admin/config/feedback-workflow'
+// axios client base is '/adm', so path below is relative to that
+const DEFAULT_FEEDBACK_WORKFLOW_CONFIG_PATH = '/admin/config/feedback-workflow'
 const MIN_SLA_HOURS = 1
 const MAX_SLA_HOURS = 720
 
@@ -127,34 +129,16 @@ function unwrapWorkflowConfigPayload(raw: unknown): unknown {
   return record
 }
 
-function resolveConfigUrl(): string {
+function resolveConfigPath(): string {
   const envUrl = typeof import.meta.env.VITE_FEEDBACK_WORKFLOW_CONFIG_URL === 'string'
     ? import.meta.env.VITE_FEEDBACK_WORKFLOW_CONFIG_URL.trim()
     : ''
-
-  return envUrl || DEFAULT_FEEDBACK_WORKFLOW_CONFIG_URL
+  return envUrl || DEFAULT_FEEDBACK_WORKFLOW_CONFIG_PATH
 }
 
-function resolveConfigSaveUrl(): string {
-  const envUrl = typeof import.meta.env.VITE_FEEDBACK_WORKFLOW_CONFIG_SAVE_URL === 'string'
-    ? import.meta.env.VITE_FEEDBACK_WORKFLOW_CONFIG_SAVE_URL.trim()
-    : ''
-
-  return envUrl || DEFAULT_FEEDBACK_WORKFLOW_CONFIG_SAVE_URL
-}
-
-async function loadWorkflowConfigFromBackend(url: string, stamp: number): Promise<FeedbackWorkflowEditableConfig> {
-  const response = await fetch(appendNoCacheStamp(url, stamp), {
-    cache: 'no-store',
-    credentials: 'include',
-  })
-
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`)
-  }
-
-  const raw = await response.json()
-  const payload = unwrapWorkflowConfigPayload(raw)
+async function loadWorkflowConfigFromBackend(path: string, stamp: number): Promise<FeedbackWorkflowEditableConfig> {
+  const response = await client.get(appendNoCacheStamp(path, stamp))
+  const payload = unwrapWorkflowConfigPayload(response.data)
   return normalizeEditableConfig(payload, getDefaultFeedbackWorkflowEditableConfig())
 }
 
@@ -166,44 +150,13 @@ function toBackendPayload(input: FeedbackWorkflowEditableConfig): FeedbackWorkfl
 }
 
 async function saveWorkflowConfigToBackend(
-  url: string,
+  path: string,
   config: FeedbackWorkflowEditableConfig
 ): Promise<FeedbackWorkflowEditableConfig> {
   const normalizedConfig = normalizeEditableConfig(config, getDefaultFeedbackWorkflowEditableConfig())
-  const methods: Array<'PUT' | 'POST'> = ['PUT', 'POST']
-
-  for (const method of methods) {
-    const response = await fetch(url, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include',
-      body: JSON.stringify(toBackendPayload(normalizedConfig)),
-    })
-
-    if (!response.ok) {
-      if (response.status === 404 || response.status === 405) {
-        continue
-      }
-      throw new Error(`HTTP ${response.status}`)
-    }
-
-    const contentType = response.headers.get('content-type') || ''
-    if (!contentType.includes('application/json')) {
-      return normalizedConfig
-    }
-
-    const raw = await response.json().catch(() => null)
-    if (!raw || typeof raw !== 'object') {
-      return normalizedConfig
-    }
-
-    const payload = unwrapWorkflowConfigPayload(raw)
-    return normalizeEditableConfig(payload, normalizedConfig)
-  }
-
-  throw new Error('backend save endpoint unavailable')
+  const response = await client.put(path, toBackendPayload(normalizedConfig))
+  const payload = unwrapWorkflowConfigPayload(response.data)
+  return normalizeEditableConfig(payload, normalizedConfig)
 }
 
 export function getDefaultFeedbackWorkflowEditableConfig(): FeedbackWorkflowEditableConfig {
@@ -250,10 +203,10 @@ export async function saveFeedbackWorkflowConfig(
 ): Promise<FeedbackWorkflowSaveResult> {
   const fallback = readFeedbackWorkflowLocalConfig() || getDefaultFeedbackWorkflowEditableConfig()
   const normalized = normalizeEditableConfig(next, fallback)
-  const saveUrl = resolveConfigSaveUrl()
+  const savePath = resolveConfigPath()
 
   try {
-    const backendConfig = await saveWorkflowConfigToBackend(saveUrl, normalized)
+    const backendConfig = await saveWorkflowConfigToBackend(savePath, normalized)
     return {
       source: 'backend',
       config: backendConfig,
@@ -268,12 +221,12 @@ export async function saveFeedbackWorkflowConfig(
 }
 
 export async function fetchFeedbackWorkflowConfig(): Promise<FeedbackWorkflowConfig> {
-  const remoteUrl = resolveConfigUrl()
+  const remotePath = resolveConfigPath()
   const stamp = Date.now()
   const localConfig = readFeedbackWorkflowLocalConfig()
 
   try {
-    const backendConfig = await loadWorkflowConfigFromBackend(remoteUrl, stamp)
+    const backendConfig = await loadWorkflowConfigFromBackend(remotePath, stamp)
     return {
       ...backendConfig,
       source: 'backend',

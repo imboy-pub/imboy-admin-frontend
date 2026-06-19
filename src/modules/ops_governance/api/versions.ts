@@ -43,11 +43,22 @@ export async function getVersionListPayload(params: VersionListParams): Promise<
 }
 
 export async function saveVersion(data: VersionSaveParams): Promise<ApiResponse<AppVersion>> {
-  const response = await client.post('/app_version/save', data)
+  // Backend reads `vsn` (not `version`) and `type` (not `platform`).
+  // force_update: backend checks ec_cnv:to_integer(ForceUpdate) =:= 1; send 1/2 explicitly.
+  const payload = {
+    id: data.id,
+    vsn: data.version,
+    type: data.platform,
+    download_url: data.download_url,
+    force_update: data.force_update ? 1 : 2,
+    description: data.description,
+  }
+  const response = await client.post('/app_version/save', payload)
   return response.data
 }
 
 export async function deleteVersion(id: EntityId): Promise<ApiResponse<Record<string, never>>> {
-  const response = await client.post('/app_version/delete', { id })
+  // Backend delete/3 only handles DELETE method; POST returns empty response.
+  const response = await client.delete('/app_version/delete', { data: { id } })
   return response.data
 }

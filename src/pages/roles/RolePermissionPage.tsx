@@ -62,6 +62,8 @@ const defaultPermissions: PermissionItem[] = [
   { key: 'settings:ddl:update', name: '修改DDL策略', module: '系统设置', path: '/settings/ddl' },
   { key: 'admins:read', name: '查看管理员信息', module: '管理员', path: '/admins' },
   { key: 'admins:create', name: '新增管理员', module: '管理员', path: '/admins' },
+  { key: 'admins:update', name: '编辑管理员状态', module: '管理员', path: '/admins' },
+  { key: 'admins:delete', name: '禁用/启用管理员', module: '管理员', path: '/admins' },
   { key: 'admins:assign_role', name: '分配管理员角色', module: '管理员', path: '/admins' },
   { key: 'roles:view', name: '查看角色权限', module: '角色权限', path: '/roles' },
   { key: 'roles:create', name: '新增角色', module: '角色权限', path: '/roles' },
