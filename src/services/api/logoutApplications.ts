@@ -1,9 +1,7 @@
-import client from './client'
+import client, { BASE_URL } from './client'
 import { ApiResponse, PaginatedResponse } from '@/types/api'
 import { LogoutApplication, LogoutApplicationListParams } from '@/types/logoutApplication'
 import { requireApiPayload } from './responseAdapter'
-
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/adm'
 
 async function getLogoutApplicationList(
   params: LogoutApplicationListParams

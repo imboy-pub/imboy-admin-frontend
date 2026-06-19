@@ -3,7 +3,7 @@ import { ApiResponse, ApiError } from '@/types/api'
 import { startTopLoading, finishTopLoading } from '@/components/shared/TopLoadingBar'
 import { safeParseBigIntJson } from '@/lib/safeParseBigIntJson'
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/adm'
+export const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/adm'
 export const AUTH_EXPIRED_EVENT = 'imboy:auth-expired'
 export const SKIP_AUTH_EXPIRED_EVENT_FLAG = 'skipAuthExpiredEvent'
 

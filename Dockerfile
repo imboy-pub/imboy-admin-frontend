@@ -4,7 +4,7 @@
 #
 # 构建 / Build:
 #   docker build \
-#     --build-arg VITE_API_BASE=https://api.yourdomain.com \
+#     --build-arg VITE_API_BASE_URL=https://api.yourdomain.com/adm \
 #     -t imboy/imboy-admin:1.0.0-rc.1 .
 #
 # 运行 / Run:
@@ -19,8 +19,8 @@ WORKDIR /build
 
 # 构建参数（运行时不可变，需在 build 时传入）
 # Build arg: cannot be changed at runtime — must be passed at build time
-ARG VITE_API_BASE=https://api.example.com
-ENV VITE_API_BASE=${VITE_API_BASE}
+ARG VITE_API_BASE_URL=https://api.example.com/adm
+ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
 
 # 安装依赖（利用层缓存）/ Install dependencies (layer cache)
 COPY package.json bun.lock* bunfig.toml* ./
