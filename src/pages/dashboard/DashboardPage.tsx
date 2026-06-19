@@ -200,11 +200,12 @@ export function DashboardPage() {
     新用户: item.count,
   })) || []
 
-  const messageTrendData = messageStats?.daily_c2c?.map((item: DailyCount, index: number) => ({
-    date: item.date,
-    单聊: item.count,
-    群聊: messageStats?.daily_c2g?.[index]?.count || 0,
-  })) || []
+  const messageTrendData = (() => {
+    const c2cMap = new Map(messageStats?.daily_c2c?.map((item: DailyCount) => [item.date, item.count]) ?? [])
+    const c2gMap = new Map(messageStats?.daily_c2g?.map((item: DailyCount) => [item.date, item.count]) ?? [])
+    const allDates = [...new Set([...c2cMap.keys(), ...c2gMap.keys()])].sort()
+    return allDates.map(date => ({ date, 单聊: c2cMap.get(date) ?? 0, 群聊: c2gMap.get(date) ?? 0 }))
+  })()
 
   const groupTrendData = groupStats?.daily_new?.map((item: DailyCount) => ({
     date: item.date,
