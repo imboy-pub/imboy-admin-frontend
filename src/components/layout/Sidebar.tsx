@@ -125,12 +125,15 @@ export function Sidebar() {
     if (filteredItems.length > 0) return filteredItems
 
     const fallback = ensureRenderableMenu(
-      filterByFeatures(filterByRbac(toSidebarMenuItems(defaultConfig.items), roleId), featureFlags),
+      filterByAdminEntries(
+        filterByFeatures(filterByRbac(toSidebarMenuItems(defaultConfig.items), roleId), featureFlags),
+        adminEntries
+      ),
       roleId,
       featureFlags
     )
     return normalizedKeyword ? filterByKeyword(fallback, normalizedKeyword) : fallback
-  }, [filteredItems, normalizedKeyword, roleId, featureFlags])
+  }, [filteredItems, normalizedKeyword, roleId, featureFlags, adminEntries])
 
   const flatFilteredItems = useMemo(() => flattenLeafItems(displayItems), [displayItems])
 

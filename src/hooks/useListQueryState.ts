@@ -45,10 +45,7 @@ export function useListQueryState<T extends ListQueryState>(
 ): UseListQueryStateReturn<T> {
   const [searchParams, setSearchParams] = useSearchParams()
 
-  const keys = useMemo(
-    () => Object.keys(defaults) as Array<keyof T>,
-    [defaults]
-  )
+  const keys = useMemo(() => Object.keys(defaults) as Array<keyof T>, [defaults])
 
   const state = useMemo(() => {
     const next: Partial<T> = {}
