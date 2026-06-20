@@ -112,6 +112,7 @@ export function DataTable<TData>({
               key={row.id}
               className="rounded-lg border bg-card p-3 space-y-2"
               onClick={rowClickable ? () => onRowClick(row.original) : undefined}
+              onKeyDown={rowClickable ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onRowClick(row.original) } } : undefined}
               role={rowClickable ? 'button' : undefined}
               tabIndex={rowClickable ? 0 : undefined}
             >

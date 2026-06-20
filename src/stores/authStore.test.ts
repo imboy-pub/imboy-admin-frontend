@@ -9,11 +9,13 @@ const mockAdmin: Admin = {
   id: '1',
   account: 'admin',
   nickname: 'Admin User',
-  avatar: null,
+  avatar: '',
   status: 1,
-  role_ids: [1],
+  role_id: 1,
+  login_count: 0,
+  last_login_ip: '',
+  last_login_at: '',
   created_at: '2026-01-01',
-  updated_at: '2026-01-01',
 }
 
 afterEach(() => {
@@ -56,10 +58,10 @@ describe('useAuthStore', () => {
     expect(useAuthStore.getState().isAuthenticated).toBe(true)
   })
 
-  it('stores account and role_ids correctly', () => {
+  it('stores account and role_id correctly', () => {
     useAuthStore.getState().setAdmin(mockAdmin)
     const admin = useAuthStore.getState().admin
     expect(admin?.account).toBe('admin')
-    expect(admin?.role_ids).toEqual([1])
+    expect(admin?.role_id).toEqual(1)
   })
 })
