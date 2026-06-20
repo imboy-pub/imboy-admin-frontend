@@ -23,7 +23,7 @@ type ChannelListPageQuery = {
   keyword: string
 }
 
-const BLOCKED_CHANNEL_AVATAR_HOSTS = new Set(['i.imboy.pub'])
+const BLOCKED_CHANNEL_AVATAR_HOSTS = new Set(['s3.imboy.pub'])
 
 function avatarInitial(name: string): string {
   const normalized = name.trim()

@@ -99,7 +99,7 @@ describe('ChannelListPage flow', () => {
                 owner_id: 1001,
                 custom_id: 'tech_news',
                 description: 'desc',
-                avatar: 'https://i.imboy.pub/channel/flutter_dev.png',
+                avatar: 'https://s3.imboy.pub/channel/flutter_dev.png',
                 subscriber_count: 12,
                 status: 1,
                 created_at: '2026-02-28 10:00:00',
