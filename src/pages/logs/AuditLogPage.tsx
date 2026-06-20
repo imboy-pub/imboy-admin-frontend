@@ -421,7 +421,7 @@ export function AuditLogPage() {
             </Button>
           </div>
 
-          {(messageData?.total ?? 0) >= 100 || (logoutData?.total ?? 0) >= 100 ? (
+          {(messageData?.total ?? 0) > 100 || (logoutData?.total ?? 0) > 100 ? (
             <p className="text-xs text-amber-600">
               当前仅展示最近 100 条消息 + 100 条注销申请，如需更多数据请前往对应专页查看。
             </p>

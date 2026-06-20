@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ErrorState, LoadingState, PageHeader } from '@/components/shared'
 import { cn } from '@/lib/utils'
+import { getErrorMessage } from '@/lib/errorUtils'
 import { getCurrentAdminPayload } from '@/modules/identity/api'
 import { getMyRbacProfilePayload } from '@/services/api/rbac'
 import { fetchSidebarMenuConfig, type PermissionCatalogItem, type RoleTemplateConfig } from '@/services/api/adminConfig'
@@ -111,15 +112,6 @@ const defaultRoleTemplates: RoleTemplate[] = [
   },
 ]
 
-function getErrorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message
-  if (!error || typeof error !== 'object') return String(error)
-  const record = error as { msg?: string; message?: string }
-  if (typeof record.msg === 'string' && record.msg.length > 0) return record.msg
-  if (typeof record.message === 'string' && record.message.length > 0) return record.message
-  return String(error)
-}
-
 function parsePermissionKeys(raw: string): string[] {
   return Array.from(
     new Set(
@@ -193,8 +185,13 @@ export function RolePermissionPage() {
   const updatePermissionMutation = useMutation({
     mutationFn: ({ roleId, permissions }: { roleId: number; permissions: string[] }) =>
       updateRolePermissions(roleId, permissions),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       toast.success('角色权限已保存')
+      setDraftPermissionsByRole((prev) => {
+        const next = { ...prev }
+        delete next[variables.roleId]
+        return next
+      })
       queryClient.invalidateQueries({ queryKey: ['roles', 'list'] })
       queryClient.invalidateQueries({ queryKey: ['roles', 'sidebar-config'] })
       queryClient.invalidateQueries({ queryKey: ['roles', 'rbac-me'] })

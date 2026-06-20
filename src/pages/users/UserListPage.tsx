@@ -340,9 +340,9 @@ export function UserListPage() {
                   nickname: row.original.nickname || row.original.account,
                 })
               }}
-              disabled={banMutation.isPending}
+              disabled={banMutation.isPending && confirmAction?.uid === row.original.id}
             >
-              {banMutation.isPending ? (
+              {banMutation.isPending && confirmAction?.uid === row.original.id ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <UserX className="h-4 w-4 text-destructive" />
@@ -362,9 +362,9 @@ export function UserListPage() {
                   nickname: row.original.nickname || row.original.account,
                 })
               }}
-              disabled={unbanMutation.isPending}
+              disabled={unbanMutation.isPending && confirmAction?.uid === row.original.id}
             >
-              {unbanMutation.isPending ? (
+              {unbanMutation.isPending && confirmAction?.uid === row.original.id ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <UserCheck className="h-4 w-4 text-green-600" />
