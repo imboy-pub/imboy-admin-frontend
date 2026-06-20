@@ -31,12 +31,14 @@ type SelectOption<T extends string> = {
 
 const STORAGE_MODE_OPTIONS: SelectOption<StorageMode>[] = [
   { value: 'archived', label: '归档存储', description: '消息归档存储在服务器' },
+  { value: 'compliance_e2ee', label: '合规加密存储', description: '合规模式端到端加密存储' },
   { value: 'secure_e2ee', label: '安全存储', description: '端到端加密安全存储' },
 ]
 
 const E2EE_MODE_OPTIONS: SelectOption<E2eeMode>[] = [
   { value: 'disabled', label: '禁用', description: '不启用端到端加密' },
   { value: 'optional', label: '可选', description: '用户可选择是否加密' },
+  { value: 'compliance', label: '合规', description: '合规场景下的端到端加密' },
   { value: 'required', label: '强制', description: '所有会话强制加密' },
 ]
 

@@ -164,14 +164,23 @@ export function ComplianceKeyPage() {
                   {showPrivateKey ? '隐藏' : '显示'}
                 </Button>
               </div>
-              <Textarea
-                className="mt-1 font-mono text-xs"
-                rows={6}
-                placeholder="使用管理密码加密后的私钥..."
-                value={privateKeyEncrypted}
-                onChange={(e) => setPrivateKeyEncrypted(e.target.value)}
-                style={showPrivateKey ? undefined : { WebkitTextSecurity: 'disc', textSecurity: 'disc' } as React.CSSProperties}
-              />
+              {showPrivateKey ? (
+                <Textarea
+                  className="mt-1 font-mono text-xs"
+                  rows={6}
+                  placeholder="使用管理密码加密后的私钥..."
+                  value={privateKeyEncrypted}
+                  onChange={(e) => setPrivateKeyEncrypted(e.target.value)}
+                />
+              ) : (
+                <input
+                  type="password"
+                  className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-xs shadow-sm"
+                  placeholder="使用管理密码加密后的私钥..."
+                  value={privateKeyEncrypted}
+                  onChange={(e) => setPrivateKeyEncrypted(e.target.value)}
+                />
+              )}
             </div>
           </div>
           <DialogFooter>
