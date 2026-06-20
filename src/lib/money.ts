@@ -29,5 +29,5 @@ export function fenToYuan(fen: number | string | undefined | null): string {
 export function yuanToFen(yuan: number | string): number {
   const num = Number(yuan)
   if (!Number.isFinite(num)) return 0
-  return Math.round(num * 100)
+  return Math.round(parseFloat((num * 100).toPrecision(12)))
 }

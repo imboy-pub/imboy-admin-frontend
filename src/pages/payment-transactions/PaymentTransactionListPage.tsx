@@ -70,6 +70,8 @@ export function PaymentTransactionListPage() {
     })
 
   const [tradeNoInput, setTradeNoInput] = useState('')
+  // Committed only on explicit search/Enter — not on every keystroke.
+  const [committedTradeNo, setCommittedTradeNo] = useState('')
   const [gatewayFilter, setGatewayFilter] = useState(params.gateway || '')
   const [bizTypeFilter, setBizTypeFilter] = useState(String(params.biz_type))
   const [statusFilter, setStatusFilter] = useState(String(params.status))
@@ -82,7 +84,7 @@ export function PaymentTransactionListPage() {
     gateway: params.gateway || undefined,
     biz_type: params.biz_type === -1 ? undefined : params.biz_type,
     status: params.status === -1 ? undefined : params.status,
-    trade_no: tradeNoInput.trim() || undefined,
+    trade_no: committedTradeNo.trim() || undefined,
   }
 
   const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
@@ -91,6 +93,7 @@ export function PaymentTransactionListPage() {
   })
 
   const handleSearch = () => {
+    setCommittedTradeNo(tradeNoInput)
     setParams({
       page: 1,
       gateway: gatewayFilter,
@@ -101,6 +104,7 @@ export function PaymentTransactionListPage() {
 
   const handleReset = () => {
     setTradeNoInput('')
+    setCommittedTradeNo('')
     setGatewayFilter('')
     setBizTypeFilter('-1')
     setStatusFilter('-1')
