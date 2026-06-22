@@ -3,6 +3,8 @@ import { Outlet, Navigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { Sidebar } from './Sidebar'
 import { Header } from './Header'
+import { LicenseExpiryBanner } from './LicenseExpiryBanner'
+import { QuotaWarningBanner } from './QuotaWarningBanner'
 import { Breadcrumb, KeyboardShortcutsDialog } from '@/components/shared'
 
 const SidebarContext = createContext<{
@@ -65,6 +67,8 @@ export function AdminLayout() {
 
         <div className="flex flex-1 flex-col overflow-hidden">
           <Header />
+          <LicenseExpiryBanner />
+          <QuotaWarningBanner />
           <main className="flex-1 overflow-auto bg-muted/30 p-4 md:p-6">
             <Breadcrumb />
             <div key={location.pathname} className="animate-fade-in">
