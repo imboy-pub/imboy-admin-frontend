@@ -7,5 +7,6 @@ export { ChannelSubscriberPage } from '@/pages/channels/ChannelSubscriberPage'
 export { ChannelAdminPage } from '@/pages/channels/ChannelAdminPage'
 export { ChannelInvitationPage } from '@/pages/channels/ChannelInvitationPage'
 export { ChannelOrderPage } from '@/pages/channels/ChannelOrderPage'
+export { PaidChannelOpsPage } from '@/pages/channels/PaidChannelOpsPage'
 
 export * from './api'

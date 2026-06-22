@@ -23,6 +23,7 @@ const ChannelSubscriberPage = lazy(() => import('@/modules/channels').then((m) =
 const ChannelAdminPage = lazy(() => import('@/modules/channels').then((m) => ({ default: m.ChannelAdminPage })))
 const ChannelInvitationPage = lazy(() => import('@/modules/channels').then((m) => ({ default: m.ChannelInvitationPage })))
 const ChannelOrderPage = lazy(() => import('@/modules/channels').then((m) => ({ default: m.ChannelOrderPage })))
+const PaidChannelOpsPage = lazy(() => import('@/modules/channels').then((m) => ({ default: m.PaidChannelOpsPage })))
 
 const GroupListPage = lazy(() => import('@/modules/groups').then((m) => ({ default: m.GroupListPage })))
 const GroupDetailPage = lazy(() => import('@/modules/groups').then((m) => ({ default: m.GroupDetailPage })))
@@ -303,6 +304,16 @@ function App() {
                     <PermissionRoute permission="channels:read" roles={[1, 2]}>
                       <FeatureRoute feature="channel">
                         <ChannelListPage />
+                      </FeatureRoute>
+                    </PermissionRoute>
+                  )}
+                />
+                <Route
+                  path="/channels/paid"
+                  element={(
+                    <PermissionRoute permission="channels:read" roles={[1, 2]}>
+                      <FeatureRoute feature="channel">
+                        <PaidChannelOpsPage />
                       </FeatureRoute>
                     </PermissionRoute>
                   )}
