@@ -35,6 +35,8 @@ tests/e2e/fixtures/*.local.json
 *.sln
 *.sw?
 .env.production
+# Local automation scripts with hardcoded prod credentials — never commit
+prod_login*.mjs
 .env.e2e
 .env
 .env.local
