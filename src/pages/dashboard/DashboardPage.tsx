@@ -2,7 +2,7 @@ import { Fragment, useState, useEffect, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Users, MessageSquare, UsersRound, Activity, ShieldOff, UserCheck, BarChart3, TrendingUp, RefreshCw, Clock } from 'lucide-react'
+import { Users, MessageSquare, UsersRound, Activity, ShieldOff, UserCheck, BarChart3, TrendingUp, RefreshCw, Clock, ArrowDownToLine, Receipt, FileText, CreditCard } from 'lucide-react'
 import { PageHeader, StatsCard, ErrorState, DashboardSkeleton } from '@/components/shared'
 import { loadNotifications, type AdminNotification, type NotificationType } from '@/components/shared/NotificationPanel'
 import {
@@ -11,8 +11,10 @@ import {
   getMessageStatsPayload,
   getGroupStatsPayload,
   getRankingStatsPayload,
+  getFinanceSummary,
   type DailyCount,
   type RankingItem,
+  type FinanceSummaryData,
 } from '@/services/api/stats'
 import { dashboardPanelRegistry } from '@/modules/dashboard/registry/dashboardPanelRegistry'
 import {
@@ -186,6 +188,13 @@ export function DashboardPage() {
     gcTime: 5 * 60_000,
   })
 
+  // 获取财务概览
+  const { data: financeStats } = useQuery<FinanceSummaryData>({
+    queryKey: ['stats', 'finance'],
+    queryFn: getFinanceSummary,
+    staleTime: 60_000,
+  })
+
   if (overviewLoading) {
     return <DashboardSkeleton />
   }
@@ -290,6 +299,22 @@ export function DashboardPage() {
         />
       </div>
 
+      {/* 财务 KPI */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <StatsCard
+          title="有效订阅"
+          value={financeStats?.active_subscriptions ?? '-'}
+          description="当前生效的 SaaS 订阅数"
+          icon={Receipt}
+        />
+        <StatsCard
+          title="待处理提现"
+          value={financeStats?.pending_withdrawals ?? '-'}
+          description={financeStats?.pending_withdrawals ? '需要人工审核打款' : '暂无待处理提现'}
+          icon={ArrowDownToLine}
+        />
+      </div>
+
       {/* 快捷操作入口 */}
       <div className="grid gap-4 md:grid-cols-4">
         <QuickActionCard
@@ -315,6 +340,34 @@ export function DashboardPage() {
           description="查看消息记录"
           path="/messages"
           icon={Activity}
+        />
+      </div>
+
+      {/* 财务快捷操作 */}
+      <div className="grid gap-4 md:grid-cols-4">
+        <QuickActionCard
+          title="提现审核"
+          description={financeStats?.pending_withdrawals ? `${financeStats.pending_withdrawals} 笔待处理` : '查看提现申请'}
+          path="/withdrawals"
+          icon={ArrowDownToLine}
+        />
+        <QuickActionCard
+          title="订阅管理"
+          description="查看租户订阅状态"
+          path="/billing-subscriptions"
+          icon={Receipt}
+        />
+        <QuickActionCard
+          title="账单管理"
+          description="查看和导出账单"
+          path="/billing-invoices"
+          icon={FileText}
+        />
+        <QuickActionCard
+          title="充值订单"
+          description="查看充值与支付记录"
+          path="/recharge-orders"
+          icon={CreditCard}
         />
       </div>
 

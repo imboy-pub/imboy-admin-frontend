@@ -21,6 +21,8 @@ import {
   DollarSign,
   Receipt,
   TrendingUp,
+  BadgeCheck,
+  ArrowDownToLine,
   type LucideIcon,
 } from 'lucide-react'
 import type { SidebarMenuConfig } from '@/services/api/adminConfig'
@@ -60,6 +62,8 @@ export const iconMap: Record<string, LucideIcon> = {
   DollarSign,
   Receipt,
   TrendingUp,
+  BadgeCheck,
+  ArrowDownToLine,
 }
 
 export const defaultConfig: SidebarMenuConfig = {
@@ -108,6 +112,8 @@ export const defaultConfig: SidebarMenuConfig = {
         { path: '/billing-plans', icon: 'TrendingUp', label: '套餐管理', roles: [1, 2], permission: 'finance:read' },
         { path: '/billing-subscriptions', icon: 'Receipt', label: '订阅管理', roles: [1, 2], permission: 'finance:read' },
         { path: '/billing-invoices', icon: 'FileText', label: '账单管理', roles: [1, 2], permission: 'finance:read' },
+        { path: '/withdrawals', icon: 'ArrowDownToLine', label: '提现审核', roles: [1, 2], permission: 'finance:read' },
+        { path: '/finance-report', icon: 'BarChart3', label: '财务报表', roles: [1, 2], permission: 'finance:read' },
         { path: '/pricing', icon: 'DollarSign', label: '产品定价', roles: [1, 2], permission: 'finance:read' },
       ],
     },
@@ -116,6 +122,7 @@ export const defaultConfig: SidebarMenuConfig = {
       icon: 'Settings',
       children: [
         { path: '/settings', icon: 'Settings', label: '系统设置', roles: [1], permission: 'settings:view' },
+        { path: '/license', icon: 'BadgeCheck', label: '授权状态', roles: [1], permission: 'settings:view' },
         { path: '/system-health', icon: 'HeartPulse', label: '系统健康', roles: [1], permission: 'settings:view' },
         { path: '/plugins', icon: 'Puzzle', label: '插件管理', roles: [1], permission: 'settings:view' },
         { path: '/storage', icon: 'HardDrive', label: '存储管理', roles: [1], permission: 'storage:view' },

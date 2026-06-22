@@ -15,6 +15,7 @@ import type { EntityId } from '@/types/common'
 import type {
   Wallet,
   WalletTransaction,
+  WithdrawalTransaction,
   RechargeOrder,
   PaymentTransaction,
   BillingPlan,
@@ -245,6 +246,32 @@ export async function getBillingInvoiceListPayload(
     await getBillingInvoiceList(params),
     `${BILLING_BASE}/invoices`
   )
+}
+
+// ─── 提现审核 ─────────────────────────────────────────────────────────────
+
+export interface WithdrawalListParams {
+  page?: number
+  size?: number
+  user_id?: EntityId
+  status?: number
+}
+
+export async function getWithdrawals(
+  params: WithdrawalListParams
+): Promise<PaginatedResponse<WithdrawalTransaction>> {
+  const response = await client.get(`${FINANCE_BASE}/withdrawals`, { params })
+  return requireApiPayload(response.data, `${FINANCE_BASE}/withdrawals`)
+}
+
+export async function completeWithdrawal(id: EntityId): Promise<void> {
+  const response = await client.post(`${FINANCE_BASE}/withdrawals/complete`, { id })
+  requireApiPayload(response.data, `${FINANCE_BASE}/withdrawals/complete`)
+}
+
+export async function rejectWithdrawal(id: EntityId): Promise<void> {
+  const response = await client.post(`${FINANCE_BASE}/withdrawals/reject`, { id })
+  requireApiPayload(response.data, `${FINANCE_BASE}/withdrawals/reject`)
 }
 
 export const DEFAULT_FINANCE_PAGE_SIZE = DEFAULT_PAGE_SIZE

@@ -78,7 +78,10 @@ const PaymentTransactionListPage = lazy(() => import('@/modules/finance').then((
 const BillingPlanListPage = lazy(() => import('@/modules/finance').then((m) => ({ default: m.BillingPlanListPage })))
 const BillingSubscriptionListPage = lazy(() => import('@/modules/finance').then((m) => ({ default: m.BillingSubscriptionListPage })))
 const BillingInvoiceListPage = lazy(() => import('@/modules/finance').then((m) => ({ default: m.BillingInvoiceListPage })))
+const WithdrawalsPage = lazy(() => import('@/modules/finance').then((m) => ({ default: m.WithdrawalsPage })))
+const FinanceReportPage = lazy(() => import('@/modules/finance').then((m) => ({ default: m.FinanceReportPage })))
 const PricingPage = lazy(() => import('@/pages/pricing/PricingPage').then((m) => ({ default: m.PricingPage })))
+const LicensePage = lazy(() => import('@/pages/license/LicensePage').then((m) => ({ default: m.LicensePage })))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -548,6 +551,15 @@ function App() {
                     </PermissionRoute>
                   )}
                 />
+                {/* 授权状态 */}
+                <Route
+                  path="/license"
+                  element={(
+                    <PermissionRoute permission="settings:view" roles={[1]}>
+                      <LicensePage />
+                    </PermissionRoute>
+                  )}
+                />
                 {/* 系统健康 */}
                 <Route
                   path="/system-health"
@@ -631,6 +643,22 @@ function App() {
                   element={(
                     <PermissionRoute permission="finance:read" roles={[1, 2]}>
                       <BillingInvoiceListPage />
+                    </PermissionRoute>
+                  )}
+                />
+                <Route
+                  path="/withdrawals"
+                  element={(
+                    <PermissionRoute permission="finance:read" roles={[1, 2]}>
+                      <WithdrawalsPage />
+                    </PermissionRoute>
+                  )}
+                />
+                <Route
+                  path="/finance-report"
+                  element={(
+                    <PermissionRoute permission="finance:read" roles={[1, 2]}>
+                      <FinanceReportPage />
                     </PermissionRoute>
                   )}
                 />

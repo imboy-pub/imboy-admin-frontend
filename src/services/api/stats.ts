@@ -103,3 +103,53 @@ export async function getRankingStatsPayload(
 ): Promise<RankingStats> {
   return requireApiPayload(await getRankingStats(type, metric, limit), '/stats/ranking')
 }
+
+export interface FinanceSummaryData {
+  active_subscriptions: number
+  pending_withdrawals: number
+}
+
+export async function getFinanceSummary(): Promise<FinanceSummaryData> {
+  const response = await client.get('/stats/finance')
+  return requireApiPayload(response.data, '/stats/finance')
+}
+
+export interface LicenseStatusData {
+  edition: string
+  valid: boolean
+  status: string
+  max_users: number
+  max_nodes: number
+  current_users: number
+  current_nodes: number
+  licensee: string
+  expires_at: number
+}
+
+export async function getLicenseStatus(): Promise<LicenseStatusData> {
+  const response = await client.get('/stats/license')
+  return requireApiPayload(response.data, '/stats/license')
+}
+
+export async function applyLicense(licenseText: string): Promise<LicenseStatusData> {
+  const response = await client.post('/stats/license', { license_text: licenseText })
+  return requireApiPayload(response.data, '/stats/license')
+}
+
+export interface FinanceMonthData {
+  month: string
+  recharge_amount: number
+  recharge_count: number
+  subscription_amount: number
+  subscription_count: number
+}
+
+export interface FinanceReportData {
+  data: FinanceMonthData[]
+  months: number
+}
+
+export async function getFinanceReport(months = 6): Promise<FinanceReportData> {
+  const response = await client.get('/stats/finance/report', { params: { months } })
+  return requireApiPayload(response.data, '/stats/finance/report')
+}

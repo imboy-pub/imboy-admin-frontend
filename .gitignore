@@ -44,3 +44,6 @@ prod_login*.mjs
 
 # Erlang Common Test artifacts (from adjacent imboy backend)
 _build
+
+# Erlang 编译产物（误入前端仓防护）
+*.beam

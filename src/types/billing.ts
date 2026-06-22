@@ -44,6 +44,22 @@ export interface WalletTransaction {
   created_at: string
 }
 
+/** 提现流水（tx_type=10），管理后台审核用 */
+export interface WithdrawalTransaction {
+  id: EntityId
+  wallet_id: EntityId
+  user_id: EntityId
+  /** 提现金额（负数，单位：分） */
+  amount: number
+  balance_after: number
+  tx_type: 10
+  reference_no: string
+  remark?: string
+  /** 0=待处理，1=已完成，2=已拒绝 */
+  status: 0 | 1 | 2
+  created_at: string
+}
+
 // ─── 充值订单 ───────────────────────────────────────────────────────────────
 
 export interface RechargeOrder {

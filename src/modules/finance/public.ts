@@ -5,5 +5,7 @@ export { PaymentTransactionListPage } from '@/pages/payment-transactions/Payment
 export { BillingPlanListPage } from '@/pages/billing-plans/BillingPlanListPage'
 export { BillingSubscriptionListPage } from '@/pages/billing-subscriptions/BillingSubscriptionListPage'
 export { BillingInvoiceListPage } from '@/pages/billing-invoices/BillingInvoiceListPage'
+export { WithdrawalsPage } from '@/pages/withdrawals/WithdrawalsPage'
+export { FinanceReportPage } from '@/pages/finance-report/FinanceReportPage'
 
 export * from './api'
