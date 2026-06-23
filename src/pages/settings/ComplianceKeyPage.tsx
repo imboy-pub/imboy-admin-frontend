@@ -3,10 +3,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { ArrowLeft, ShieldCheck, ShieldOff, Plus, Eye, EyeOff } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { PageHeader, LoadingState, ErrorState } from '@/components/shared'
+import { PageHeader, LoadingState, ErrorState, EmptyState } from '@/components/shared'
 import {
   listComplianceKeys,
   createComplianceKey,
@@ -88,11 +88,12 @@ export function ComplianceKeyPage() {
       />
 
       {keys.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center text-muted-foreground">
-            暂无合规密钥。点击「创建密钥」添加第一个。
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={<ShieldCheck className="h-12 w-12 text-muted-foreground" />}
+          title="暂无合规密钥"
+          description="还没有配置任何合规审计密钥对"
+          action={{ label: '创建密钥', onClick: () => setShowCreate(true) }}
+        />
       ) : (
         <div className="space-y-3">
           {keys.map((key: ComplianceKey) => (

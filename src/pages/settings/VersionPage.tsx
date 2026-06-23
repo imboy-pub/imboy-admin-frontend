@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Plus, Trash2, Edit, Loader2, X } from 'lucide-react'
 import { toast } from 'sonner'
-import { PageHeader, LoadingState, ErrorState, StatusBadge, ConfirmDialog, DataTablePagination } from '@/components/shared'
+import { PageHeader, LoadingState, ErrorState, StatusBadge, ConfirmDialog, DataTablePagination, EmptyState } from '@/components/shared'
 import {
   AppVersion,
   deleteVersion,
@@ -307,9 +307,10 @@ export function VersionPage() {
             ))}
 
             {versions.length === 0 && (
-              <div className="text-center py-10 text-muted-foreground">
-                暂无版本记录，点击"新建版本"创建第一个版本
-              </div>
+              <EmptyState
+                title="暂无版本记录"
+                description='点击"新建版本"创建第一个版本'
+              />
             )}
           </div>
         </CardContent>

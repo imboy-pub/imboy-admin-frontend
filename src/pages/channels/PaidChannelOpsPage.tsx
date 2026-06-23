@@ -63,6 +63,9 @@ export function PaidChannelOpsPage() {
     size: params.size,
     status: params.status === -1 ? undefined : params.status,
     keyword: params.keyword.trim() || undefined,
+    // type 过滤已下沉到后端 /channel/list（adm_channel_handler），
+    // 由服务端按 type 分页，避免前端过滤导致 total/page 与可见行数不一致
+    type: PAID_CHANNEL_TYPE,
   }
 
   const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
@@ -70,8 +73,7 @@ export function PaidChannelOpsPage() {
     queryFn: () => getChannelListPayload(requestParams),
   })
 
-  // 后端 /channel/list 仅支持 status 过滤，付费频道在前端按 type===2 过滤。
-  const paidChannels = (data?.items || []).filter((c) => c.type === PAID_CHANNEL_TYPE)
+  const paidChannels = data?.items || []
 
   const handleSearch = () => {
     setParams({ page: 1, keyword: keywordInput.trim(), status: Number(statusFilter) })
@@ -211,7 +213,7 @@ export function PaidChannelOpsPage() {
           )}
           {paidChannels.length === 0 && (
             <p className="mt-4 text-center text-sm text-muted-foreground">
-              当前页无付费频道（仅展示 type=付费 的频道）
+              暂无付费频道
             </p>
           )}
         </CardContent>

@@ -10,7 +10,7 @@ import {
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Search, Eye, Download, X, Copy, SlidersHorizontal } from 'lucide-react'
+import { Search, Eye, Download, Copy, SlidersHorizontal } from 'lucide-react'
 import {
   PageHeader,
   LoadingState,
@@ -18,6 +18,7 @@ import {
   StatusBadge,
   DataTable,
   DataTablePagination,
+  EntityDrawer,
 } from '@/components/shared'
 import {
   exportMessageCsvBlob,
@@ -410,7 +411,7 @@ export function MessageListPage() {
               disabled={isExporting}
             >
               <Download className="mr-2 h-4 w-4" />
-              {isExporting ? '导出中...' : '导出全部 CSV'}
+              {isExporting ? '导出中...' : '导出当前结果 CSV'}
             </Button>
           </div>
         </CardHeader>
@@ -431,62 +432,51 @@ export function MessageListPage() {
         </CardContent>
       </Card>
 
-      {selectedMessage && (
-        <div
-          className="fixed inset-0 z-50 bg-black/40"
-          onClick={closeMessageDetail}
-        >
-          <div
-            className="ml-auto h-full w-full max-w-3xl overflow-y-auto bg-background shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between border-b px-6 py-4">
-              <div>
-                <h2 className="text-lg font-semibold">消息详情</h2>
-                <p className="text-sm text-muted-foreground font-mono">
-                  {selectedMessage.msgId}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
+      <EntityDrawer
+        open={!!selectedMessage}
+        onOpenChange={(open) => {
+          if (!open) closeMessageDetail()
+        }}
+        title="消息详情"
+        subtitle={selectedMessage?.msgId}
+        className="max-w-3xl"
+        actions={
+          selectedMessage && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleCopy('消息ID', selectedMessage.msgId)}
+              >
+                复制消息ID
+              </Button>
+              {detailData && (
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => handleCopy('消息ID', selectedMessage.msgId)}
+                  onClick={() => handleCopy('整行JSON', JSON.stringify(detailData, null, 2))}
                 >
-                  复制消息ID
+                  复制整行JSON
                 </Button>
-                {detailData && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleCopy('整行JSON', JSON.stringify(detailData, null, 2))}
-                  >
-                    复制整行JSON
-                  </Button>
-                )}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={closeMessageDetail}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-
-            <div className="space-y-4 p-6">
-              {detailLoading && <LoadingState message="加载消息详情..." />}
-
-              {detailError && (
-                <ErrorState
-                  message="加载消息详情失败"
-                  onRetry={() => refetchDetail()}
-                />
               )}
+            </>
+          )
+        }
+      >
+        {selectedMessage && (
+          <div className="space-y-4">
+            {detailLoading && <LoadingState message="加载消息详情..." />}
 
-              {!detailLoading && !detailError && detailData && (
-                <>
-                  <dl className="grid grid-cols-2 gap-4">
+            {detailError && (
+              <ErrorState
+                message="加载消息详情失败"
+                onRetry={() => refetchDetail()}
+              />
+            )}
+
+            {!detailLoading && !detailError && detailData && (
+              <>
+                <dl className="grid grid-cols-2 gap-4">
                     <div>
                       <dt className="text-sm text-muted-foreground">范围</dt>
                       <dd>{detailData.scope}</dd>
@@ -578,10 +568,9 @@ export function MessageListPage() {
                   </div>
                 </>
               )}
-            </div>
           </div>
-        </div>
-      )}
+        )}
+      </EntityDrawer>
     </div>
   )
 }

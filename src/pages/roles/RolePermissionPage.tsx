@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { ErrorState, LoadingState, PageHeader } from '@/components/shared'
+import { ConfirmDialog, ErrorState, LoadingState, PageHeader } from '@/components/shared'
 import { cn } from '@/lib/utils'
 import { getErrorMessage } from '@/lib/errorUtils'
 import { getCurrentAdminPayload } from '@/modules/identity/api'
@@ -145,6 +145,7 @@ export function RolePermissionPage() {
   const [createRolePermissions, setCreateRolePermissions] = useState('')
   const [moduleFilter, setModuleFilter] = useState('全部')
   const [showSelectedOnly, setShowSelectedOnly] = useState(false)
+  const [saveConfirmOpen, setSaveConfirmOpen] = useState(false)
 
   const { data: currentAdmin, isLoading, error, refetch } = useQuery({
     queryKey: ['roles', 'current-admin'],
@@ -414,11 +415,24 @@ export function RolePermissionPage() {
       toast.error('请选择一个角色')
       return
     }
+    setSaveConfirmOpen(true)
+  }
+
+  const confirmSavePermissions = () => {
+    if (!selectedRole) {
+      toast.error('请选择一个角色')
+      return
+    }
     updatePermissionMutation.mutate({
       roleId: selectedRole.id,
       permissions: draftPermissions,
     })
   }
+
+  const isSystemSelectedRole = selectedRole ? selectedRole.id <= 3 : false
+  const saveConfirmDescription = isSystemSelectedRole
+    ? '这是系统角色，变更影响范围更大。权限矩阵变更将影响该角色下所有管理员的后台授权，确认保存？'
+    : '权限矩阵变更将影响该角色下所有管理员的后台授权，确认保存？'
 
   const handleCreateRole = () => {
     const roleName = createRoleName.trim()
@@ -755,6 +769,17 @@ export function RolePermissionPage() {
         onRolePermissionsChange={setCreateRolePermissions}
         onConfirm={handleCreateRole}
         isPending={createRoleMutation.isPending}
+      />
+
+      <ConfirmDialog
+        open={saveConfirmOpen}
+        onOpenChange={setSaveConfirmOpen}
+        title="确认保存角色权限"
+        description={saveConfirmDescription}
+        confirmText="确认保存"
+        variant="destructive"
+        onConfirm={confirmSavePermissions}
+        loading={updatePermissionMutation.isPending}
       />
     </div>
   )

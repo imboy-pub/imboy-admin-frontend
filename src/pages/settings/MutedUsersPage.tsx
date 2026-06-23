@@ -1,7 +1,14 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { PageHeader, ErrorState, LoadingState, ConfirmDialog } from '@/components/shared'
+import {
+  PageHeader,
+  ErrorState,
+  LoadingState,
+  ConfirmDialog,
+  DataTablePagination,
+} from '@/components/shared'
+import { useListQueryState } from '@/hooks/useListQueryState'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
@@ -33,8 +40,17 @@ function formatRemaining(seconds: number): string {
   return `${days} 天 ${remainHours} 小时`
 }
 
+type PageQuery = { page: number; size: number }
+
+// invalidate/cancel 用前缀匹配，覆盖所有分页缓存（query key 含分页参数）
+const MUTED_USERS_KEY_PREFIX = ['muted-users'] as const
+
 export function MutedUsersPage() {
   const queryClient = useQueryClient()
+  const { state: query, setState: setQuery } = useListQueryState<PageQuery>({
+    page: 1,
+    size: 10,
+  })
   const [confirmUid, setConfirmUid] = useState<string | null>(null)
   const [selectedUids, setSelectedUids] = useState<Set<string>>(new Set())
   const [showBatchConfirm, setShowBatchConfirm] = useState(false)
@@ -42,11 +58,11 @@ export function MutedUsersPage() {
   const unmuteMutation = useMutation({
     mutationFn: unmuteUser,
     onMutate: () => {
-      void queryClient.cancelQueries({ queryKey: mutedUsersQueryKey() })
+      void queryClient.cancelQueries({ queryKey: MUTED_USERS_KEY_PREFIX })
     },
     onSuccess: () => {
       toast.success('解禁成功')
-      void queryClient.invalidateQueries({ queryKey: mutedUsersQueryKey() })
+      void queryClient.invalidateQueries({ queryKey: MUTED_USERS_KEY_PREFIX })
     },
     onError: (err: unknown) => {
       toast.error(`解禁失败: ${getErrorMessage(err)}`)
@@ -59,12 +75,12 @@ export function MutedUsersPage() {
   const batchUnmuteMutation = useMutation({
     mutationFn: unmuteUsers,
     onMutate: () => {
-      void queryClient.cancelQueries({ queryKey: mutedUsersQueryKey() })
+      void queryClient.cancelQueries({ queryKey: MUTED_USERS_KEY_PREFIX })
     },
     onSuccess: () => {
       toast.success(`已解禁 ${selectedUids.size} 个用户`)
       setSelectedUids(new Set())
-      void queryClient.invalidateQueries({ queryKey: mutedUsersQueryKey() })
+      void queryClient.invalidateQueries({ queryKey: MUTED_USERS_KEY_PREFIX })
     },
     onError: (err: unknown) => {
       toast.error(`批量解禁失败: ${getErrorMessage(err)}`)
@@ -77,14 +93,17 @@ export function MutedUsersPage() {
   // 操作进行中时暂停自动刷新，避免竞态
   const isMutating = unmuteMutation.isPending || batchUnmuteMutation.isPending
 
+  const requestParams = { page: query.page, size: query.size }
+
   const {
     data,
     isLoading,
     error,
     refetch,
+    dataUpdatedAt,
   } = useQuery({
-    queryKey: mutedUsersQueryKey(),
-    queryFn: () => listMutedUsers(),
+    queryKey: mutedUsersQueryKey(requestParams),
+    queryFn: () => listMutedUsers(requestParams),
     refetchInterval: isMutating ? false : 30000,
   })
 
@@ -114,7 +133,6 @@ export function MutedUsersPage() {
   }
 
   const list = data?.list ?? []
-  const total = data?.total ?? list.length
 
   return (
     <div className="space-y-6">
@@ -133,12 +151,6 @@ export function MutedUsersPage() {
           ) : undefined
         }
       />
-
-      {total > list.length && (
-        <p className="text-sm text-amber-700">
-          当前共 {total} 个禁言用户，本页显示 {list.length} 条。
-        </p>
-      )}
 
       {list.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
@@ -192,6 +204,18 @@ export function MutedUsersPage() {
             </TableBody>
           </Table>
         </div>
+      )}
+
+      {data && data.total > 0 && (
+        <DataTablePagination
+          page={data.page}
+          pageSize={data.size}
+          total={data.total}
+          onPageChange={(page) => setQuery({ page })}
+          onPageSizeChange={(size) => setQuery({ page: 1, size })}
+          dataUpdatedAt={dataUpdatedAt}
+          onRefresh={() => void refetch()}
+        />
       )}
 
       <ConfirmDialog

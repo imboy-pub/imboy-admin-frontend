@@ -88,19 +88,25 @@ export function PushTokenListPage() {
   })
 
   const rawList = useMemo(() => data?.list ?? [], [data])
-  const total = data?.total ?? 0
-  const stats = useTokenStats(rawList, total)
+  const serverTotal = data?.total ?? 0
+  const stats = useTokenStats(rawList, serverTotal)
 
   // 客户端搜索过滤（按用户 ID、设备类型、平台）
+  // 注意：后端 /admin/push_token/list 不支持搜索参数，过滤仅作用于当前页数据。
+  const isSearching = searchText.trim().length > 0
   const list = useMemo(() => {
-    if (!searchText.trim()) return rawList
+    if (!isSearching) return rawList
     const q = searchText.trim().toLowerCase()
     return rawList.filter((item) =>
       item.user_id?.toLowerCase().includes(q) ||
       item.device_type?.toLowerCase().includes(q) ||
       item.platform?.toLowerCase().includes(q)
     )
-  }, [rawList, searchText])
+  }, [rawList, searchText, isSearching])
+
+  // 搜索时 total 用过滤后长度，使分页器与可见数据一致，避免页码错乱；
+  // 无搜索时维持服务端分页 total。
+  const total = isSearching ? list.length : serverTotal
 
   if (isLoading && !data) {
     return <LoadingState message="加载推送 Token 列表..." />

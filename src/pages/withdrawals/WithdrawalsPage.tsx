@@ -11,6 +11,7 @@ import {
   DataTable,
   DataTablePagination,
   FilterBar,
+  ConfirmDialog,
 } from '@/components/shared'
 import {
   getWithdrawals,
@@ -42,6 +43,13 @@ export function WithdrawalsPage() {
 
   const [statusFilter, setStatusFilter] = useState(String(params.status))
   const [userIdInput, setUserIdInput] = useState(params.user_id || '')
+  // 行级 pending：仅禁用正在处理的那一行，而非全表
+  const [actingId, setActingId] = useState<EntityId | null>(null)
+  // 不可逆金融操作的二次确认
+  const [confirmAction, setConfirmAction] = useState<{
+    type: 'complete' | 'reject'
+    row: WithdrawalTransaction
+  } | null>(null)
 
   const requestParams: WithdrawalListParams = {
     page: params.page,
@@ -55,25 +63,33 @@ export function WithdrawalsPage() {
     queryFn: () => getWithdrawals(requestParams),
   })
 
-  const { mutate: markComplete, isPending: completing } = useMutation({
+  const { mutate: markComplete } = useMutation({
     mutationFn: (id: EntityId) => completeWithdrawal(id),
     onSuccess: () => {
       toast.success('已标记完成')
       qc.invalidateQueries({ queryKey: ['withdrawals'] })
     },
     onError: () => toast.error('操作失败，请重试'),
+    onSettled: () => setActingId(null),
   })
 
-  const { mutate: markReject, isPending: rejecting } = useMutation({
+  const { mutate: markReject } = useMutation({
     mutationFn: (id: EntityId) => rejectWithdrawal(id),
     onSuccess: () => {
       toast.success('已拒绝提现')
       qc.invalidateQueries({ queryKey: ['withdrawals'] })
     },
     onError: () => toast.error('操作失败，请重试'),
+    onSettled: () => setActingId(null),
   })
 
-  const isPending = completing || rejecting
+  const handleConfirm = () => {
+    if (!confirmAction) return
+    const { type, row } = confirmAction
+    setActingId(row.id)
+    if (type === 'complete') markComplete(row.id)
+    else markReject(row.id)
+  }
 
   const handleSearch = () =>
     setParams({ page: 1, user_id: userIdInput.trim(), status: Number(statusFilter) })
@@ -145,8 +161,8 @@ export function WithdrawalsPage() {
             <Button
               size="sm"
               variant="outline"
-              disabled={isPending}
-              onClick={() => markComplete(row.original.id)}
+              disabled={actingId === row.original.id}
+              onClick={() => setConfirmAction({ type: 'complete', row: row.original })}
             >
               <CheckCircle className="mr-1 h-3.5 w-3.5 text-green-600" />
               完成
@@ -154,8 +170,8 @@ export function WithdrawalsPage() {
             <Button
               size="sm"
               variant="outline"
-              disabled={isPending}
-              onClick={() => markReject(row.original.id)}
+              disabled={actingId === row.original.id}
+              onClick={() => setConfirmAction({ type: 'reject', row: row.original })}
             >
               <XCircle className="mr-1 h-3.5 w-3.5 text-destructive" />
               拒绝
@@ -220,6 +236,29 @@ export function WithdrawalsPage() {
           )}
         </CardContent>
       </Card>
+
+      <ConfirmDialog
+        open={confirmAction !== null}
+        onOpenChange={(open) => {
+          if (!open) setConfirmAction(null)
+        }}
+        variant="destructive"
+        title={confirmAction?.type === 'complete' ? '确认标记为已完成？' : '确认拒绝该提现？'}
+        description={
+          confirmAction
+            ? `用户 ${confirmAction.row.user_id} · 金额 ${fenToYuan(
+                Math.abs(confirmAction.row.amount),
+              )} · 单号 ${confirmAction.row.reference_no}。${
+                confirmAction.type === 'complete'
+                  ? '标记完成代表已手动打款，操作不可撤销。'
+                  : '拒绝将触发钱包原子退款，操作不可撤销。'
+              }`
+            : ''
+        }
+        confirmText={confirmAction?.type === 'complete' ? '确认完成' : '确认拒绝'}
+        loading={actingId !== null}
+        onConfirm={handleConfirm}
+      />
     </div>
   )
 }

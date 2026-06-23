@@ -239,8 +239,8 @@ export function GroupListPage() {
       cell: ({ row }) => (
         <StatusBadge
           status={row.original.status}
-          labels={{ 1: '正常', '-1': '已解散' }}
-          variants={{ 1: 'success', '-1': 'error' }}
+          labels={{ 1: '正常', 0: '已解散' }}
+          variants={{ 1: 'success', 0: 'error' }}
         />
       ),
     },

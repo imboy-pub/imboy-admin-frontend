@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Plus, Trash2, Edit, X } from 'lucide-react'
 import { toast } from 'sonner'
-import { PageHeader, LoadingState, ErrorState, StatusBadge, ConfirmDialog, DataTablePagination } from '@/components/shared'
+import { PageHeader, LoadingState, ErrorState, StatusBadge, ConfirmDialog, DataTablePagination, EmptyState } from '@/components/shared'
 import {
   DDL,
   DDLSaveParams,
@@ -33,6 +33,7 @@ export function DDLPage() {
   const [showForm, setShowForm] = useState(false)
   const [editingDDL, setEditingDDL] = useState<DDL | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<EntityId | null>(null)
+  const [execConfirm, setExecConfirm] = useState(false)
   const [formData, setFormData] = useState<DDLSaveParams>({
     ddl: '',
     down_ddl: '',
@@ -100,7 +101,26 @@ export function DDLPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    saveMutation.mutate(formData)
+    // 内容校验：DDL 语句非空白
+    if (!formData.ddl.trim()) {
+      toast.error('DDL 语句不能为空')
+      return
+    }
+    // 版本号校验：必须为正整数，且新版本号大于旧版本号
+    if (!Number.isInteger(formData.new_vsn) || formData.new_vsn <= 0) {
+      toast.error('新版本号必须为大于 0 的正整数')
+      return
+    }
+    if (!Number.isInteger(formData.old_vsn) || formData.old_vsn <= 0) {
+      toast.error('旧版本号必须为大于 0 的正整数')
+      return
+    }
+    if (formData.new_vsn <= formData.old_vsn) {
+      toast.error('新版本号必须大于旧版本号')
+      return
+    }
+    // 校验通过，弹出破坏性操作二次确认
+    setExecConfirm(true)
   }
 
   if (isLoading) {
@@ -274,9 +294,10 @@ export function DDLPage() {
             ))}
 
             {ddlList.length === 0 && (
-              <div className="text-center py-10 text-muted-foreground">
-                暂无 DDL 记录，点击"新建 DDL"创建第一个配置
-              </div>
+              <EmptyState
+                title="暂无 DDL 记录"
+                description='点击"新建 DDL"创建第一个配置'
+              />
             )}
           </div>
         </CardContent>
@@ -302,6 +323,18 @@ export function DDLPage() {
         variant="destructive"
         loading={deleteMutation.isPending}
         onConfirm={() => { if (deleteConfirm) deleteMutation.mutate(deleteConfirm) }}
+      />
+
+      {/* 执行 DDL 二次确认对话框 */}
+      <ConfirmDialog
+        open={execConfirm}
+        onOpenChange={setExecConfirm}
+        title="确认执行 DDL"
+        description="将对数据库执行结构变更脚本(DDL)，操作影响库结构且通常不可逆，确认执行？"
+        confirmText="确认执行"
+        variant="destructive"
+        loading={saveMutation.isPending}
+        onConfirm={() => { setExecConfirm(false); saveMutation.mutate(formData) }}
       />
     </div>
   )

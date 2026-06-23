@@ -6,7 +6,7 @@ import { ArrowLeft, Save, Settings2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
-import { PageHeader, LoadingState, ErrorState } from '@/components/shared'
+import { PageHeader, LoadingState, ErrorState, ConfirmDialog } from '@/components/shared'
 import {
   getPolicyEffective,
   savePolicyChange,
@@ -53,10 +53,63 @@ const RETENTION_MODE_OPTIONS: SelectOption<RetentionPolicyMode>[] = [
   { value: 'infinite', label: '永久保留', description: '数据永久保留' },
 ]
 
+// --- 核心安全能力「档位强度」排序 ---
+// 数值越大表示安全能力越强；新值强度 < 旧值强度即视为「降级」。
+// 仅对在此明确列出的档位判定，无法判定的值一律不阻断（避免误伤）。
+const STORAGE_MODE_RANK: Record<string, number> = {
+  archived: 0, // 明文归档（最弱）
+  compliance_e2ee: 1,
+  secure_e2ee: 2, // 端到端加密（最强）
+}
+const E2EE_MODE_RANK: Record<string, number> = {
+  disabled: 0,
+  optional: 1,
+  compliance: 2,
+  required: 3,
+}
+const AUDIT_MODE_RANK: Record<string, number> = {
+  none: 0,
+  metadata: 1,
+  full: 2,
+}
+
+/** 判断 from -> to 是否为「降级」：仅当两端档位均可识别且 to 强度更低时返回 true。 */
+function isRankDowngrade(
+  rank: Record<string, number>,
+  from: string | undefined,
+  to: string | undefined
+): boolean {
+  if (from === undefined || to === undefined) return false
+  const fromRank = rank[from]
+  const toRank = rank[to]
+  if (fromRank === undefined || toRank === undefined) return false
+  return toRank < fromRank
+}
+
+/** 收集本次变更中削弱核心安全能力的降级项（e2ee_mode / audit_mode / storage_mode）。 */
+function collectSecurityDowngrades(
+  current: Capabilities,
+  pending: Capabilities
+): string[] {
+  const downgrades: string[] = []
+  if (isRankDowngrade(E2EE_MODE_RANK, current.e2ee_mode, pending.e2ee_mode)) {
+    downgrades.push('端到端加密模式')
+  }
+  if (isRankDowngrade(AUDIT_MODE_RANK, current.audit_mode, pending.audit_mode)) {
+    downgrades.push('审计模式')
+  }
+  if (isRankDowngrade(STORAGE_MODE_RANK, current.storage_mode, pending.storage_mode)) {
+    downgrades.push('存储模式')
+  }
+  return downgrades
+}
+
 export function CapabilityConfigPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [pendingCapabilities, setPendingCapabilities] = useState<Capabilities | null>(null)
+  // 降级二次确认：非空数组表示存在削弱核心安全能力的变更，需弹框确认
+  const [downgradeConfirm, setDowngradeConfirm] = useState<string[] | null>(null)
 
   const { data: policyData, isLoading, error, refetch } = useQuery({
     queryKey: policyQueryKey('effective'),
@@ -89,10 +142,25 @@ export function CapabilityConfigPage() {
     })
   }, [effectiveCapabilities])
 
-  const handleSave = useCallback(() => {
+  const persistCapabilities = useCallback(() => {
     if (!pendingCapabilities) return
     capabilityMutation.mutate(buildPolicyConfig(policyData?.effective, { capabilities: pendingCapabilities }))
   }, [pendingCapabilities, policyData, capabilityMutation])
+
+  const handleSave = useCallback(() => {
+    if (!pendingCapabilities) return
+    const downgrades = collectSecurityDowngrades(effectiveCapabilities, pendingCapabilities)
+    if (downgrades.length > 0) {
+      setDowngradeConfirm(downgrades)
+      return
+    }
+    persistCapabilities()
+  }, [pendingCapabilities, effectiveCapabilities, persistCapabilities])
+
+  const handleConfirmDowngrade = useCallback(() => {
+    setDowngradeConfirm(null)
+    persistCapabilities()
+  }, [persistCapabilities])
 
   const handleDiscard = useCallback(() => {
     setPendingCapabilities(null)
@@ -242,6 +310,19 @@ export function CapabilityConfigPage() {
           )}
         </CardContent>
       </Card>
+
+      <ConfirmDialog
+        open={downgradeConfirm !== null}
+        onOpenChange={(open) => {
+          if (!open) setDowngradeConfirm(null)
+        }}
+        title="确认削弱核心安全能力？"
+        description={`本次变更将削弱或关闭以下核心安全能力：${(downgradeConfirm ?? []).join('、')}。这可能影响全站加密 / 审计能力，存在合规与数据安全风险。确认继续保存？`}
+        confirmText="仍要保存"
+        variant="destructive"
+        loading={capabilityMutation.isPending}
+        onConfirm={handleConfirmDowngrade}
+      />
     </div>
   )
 }

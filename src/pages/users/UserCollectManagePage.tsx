@@ -78,7 +78,8 @@ export function UserCollectManagePage() {
     onSuccess: async () => {
       toast.success('收藏项已移除')
       setConfirmRemoveKindId('')
-      await queryClient.invalidateQueries({ queryKey: ['user-collects', uid] })
+      // 查询键为 ['user-collects', params]（params 为对象），用 ['user-collects'] 做前缀匹配才能命中失效
+      await queryClient.invalidateQueries({ queryKey: ['user-collects'] })
     },
     onError: (err: unknown) => {
       toast.error(`移除收藏失败: ${getErrorMessage(err)}`)

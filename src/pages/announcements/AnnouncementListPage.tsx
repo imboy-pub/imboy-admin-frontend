@@ -5,7 +5,7 @@ import { Plus, Search, Megaphone, Eye, EyeOff, Trash2, Pin, Edit, Download } fro
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { PageHeader, LoadingState, ErrorState, ConfirmDialog, DataTablePagination } from '@/components/shared'
+import { PageHeader, LoadingState, ErrorState, ConfirmDialog, DataTablePagination, EmptyState } from '@/components/shared'
 import {
   getAnnouncementList,
   deleteAnnouncement,
@@ -50,6 +50,11 @@ export function AnnouncementListPage() {
   const [showForm, setShowForm] = useState(false)
   const [editingItem, setEditingItem] = useState<Announcement | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Announcement | null>(null)
+  // 发布/撤回影响全体用户，属对外可见操作，提交前二次确认
+  const [publishTarget, setPublishTarget] = useState<{
+    item: Announcement
+    action: 'publish' | 'unpublish'
+  } | null>(null)
 
   const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
     queryKey: ['announcements', params.page, params.size, params.keyword],
@@ -152,15 +157,12 @@ export function AnnouncementListPage() {
 
       {/* 公告列表 */}
       {items.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center text-muted-foreground">
-            <Megaphone className="mx-auto h-12 w-12 opacity-30" />
-            <p className="mt-4">暂无公告</p>
-            <Button variant="outline" className="mt-4" onClick={() => { setEditingItem(null); setShowForm(true) }}>
-              创建第一条公告
-            </Button>
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={<Megaphone className="h-12 w-12 text-muted-foreground opacity-30" />}
+          title="暂无公告"
+          description="还没有创建任何全局公告"
+          action={{ label: '创建公告', onClick: () => { setEditingItem(null); setShowForm(true) } }}
+        />
       ) : (
         <div className="space-y-3">
           {items.map((item) => {
@@ -189,17 +191,17 @@ export function AnnouncementListPage() {
                       </Button>
                     )}
                     {item.status === 0 && (
-                      <Button variant="ghost" size="sm" onClick={() => publishMutation.mutate(item.id)} disabled={publishMutation.isPending}>
+                      <Button variant="ghost" size="sm" onClick={() => setPublishTarget({ item, action: 'publish' })} disabled={publishMutation.isPending}>
                         <Eye className="mr-1 h-3.5 w-3.5" />发布
                       </Button>
                     )}
                     {item.status === 1 && (
-                      <Button variant="ghost" size="sm" onClick={() => unpublishMutation.mutate(item.id)} disabled={unpublishMutation.isPending}>
+                      <Button variant="ghost" size="sm" onClick={() => setPublishTarget({ item, action: 'unpublish' })} disabled={unpublishMutation.isPending}>
                         <EyeOff className="mr-1 h-3.5 w-3.5" />撤回
                       </Button>
                     )}
                     {item.status === 2 && (
-                      <Button variant="ghost" size="sm" onClick={() => publishMutation.mutate(item.id)} disabled={publishMutation.isPending}>
+                      <Button variant="ghost" size="sm" onClick={() => setPublishTarget({ item, action: 'publish' })} disabled={publishMutation.isPending}>
                         <Eye className="mr-1 h-3.5 w-3.5" />重新发布
                       </Button>
                     )}
@@ -241,15 +243,43 @@ export function AnnouncementListPage() {
         }}
       />
 
-      {/* 创建/编辑对话框 */}
-      <AnnouncementFormDialog
-        item={editingItem}
-        open={showForm}
-        onOpenChange={(open) => {
-          if (!open) { setShowForm(false); setEditingItem(null) }
+      {/* 发布/撤回确认对话框（影响全体用户） */}
+      <ConfirmDialog
+        open={publishTarget !== null}
+        onOpenChange={(open) => { if (!open) setPublishTarget(null) }}
+        title={publishTarget?.action === 'unpublish' ? '确认撤回公告' : '确认发布公告'}
+        description={
+          publishTarget
+            ? `公告「${publishTarget.item.title}」将${
+                publishTarget.action === 'unpublish' ? '对全体用户撤回（不再展示）' : '对全体用户发布并展示'
+              }，确认继续？`
+            : ''
+        }
+        confirmText={publishTarget?.action === 'unpublish' ? '撤回' : '发布'}
+        loading={publishMutation.isPending || unpublishMutation.isPending}
+        onConfirm={() => {
+          if (!publishTarget) return
+          if (publishTarget.action === 'unpublish') {
+            unpublishMutation.mutate(publishTarget.item.id)
+          } else {
+            publishMutation.mutate(publishTarget.item.id)
+          }
+          setPublishTarget(null)
         }}
-        onSuccess={handleFormSuccess}
       />
+
+      {/* 创建/编辑对话框：条件挂载，关闭即卸载，每次打开按当前 item 重新初始化表单，
+          避免「编辑→创建」或切换不同公告时残留上一次的值 */}
+      {showForm && (
+        <AnnouncementFormDialog
+          item={editingItem}
+          open={showForm}
+          onOpenChange={(open) => {
+            if (!open) { setShowForm(false); setEditingItem(null) }
+          }}
+          onSuccess={handleFormSuccess}
+        />
+      )}
     </div>
   )
 }

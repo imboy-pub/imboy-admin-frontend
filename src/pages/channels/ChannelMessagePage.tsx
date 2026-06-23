@@ -42,7 +42,7 @@ export function ChannelMessagePage() {
     messageId: EntityId
   } | null>(null)
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
-  const [hiddenMessageIds, setHiddenMessageIds] = useState<Record<string, true>>({})
+  const [pinningMessageId, setPinningMessageId] = useState<EntityId | null>(null)
 
   const queryKey = ['channel-messages', channelId, params] as const
 
@@ -52,11 +52,14 @@ export function ChannelMessagePage() {
     enabled: channelId.length > 0,
   })
 
-  const messages = (data?.items || []).filter((item) => !hiddenMessageIds[String(item.id)])
+  const messages = data?.items || []
 
   const pinMutation = useMutation({
     mutationFn: ({ messageId, pinned }: { messageId: EntityId; pinned: boolean }) =>
       pinChannelMessage(channelId, messageId, pinned),
+    onMutate: (variables) => {
+      setPinningMessageId(variables.messageId)
+    },
     onSuccess: (_, variables) => {
       toast.success(variables.pinned ? '消息已置顶' : '消息已取消置顶')
       queryClient.invalidateQueries({ queryKey: ['channel-messages', channelId] })
@@ -64,13 +67,15 @@ export function ChannelMessagePage() {
     onError: (err: unknown) => {
       toast.error(`操作失败: ${getErrorMessage(err)}`)
     },
+    onSettled: () => {
+      setPinningMessageId(null)
+    },
   })
 
   const deleteMutation = useMutation({
     mutationFn: (messageId: EntityId) => deleteChannelMessage(channelId, messageId),
     onSuccess: (_result, messageId) => {
       const deletedId = String(messageId)
-      setHiddenMessageIds((prev) => ({ ...prev, [deletedId]: true }))
       setRowSelection((prev) => {
         if (!(deletedId in prev)) return prev
         const next = { ...prev }
@@ -79,6 +84,7 @@ export function ChannelMessagePage() {
       })
       toast.success('消息已删除')
       setConfirmDialog(null)
+      queryClient.invalidateQueries({ queryKey: ['channel-messages', channelId] })
     },
     onError: (err: unknown) => {
       toast.error(`删除失败: ${getErrorMessage(err)}`)
@@ -88,24 +94,14 @@ export function ChannelMessagePage() {
   const batchDeleteMutation = useMutation({
     mutationFn: async ({ ids }: { ids: EntityId[] }) =>
       Promise.allSettled(ids.map((msgId) => deleteChannelMessage(channelId, msgId))),
-    onSuccess: (results, variables) => {
+    onSuccess: (results) => {
       const successCount = results.filter((r) => r.status === 'fulfilled').length
       const failedCount = results.length - successCount
-      const deletedIds = variables.ids
-        .filter((_, index) => results[index]?.status === 'fulfilled')
-        .map((id) => String(id))
 
-      if (deletedIds.length > 0) {
-        setHiddenMessageIds((prev) => {
-          const next = { ...prev }
-          deletedIds.forEach((id) => {
-            next[id] = true
-          })
-          return next
-        })
+      if (successCount > 0) {
+        toast.success(`批量删除完成：成功 ${successCount} 条消息`)
+        queryClient.invalidateQueries({ queryKey: ['channel-messages', channelId] })
       }
-
-      if (successCount > 0) toast.success(`批量删除完成：成功 ${successCount} 条消息`)
       if (failedCount > 0) toast.error(`批量删除失败：${failedCount} 条消息`)
       setRowSelection({})
     },
@@ -243,6 +239,7 @@ export function ChannelMessagePage() {
               variant="ghost"
               size="icon"
               title={message.is_pinned ? '取消置顶' : '置顶消息'}
+              disabled={pinningMessageId === message.id}
               onClick={() => pinMutation.mutate({ messageId: message.id, pinned: toggledPinned })}
             >
               {message.is_pinned ? (

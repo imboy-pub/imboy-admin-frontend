@@ -265,8 +265,8 @@ export function GroupScheduleManagePage() {
 
           {data && (
             <DataTablePagination
-              page={params.page}
-              pageSize={params.size}
+              page={data.page}
+              pageSize={data.size}
               total={data.total}
               onPageChange={(p) => setParams({ page: p })}
               onPageSizeChange={(s) => setParams({ size: s, page: 1 })}

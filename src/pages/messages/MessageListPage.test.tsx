@@ -412,7 +412,7 @@ describe('MessageListPage flow', () => {
 
     // 点击导出按钮
     await act(async () => {
-      fireEvent.click(view.getByRole('button', { name: '导出全部 CSV' }))
+      fireEvent.click(view.getByRole('button', { name: '导出当前结果 CSV' }))
     })
 
     await waitFor(() => {

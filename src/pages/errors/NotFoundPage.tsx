@@ -1,8 +1,9 @@
 import { Button } from '@/components/ui/button'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Home, ArrowLeft, Search } from 'lucide-react'
 
 export function NotFoundPage() {
+  const navigate = useNavigate()
   return (
     <div className="flex min-h-screen flex-col items-center justify-center p-8">
       <div className="max-w-md text-center">
@@ -22,7 +23,7 @@ export function NotFoundPage() {
         </p>
 
         <div className="mt-8 flex items-center justify-center gap-3">
-          <Button variant="outline" onClick={() => window.history.back()}>
+          <Button variant="outline" onClick={() => navigate(-1)}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             返回上页
           </Button>

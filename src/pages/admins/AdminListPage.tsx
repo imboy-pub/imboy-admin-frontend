@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
+  ConfirmDialog,
   DataTable,
   DataTablePagination,
   EntityDrawer,
@@ -73,6 +74,9 @@ const DEFAULT_ROLE_OPTIONS: RoleOption[] = [
   { id: 3, name: '审计管理员' },
 ]
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const MOBILE_PATTERN = /^1[3-9]\d{9}$/
+
 function buildInitialCreateForm(roleOptions: RoleOption[]): CreateAdminForm {
   return {
     account: '',
@@ -103,6 +107,12 @@ export function AdminListPage() {
   const [roleFilter, setRoleFilter] = useState(String(params.role_id))
   const [createDrawerOpen, setCreateDrawerOpen] = useState(false)
   const [disableConfirmId, setDisableConfirmId] = useState<string | null>(null)
+  const [pendingRoleChange, setPendingRoleChange] = useState<{
+    adminId: string
+    roleId: number
+    adminLabel: string
+    roleLabel: string
+  } | null>(null)
 
   const { data: roleData } = useQuery({
     queryKey: ['roles', 'list', 'admin-page'],
@@ -163,6 +173,7 @@ export function AdminListPage() {
       assignAdminRole({ admin_id: adminId, role_id: roleId }),
     onSuccess: () => {
       toast.success('管理员角色已更新')
+      setPendingRoleChange(null)
       queryClient.invalidateQueries({ queryKey: ['admins'] })
       queryClient.invalidateQueries({ queryKey: ['rbac', 'me'] })
     },
@@ -228,15 +239,28 @@ export function AdminListPage() {
       return
     }
 
-    assignRoleMutation.mutate({
+    const targetRoleId = Math.floor(nextRole)
+    setPendingRoleChange({
       adminId: String(admin.id),
-      roleId: Math.floor(nextRole),
+      roleId: targetRoleId,
+      adminLabel: admin.nickname || admin.account,
+      roleLabel: resolveRoleLabel(targetRoleId),
+    })
+  }
+
+  const handleConfirmRoleChange = () => {
+    if (!pendingRoleChange) return
+    assignRoleMutation.mutate({
+      adminId: pendingRoleChange.adminId,
+      roleId: pendingRoleChange.roleId,
     })
   }
 
   const handleCreateAdmin = async () => {
     const account = createForm.account.trim()
     const pwd = createForm.pwd.trim()
+    const email = createForm.email.trim()
+    const mobile = createForm.mobile.trim()
 
     if (account.length < 3) {
       toast.error('账号长度至少 3 位')
@@ -248,6 +272,14 @@ export function AdminListPage() {
     }
     if (!Number.isFinite(effectiveCreateRoleId) || effectiveCreateRoleId <= 0) {
       toast.error('请选择角色')
+      return
+    }
+    if (email && !EMAIL_PATTERN.test(email)) {
+      toast.error('请输入有效的邮箱地址')
+      return
+    }
+    if (mobile && !MOBILE_PATTERN.test(mobile)) {
+      toast.error('请输入有效的手机号（11 位中国大陆手机号）')
       return
     }
 
@@ -268,8 +300,8 @@ export function AdminListPage() {
       account,
       pwd: encryptedPwd,
       nickname: createForm.nickname.trim(),
-      email: createForm.email.trim(),
-      mobile: createForm.mobile.trim(),
+      email,
+      mobile,
       role_id: effectiveCreateRoleId,
       status: createForm.status,
     })
@@ -546,6 +578,22 @@ export function AdminListPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <ConfirmDialog
+        open={pendingRoleChange !== null}
+        onOpenChange={(open) => { if (!open) setPendingRoleChange(null) }}
+        title="确认变更管理员角色"
+        description={
+          pendingRoleChange
+            ? `将把管理员「${pendingRoleChange.adminLabel}」的角色变更为「${pendingRoleChange.roleLabel}」，确认继续？`
+            : undefined
+        }
+        confirmText="确认变更"
+        cancelText="取消"
+        variant="default"
+        loading={assignRoleMutation.isPending}
+        onConfirm={handleConfirmRoleChange}
+      />
 
       <EntityDrawer
         open={createDrawerOpen}

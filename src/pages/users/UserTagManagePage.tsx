@@ -64,7 +64,8 @@ export function UserTagManagePage() {
     onSuccess: async () => {
       toast.success('标签已删除')
       setConfirmDeleteTagName('')
-      await queryClient.invalidateQueries({ queryKey: ['user-tags', uid] })
+      // 查询键为 ['user-tags', params]（params 为对象），用 ['user-tags'] 做前缀匹配才能命中失效
+      await queryClient.invalidateQueries({ queryKey: ['user-tags'] })
     },
     onError: (err: unknown) => {
       toast.error(`删除标签失败: ${getErrorMessage(err)}`)

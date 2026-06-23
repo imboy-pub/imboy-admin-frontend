@@ -200,7 +200,13 @@ export function PricingPage() {
                   </li>
                 ))}
               </ul>
-              <Button variant={tier.ctaVariant} className="mt-6 w-full">
+              {/* ponytail: CTA 暂为占位，待接入下载链接/销售联系方式后启用 */}
+              <Button
+                variant={tier.ctaVariant}
+                className="mt-6 w-full"
+                disabled
+                title="即将上线"
+              >
                 {tier.cta}
               </Button>
             </CardContent>

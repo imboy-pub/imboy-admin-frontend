@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
-import { ArrowRightLeft, Copy, Eye, FileSearch, MessageSquare, UserMinus, X, Download } from 'lucide-react'
+import { ArrowRightLeft, Copy, Eye, FileSearch, MessageSquare, UserMinus, Download } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input'
 import {
   DataTable,
   DataTablePagination,
+  EntityDrawer,
   ErrorState,
   LoadingState,
   PageHeader,
@@ -439,92 +440,78 @@ export function AuditLogPage() {
         </CardContent>
       </Card>
 
-      {selectedEvent && (
-        <div
-          className="fixed inset-0 z-50 bg-black/40"
-          onClick={() => setSelectedEvent(null)}
-        >
-          <div
-            className="ml-auto h-full w-full max-w-4xl overflow-y-auto bg-background shadow-xl"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="flex items-center justify-between border-b px-6 py-4">
-              <div>
-                <h2 className="text-lg font-semibold">审计事件详情</h2>
-                <p className="text-sm text-muted-foreground">{selectedEvent.summary}</p>
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setSelectedEvent(null)}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
+      <EntityDrawer
+        open={!!selectedEvent}
+        onOpenChange={(open) => {
+          if (!open) setSelectedEvent(null)
+        }}
+        title="审计事件详情"
+        subtitle={selectedEvent?.summary}
+        className="max-w-4xl"
+      >
+        {selectedEvent && (
+          <div className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between text-base">
+                  <span>Request JSON</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleCopy('Request JSON', detailRequestJson)}
+                  >
+                    <Copy className="mr-2 h-4 w-4" />
+                    复制
+                  </Button>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <pre className="overflow-x-auto rounded-md bg-muted p-3 font-mono text-xs">
+                  {prettyJson(detailRequestJson)}
+                </pre>
+              </CardContent>
+            </Card>
 
-            <div className="space-y-4 p-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between text-base">
-                    <span>Request JSON</span>
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between text-base">
+                  <span>Response JSON</span>
+                  <div className="flex items-center gap-2">
+                    {selectedEvent.eventType === 'message' && messageDetailError && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => refetchMessageDetail()}
+                      >
+                        重试加载
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleCopy('Request JSON', detailRequestJson)}
+                      onClick={() => handleCopy('Response JSON', detailResponseJson)}
                     >
                       <Copy className="mr-2 h-4 w-4" />
                       复制
                     </Button>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
+                  </div>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {selectedEvent.eventType === 'message' && loadingMessageDetail ? (
+                  <LoadingState message="加载消息详情响应..." />
+                ) : selectedEvent.eventType === 'message' && messageDetailError ? (
+                  <ErrorState message="加载消息详情失败" onRetry={() => refetchMessageDetail()} />
+                ) : (
                   <pre className="overflow-x-auto rounded-md bg-muted p-3 font-mono text-xs">
-                    {prettyJson(detailRequestJson)}
+                    {prettyJson(detailResponseJson)}
                   </pre>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between text-base">
-                    <span>Response JSON</span>
-                    <div className="flex items-center gap-2">
-                      {selectedEvent.eventType === 'message' && messageDetailError && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => refetchMessageDetail()}
-                        >
-                          重试加载
-                        </Button>
-                      )}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleCopy('Response JSON', detailResponseJson)}
-                      >
-                        <Copy className="mr-2 h-4 w-4" />
-                        复制
-                      </Button>
-                    </div>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {selectedEvent.eventType === 'message' && loadingMessageDetail ? (
-                    <LoadingState message="加载消息详情响应..." />
-                  ) : selectedEvent.eventType === 'message' && messageDetailError ? (
-                    <ErrorState message="加载消息详情失败" onRetry={() => refetchMessageDetail()} />
-                  ) : (
-                    <pre className="overflow-x-auto rounded-md bg-muted p-3 font-mono text-xs">
-                      {prettyJson(detailResponseJson)}
-                    </pre>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
-        </div>
-      )}
+        )}
+      </EntityDrawer>
     </div>
   )
 }

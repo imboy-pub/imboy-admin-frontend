@@ -118,6 +118,7 @@ export function LoginPage() {
   const [systemName, setSystemName] = useState('Imboy 管理后台')
   const [csrfToken, setCsrfToken] = useState('')
   const [publicKey, setPublicKey] = useState('')
+  const [initError, setInitError] = useState(false)
   const navigate = useNavigate()
   const { isAuthenticated, setAdmin } = useAuthStore()
   const setupGuard = useSetupGuard()
@@ -136,23 +137,27 @@ export function LoginPage() {
     setValue('captcha', '')
   }, [setValue])
 
-  useEffect(() => {
-    // 初始化获取 csrf_token 和验证码
-    const init = async () => {
-      try {
-        const pageData = await getLoginPage()
-        setCsrfToken(pageData.csrf_token)
-        setPublicKey(pageData.public_key)
-        if (pageData.system_name) {
-          setSystemName(pageData.system_name)
-        }
-        refreshCaptcha()
-      } catch (error) {
-        if (import.meta.env.DEV) console.error('初始化登录页面失败:', error)
+  // 初始化获取 csrf_token、public_key 和验证码（失败时设错误态并提示）
+  const initLoginPage = useCallback(async () => {
+    setInitError(false)
+    try {
+      const pageData = await getLoginPage()
+      setCsrfToken(pageData.csrf_token)
+      setPublicKey(pageData.public_key)
+      if (pageData.system_name) {
+        setSystemName(pageData.system_name)
       }
+      refreshCaptcha()
+    } catch (error) {
+      if (import.meta.env.DEV) console.error('初始化登录页面失败:', error)
+      setInitError(true)
+      toast.error('页面初始化失败，请刷新重试')
     }
-    init()
   }, [refreshCaptcha])
+
+  useEffect(() => {
+    initLoginPage()
+  }, [initLoginPage])
 
   const onSubmit = async (data: LoginForm) => {
     setLoading(true)
@@ -243,6 +248,7 @@ export function LoginPage() {
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  aria-label={showPassword ? '隐藏密码' : '显示密码'}
                   tabIndex={-1}
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -264,14 +270,22 @@ export function LoginPage() {
                   disabled={loading}
                   className="flex-1"
                 />
-                {captchaUrl && (
-                  <img
-                    src={captchaUrl}
-                    alt="验证码"
-                    className="h-10 w-24 cursor-pointer rounded border"
+                {captchaUrl ? (
+                  <button
+                    type="button"
                     onClick={refreshCaptcha}
+                    className="rounded border"
+                    aria-label="点击刷新验证码"
                     title="点击刷新"
-                  />
+                  >
+                    <img src={captchaUrl} alt="验证码" className="h-10 w-24 rounded" />
+                  </button>
+                ) : (
+                  initError && (
+                    <Button type="button" variant="outline" onClick={initLoginPage}>
+                      重试
+                    </Button>
+                  )
                 )}
               </div>
               {errors.captcha && (
@@ -279,7 +293,7 @@ export function LoginPage() {
               )}
             </div>
 
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button type="submit" className="w-full" disabled={loading || !publicKey}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               登录
             </Button>

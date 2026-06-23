@@ -20,7 +20,25 @@ import { Users, MessageSquare, UserPlus, TrendingUp, UsersRound, RefreshCw, Down
 import { toast } from 'sonner'
 import { exportCsv } from '@/lib/csvExport'
 
-const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#0088fe', '#00C49F', '#FFBB28', '#FF8042', '#a855f7', '#ef4444']
+// 图表色板：以主题 token 为主色，其余用固定高对比 HSL，确保亮/暗模式均可读
+const CHART_COLOR_PRIMARY = 'hsl(var(--primary))'
+const CHART_COLOR_SUCCESS = 'hsl(142 71% 45%)'
+const CHART_COLOR_WARNING = 'hsl(38 92% 50%)'
+const CHART_COLOR_DESTRUCTIVE = 'hsl(var(--destructive))'
+
+// 多系列可区分色板（饼图等需要多扇区颜色时使用）
+const COLORS = [
+  CHART_COLOR_PRIMARY,
+  CHART_COLOR_SUCCESS,
+  CHART_COLOR_WARNING,
+  CHART_COLOR_DESTRUCTIVE,
+  'hsl(199 89% 48%)',
+  'hsl(280 65% 60%)',
+  'hsl(160 84% 39%)',
+  'hsl(24 95% 53%)',
+  'hsl(330 81% 60%)',
+  'hsl(217 91% 60%)',
+]
 
 type TimeRange = 7 | 30
 
@@ -196,7 +214,7 @@ export function AnalyticsPage() {
                 <XAxis dataKey="date" tick={{ fontSize: 12 }} />
                 <YAxis tick={{ fontSize: 12 }} />
                 <Tooltip />
-                <Area type="monotone" dataKey="新用户" stroke="#8884d8" fill="#8884d8" fillOpacity={0.2} strokeWidth={2} />
+                <Area type="monotone" dataKey="新用户" stroke={CHART_COLOR_PRIMARY} fill={CHART_COLOR_PRIMARY} fillOpacity={0.2} strokeWidth={2} />
               </AreaChart>
             </ResponsiveContainer>
           </CardContent>
@@ -237,8 +255,8 @@ export function AnalyticsPage() {
                 <YAxis tick={{ fontSize: 12 }} />
                 <Tooltip />
                 <Legend />
-                <Bar dataKey="单聊" fill="#8884d8" />
-                <Bar dataKey="群聊" fill="#82ca9d" />
+                <Bar dataKey="单聊" fill={CHART_COLOR_PRIMARY} />
+                <Bar dataKey="群聊" fill={CHART_COLOR_SUCCESS} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -255,7 +273,7 @@ export function AnalyticsPage() {
                 <XAxis dataKey="date" tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 12 }} />
                 <Tooltip />
-                <Line type="monotone" dataKey="总消息" stroke="#ffc658" strokeWidth={2} dot={{ fill: '#ffc658' }} />
+                <Line type="monotone" dataKey="总消息" stroke={CHART_COLOR_WARNING} strokeWidth={2} dot={{ fill: CHART_COLOR_WARNING }} />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
@@ -276,7 +294,7 @@ export function AnalyticsPage() {
                 <XAxis dataKey="date" tick={{ fontSize: 12 }} />
                 <YAxis tick={{ fontSize: 12 }} />
                 <Tooltip />
-                <Area type="monotone" dataKey="新群组" stroke="#82ca9d" fill="#82ca9d" fillOpacity={0.2} strokeWidth={2} />
+                <Area type="monotone" dataKey="新群组" stroke={CHART_COLOR_SUCCESS} fill={CHART_COLOR_SUCCESS} fillOpacity={0.2} strokeWidth={2} />
               </AreaChart>
             </ResponsiveContainer>
           </CardContent>

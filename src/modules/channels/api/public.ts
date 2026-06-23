@@ -26,6 +26,8 @@ export interface ChannelListParams {
   size?: number
   status?: number
   keyword?: string
+  /** 频道类型过滤（0公开 1私密 2付费），由后端 /channel/list 服务端分页 */
+  type?: number
 }
 
 export interface ChannelSearchParams {
@@ -382,5 +384,20 @@ export async function setChannelPrice(
   data: ChannelPriceParams
 ): Promise<ApiResponse<Record<string, never>>> {
   const response = await client.put(`/channel/${channelId}/price`, data)
+  return response.data
+}
+
+/**
+ * 频道订单退款（管理端，client 自动加 adm 前缀）。
+ * 成功返回 { order_no }；退款不可撤销。
+ */
+export async function refundChannelOrder(
+  orderNo: string,
+  reason: string
+): Promise<ApiResponse<{ order_no: string }>> {
+  const response = await client.post('/channel/order/refund', {
+    order_no: orderNo,
+    refund_reason: reason,
+  })
   return response.data
 }

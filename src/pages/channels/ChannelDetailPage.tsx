@@ -11,6 +11,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { ConfirmDialog, ErrorState, LoadingState, PageHeader, StatusBadge } from '@/components/shared'
 import { ChannelUpdateParams, ChannelPriceParams, deleteChannel, getChannelDetailPayload, getChannelStatsPayload, setChannelPrice, updateChannel } from '@/modules/channels/api'
 import { formatDate } from '@/lib/utils'
+import { fenToYuan, yuanToFen } from '@/lib/money'
 import { useAdminFeatures, useAdminEntryEnabled } from '@/hooks/useAdminFeatures'
 import { isAdminFeatureEnabled } from '@/services/api/features'
 import { getErrorMessage } from '@/lib/errorUtils'
@@ -50,10 +51,15 @@ function toFormData(channel: {
   }
 }
 
+/** 分转纯元字符串（无 ¥ 前缀），用于 type="number" 表单回填 */
+function fenToYuanInput(fen?: number): string {
+  return fen ? fenToYuan(fen).replace('¥', '') : ''
+}
+
 function toPriceFormData(channel: { price?: number; original_price?: number; currency?: string; subscription_type?: number }): ChannelPriceForm {
   return {
-    price_yuan: channel.price ? (channel.price / 100).toFixed(2) : '',
-    original_price_yuan: channel.original_price ? (channel.original_price / 100).toFixed(2) : '',
+    price_yuan: fenToYuanInput(channel.price),
+    original_price_yuan: fenToYuanInput(channel.original_price),
     currency: channel.currency ?? 'CNY',
     subscription_type: channel.subscription_type ?? 1,
     description: '',
@@ -483,10 +489,10 @@ export function ChannelDetailPage() {
                   </Button>
                   <Button
                     onClick={() => {
-                      const priceFen = Math.round(parseFloat(priceFormData.price_yuan || '0') * 100)
+                      const priceFen = yuanToFen(priceFormData.price_yuan || '0')
                       if (priceFen <= 0) { toast.error('价格必须大于 0'); return }
                       const originalFen = priceFormData.original_price_yuan
-                        ? Math.round(parseFloat(priceFormData.original_price_yuan) * 100)
+                        ? yuanToFen(priceFormData.original_price_yuan)
                         : undefined
                       priceMutation.mutate({
                         price_fen: priceFen,
@@ -508,12 +514,12 @@ export function ChannelDetailPage() {
                 <div>
                   <dt className="text-sm text-muted-foreground">当前价格</dt>
                   <dd className="font-medium">
-                    {channel.price ? `${(channel.price / 100).toFixed(2)} ${channel.currency ?? 'CNY'}` : '未设置'}
+                    {channel.price ? `${fenToYuan(channel.price)} ${channel.currency ?? 'CNY'}` : '未设置'}
                   </dd>
                 </div>
                 <div>
                   <dt className="text-sm text-muted-foreground">原价</dt>
-                  <dd>{channel.original_price ? `${(channel.original_price / 100).toFixed(2)} ${channel.currency ?? 'CNY'}` : '-'}</dd>
+                  <dd>{channel.original_price ? `${fenToYuan(channel.original_price)} ${channel.currency ?? 'CNY'}` : '-'}</dd>
                 </div>
                 <div>
                   <dt className="text-sm text-muted-foreground">订阅类型</dt>

@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
-import { ErrorState, LoadingState, PageHeader, StatsCard } from '@/components/shared'
+import { ConfirmDialog, ErrorState, LoadingState, PageHeader, StatsCard } from '@/components/shared'
 import { getLicenseStatus, applyLicense } from '@/services/api/stats'
 import { cn } from '@/lib/utils'
 
@@ -60,6 +60,7 @@ function daysRemaining(ts: number): string {
 export function LicensePage() {
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
   const [licenseText, setLicenseText] = useState('')
 
   const { data, isLoading, error, refetch } = useQuery({
@@ -72,6 +73,7 @@ export function LicensePage() {
     mutationFn: applyLicense,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['license-status'] })
+      setConfirmOpen(false)
       setOpen(false)
       setLicenseText('')
     },
@@ -118,13 +120,25 @@ export function LicensePage() {
             <Button variant="outline" onClick={() => setOpen(false)}>取消</Button>
             <Button
               disabled={!licenseText.trim() || isPending}
-              onClick={() => mutate(licenseText.trim())}
+              onClick={() => setConfirmOpen(true)}
             >
               {isPending ? '应用中...' : '应用'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="确认更新 License？"
+        description="此操作将覆盖现有授权，可能影响在线用户与可用功能（如降级配额或变更可用功能）。请确认 License 内容无误后继续。"
+        confirmText="确认更新"
+        cancelText="取消"
+        variant="destructive"
+        loading={isPending}
+        onConfirm={() => mutate(licenseText.trim())}
+      />
 
       <div className="flex items-center gap-3">
         {isValid ? (

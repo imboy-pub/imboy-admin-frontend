@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { EntityDrawer } from '@/components/shared'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -28,6 +29,9 @@ export function CreateRoleDrawer({
   onConfirm,
   isPending,
 }: CreateRoleDrawerProps) {
+  const [roleNameTouched, setRoleNameTouched] = useState(false)
+  const isRoleNameEmpty = roleName.trim().length === 0
+  const showRoleNameError = roleNameTouched && isRoleNameEmpty
   return (
     <EntityDrawer
       open={open}
@@ -39,7 +43,7 @@ export function CreateRoleDrawer({
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>
             取消
           </Button>
-          <Button onClick={onConfirm} disabled={isPending}>
+          <Button onClick={onConfirm} disabled={isPending || isRoleNameEmpty}>
             {isPending ? '创建中...' : '确认创建'}
           </Button>
         </>
@@ -52,7 +56,12 @@ export function CreateRoleDrawer({
             placeholder="例如：内容巡检管理员"
             value={roleName}
             onChange={(event) => onRoleNameChange(event.target.value)}
+            onBlur={() => setRoleNameTouched(true)}
+            aria-invalid={showRoleNameError}
           />
+          {showRoleNameError && (
+            <p className="text-sm text-destructive">请输入角色名</p>
+          )}
         </div>
         <div className="space-y-2">
           <label className="text-sm font-medium">角色描述</label>

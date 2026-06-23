@@ -1,4 +1,5 @@
 import { Fragment, useState, useEffect, useMemo } from 'react'
+import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -31,6 +32,10 @@ import {
   AreaChart,
   Area,
 } from 'recharts'
+
+// 图表色板：基于主题 token + 固定高对比 HSL，确保亮/暗模式均可读
+const CHART_COLOR_PRIMARY = 'hsl(var(--primary))'
+const CHART_COLOR_SUCCESS = 'hsl(142 71% 45%)'
 
 dashboardPanelRegistry.register({
   id: 'system-status',
@@ -85,8 +90,8 @@ function QuickActionCard({ title, description, path, icon: Icon }: {
   icon: React.ComponentType<{ className?: string }>
 }) {
   return (
-    <a
-      href={path}
+    <Link
+      to={path}
       className="group flex items-start gap-4 rounded-lg border bg-card p-4 transition-colors hover:bg-accent"
     >
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
@@ -96,7 +101,7 @@ function QuickActionCard({ title, description, path, icon: Icon }: {
         <p className="text-sm font-medium">{title}</p>
         <p className="text-xs text-muted-foreground">{description}</p>
       </div>
-    </a>
+    </Link>
   )
 }
 
@@ -388,9 +393,9 @@ export function DashboardPage() {
                 <Line
                   type="monotone"
                   dataKey="新用户"
-                  stroke="#8884d8"
+                  stroke={CHART_COLOR_PRIMARY}
                   strokeWidth={2}
-                  dot={{ fill: '#8884d8' }}
+                  dot={{ fill: CHART_COLOR_PRIMARY }}
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -410,8 +415,8 @@ export function DashboardPage() {
                 <YAxis tick={{ fontSize: 12 }} />
                 <Tooltip />
                 <Legend />
-                <Bar dataKey="单聊" fill="#8884d8" />
-                <Bar dataKey="群聊" fill="#82ca9d" />
+                <Bar dataKey="单聊" fill={CHART_COLOR_PRIMARY} />
+                <Bar dataKey="群聊" fill={CHART_COLOR_SUCCESS} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -435,8 +440,8 @@ export function DashboardPage() {
                 <Area
                   type="monotone"
                   dataKey="新群组"
-                  stroke="#82ca9d"
-                  fill="#82ca9d"
+                  stroke={CHART_COLOR_SUCCESS}
+                  fill={CHART_COLOR_SUCCESS}
                   fillOpacity={0.3}
                   strokeWidth={2}
                 />
