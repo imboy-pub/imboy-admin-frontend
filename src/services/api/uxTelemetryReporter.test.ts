@@ -25,7 +25,7 @@ function normalizeRecord(raw: unknown): UxEventRecord | null {
   }
 }
 
-const DEFAULT_UX_REPORT_URL = '/adm/admin/ux/events'
+const DEFAULT_UX_REPORT_URL = '/api/adm/admin/ux/events'
 
 function resolveReportUrl(envUrl?: string): string {
   const url = typeof envUrl === 'string' ? envUrl.trim() : ''

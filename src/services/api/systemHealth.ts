@@ -8,12 +8,12 @@ import { requireApiPayload } from './responseAdapter'
  * 从 VITE_API_BASE_URL 推导出 API 根路径，确保生产环境路由正确。
  */
 const METRICS_BASE_URL = (() => {
-  const base = import.meta.env.VITE_API_BASE_URL || '/adm'
+  const base = import.meta.env.VITE_API_BASE_URL || '/api/adm'
   try {
     const url = new URL(base)
     return url.origin
   } catch {
-    // 相对路径（如 '/adm'），回退到当前 origin
+    // 相对路径（如 '/api/adm'），回退到当前 origin
     return '/'
   }
 })()

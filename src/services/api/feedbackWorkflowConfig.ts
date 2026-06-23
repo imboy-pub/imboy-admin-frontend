@@ -27,7 +27,7 @@ type FeedbackWorkflowBackendPayload = {
 // contains only non-sensitive display preferences (reply templates, SLA hours). Persisting
 // across sessions improves UX when the backend is unavailable. No tokens or secrets are stored.
 const FEEDBACK_WORKFLOW_LOCAL_KEY = 'imboy.feedback-workflow-config.v1'
-// axios client base is '/adm', so path below is relative to that
+// axios client base is '/api/adm', so path below is relative to that
 const DEFAULT_FEEDBACK_WORKFLOW_CONFIG_PATH = '/admin/config/feedback-workflow'
 const MIN_SLA_HOURS = 1
 const MAX_SLA_HOURS = 720

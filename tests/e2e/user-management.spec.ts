@@ -34,7 +34,7 @@ test.describe('用户管理 / User Management', () => {
     await searchInput.fill('test')
     await page.keyboard.press('Enter')
     await page.waitForResponse(
-      (resp) => resp.url().includes('/adm/') && resp.request().method() === 'GET',
+      (resp) => resp.url().includes('/api/adm/') && resp.request().method() === 'GET',
       { timeout: 5_000 },
     ).catch(() => page.waitForTimeout(300))
 
@@ -45,7 +45,7 @@ test.describe('用户管理 / User Management', () => {
     await searchInput.clear()
     await page.keyboard.press('Enter')
     await page.waitForResponse(
-      (resp) => resp.url().includes('/adm/') && resp.request().method() === 'GET',
+      (resp) => resp.url().includes('/api/adm/') && resp.request().method() === 'GET',
       { timeout: 5_000 },
     ).catch(() => page.waitForTimeout(300))
   })
@@ -61,7 +61,7 @@ test.describe('用户管理 / User Management', () => {
       const firstRowBefore = await page.locator('table tbody tr').first().innerText()
       await nextBtn.click()
       await page.waitForResponse(
-        (resp) => resp.url().includes('/adm/') && resp.request().method() === 'GET',
+        (resp) => resp.url().includes('/api/adm/') && resp.request().method() === 'GET',
         { timeout: 5_000 },
       ).catch(() => page.waitForTimeout(300))
       const firstRowAfter = await page.locator('table tbody tr').first().innerText()

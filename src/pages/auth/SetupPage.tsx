@@ -26,10 +26,10 @@ import { encryptLoginPassword } from '@/lib/passwordCrypto'
  * 强制运营者通过 Web 表单创建第一个超级管理员账号。
  *
  * 流程：
- *   1. 挂载时调用 GET /adm/setup/status 确认系统未初始化
+ *   1. 挂载时调用 GET /api/adm/setup/status 确认系统未初始化
  *   2. 已初始化 → 直接跳转 /login（防重复访问）
  *   3. 未初始化 → 展示表单：account（手机号或邮箱）+ password（强密码）+ nickname
- *   4. 提交 POST /adm/setup/init，成功后跳转 /login
+ *   4. 提交 POST /api/adm/setup/init，成功后跳转 /login
  *
  * 密码规则（与后端 adm_setup_logic:validate_password/1 对齐）：
  *   - 长度 8-64

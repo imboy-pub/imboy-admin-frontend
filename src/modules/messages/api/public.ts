@@ -3,7 +3,7 @@ import { requireApiPayload } from '@/services/api/responseAdapter'
 import { ApiResponse, PaginatedResponse } from '@/types/api'
 import { ManagedMessage, MessageListParams } from '@/types/message'
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/adm'
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/adm'
 
 /**
  * @deprecated Prefer `getMessageListPayload` to consume typed payload directly.

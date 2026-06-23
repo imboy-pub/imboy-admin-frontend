@@ -171,7 +171,7 @@ describe('getRoleListPayload', () => {
     const originalFetch = globalThis.fetch
     globalThis.fetch = async (input: RequestInfo | URL) => {
       const url = String(input).replace(/\?t=\d+$/, '')
-      if (url === '/adm/admin/config/sidebar') {
+      if (url === '/api/adm/admin/config/sidebar') {
         return new Response(JSON.stringify({
           code: 0, msg: 'ok',
           payload: {

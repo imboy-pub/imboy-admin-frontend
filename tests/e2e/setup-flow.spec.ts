@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test'
  * P0-5 首启初始化向导 E2E
  *
  * 测试策略：
- *   - 使用 Playwright route 拦截 mock 后端 /adm/setup/status 与 /adm/setup/init，
+ *   - 使用 Playwright route 拦截 mock 后端 /api/adm/setup/status 与 /api/adm/setup/init，
  *     让测试在无真实后端依赖下稳定运行。
  *   - 真实 docker PG 链路的 E2E 由后端 EUnit + adm_setup_logic_tests 覆盖。
  *
@@ -13,8 +13,8 @@ import { expect, test } from '@playwright/test'
  *   3. 提交成功 → 跳转 /login
  *   4. 已初始化状态访问 /setup → 自动跳转 /login（防重入）
  */
-const SETUP_STATUS_URL = '**/adm/setup/status'
-const SETUP_INIT_URL = '**/adm/setup/init'
+const SETUP_STATUS_URL = '**/api/adm/setup/status'
+const SETUP_INIT_URL = '**/api/adm/setup/init'
 function mockStatus(initialized: boolean) {
   return async (route: import('@playwright/test').Route) => {
     await route.fulfill({

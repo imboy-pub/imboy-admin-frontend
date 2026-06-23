@@ -25,20 +25,20 @@ const loginSchema = z.object({
 type LoginForm = z.infer<typeof loginSchema>
 
 const ROUTE_ALIASES: Record<string, string> = {
-  '/adm': '/dashboard',
-  '/adm/': '/dashboard',
-  '/adm/index': '/dashboard',
-  '/adm/welcome': '/dashboard',
-  '/adm/current': '/dashboard',
-  '/adm/user/list': '/users',
-  '/adm/group/list': '/groups',
-  '/adm/channel/list': '/channels',
-  '/adm/report/list': '/reports',
-  '/adm/moment/report/list': '/reports',
-  '/adm/feedback/index': '/feedback',
-  '/adm/msg/list': '/messages',
-  '/adm/logout_application/list': '/logout-applications',
-  '/adm/log/list': '/logs',
+  '/api/adm': '/dashboard',
+  '/api/adm/': '/dashboard',
+  '/api/adm/index': '/dashboard',
+  '/api/adm/welcome': '/dashboard',
+  '/api/adm/current': '/dashboard',
+  '/api/adm/user/list': '/users',
+  '/api/adm/group/list': '/groups',
+  '/api/adm/channel/list': '/channels',
+  '/api/adm/report/list': '/reports',
+  '/api/adm/moment/report/list': '/reports',
+  '/api/adm/feedback/index': '/feedback',
+  '/api/adm/msg/list': '/messages',
+  '/api/adm/logout_application/list': '/logout-applications',
+  '/api/adm/log/list': '/logs',
 }
 
 const KNOWN_FRONTEND_ROUTES = new Set([
@@ -92,12 +92,12 @@ function normalizeNextRoute(rawNext?: string): string {
     return ROUTE_ALIASES[path]
   }
 
-  if (path.startsWith('/adm/passport')) {
+  if (path.startsWith('/api/adm/passport')) {
     return '/dashboard'
   }
 
-  if (path.startsWith('/adm/')) {
-    const directPath = path.replace('/adm', '') || '/dashboard'
+  if (path.startsWith('/api/adm/')) {
+    const directPath = path.replace('/api/adm', '') || '/dashboard'
     if (KNOWN_FRONTEND_ROUTES.has(directPath)) {
       return directPath
     }

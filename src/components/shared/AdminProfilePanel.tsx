@@ -68,7 +68,7 @@ export function AdminProfilePanel() {
                 type="button"
                 className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm hover:bg-muted transition-colors text-muted-foreground cursor-not-allowed"
                 disabled
-                title="修改密码功能开发中，需要后端支持 /adm/admin/password 接口"
+                title="修改密码功能开发中，需要后端支持 /api/adm/admin/password 接口"
               >
                 <Key className="h-4 w-4" />
                 修改密码

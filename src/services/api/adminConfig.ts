@@ -34,7 +34,7 @@ export type SidebarMenuConfig = {
   rbac?: AdminRbacConfig
 }
 
-const DEFAULT_REMOTE_SIDEBAR_CONFIG_URL = '/adm/admin/config/sidebar'
+const DEFAULT_REMOTE_SIDEBAR_CONFIG_URL = '/api/adm/admin/config/sidebar'
 const DEFAULT_LOCAL_SIDEBAR_CONFIG_URL = '/sidebar-menu.json'
 
 function normalizeStringArray(input: unknown): string[] {

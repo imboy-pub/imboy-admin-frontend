@@ -6,8 +6,8 @@ import { ApiResponse } from '@/types/api'
  * 首启初始化向导 API（P0-5）
  *
  * 对应后端：
- *   GET  /adm/setup/status  → adm_setup_handler:status
- *   POST /adm/setup/init    → adm_setup_handler:init_setup
+ *   GET  /api/adm/setup/status  → adm_setup_handler:status
+ *   POST /api/adm/setup/init    → adm_setup_handler:init_setup
  *
  * 两个端点均已加入 imboy_router:open/0 白名单，免鉴权访问。
  */

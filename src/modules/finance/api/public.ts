@@ -1,9 +1,9 @@
 /**
  * 财务管理 API service
  *
- * 已对接后端 /adm/finance/* 运营端点（管理员鉴权 finance:read / finance:write）。
- * baseURL = /adm（client.ts 已设置），故此处路径以 /finance 开头，拼为 /adm/finance/*。
- * 后端实现见 imboy/src/adm/adm_finance_handler.erl 与 imboy_router.erl 的 /adm/finance 段。
+ * 已对接后端 /api/adm/finance/* 运营端点（管理员鉴权 finance:read / finance:write）。
+ * baseURL = /adm（client.ts 已设置），故此处路径以 /finance 开头，拼为 /api/adm/finance/*。
+ * 后端实现见 imboy/src/api/adm/adm_finance_handler.erl 与 imboy_router.erl 的 /api/adm/finance 段。
  * 金额字段为整数「分」，页面层用 src/lib/money.ts 的 fenToYuan 显示；TSID 字段为 EntityId(string)。
  */
 
@@ -26,7 +26,7 @@ import type {
 } from '@/types/billing'
 
 // ─── 路径常量 ─────────────────────────────────────────────────────────────
-// 对应后端 /adm/finance/* 运营端点（baseURL=/adm 已在 client.ts 设置）。
+// 对应后端 /api/adm/finance/* 运营端点（baseURL=/adm 已在 client.ts 设置）。
 
 const FINANCE_BASE = '/finance'
 const BILLING_BASE = '/finance/billing'

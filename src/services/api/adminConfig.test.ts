@@ -31,7 +31,7 @@ describe('fetchSidebarMenuConfig', () => {
       { label: '用户管理', path: '/users', enabled: true },
     ]
 
-    mockFetch({ '/adm/admin/config/sidebar': { ok: true, body: items } })
+    mockFetch({ '/api/adm/admin/config/sidebar': { ok: true, body: items } })
 
     const result = await fetchSidebarMenuConfig()
     expect(result.items).toHaveLength(2)
@@ -58,7 +58,7 @@ describe('fetchSidebarMenuConfig', () => {
       },
     }
 
-    mockFetch({ '/adm/admin/config/sidebar': { ok: true, body: wrappedBody } })
+    mockFetch({ '/api/adm/admin/config/sidebar': { ok: true, body: wrappedBody } })
 
     const result = await fetchSidebarMenuConfig()
     expect(result.title).toBe('管理后台')
@@ -72,7 +72,7 @@ describe('fetchSidebarMenuConfig', () => {
     const localItems = [{ label: '本地配置', path: '/local', enabled: true }]
 
     mockFetch({
-      '/adm/admin/config/sidebar': { ok: false, body: 'error' },
+      '/api/adm/admin/config/sidebar': { ok: false, body: 'error' },
       '/sidebar-menu.json': { ok: true, body: localItems },
     })
 
@@ -89,7 +89,7 @@ describe('fetchSidebarMenuConfig', () => {
   it('throws when backend returns error code in payload', async () => {
     const errorBody = { code: 401, msg: '未登录', payload: null }
 
-    mockFetch({ '/adm/admin/config/sidebar': { ok: true, body: errorBody } })
+    mockFetch({ '/api/adm/admin/config/sidebar': { ok: true, body: errorBody } })
 
     await expect(fetchSidebarMenuConfig()).rejects.toThrow('backend config rejected')
   })
@@ -110,7 +110,7 @@ describe('fetchSidebarMenuConfig', () => {
       },
     }
 
-    mockFetch({ '/adm/admin/config/sidebar': { ok: true, body } })
+    mockFetch({ '/api/adm/admin/config/sidebar': { ok: true, body } })
 
     const result = await fetchSidebarMenuConfig()
     // Only the first (valid) entry should survive
@@ -134,7 +134,7 @@ describe('fetchSidebarMenuConfig', () => {
       },
     }
 
-    mockFetch({ '/adm/admin/config/sidebar': { ok: true, body } })
+    mockFetch({ '/api/adm/admin/config/sidebar': { ok: true, body } })
 
     const result = await fetchSidebarMenuConfig()
     expect(result.rbac?.roles).toHaveLength(1)

@@ -220,10 +220,10 @@ function normalizeNextRoute(rawNext?: string): string {
 
   if (ROUTE_ALIASES[path]) return ROUTE_ALIASES[path]
 
-  if (path.startsWith('/adm/passport')) return '/dashboard'
+  if (path.startsWith('/api/adm/passport')) return '/dashboard'
 
-  if (path.startsWith('/adm/')) {
-    const directPath = path.replace('/adm', '') || '/dashboard'
+  if (path.startsWith('/api/adm/')) {
+    const directPath = path.replace('/api/adm', '') || '/dashboard'
     if (KNOWN_FRONTEND_ROUTES.has(directPath)) return directPath
     return '/dashboard'
   }
@@ -275,12 +275,12 @@ describe('normalizeNextRoute', () => {
     expect(normalizeNextRoute('http://example.com/users')).toBe('/users')
   })
 
-  it('maps /adm/ prefix to frontend path', () => {
-    expect(normalizeNextRoute('/adm/users')).toBe('/users')
+  it('maps /api/adm/ prefix to frontend path', () => {
+    expect(normalizeNextRoute('/api/adm/users')).toBe('/users')
   })
 
-  it('returns /dashboard for /adm/ path not in known routes', () => {
-    expect(normalizeNextRoute('/adm/unknown_path')).toBe('/dashboard')
+  it('returns /dashboard for /api/adm/ path not in known routes', () => {
+    expect(normalizeNextRoute('/api/adm/unknown_path')).toBe('/dashboard')
   })
 
   it('returns /dashboard for unknown route', () => {

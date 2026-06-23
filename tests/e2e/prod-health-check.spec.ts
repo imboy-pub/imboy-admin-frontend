@@ -34,7 +34,7 @@ async function loginToProd(page: Page): Promise<boolean> {
   // 监听 API 错误
   page.on('response', (resp) => {
     const url = resp.url()
-    if (url.includes('/adm/') && resp.status() >= 400) {
+    if (url.includes('/api/adm/') && resp.status() >= 400) {
       apiIssues.push({ url, status: resp.status(), method: resp.request().method() })
     }
   })
@@ -110,7 +110,7 @@ async function checkPage(
   const pageApiIssues: string[] = []
   const responseListener = (resp: import('@playwright/test').Response) => {
     const rUrl = resp.url()
-    if (rUrl.includes('/adm/') && resp.status() >= 400) {
+    if (rUrl.includes('/api/adm/') && resp.status() >= 400) {
       pageApiIssues.push(`${resp.request().method()} ${rUrl} → ${resp.status()}`)
     }
   }
@@ -197,7 +197,7 @@ test.describe.configure({ mode: 'serial' })
 
 test('01 登录生产管理后台', async ({ page }) => {
   // 先检查登录页验证码 API
-  const captchaResp = await page.request.get(`${BASE}/adm/passport/captcha`).catch(() => null)
+  const captchaResp = await page.request.get(`${BASE}/api/adm/passport/captcha`).catch(() => null)
   if (captchaResp) {
     console.log(`验证码 API 状态: ${captchaResp.status()}`)
     if (captchaResp.status() === 200) {

@@ -18,7 +18,7 @@
  *
  * 前置条件 / Prerequisites:
  *   - 需要 IMBOY_ADMIN_E2E_SUPER_ACCOUNT / _PASSWORD（或 _ACCOUNT / _PASSWORD 带 role_id ∈ [1,2]）
- *   - 后端可达 /login 与 /adm/* 端点
+ *   - 后端可达 /login 与 /api/adm/* 端点
  *
  * 运行 / Run:
  *   bun run test:e2e -- --project=chromium group-task

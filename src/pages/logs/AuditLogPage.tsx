@@ -153,7 +153,7 @@ export function AuditLogPage() {
       detail: item.payload || '',
       requestJson: {
         method: 'GET',
-        path: '/adm/message/list',
+        path: '/api/adm/message/list',
         query: {
           msg_scope: item.scope,
           keyword: item.msg_id,
@@ -186,7 +186,7 @@ export function AuditLogPage() {
       detail: item.body || '',
       requestJson: {
         method: 'GET',
-        path: '/adm/user/logout_apply/list',
+        path: '/api/adm/user/logout_apply/list',
         query: {
           uid: item.uid,
         },
@@ -233,7 +233,7 @@ export function AuditLogPage() {
     if (selectedEvent.eventType === 'message') {
       return {
         method: 'GET',
-        path: '/adm/message/detail',
+        path: '/api/adm/message/detail',
         query: {
           msg_id: selectedEvent.msgId,
           msg_scope: selectedEvent.msgScope,

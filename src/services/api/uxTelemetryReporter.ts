@@ -14,7 +14,7 @@ type ReportError = Error & {
   status?: number
 }
 
-const DEFAULT_UX_REPORT_URL = '/adm/admin/ux/events'
+const DEFAULT_UX_REPORT_URL = '/api/adm/admin/ux/events'
 const FLUSH_INTERVAL_MS = 5000
 const MAX_QUEUE_SIZE = 200
 const MAX_BATCH_SIZE = 20

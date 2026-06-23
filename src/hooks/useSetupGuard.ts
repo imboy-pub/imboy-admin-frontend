@@ -5,7 +5,7 @@ import { getSetupStatus } from '@/modules/identity'
  * useSetupGuard — 首启向导守卫（P0-5）
  *
  * 行为：
- *   - 组件挂载时调用 GET /adm/setup/status
+ *   - 组件挂载时调用 GET /api/adm/setup/status
  *   - initialized === false  → 需要跳转 /setup
  *   - initialized === true   → 正常流程
  *   - 网络错误时不阻塞，默认视为"已初始化"，避免误导流量
