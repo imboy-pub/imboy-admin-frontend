@@ -114,7 +114,7 @@ function normalizeNextRoute(rawNext?: string): string {
 export function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
-  const [captchaUrl, setCaptchaUrl] = useState('')
+  const [captchaUrl, setCaptchaUrl] = useState(() => getCaptchaUrl())
   const [systemName, setSystemName] = useState('Imboy 管理后台')
   const [csrfToken, setCsrfToken] = useState('')
   const [publicKey, setPublicKey] = useState('')
