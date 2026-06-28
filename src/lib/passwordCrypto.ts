@@ -77,11 +77,10 @@ export async function encryptLoginPassword(password: string, rawPublicKey: strin
       ['encrypt'],
     )
 
-    // SECURITY(H12): MD5预处理将密码熵压缩至128位哈希值域，降低安全强度
-  // BACKEND PROTOCOL: confirmed backend does NOT depend on MD5 pre-hash.
-  // TODO: remove md5() call and send raw password for RSA-OAEP encryption.
-  // TODO: 协调后端改为直接RSA-OAEP加密明文，服务端用bcrypt/argon2哈希
-  const hashedPwd = md5(password)
+    // BACKEND PROTOCOL: backend stores hmac_sha512(md5(plaintext), salt); MD5 pre-hash is REQUIRED.
+    // SECURITY NOTE: MD5 reduces password entropy to 128-bit hash space.
+    // To remove md5(): migrate backend to store hmac_sha512(plaintext) and update stored passwords.
+    const hashedPwd = md5(password)
     const encrypted = await subtle.encrypt(
       { name: 'RSA-OAEP' },
       cryptoKey,

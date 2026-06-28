@@ -52,19 +52,19 @@ export async function getStorageList(params: {
   }
 }
 
-export async function disableAttachment(id: string): Promise<void> {
+export async function disableAttachment(id: EntityId): Promise<void> {
   requireApiPayload((await client.post('/storage/disable', { id })).data, '/storage/disable')
 }
 
-export async function enableAttachment(id: string): Promise<void> {
+export async function enableAttachment(id: EntityId): Promise<void> {
   requireApiPayload((await client.post('/storage/enable', { id })).data, '/storage/enable')
 }
 
-export async function deleteAttachment(id: string): Promise<void> {
+export async function deleteAttachment(id: EntityId): Promise<void> {
   requireApiPayload((await client.post('/storage/delete', { id })).data, '/storage/delete')
 }
 
-export async function getDownloadUrl(id: string): Promise<{ url: string }> {
+export async function getDownloadUrl(id: EntityId): Promise<{ url: string }> {
   return requireApiPayload<{ url: string }>(
     (await client.get('/storage/download', { params: { id } })).data,
     '/storage/download'
