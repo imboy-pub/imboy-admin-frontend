@@ -77,7 +77,7 @@ describe('getUserDetailPayload', () => {
   it('passes uid as query param to /user/detail', async () => {
     mutableClient.get = async (url: string, config?: { params?: Record<string, unknown> }) => {
       expect(url).toBe('/user/detail')
-      expect(config?.params?.uid).toBe('7001')
+      expect(config?.params?.user_id).toBe('7001')
       return {
         data: {
           code: 0, msg: 'ok',
@@ -100,7 +100,7 @@ describe('getUserDetailPayload', () => {
 })
 
 describe('banUser', () => {
-  it('posts uid to /user/ban', async () => {
+  it('posts user_id to /user/ban', async () => {
     let capturedBody: Record<string, unknown> = {}
     mutableClient.post = async (url: string, body: Record<string, unknown>) => {
       expect(url).toBe('/user/ban')
@@ -109,12 +109,13 @@ describe('banUser', () => {
     }
 
     await banUser('7001')
-    expect(capturedBody.uid).toBe('7001')
+    // Backend parse_uid_param prefers 'user_id', falls back to 'uid' (T22/BE-17)
+    expect(capturedBody.user_id).toBe('7001')
   })
 })
 
 describe('unbanUser', () => {
-  it('posts uid to /user/unban', async () => {
+  it('posts user_id to /user/unban', async () => {
     let capturedBody: Record<string, unknown> = {}
     mutableClient.post = async (url: string, body: Record<string, unknown>) => {
       expect(url).toBe('/user/unban')
@@ -123,7 +124,7 @@ describe('unbanUser', () => {
     }
 
     await unbanUser('7001')
-    expect(capturedBody.uid).toBe('7001')
+    expect(capturedBody.user_id).toBe('7001')
   })
 })
 

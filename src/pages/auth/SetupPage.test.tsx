@@ -58,6 +58,9 @@ describe('SetupPage flow', () => {
       if (url === '/setup/status') {
         return { data: { code: 0, msg: 'ok', payload: { initialized: true } } }
       }
+      if (url === '/passport/meta') {
+        return { data: { code: 0, msg: 'ok', payload: { csrf_token: '', public_key: '', system_name: 'Imboy' } } }
+      }
       throw new Error(`unexpected GET: ${url}`)
     }
 

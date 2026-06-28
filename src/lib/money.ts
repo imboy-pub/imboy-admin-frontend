@@ -13,6 +13,7 @@
  * fenToYuan(100)  => "¥1.00"
  */
 export function fenToYuan(fen: number | string | undefined | null): string {
+  if (fen === null || fen === undefined) return '-'
   const num = Number(fen)
   if (!Number.isFinite(num)) return '-'
   return `¥${(num / 100).toFixed(2)}`

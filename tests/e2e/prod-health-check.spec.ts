@@ -14,9 +14,6 @@ const PASSWORD = process.env.IMBOY_ADMIN_E2E_PASSWORD || 'Admin123!'
 // 生产环境没有测试验证码，由 IMBOY_ADMIN_E2E_CAPTCHA 环境变量传入真实值
 // 备选: 使用已知的固定验证码（仅 local/dev/test 环境有效）
 const CAPTCHA = process.env.IMBOY_ADMIN_E2E_CAPTCHA || '1234'
-// 是否为生产环境（生产不可绕过验证码）
-const IS_PROD = BASE.includes('prodadm') || BASE.includes('prod')
-
 // 收集所有检查结果
 const results: Array<{ page: string; status: 'OK' | 'ERROR' | 'WARN'; description: string }> = []
 const apiIssues: Array<{ url: string; status: number; method: string }> = []

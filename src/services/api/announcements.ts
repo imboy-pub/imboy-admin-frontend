@@ -55,7 +55,7 @@ export async function getAnnouncementList(
 }
 
 export async function createAnnouncement(data: AnnouncementFormData): Promise<{ id: EntityId }> {
-  const response = await client.post('/announcement/create', data as unknown as Record<string, unknown>)
+  const response = await client.post('/announcement/create', data)
   return requireApiPayload(response.data, '/announcement/create')
 }
 
@@ -63,7 +63,7 @@ export async function updateAnnouncement(
   id: EntityId,
   data: Partial<AnnouncementFormData>,
 ): Promise<{ id: EntityId }> {
-  const response = await client.put('/announcement/update', { id, ...data } as unknown as Record<string, unknown>)
+  const response = await client.put('/announcement/update', { id, ...data })
   return requireApiPayload(response.data, '/announcement/update')
 }
 

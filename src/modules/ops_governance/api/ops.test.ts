@@ -67,31 +67,33 @@ describe('getVersionListPayload', () => {
 })
 
 describe('saveVersion', () => {
-  it('posts version data to /app_version/save', async () => {
+  it('posts version data to /app_version/save using backend field names', async () => {
     let capturedBody: Record<string, unknown> = {}
     mutableClient.post = async (url: string, body: Record<string, unknown>) => {
       expect(url).toBe('/app_version/save')
       capturedBody = body
-      return { data: { code: 0, msg: 'ok', payload: { id: 'new-1', version: '1.3.0', platform: 'android' } } }
+      return { data: { code: 0, msg: 'ok', payload: { id: 'new-1', vsn: '1.3.0', type: 'android' } } }
     }
 
-    await saveVersion({ version: '1.3.0', platform: 'android', force_update: false })
-    expect(capturedBody.version).toBe('1.3.0')
-    expect(capturedBody.platform).toBe('android')
+    await saveVersion({ version: '1.3.0', platform: 'android', force_update: false, download_url: '', description: '' })
+    // Backend reads 'vsn' not 'version', 'type' not 'platform', force_update 1=true/2=false
+    expect(capturedBody.vsn).toBe('1.3.0')
+    expect(capturedBody.type).toBe('android')
+    expect(capturedBody.force_update).toBe(2)
   })
 })
 
 describe('deleteVersion', () => {
-  it('posts id to /app_version/delete', async () => {
-    let capturedBody: Record<string, unknown> = {}
-    mutableClient.post = async (url: string, body: Record<string, unknown>) => {
+  it('sends DELETE with id to /app_version/delete', async () => {
+    let capturedConfig: Record<string, unknown> = {}
+    mutableClient.delete = async (url: string, config?: Record<string, unknown>) => {
       expect(url).toBe('/app_version/delete')
-      capturedBody = body
+      capturedConfig = config ?? {}
       return { data: { code: 0, msg: 'ok', payload: {} } }
     }
 
     await deleteVersion('42')
-    expect(capturedBody.id).toBe('42')
+    expect((capturedConfig.data as Record<string, unknown>)?.id).toBe('42')
   })
 })
 

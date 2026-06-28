@@ -1,17 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
+import client from '@/services/api/client'
 import {
   fetchFeedbackWorkflowConfig,
   saveFeedbackWorkflowConfig,
 } from './feedbackWorkflowConfig'
 
-type FetchResponseLike = {
-  ok: boolean
-  status: number
-  headers: {
-    get: (_name: string) => string | null
-  }
-  json: () => Promise<unknown>
-}
+type AnyFn = (..._args: unknown[]) => unknown
+type MutableClient = { get: AnyFn; put: AnyFn }
+
+const mutableClient = client as unknown as MutableClient
+const originalGet = mutableClient.get
+const originalPut = mutableClient.put
 
 type StorageLike = {
   getItem: (_key: string) => string | null
@@ -20,74 +19,44 @@ type StorageLike = {
   clear: () => void
 }
 
-type WindowLike = {
-  localStorage: StorageLike
-  sessionStorage: StorageLike
-  location: {
-    pathname: string
-    search: string
-    hash: string
-  }
-}
+type WindowLike = { localStorage: StorageLike }
 
 function createStorage(): StorageLike {
   const map = new Map<string, string>()
-
   return {
     getItem: (key: string) => map.get(key) ?? null,
-    setItem: (key: string, value: string) => {
-      map.set(key, value)
-    },
-    removeItem: (key: string) => {
-      map.delete(key)
-    },
-    clear: () => {
-      map.clear()
-    },
-  }
-}
-
-function createWindowMock(): WindowLike {
-  return {
-    localStorage: createStorage(),
-    sessionStorage: createStorage(),
-    location: {
-      pathname: '/feedback',
-      search: '?page=1',
-      hash: '',
-    },
+    setItem: (key: string, value: string) => { map.set(key, value) },
+    removeItem: (key: string) => { map.delete(key) },
+    clear: () => { map.clear() },
   }
 }
 
 describe('feedbackWorkflowConfig service', () => {
   const originalWindow = (globalThis as { window?: unknown }).window
-  const originalFetch = (globalThis as { fetch?: unknown }).fetch
 
   beforeEach(() => {
-    ;(globalThis as { window?: unknown }).window = createWindowMock() as unknown as Window
+    ;(globalThis as { window?: unknown }).window = { localStorage: createStorage() } as unknown as Window
+    mutableClient.get = originalGet
+    mutableClient.put = originalPut
   })
 
   afterEach(() => {
     ;(globalThis as { window?: unknown }).window = originalWindow
-    ;(globalThis as { fetch?: unknown }).fetch = originalFetch
+    mutableClient.get = originalGet
+    mutableClient.put = originalPut
   })
 
   it('loads backend config with canonical fields', async () => {
-    ;(globalThis as { fetch?: unknown }).fetch = (async () => ({
-      ok: true,
-      status: 200,
-      headers: {
-        get: (name: string) => (name.toLowerCase() === 'content-type' ? 'application/json' : null),
-      },
-      json: async () => ({
+    mutableClient.get = async () => ({
+      data: {
         code: 0,
         msg: 'ok',
         payload: {
           reply_templates: ['模板 A', '模板 A', '模板 B'],
           sla_hours: 18,
         },
-      }),
-    })) as unknown as typeof fetch
+      },
+    })
 
     const result = await fetchFeedbackWorkflowConfig()
 
@@ -103,14 +72,7 @@ describe('feedbackWorkflowConfig service', () => {
       sla_hours: 30,
     }))
 
-    ;(globalThis as { fetch?: unknown }).fetch = (async () => ({
-      ok: false,
-      status: 404,
-      headers: {
-        get: () => null,
-      },
-      json: async () => ({}),
-    })) as unknown as typeof fetch
+    mutableClient.get = async () => { throw new Error('network error') }
 
     const result = await fetchFeedbackWorkflowConfig()
 
@@ -119,74 +81,48 @@ describe('feedbackWorkflowConfig service', () => {
     expect(result.slaHours).toBe(30)
   })
 
-  it('saves config to backend with PUT first', async () => {
-    const requests: Array<{ method: string; body: string }> = []
+  it('saves config to backend with PUT', async () => {
+    let capturedUrl = ''
+    let capturedBody: Record<string, unknown> = {}
 
-    ;(globalThis as { fetch?: unknown }).fetch = (async (_url: string, init?: RequestInit) => {
-      requests.push({
-        method: String(init?.method || ''),
-        body: String(init?.body || ''),
-      })
+    mutableClient.put = async (url: string, body: Record<string, unknown>) => {
+      capturedUrl = url as string
+      capturedBody = body
       return {
-        ok: true,
-        status: 200,
-        headers: {
-          get: (name: string) => (name.toLowerCase() === 'content-type' ? 'application/json' : null),
-        },
-        json: async () => ({
+        data: {
           code: 0,
           msg: 'ok',
-          payload: {
-            reply_templates: ['后端模板'],
-            sla_hours: 20,
-          },
-        }),
-      } satisfies FetchResponseLike
-    }) as unknown as typeof fetch
+          payload: { reply_templates: ['后端模板'], sla_hours: 20 },
+        },
+      }
+    }
 
     const result = await saveFeedbackWorkflowConfig({
       replyTemplates: ['模板 1', '模板 2'],
       slaHours: 24,
     })
 
-    expect(requests.length).toBe(1)
-    expect(requests[0]?.method).toBe('PUT')
-    expect(JSON.parse(requests[0]?.body || '{}')).toEqual({
-      reply_templates: ['模板 1', '模板 2'],
-      sla_hours: 24,
-    })
+    expect(capturedUrl).toContain('/admin/config/feedback-workflow')
+    expect(capturedBody.reply_templates).toEqual(['模板 1', '模板 2'])
+    expect(capturedBody.sla_hours).toBe(24)
     expect(result.source).toBe('backend')
     expect(result.config.replyTemplates).toEqual(['后端模板'])
     expect(result.config.slaHours).toBe(20)
   })
 
-  it('falls back to local save when backend endpoint is unavailable', async () => {
-    const methods: string[] = []
-    const windowMock = (globalThis as { window?: unknown }).window as WindowLike
-
-    ;(globalThis as { fetch?: unknown }).fetch = (async (_url: string, init?: RequestInit) => {
-      methods.push(String(init?.method || ''))
-      const method = String(init?.method || '')
-      return {
-        ok: false,
-        status: method === 'PUT' ? 404 : 405,
-        headers: {
-          get: () => null,
-        },
-        json: async () => ({}),
-      } satisfies FetchResponseLike
-    }) as unknown as typeof fetch
+  it('falls back to local save when backend PUT fails', async () => {
+    mutableClient.put = async () => { throw new Error('404 not found') }
 
     const result = await saveFeedbackWorkflowConfig({
       replyTemplates: ['兜底模板 A', '兜底模板 B'],
       slaHours: 50,
     })
 
-    expect(methods).toEqual(['PUT', 'POST'])
     expect(result.source).toBe('local')
     expect(result.config.replyTemplates).toEqual(['兜底模板 A', '兜底模板 B'])
     expect(result.config.slaHours).toBe(50)
 
+    const windowMock = (globalThis as { window?: unknown }).window as WindowLike
     const storedRaw = windowMock.localStorage.getItem('imboy.feedback-workflow-config.v1')
     expect(storedRaw).not.toBeNull()
     expect(JSON.parse(storedRaw || '{}')).toEqual({

@@ -22,7 +22,7 @@ export interface MutedUserListResponse {
 }
 
 export function mutedUsersQueryKey(params?: MutedUserListParams) {
-  return ['muted-users', 'list', params ?? {}] as const
+  return params !== undefined ? ['muted-users', 'list', params] as const : ['muted-users', 'list'] as const
 }
 
 export async function listMutedUsers(

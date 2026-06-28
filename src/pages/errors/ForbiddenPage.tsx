@@ -1,4 +1,4 @@
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Home, ArrowLeft, ShieldAlert } from 'lucide-react'
 
@@ -43,12 +43,10 @@ export function ForbiddenPage() {
             <ArrowLeft className="mr-2 h-4 w-4" />
             返回上页
           </Button>
-          <Button asChild>
-            <Link to="/dashboard">
-              <Home className="mr-2 h-4 w-4" />
-              返回首页
-            </Link>
-          </Button>
+          <Link to="/dashboard" className={buttonVariants()}>
+            <Home className="mr-2 h-4 w-4" />
+            返回首页
+          </Link>
         </div>
       </div>
     </div>

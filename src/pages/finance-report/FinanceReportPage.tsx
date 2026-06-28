@@ -17,12 +17,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button'
 import { PageHeader, ErrorState, LoadingState } from '@/components/shared'
 import { getFinanceReport } from '@/services/api/stats'
+import { fenToYuan } from '@/lib/money'
 
 const MONTH_OPTIONS = [3, 6, 12] as const
-
-function fenToYuan(fen: number) {
-  return (fen / 100).toFixed(2)
-}
 
 function formatYuanAxis(value: number) {
   const yuan = value / 100
@@ -43,7 +40,7 @@ function YuanTooltip({ active, payload, label }: TooltipProps) {
       <p className="font-medium text-muted-foreground">{label}</p>
       {payload.map((p) => (
         <p key={p.name} style={{ color: p.color }}>
-          {p.name}: ¥{fenToYuan(p.value)}
+          {p.name}: {fenToYuan(p.value)}
         </p>
       ))}
     </div>
@@ -109,7 +106,7 @@ export function FinanceReportPage() {
             <CardTitle className="text-sm font-medium text-muted-foreground">充值总收入</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">¥{fenToYuan(totalRecharge)}</p>
+            <p className="text-2xl font-bold">{fenToYuan(totalRecharge)}</p>
           </CardContent>
         </Card>
         <Card>
@@ -117,7 +114,7 @@ export function FinanceReportPage() {
             <CardTitle className="text-sm font-medium text-muted-foreground">订阅总收入</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">¥{fenToYuan(totalSubscription)}</p>
+            <p className="text-2xl font-bold">{fenToYuan(totalSubscription)}</p>
           </CardContent>
         </Card>
         <Card>

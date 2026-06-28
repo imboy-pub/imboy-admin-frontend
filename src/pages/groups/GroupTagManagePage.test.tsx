@@ -161,7 +161,7 @@ describe('GroupTagManagePage flow', () => {
       expect(getCalls.some((call) => call.url === '/group/tag/list')).toBe(true)
     })
 
-    expect(getCalls.find((call) => call.url === '/group/tag/list')?.params).toEqual({ gid: '88' })
+    expect(getCalls.find((call) => call.url === '/group/tag/list')?.params).toEqual({ gid: '88', page: 1, size: 10 })
 
     await waitFor(() => {
       expect(view.container.textContent).toContain('群标签管理')
