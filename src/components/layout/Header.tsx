@@ -179,8 +179,6 @@ export function Header() {
     }
 
     if (keyword.length < 2 || parseQuickJump(keyword)) {
-      // 立即清空避免 300ms 防抖窗口内 entityResults 与当前 keyword 错位显示
-      // TODO: 真重构方案：把状态清空合并入 performEntitySearch 内部 + 写组件单测
       setEntityResults([])
       setSearching(false)
       return
@@ -220,7 +218,6 @@ export function Header() {
   }, [commandKeyword, quickJumpCommand, entityCommands])
 
   // 搜索结果变化时重置选中索引
-  // TODO: 真重构方案：移到 onChange/executeCommand 显式 reset，或 derive activeIndex
   useEffect(() => {
     setActiveIndex(0)
   }, [filteredCommands])
@@ -246,8 +243,6 @@ export function Header() {
 
   useEffect(() => {
     if (!commandOpen) {
-      // 关闭命令面板时清空全部搜索状态
-      // TODO: 真重构方案：抽 closeCommand callback 在 setCommandOpen(false) 调用方批量清空
       setCommandKeyword('')
       setActiveIndex(0)
       setEntityResults([])
