@@ -44,6 +44,8 @@ type AuditLogQuery = {
   size: number
   keyword: string
   eventTypeFilter: string
+  dateStart: string
+  dateEnd: string
 }
 
 function toTimestamp(value: unknown): number {
@@ -92,6 +94,8 @@ export function AuditLogPage() {
     size: 10,
     keyword: '',
     eventTypeFilter: 'all',
+    dateStart: '',
+    dateEnd: '',
   })
   const [selectedEvent, setSelectedEvent] = useState<AuditEvent | null>(null)
 
@@ -213,15 +217,22 @@ export function AuditLogPage() {
 
   const filteredEvents = useMemo(() => {
     const normalizedKeyword = params.keyword.trim().toLowerCase()
+    const startMs = params.dateStart ? new Date(params.dateStart).getTime() : 0
+    const endMs = params.dateEnd ? new Date(params.dateEnd + 'T23:59:59').getTime() : Infinity
     return events.filter((event) => {
       const typeMatch = params.eventTypeFilter === 'all' || event.eventType === params.eventTypeFilter
       if (!typeMatch) return false
-      if (!normalizedKeyword) return true
 
+      if (startMs > 0 || endMs < Infinity) {
+        const eventMs = toTimestamp(event.time)
+        if (eventMs < startMs || eventMs > endMs) return false
+      }
+
+      if (!normalizedKeyword) return true
       const fullText = `${event.summary} ${event.detail} ${event.actor} ${event.target}`.toLowerCase()
       return fullText.includes(normalizedKeyword)
     })
-  }, [params.eventTypeFilter, events, params.keyword])
+  }, [params.eventTypeFilter, events, params.keyword, params.dateStart, params.dateEnd])
 
   const total = filteredEvents.length
   const totalPages = Math.max(1, Math.ceil(total / params.size))
@@ -400,6 +411,22 @@ export function AuditLogPage() {
                 setParams({ keyword: event.target.value, page: 1 })
               }}
             />
+            <div className="flex items-center gap-1 text-sm text-muted-foreground">
+              <span>日期</span>
+              <input
+                type="date"
+                className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                value={params.dateStart}
+                onChange={(e) => setParams({ dateStart: e.target.value, page: 1 })}
+              />
+              <span>—</span>
+              <input
+                type="date"
+                className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                value={params.dateEnd}
+                onChange={(e) => setParams({ dateEnd: e.target.value, page: 1 })}
+              />
+            </div>
             <Button
               variant="outline"
               size="sm"

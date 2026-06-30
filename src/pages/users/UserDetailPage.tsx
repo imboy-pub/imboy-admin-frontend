@@ -10,8 +10,9 @@ import { getUserDetailPayload, banUser, unbanUser } from '@/modules/identity/api
 import { formatDate } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import { getErrorMessage } from '@/lib/errorUtils'
+import { UserDeviceList } from './UserDeviceList'
 
-type DetailTab = 'profile' | 'stats' | 'actions'
+type DetailTab = 'profile' | 'stats' | 'devices' | 'actions'
 
 function TabButton({ active, onClick, children, icon: Icon }: {
   active: boolean
@@ -191,6 +192,9 @@ export function UserDetailPage() {
           <TabButton active={activeTab === 'stats'} onClick={() => setActiveTab('stats')} icon={Activity}>
             运营统计
           </TabButton>
+          <TabButton active={activeTab === 'devices'} onClick={() => setActiveTab('devices')} icon={Smartphone}>
+            设备管理
+          </TabButton>
           <TabButton active={activeTab === 'actions'} onClick={() => setActiveTab('actions')} icon={Clock}>
             关联操作
           </TabButton>
@@ -277,6 +281,18 @@ export function UserDetailPage() {
             </CardContent>
           </Card>
         </div>
+      )}
+
+      {activeTab === 'devices' && (
+        <Card>
+          <CardHeader>
+            <CardTitle>设备列表</CardTitle>
+            <CardDescription>查看该用户的登录设备，支持单设备踢出或强制全部下线</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <UserDeviceList userId={uid} />
+          </CardContent>
+        </Card>
       )}
 
       {activeTab === 'actions' && (

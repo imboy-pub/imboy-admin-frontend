@@ -82,6 +82,9 @@ const WithdrawalsPage = lazy(() => import('@/modules/finance').then((m) => ({ de
 const FinanceReportPage = lazy(() => import('@/modules/finance').then((m) => ({ default: m.FinanceReportPage })))
 const PricingPage = lazy(() => import('@/pages/pricing/PricingPage').then((m) => ({ default: m.PricingPage })))
 const LicensePage = lazy(() => import('@/pages/license/LicensePage').then((m) => ({ default: m.LicensePage })))
+const SensitiveWordPage = lazy(() => import('@/pages/content-moderation/SensitiveWordPage').then((m) => ({ default: m.SensitiveWordPage })))
+const ContentReviewQueuePage = lazy(() => import('@/pages/content-moderation/ContentReviewQueuePage').then((m) => ({ default: m.ContentReviewQueuePage })))
+const SSOConfigPage = lazy(() => import('@/pages/settings/SSOConfigPage').then((m) => ({ default: m.SSOConfigPage })))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -548,6 +551,34 @@ function App() {
                   element={(
                     <PermissionRoute permission="logs:view" roles={[1, 3]}>
                       <AuditLogPage />
+                    </PermissionRoute>
+                  )}
+                />
+
+                {/* 内容审核 */}
+                <Route
+                  path="/moderation/sensitive-words"
+                  element={(
+                    <PermissionRoute permission="settings:view" roles={[1, 2]}>
+                      <SensitiveWordPage />
+                    </PermissionRoute>
+                  )}
+                />
+                <Route
+                  path="/moderation/review-queue"
+                  element={(
+                    <PermissionRoute permission="settings:view" roles={[1, 2]}>
+                      <ContentReviewQueuePage />
+                    </PermissionRoute>
+                  )}
+                />
+
+                {/* SSO 配置 */}
+                <Route
+                  path="/settings/sso"
+                  element={(
+                    <PermissionRoute permission="settings:view" roles={[1]}>
+                      <SSOConfigPage />
                     </PermissionRoute>
                   )}
                 />

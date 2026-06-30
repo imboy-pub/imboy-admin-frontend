@@ -23,6 +23,9 @@ import {
   TrendingUp,
   BadgeCheck,
   ArrowDownToLine,
+  ShieldAlert,
+  ListChecks,
+  Link2,
   type LucideIcon,
 } from 'lucide-react'
 import type { SidebarMenuConfig } from '@/services/api/adminConfig'
@@ -64,6 +67,9 @@ export const iconMap: Record<string, LucideIcon> = {
   TrendingUp,
   BadgeCheck,
   ArrowDownToLine,
+  ShieldAlert,
+  ListChecks,
+  Link2,
 }
 
 export const defaultConfig: SidebarMenuConfig = {
@@ -90,6 +96,14 @@ export const defaultConfig: SidebarMenuConfig = {
         { path: '/reports', icon: 'FileText', label: '举报中心', roles: [1, 2], permission: 'reports:read' },
         { path: '/feedback', icon: 'MessageCircle', label: '反馈处理', roles: [1, 2], permission: 'feedback:read' },
         { path: '/announcements', icon: 'FileText', label: '全局公告', roles: [1, 2], permission: 'announcements:read' },
+      ],
+    },
+    {
+      label: '内容审核',
+      icon: 'ShieldAlert',
+      children: [
+        { path: '/moderation/sensitive-words', icon: 'ShieldAlert', label: '敏感词管理', roles: [1, 2], permission: 'settings:view' },
+        { path: '/moderation/review-queue', icon: 'ListChecks', label: '人工复审队列', roles: [1, 2], permission: 'settings:view' },
       ],
     },
     {
@@ -128,6 +142,7 @@ export const defaultConfig: SidebarMenuConfig = {
         { path: '/storage', icon: 'HardDrive', label: '存储管理', roles: [1], permission: 'storage:view' },
         { path: '/admins', icon: 'Shield', label: '管理员', roles: [1], permission: 'admins:read' },
         { path: '/roles', icon: 'KeyRound', label: '角色权限', roles: [1, 3], permission: 'roles:view' },
+        { path: '/settings/sso', icon: 'Link2', label: 'SSO 外部认证', roles: [1], permission: 'settings:view' },
       ],
     },
   ],
