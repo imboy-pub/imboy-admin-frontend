@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { ConfirmDialog, ErrorState, LoadingState, PageHeader, StatsCard } from '@/components/shared'
 import { getLicenseStatus, applyLicense } from '@/services/api/stats'
 import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
 
 const EDITION_LABELS: Record<string, string> = {
   community: '社区版',
@@ -76,6 +77,7 @@ export function LicensePage() {
       setConfirmOpen(false)
       setOpen(false)
       setLicenseText('')
+      toast.success('授权已生效')
     },
   })
 

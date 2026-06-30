@@ -10,6 +10,7 @@ import { EmptyState } from './EmptyState'
 import { LoadingState } from './LoadingState'
 import { flexRender, Table as ReactTable } from '@tanstack/react-table'
 import { Button } from '@/components/ui/button'
+import { Select } from '@/components/ui/select'
 import { ArrowUpDown, ArrowUp, ArrowDown, RefreshCw } from 'lucide-react'
 
 interface DataTableProps<TData> {
@@ -259,17 +260,17 @@ export function DataTablePagination({
         {onPageSizeChange && (
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">每页</span>
-            <select
+            <Select
               value={String(safePageSize)}
               onChange={(event) => handlePageSizeChange(event.target.value)}
-              className="h-8 rounded-md border border-input bg-background px-2 text-sm"
+              className="h-8 px-2 text-sm"
             >
               {pageSizeOptions.map((size) => (
                 <option key={size} value={size}>
                   {size}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
         )}
 
