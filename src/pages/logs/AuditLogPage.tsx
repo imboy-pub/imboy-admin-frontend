@@ -1,7 +1,16 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
-import { ArrowRightLeft, Copy, Eye, FileSearch, MessageSquare, UserMinus, Download } from 'lucide-react'
+import {
+  ArrowRightLeft,
+  Copy,
+  Eye,
+  FileSearch,
+  MessageSquare,
+  UserMinus,
+  Download,
+  ShieldCheck,
+} from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -18,10 +27,16 @@ import {
 } from '@/components/shared'
 import { getMessageDetailPayload, getMessageListPayload } from '@/modules/messages'
 import { getLogoutApplicationListPayload } from '@/services/api/logoutApplications'
+import { getAdminOperationLogs, type AdminOperationLog } from '@/services/api/adminOperations'
 import { formatDate, truncate } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 import { MessageScope } from '@/types/message'
 import { useListQueryState } from '@/hooks/useListQueryState'
+
+// ---------------------------------------------------------------------------
+// 类型定义
+// ---------------------------------------------------------------------------
 
 type AuditEventType = 'message' | 'logout_apply'
 
@@ -47,6 +62,19 @@ type AuditLogQuery = {
   dateStart: string
   dateEnd: string
 }
+
+type AdminOpsQuery = {
+  page: number
+  size: number
+  adm_user_id: string
+  action: string
+}
+
+type ActiveTab = 'user_events' | 'admin_ops'
+
+// ---------------------------------------------------------------------------
+// 工具函数
+// ---------------------------------------------------------------------------
 
 function toTimestamp(value: unknown): number {
   if (value === null || value === undefined) return 0
@@ -87,7 +115,43 @@ function prettyJson(value: unknown): string {
   }
 }
 
-export function AuditLogPage() {
+// ---------------------------------------------------------------------------
+// Tab 按钮（与 UserDetailPage 保持一致的样式）
+// ---------------------------------------------------------------------------
+
+function TabButton({
+  active,
+  onClick,
+  children,
+  icon: Icon,
+}: {
+  active: boolean
+  onClick: () => void
+  children: React.ReactNode
+  icon: React.ComponentType<{ className?: string }>
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors',
+        active
+          ? 'border-primary text-primary'
+          : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30'
+      )}
+    >
+      <Icon className="h-4 w-4" />
+      {children}
+    </button>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// 用户事件 Tab
+// ---------------------------------------------------------------------------
+
+function UserEventsTab() {
   const navigate = useNavigate()
   const { state: params, setState: setParams } = useListQueryState<AuditLogQuery>({
     page: 1,
@@ -212,7 +276,9 @@ export function AuditLogPage() {
       },
     }))
 
-    return [...messageEvents, ...logoutEvents].sort((a, b) => toTimestamp(b.time) - toTimestamp(a.time))
+    return [...messageEvents, ...logoutEvents].sort(
+      (a, b) => toTimestamp(b.time) - toTimestamp(a.time)
+    )
   }, [logoutData?.items, messageData?.items])
 
   const filteredEvents = useMemo(() => {
@@ -220,7 +286,8 @@ export function AuditLogPage() {
     const startMs = params.dateStart ? new Date(params.dateStart).getTime() : 0
     const endMs = params.dateEnd ? new Date(params.dateEnd + 'T23:59:59').getTime() : Infinity
     return events.filter((event) => {
-      const typeMatch = params.eventTypeFilter === 'all' || event.eventType === params.eventTypeFilter
+      const typeMatch =
+        params.eventTypeFilter === 'all' || event.eventType === params.eventTypeFilter
       if (!typeMatch) return false
 
       if (startMs > 0 || endMs < Infinity) {
@@ -229,7 +296,8 @@ export function AuditLogPage() {
       }
 
       if (!normalizedKeyword) return true
-      const fullText = `${event.summary} ${event.detail} ${event.actor} ${event.target}`.toLowerCase()
+      const fullText =
+        `${event.summary} ${event.detail} ${event.actor} ${event.target}`.toLowerCase()
       return fullText.includes(normalizedKeyword)
     })
   }, [params.eventTypeFilter, events, params.keyword, params.dateStart, params.dateEnd])
@@ -237,11 +305,13 @@ export function AuditLogPage() {
   const total = filteredEvents.length
   const totalPages = Math.max(1, Math.ceil(total / params.size))
   const safePage = Math.min(Math.max(1, params.page), totalPages)
-  const pageEvents = filteredEvents.slice((safePage - 1) * params.size, safePage * params.size)
+  const pageEvents = filteredEvents.slice(
+    (safePage - 1) * params.size,
+    safePage * params.size
+  )
 
   const detailRequestJson = useMemo(() => {
     if (!selectedEvent) return {}
-
     if (selectedEvent.eventType === 'message') {
       return {
         method: 'GET',
@@ -252,25 +322,17 @@ export function AuditLogPage() {
         },
       }
     }
-
     return selectedEvent.requestJson
   }, [selectedEvent])
 
   const detailResponseJson = useMemo(() => {
     if (!selectedEvent) return {}
-
     if (selectedEvent.eventType === 'message') {
       if (messageDetail) {
-        return {
-          code: 0,
-          payload: messageDetail,
-        }
+        return { code: 0, payload: messageDetail }
       }
-      return {
-        loading: true,
-      }
+      return { loading: true }
     }
-
     return selectedEvent.responseJson
   }, [selectedEvent, messageDetail])
 
@@ -321,7 +383,10 @@ export function AuditLogPage() {
       accessorKey: 'detail',
       header: '详情',
       cell: ({ row }) => (
-        <span className="block max-w-[320px] truncate font-mono text-xs text-muted-foreground" title={row.original.detail}>
+        <span
+          className="block max-w-[320px] truncate font-mono text-xs text-muted-foreground"
+          title={row.original.detail}
+        >
           {row.original.detail ? truncate(row.original.detail, 100) : '-'}
         </span>
       ),
@@ -353,32 +418,21 @@ export function AuditLogPage() {
   }
 
   if (messageError || logoutError) {
-    return (
-      <ErrorState
-        message="加载审计日志失败"
-        onRetry={handleRefreshAll}
-      />
-    )
+    return <ErrorState message="加载审计日志失败" onRetry={handleRefreshAll} />
   }
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="日志审计"
-        description="统一查看消息行为与注销申请等关键审计事件"
-        actions={
-          <>
-            <Button variant="outline" onClick={() => navigate('/messages')}>
-              <MessageSquare className="mr-2 h-4 w-4" />
-              消息审计页
-            </Button>
-            <Button variant="outline" onClick={() => navigate('/logout-applications')}>
-              <UserMinus className="mr-2 h-4 w-4" />
-              注销申请页
-            </Button>
-          </>
-        }
-      />
+    <>
+      <div className="flex flex-wrap items-center gap-2 pb-2">
+        <Button variant="outline" onClick={() => navigate('/messages')}>
+          <MessageSquare className="mr-2 h-4 w-4" />
+          消息审计页
+        </Button>
+        <Button variant="outline" onClick={() => navigate('/logout-applications')}>
+          <UserMinus className="mr-2 h-4 w-4" />
+          注销申请页
+        </Button>
+      </div>
 
       <Card>
         <CardHeader>
@@ -432,7 +486,11 @@ export function AuditLogPage() {
               size="sm"
               onClick={() => {
                 const csvColumns: CsvColumn<AuditEvent>[] = [
-                  { header: '事件类型', accessor: (row) => row.eventType === 'message' ? '消息审计' : '注销申请' },
+                  {
+                    header: '事件类型',
+                    accessor: (row) =>
+                      row.eventType === 'message' ? '消息审计' : '注销申请',
+                  },
                   { header: '发生时间', accessor: (row) => formatDate(row.time) },
                   { header: '操作者', accessor: 'actor' },
                   { header: '目标', accessor: 'target' },
@@ -528,7 +586,10 @@ export function AuditLogPage() {
                 {selectedEvent.eventType === 'message' && loadingMessageDetail ? (
                   <LoadingState message="加载消息详情响应..." />
                 ) : selectedEvent.eventType === 'message' && messageDetailError ? (
-                  <ErrorState message="加载消息详情失败" onRetry={() => refetchMessageDetail()} />
+                  <ErrorState
+                    message="加载消息详情失败"
+                    onRetry={() => refetchMessageDetail()}
+                  />
                 ) : (
                   <pre className="overflow-x-auto rounded-md bg-muted p-3 font-mono text-xs">
                     {prettyJson(detailResponseJson)}
@@ -539,6 +600,215 @@ export function AuditLogPage() {
           </div>
         )}
       </EntityDrawer>
+    </>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// 管理员操作 Tab
+// ---------------------------------------------------------------------------
+
+const ACTION_LABELS: Record<string, string> = {
+  force_logout: '强制登出',
+  ban_user: '封禁用户',
+  unban_user: '解封用户',
+  delete_msg: '删除消息',
+  delete_group: '解散群组',
+  mute_user: '禁言用户',
+  reset_password: '重置密码',
+  assign_role: '分配角色',
+}
+
+function AdminOpsTab() {
+  const { state: params, setState: setParams } = useListQueryState<AdminOpsQuery>({
+    page: 1,
+    size: 20,
+    adm_user_id: '',
+    action: '',
+  })
+
+  const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
+    queryKey: ['audit-log', 'admin-ops', params],
+    queryFn: () =>
+      getAdminOperationLogs({
+        page: params.page,
+        size: params.size,
+        adm_user_id: params.adm_user_id || undefined,
+        action: params.action || undefined,
+      }),
+  })
+
+  const columns: ColumnDef<AdminOperationLog>[] = [
+    {
+      accessorKey: 'created_at',
+      header: '操作时间',
+      cell: ({ row }) => (
+        <span className="text-sm text-muted-foreground">
+          {formatDate(row.original.created_at)}
+        </span>
+      ),
+    },
+    {
+      accessorKey: 'adm_user_id',
+      header: '管理员 ID',
+      cell: ({ row }) => (
+        <span className="font-mono text-xs">{row.original.adm_user_id || '-'}</span>
+      ),
+    },
+    {
+      accessorKey: 'action',
+      header: '操作类型',
+      cell: ({ row }) => {
+        const action = row.original.action
+        return (
+          <StatusBadge
+            status={action}
+            labels={ACTION_LABELS}
+            variants={{
+              force_logout: 'warning',
+              ban_user: 'error',
+              unban_user: 'success',
+              delete_msg: 'warning',
+              delete_group: 'error',
+              mute_user: 'warning',
+              reset_password: 'info',
+              assign_role: 'info',
+            }}
+          />
+        )
+      },
+    },
+    {
+      accessorKey: 'target_id',
+      header: '操作对象 ID',
+      cell: ({ row }) => (
+        <span className="font-mono text-xs">{row.original.target_id || '-'}</span>
+      ),
+    },
+    {
+      accessorKey: 'ip',
+      header: 'IP',
+      cell: ({ row }) => (
+        <span className="font-mono text-xs text-muted-foreground">{row.original.ip}</span>
+      ),
+    },
+  ]
+
+  const table = useReactTable({
+    data: data?.items ?? [],
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+  })
+
+  if (isLoading && !data) {
+    return <LoadingState message="加载管理员操作日志..." />
+  }
+
+  if (error) {
+    return <ErrorState message="加载管理员操作日志失败" onRetry={() => refetch()} />
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <ShieldCheck className="h-5 w-5" />
+          管理员操作日志
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <Input
+            className="max-w-[200px]"
+            placeholder="管理员 ID"
+            value={params.adm_user_id}
+            onChange={(e) => setParams({ adm_user_id: e.target.value, page: 1 })}
+          />
+          <select
+            className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+            value={params.action}
+            onChange={(e) => setParams({ action: e.target.value, page: 1 })}
+          >
+            <option value="">全部操作</option>
+            {Object.entries(ACTION_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const csvColumns: CsvColumn<AdminOperationLog>[] = [
+                { header: '操作时间', accessor: (row) => formatDate(row.created_at) },
+                { header: '管理员 ID', accessor: 'adm_user_id' },
+                {
+                  header: '操作类型',
+                  accessor: (row) => ACTION_LABELS[row.action] ?? row.action,
+                },
+                { header: '操作对象 ID', accessor: 'target_id' },
+                { header: 'IP', accessor: 'ip' },
+              ]
+              exportCsv(csvColumns, data?.items ?? [], 'admin_ops_export')
+              toast.success(`已导出 ${data?.items.length ?? 0} 条操作记录`)
+            }}
+            disabled={!data?.items.length}
+          >
+            <Download className="mr-2 h-4 w-4" />
+            导出 CSV
+          </Button>
+        </div>
+
+        <DataTable table={table} emptyMessage="暂无管理员操作记录" />
+        <DataTablePagination
+          page={data?.page ?? 1}
+          pageSize={data?.size ?? params.size}
+          total={data?.total ?? 0}
+          onPageChange={(p) => setParams({ page: p })}
+          onPageSizeChange={(s) => setParams({ size: s, page: 1 })}
+          dataUpdatedAt={dataUpdatedAt}
+          onRefresh={() => refetch()}
+        />
+      </CardContent>
+    </Card>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// 页面入口
+// ---------------------------------------------------------------------------
+
+export function AuditLogPage() {
+  const [activeTab, setActiveTab] = useState<ActiveTab>('user_events')
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="日志审计"
+        description="统一查看用户行为事件与管理员操作日志"
+      />
+
+      {/* Tab 导航栏 */}
+      <div className="flex border-b">
+        <TabButton
+          active={activeTab === 'user_events'}
+          onClick={() => setActiveTab('user_events')}
+          icon={FileSearch}
+        >
+          用户操作日志
+        </TabButton>
+        <TabButton
+          active={activeTab === 'admin_ops'}
+          onClick={() => setActiveTab('admin_ops')}
+          icon={ShieldCheck}
+        >
+          管理员操作
+        </TabButton>
+      </div>
+
+      {/* Tab 内容 */}
+      {activeTab === 'user_events' ? <UserEventsTab /> : <AdminOpsTab />}
     </div>
   )
 }
