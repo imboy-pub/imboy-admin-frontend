@@ -48,7 +48,7 @@ interface BatchActionBarProps {
 }
 
 const riskBadgeClassMap: Record<BatchActionRiskLevel, string> = {
-  low: 'bg-slate-100 text-slate-700',
+  low: 'bg-muted text-muted-foreground',
   medium: 'bg-amber-100 text-amber-700',
   high: 'bg-red-100 text-red-700',
 }

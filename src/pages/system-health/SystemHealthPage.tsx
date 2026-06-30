@@ -105,13 +105,13 @@ export function SystemHealthPage() {
             </div>
             <div>
               <p className="text-sm text-muted-foreground">使用率</p>
-              <p className={`text-2xl font-bold ${poolUsagePercent > 80 ? 'text-red-600' : 'text-gray-900'}`}>
+              <p className={`text-2xl font-bold ${poolUsagePercent > 80 ? 'text-red-600' : 'text-foreground'}`}>
                 {poolUsagePercent}%
               </p>
             </div>
           </div>
           {/* 简易进度条 */}
-          <div className="mt-4 h-2 rounded-full bg-gray-100">
+          <div className="mt-4 h-2 rounded-full bg-muted">
             <div
               className={`h-2 rounded-full transition-all ${
                 poolUsagePercent > 80 ? 'bg-red-500' : poolUsagePercent > 50 ? 'bg-yellow-500' : 'bg-green-500'

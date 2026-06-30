@@ -101,14 +101,14 @@ function getSlaInfo(feedback: Feedback | null, slaHours: number): { label: strin
   if (!feedback) {
     return {
       label: 'SLA 计算中',
-      className: 'bg-slate-100 text-slate-700',
+      className: 'bg-muted text-muted-foreground',
     }
   }
 
   if (feedback.status !== 1) {
     return {
       label: '已处理，SLA 已达成',
-      className: 'bg-slate-100 text-slate-700',
+      className: 'bg-muted text-muted-foreground',
     }
   }
 
@@ -116,7 +116,7 @@ function getSlaInfo(feedback: Feedback | null, slaHours: number): { label: strin
   if (!createdAt) {
     return {
       label: '无法计算 SLA（时间格式异常）',
-      className: 'bg-slate-100 text-slate-700',
+      className: 'bg-muted text-muted-foreground',
     }
   }
 

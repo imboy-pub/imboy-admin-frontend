@@ -383,7 +383,7 @@ export function MomentReportPage({ permissionOverride, showPageHeader = true }: 
                   batchResolveMutation.isPending}
                 onClick={() => handleResolve(row.original, 1)}
               >
-                <XCircle className="h-4 w-4 text-slate-500" />
+                <XCircle className="h-4 w-4 text-muted-foreground" />
               </Button>
               <Button
                 variant="ghost"

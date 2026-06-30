@@ -263,7 +263,7 @@ export function StorageOverviewPage() {
                               ) : group === 'document' ? (
                                 <FileText className="h-4 w-4 text-green-500 shrink-0" />
                               ) : (
-                                <File className="h-4 w-4 text-gray-500 shrink-0" />
+                                <File className="h-4 w-4 text-muted-foreground shrink-0" />
                               )}
                               <span className="truncate max-w-48 font-mono text-xs" title={item.path}>
                                 {item.path.split('/').pop() || item.path}

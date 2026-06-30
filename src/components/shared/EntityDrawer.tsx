@@ -54,7 +54,7 @@ export function EntityDrawer({
 
       <aside
         className={cn(
-          'flex h-full w-full max-w-xl flex-col border-l border-slate-200/80 bg-white text-slate-900 shadow-2xl dark:border-slate-800/80 dark:bg-slate-950 dark:text-slate-100 bg-background text-foreground',
+          'flex h-full w-full max-w-xl flex-col border-l border-border bg-background text-foreground shadow-2xl',
           className
         )}
       >
