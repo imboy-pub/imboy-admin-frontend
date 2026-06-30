@@ -14,6 +14,7 @@ import { fetchSidebarMenuConfig, type PermissionCatalogItem, type RoleTemplateCo
 import { createRole, getRoleListPayload, updateRolePermissions } from '@/modules/identity/api'
 import { PermissionMatrix } from './PermissionMatrix'
 import { CreateRoleDrawer } from './CreateRoleDrawer'
+import { Select } from '@/components/ui/select'
 
 type PermissionItem = PermissionCatalogItem
 type RoleTemplate = RoleTemplateConfig
@@ -564,7 +565,7 @@ export function RolePermissionPage() {
                 权限编辑器
               </CardTitle>
               <div className="flex flex-wrap items-center gap-2">
-                <select
+                <Select
                   value={String(effectiveEditingRoleId || '')}
                   onChange={(event) => {
                     const nextRoleId = Number(event.target.value)
@@ -577,7 +578,7 @@ export function RolePermissionPage() {
                       {role.name}
                     </option>
                   ))}
-                </select>
+                </Select>
                 <Button
                   variant="ghost"
                   onClick={handleCloseEditor}

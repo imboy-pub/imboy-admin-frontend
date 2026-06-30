@@ -18,6 +18,7 @@ import { formatDate } from '@/lib/utils'
 import type { EntityId } from '@/types/common'
 import { getErrorMessage } from '@/lib/errorUtils'
 import { useListQueryState } from '@/hooks/useListQueryState'
+import { Select } from '@/components/ui/select'
 
 type DDLPageQuery = {
   page: number
@@ -217,7 +218,7 @@ export function DDLPage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="status">状态</Label>
-                  <select
+                  <Select
                     id="status"
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                     value={formData.status}
@@ -227,7 +228,7 @@ export function DDLPage() {
                   >
                     <option value={1}>启用</option>
                     <option value={0}>禁用</option>
-                  </select>
+                  </Select>
                 </div>
               </div>
 

@@ -29,6 +29,7 @@ import { ManagedMessage, MessageListParams } from '@/types/message'
 import { formatDate, truncate } from '@/lib/utils'
 import { ColumnDef, VisibilityState, getCoreRowModel, useReactTable } from '@tanstack/react-table'
 import { toast } from 'sonner'
+import { Select } from '@/components/ui/select'
 
 export function MessageListPage() {
   const [params, setParams] = useState<MessageListParams>({
@@ -287,7 +288,7 @@ export function MessageListPage() {
       <Card>
         <CardHeader>
           <div className="flex flex-wrap items-center gap-3">
-            <select
+            <Select
               className="h-9 rounded-md border bg-background px-3 text-sm"
               value={scopeInput}
               onChange={(e) => setScopeInput(e.target.value as MessageListParams['msg_scope'])}
@@ -297,7 +298,7 @@ export function MessageListPage() {
               <option value="c2g">群聊 c2g</option>
               <option value="c2s">机器人 c2s</option>
               <option value="s2c">系统 s2c</option>
-            </select>
+            </Select>
 
             <Input
               className="w-28"

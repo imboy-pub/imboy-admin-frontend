@@ -22,6 +22,7 @@ import {
   type PluginLogEntry,
   type PluginAction,
 } from '../api/plugins'
+import { Select } from '@/components/ui/select'
 
 const ACTION_LABELS: Record<PluginAction, string> = {
   install: '安装',
@@ -163,7 +164,7 @@ export function PluginLogPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap items-center gap-3">
-            <select
+            <Select
               className="h-9 rounded-md border border-input bg-background px-3 text-sm"
               value={params.action}
               onChange={(e) => {
@@ -177,9 +178,9 @@ export function PluginLogPage() {
               <option value="upgrade">升级</option>
               <option value="uninstall">卸载</option>
               <option value="reset">重置</option>
-            </select>
+            </Select>
 
-            <select
+            <Select
               className="h-9 rounded-md border border-input bg-background px-3 text-sm"
               value={params.result}
               onChange={(e) => {
@@ -189,7 +190,7 @@ export function PluginLogPage() {
               <option value="all">全部结果</option>
               <option value="success">成功</option>
               <option value="failure">失败</option>
-            </select>
+            </Select>
 
             <Input
               className="max-w-xs"

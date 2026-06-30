@@ -28,6 +28,7 @@ import {
 } from '@/modules/channels/api'
 import { SetChannelPriceDialog } from './SetChannelPriceDialog'
 import { ChannelOrdersDialog } from './ChannelOrdersDialog'
+import { Select } from '@/components/ui/select'
 
 /** 付费频道 type 枚举值（0公开 1私密 2付费）。 */
 const PAID_CHANNEL_TYPE = 2
@@ -187,7 +188,7 @@ export function PaidChannelOpsPage() {
                 className="pl-10"
               />
             </div>
-            <select
+            <Select
               className="h-10 min-w-36 rounded-md border border-input bg-background px-3 text-sm"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
@@ -195,7 +196,7 @@ export function PaidChannelOpsPage() {
               <option value="-1">全部状态</option>
               <option value="1">正常</option>
               <option value="0">禁用</option>
-            </select>
+            </Select>
           </FilterBar>
         </CardHeader>
         <CardContent>

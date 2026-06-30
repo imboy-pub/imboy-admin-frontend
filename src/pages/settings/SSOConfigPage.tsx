@@ -18,6 +18,7 @@ import {
 } from '@/services/api/sso'
 import { getErrorMessage } from '@/lib/errorUtils'
 import { cn } from '@/lib/utils'
+import { Select } from '@/components/ui/select'
 
 type ActiveProvider = 'ldap' | 'saml' | 'oauth2'
 
@@ -300,7 +301,7 @@ function SamlForm({ initial }: { initial?: SamlConfig }) {
         />
         <div className="space-y-1">
           <Label htmlFor="saml-nameid">NameID 格式</Label>
-          <select
+          <Select
             id="saml-nameid"
             className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
             value={form.name_id_format}
@@ -310,7 +311,7 @@ function SamlForm({ initial }: { initial?: SamlConfig }) {
             <option value="urn:oasis:names:tc:SAML:2.0:nameid-format:persistent">Persistent</option>
             <option value="urn:oasis:names:tc:SAML:2.0:nameid-format:transient">Transient</option>
             <option value="urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified">Unspecified</option>
-          </select>
+          </Select>
         </div>
       </div>
 

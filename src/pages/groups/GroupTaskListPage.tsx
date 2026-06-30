@@ -27,6 +27,7 @@ import { useAdminPermission } from '@/hooks/useAdminPermission'
 import type { EntityId } from '@/types/common'
 import { getErrorMessage } from '@/lib/errorUtils'
 import { useListQueryState } from '@/hooks/useListQueryState'
+import { Select } from '@/components/ui/select'
 
 const TASK_STATUS_LABELS: Record<number, string> = {
   1: '进行中',
@@ -242,7 +243,7 @@ export function GroupTaskListPage() {
 
             <div className="flex flex-col gap-1">
               <label className="text-sm text-muted-foreground">状态筛选</label>
-              <select
+              <Select
                 data-testid="status-filter"
                 aria-label="状态筛选"
                 className="h-9 rounded-md border border-input bg-background px-3 text-sm"
@@ -253,7 +254,7 @@ export function GroupTaskListPage() {
                 <option value="1">进行中</option>
                 <option value="2">待审核</option>
                 <option value="3">已完成</option>
-              </select>
+              </Select>
             </div>
           </div>
         </CardContent>

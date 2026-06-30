@@ -28,6 +28,7 @@ import {
   SortingState,
 } from '@tanstack/react-table'
 import { useListQueryState } from '@/hooks/useListQueryState'
+import { Select } from '@/components/ui/select'
 
 type PaymentTransactionListPageQuery = {
   page: number
@@ -204,7 +205,7 @@ export function PaymentTransactionListPage() {
                 className="pl-10"
               />
             </div>
-            <select
+            <Select
               className="h-10 min-w-32 rounded-md border border-input bg-background px-3 text-sm"
               value={gatewayFilter}
               onChange={(e) => setGatewayFilter(e.target.value)}
@@ -213,8 +214,8 @@ export function PaymentTransactionListPage() {
               <option value="alipay">支付宝</option>
               <option value="wechat">微信支付</option>
               <option value="stripe">Stripe</option>
-            </select>
-            <select
+            </Select>
+            <Select
               className="h-10 min-w-32 rounded-md border border-input bg-background px-3 text-sm"
               value={bizTypeFilter}
               onChange={(e) => setBizTypeFilter(e.target.value)}
@@ -223,8 +224,8 @@ export function PaymentTransactionListPage() {
               <option value="1">充值</option>
               <option value="2">频道</option>
               <option value="3">账单</option>
-            </select>
-            <select
+            </Select>
+            <Select
               className="h-10 min-w-32 rounded-md border border-input bg-background px-3 text-sm"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
@@ -235,7 +236,7 @@ export function PaymentTransactionListPage() {
               <option value="2">失败</option>
               <option value="3">已退款</option>
               <option value="4">部分退款</option>
-            </select>
+            </Select>
           </FilterBar>
         </CardHeader>
         <CardContent>

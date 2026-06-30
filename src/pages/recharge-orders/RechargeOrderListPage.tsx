@@ -28,6 +28,7 @@ import {
   SortingState,
 } from '@tanstack/react-table'
 import { useListQueryState } from '@/hooks/useListQueryState'
+import { Select } from '@/components/ui/select'
 
 type RechargeOrderListPageQuery = {
   page: number
@@ -185,7 +186,7 @@ export function RechargeOrderListPage() {
                 className="pl-10"
               />
             </div>
-            <select
+            <Select
               className="h-10 min-w-36 rounded-md border border-input bg-background px-3 text-sm"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
@@ -196,8 +197,8 @@ export function RechargeOrderListPage() {
               <option value="2">退款中</option>
               <option value="3">已退款</option>
               <option value="4">已过期</option>
-            </select>
-            <select
+            </Select>
+            <Select
               className="h-10 min-w-36 rounded-md border border-input bg-background px-3 text-sm"
               value={paymentMethodFilter}
               onChange={(e) => setPaymentMethodFilter(e.target.value)}
@@ -206,7 +207,7 @@ export function RechargeOrderListPage() {
               <option value="alipay">支付宝</option>
               <option value="wechat">微信支付</option>
               <option value="stripe">Stripe</option>
-            </select>
+            </Select>
           </FilterBar>
         </CardHeader>
         <CardContent>

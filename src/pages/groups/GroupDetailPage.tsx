@@ -13,6 +13,7 @@ import { formatDate } from '@/lib/utils'
 import { useState } from 'react'
 import { useAdminEntryEnabled } from '@/hooks/useAdminFeatures'
 import { getErrorMessage } from '@/lib/errorUtils'
+import { Select } from '@/components/ui/select'
 
 export function GroupDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -213,7 +214,7 @@ export function GroupDetailPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="group-join-limit">加群限制</Label>
-                  <select
+                  <Select
                     id="group-join-limit"
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                     value={editForm.join_limit ?? 0}
@@ -223,7 +224,7 @@ export function GroupDetailPage() {
                   >
                     <option value={0}>自由加入</option>
                     <option value={1}>需要审核</option>
-                  </select>
+                  </Select>
                 </div>
                 <div className="space-y-2 md:col-span-2">
                   <Label htmlFor="group-introduction">群简介</Label>

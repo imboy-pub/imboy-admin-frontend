@@ -35,6 +35,7 @@ import {
   SortingState,
 } from '@tanstack/react-table'
 import { useListQueryState } from '@/hooks/useListQueryState'
+import { Select } from '@/components/ui/select'
 
 type BillingPlanListPageQuery = {
   page: number
@@ -297,7 +298,7 @@ export function BillingPlanListPage() {
       <Card>
         <CardHeader>
           <FilterBar onSearch={handleSearch} onReset={handleReset}>
-            <select
+            <Select
               className="h-10 min-w-32 rounded-md border border-input bg-background px-3 text-sm"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
@@ -305,8 +306,8 @@ export function BillingPlanListPage() {
               <option value="-1">全部状态</option>
               <option value="1">上架</option>
               <option value="0">下架</option>
-            </select>
-            <select
+            </Select>
+            <Select
               className="h-10 min-w-32 rounded-md border border-input bg-background px-3 text-sm"
               value={periodFilter}
               onChange={(e) => setPeriodFilter(e.target.value)}
@@ -314,7 +315,7 @@ export function BillingPlanListPage() {
               <option value="">全部周期</option>
               <option value="month">月付</option>
               <option value="year">年付</option>
-            </select>
+            </Select>
           </FilterBar>
         </CardHeader>
         <CardContent>
@@ -390,7 +391,7 @@ export function BillingPlanListPage() {
             </div>
             <div className="space-y-2">
               <label className="font-medium">计费周期 *</label>
-              <select
+              <Select
                 className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
                 value={form.billing_period}
                 onChange={(e) =>
@@ -399,19 +400,19 @@ export function BillingPlanListPage() {
               >
                 <option value="month">月付</option>
                 <option value="year">年付</option>
-              </select>
+              </Select>
             </div>
           </div>
           <div className="space-y-2">
             <label className="font-medium">状态</label>
-            <select
+            <Select
               className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
               value={String(form.status)}
               onChange={(e) => setForm((p) => ({ ...p, status: Number(e.target.value) }))}
             >
               <option value="1">上架</option>
               <option value="0">下架</option>
-            </select>
+            </Select>
           </div>
           <div className="space-y-2">
             <label className="font-medium">配额配置（JSON）</label>

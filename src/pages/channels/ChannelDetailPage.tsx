@@ -15,6 +15,7 @@ import { fenToYuan, yuanToFen } from '@/lib/money'
 import { useAdminFeatures, useAdminEntryEnabled } from '@/hooks/useAdminFeatures'
 import { isAdminFeatureEnabled } from '@/services/api/features'
 import { getErrorMessage } from '@/lib/errorUtils'
+import { Select } from '@/components/ui/select'
 
 type ChannelForm = {
   name: string
@@ -261,7 +262,7 @@ export function ChannelDetailPage() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="channel-type">类型</Label>
-                    <select
+                    <Select
                       id="channel-type"
                       className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                       value={String(resolvedFormData.type)}
@@ -272,11 +273,11 @@ export function ChannelDetailPage() {
                       <option value="0">公开</option>
                       <option value="1">私有</option>
                       <option value="2">付费</option>
-                    </select>
+                    </Select>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="channel-status">状态</Label>
-                    <select
+                    <Select
                       id="channel-status"
                       className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                       value={String(resolvedFormData.status)}
@@ -286,7 +287,7 @@ export function ChannelDetailPage() {
                     >
                       <option value="1">正常</option>
                       <option value="0">禁用</option>
-                    </select>
+                    </Select>
                   </div>
                   <div className="space-y-2 md:col-span-2">
                     <Label htmlFor="channel-avatar">头像 URL</Label>
@@ -455,7 +456,7 @@ export function ChannelDetailPage() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="currency">货币</Label>
-                    <select
+                    <Select
                       id="currency"
                       className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                       value={priceFormData.currency}
@@ -463,11 +464,11 @@ export function ChannelDetailPage() {
                     >
                       <option value="CNY">CNY 人民币</option>
                       <option value="USD">USD 美元</option>
-                    </select>
+                    </Select>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="subscription-type">订阅类型</Label>
-                    <select
+                    <Select
                       id="subscription-type"
                       className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                       value={String(priceFormData.subscription_type)}
@@ -476,7 +477,7 @@ export function ChannelDetailPage() {
                       <option value="1">一次性</option>
                       <option value="2">月订阅</option>
                       <option value="3">年订阅</option>
-                    </select>
+                    </Select>
                   </div>
                 </div>
                 <div className="flex justify-end gap-2">

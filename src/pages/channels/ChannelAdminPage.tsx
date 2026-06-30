@@ -25,6 +25,7 @@ import type { EntityId } from '@/types/common'
 import { formatDate } from '@/lib/utils'
 import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 import { getErrorMessage } from '@/lib/errorUtils'
+import { Select } from '@/components/ui/select'
 
 const ROLE_LABELS: Record<number, string> = {
   1: '管理员',
@@ -123,7 +124,7 @@ export function ChannelAdminPage() {
         const admin = row.original
         const isCreator = admin.role === 3
         return (
-          <select
+          <Select
             value={String(admin.role)}
             disabled={isCreator || roleMutation.isPending}
             onChange={(event) => handleRoleChange(admin, Number(event.target.value))}
@@ -132,7 +133,7 @@ export function ChannelAdminPage() {
             <option value="1">管理员</option>
             <option value="2">高级管理员</option>
             <option value="3">创建者</option>
-          </select>
+          </Select>
         )
       },
     },

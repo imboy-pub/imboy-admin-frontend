@@ -24,6 +24,7 @@ import { formatDate } from '@/lib/utils'
 import { fenToYuan } from '@/lib/money'
 import { ColumnDef, useReactTable, getCoreRowModel, getSortedRowModel, SortingState } from '@tanstack/react-table'
 import { useListQueryState } from '@/hooks/useListQueryState'
+import { Select } from '@/components/ui/select'
 
 type WalletListPageQuery = {
   page: number
@@ -171,7 +172,7 @@ export function WalletListPage() {
                 className="pl-10"
               />
             </div>
-            <select
+            <Select
               className="h-10 min-w-36 rounded-md border border-input bg-background px-3 text-sm"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
@@ -179,7 +180,7 @@ export function WalletListPage() {
               <option value="-1">全部状态</option>
               <option value="1">正常</option>
               <option value="0">冻结</option>
-            </select>
+            </Select>
           </FilterBar>
         </CardHeader>
         <CardContent>

@@ -36,6 +36,7 @@ import {
   saveFeedbackWorkflowConfig,
   type FeedbackWorkflowEditableConfig,
 } from '@/services/api/feedbackWorkflowConfig'
+import { Select } from '@/components/ui/select'
 
 type FeedbackListPageQuery = {
   page: number
@@ -506,7 +507,7 @@ export function FeedbackListPage() {
               </div>
             )}
           >
-            <select
+            <Select
               className="h-10 min-w-36 rounded-md border border-input bg-background px-3 text-sm"
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value)}
@@ -515,7 +516,7 @@ export function FeedbackListPage() {
               <option value="1">待处理</option>
               <option value="2">已回复</option>
               <option value="3">已完结</option>
-            </select>
+            </Select>
           </FilterBar>
           <p className="mt-3 text-xs text-muted-foreground">
             当前 SLA：{workflowConfig.slaHours} 小时，模板来源：{getWorkflowSourceLabel(workflowConfig.source)}

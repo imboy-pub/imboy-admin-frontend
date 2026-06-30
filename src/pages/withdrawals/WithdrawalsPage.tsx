@@ -26,6 +26,7 @@ import { fenToYuan } from '@/lib/money'
 import { ColumnDef, useReactTable, getCoreRowModel } from '@tanstack/react-table'
 import { useListQueryState } from '@/hooks/useListQueryState'
 import { toast } from 'sonner'
+import { Select } from '@/components/ui/select'
 
 type PageQuery = { page: number; size: number; status: number; user_id: string }
 
@@ -209,7 +210,7 @@ export function WithdrawalsPage() {
               onChange={(e) => setUserIdInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
             />
-            <select
+            <Select
               className="h-10 min-w-36 rounded-md border border-input bg-background px-3 text-sm"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
@@ -218,7 +219,7 @@ export function WithdrawalsPage() {
               <option value="0">待处理</option>
               <option value="1">已完成</option>
               <option value="2">已拒绝</option>
-            </select>
+            </Select>
           </FilterBar>
         </CardHeader>
         <CardContent>

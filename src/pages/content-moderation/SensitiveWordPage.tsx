@@ -27,6 +27,7 @@ import { formatDate } from '@/lib/utils'
 import { useListQueryState } from '@/hooks/useListQueryState'
 import { getErrorMessage } from '@/lib/errorUtils'
 import type { EntityId } from '@/types/common'
+import { Select } from '@/components/ui/select'
 
 type PageQuery = {
   page: number
@@ -250,7 +251,7 @@ export function SensitiveWordPage() {
               </div>
               <div className="space-y-1">
                 <Label htmlFor="new-category">分类</Label>
-                <select
+                <Select
                   id="new-category"
                   className="h-10 rounded-md border border-input bg-background px-3 text-sm"
                   value={newCategory}
@@ -259,11 +260,11 @@ export function SensitiveWordPage() {
                   {CATEGORY_OPTIONS.slice(1).map((opt) => (
                     <option key={opt.value} value={opt.value}>{opt.label}</option>
                   ))}
-                </select>
+                </Select>
               </div>
               <div className="space-y-1">
                 <Label htmlFor="new-severity">风险等级</Label>
-                <select
+                <Select
                   id="new-severity"
                   className="h-10 rounded-md border border-input bg-background px-3 text-sm"
                   value={newSeverity}
@@ -272,7 +273,7 @@ export function SensitiveWordPage() {
                   <option value="low">低风险</option>
                   <option value="medium">中风险</option>
                   <option value="high">高风险</option>
-                </select>
+                </Select>
               </div>
               <div className="flex gap-2">
                 <Button
@@ -302,7 +303,7 @@ export function SensitiveWordPage() {
               onChange={(e) => setParams({ keyword: e.target.value, page: 1 })}
               className="max-w-xs"
             />
-            <select
+            <Select
               className="h-10 rounded-md border border-input bg-background px-3 text-sm"
               value={params.category}
               onChange={(e) => setParams({ category: e.target.value, page: 1 })}
@@ -310,7 +311,7 @@ export function SensitiveWordPage() {
               {CATEGORY_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
               ))}
-            </select>
+            </Select>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">

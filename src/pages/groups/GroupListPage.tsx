@@ -16,6 +16,7 @@ import { ColumnDef, RowSelectionState, useReactTable, getCoreRowModel, getSorted
 import { useListQueryState } from '@/hooks/useListQueryState'
 import { trackUxEvent } from '@/lib/uxTelemetry'
 import { getErrorMessage } from '@/lib/errorUtils'
+import { Select } from '@/components/ui/select'
 
 type GroupListPageQuery = {
   page: number
@@ -362,7 +363,7 @@ export function GroupListPage() {
                 className="pl-10"
               />
             </div>
-            <select
+            <Select
               className="h-10 min-w-36 rounded-md border border-input bg-background px-3 text-sm"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
@@ -370,7 +371,7 @@ export function GroupListPage() {
               <option value="-1">全部状态</option>
               <option value="1">正常</option>
               <option value="0">已解散</option>
-            </select>
+            </Select>
             <Button
               variant="outline"
               size="sm"

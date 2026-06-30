@@ -34,6 +34,7 @@ import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 import { useAdminPermission } from '@/hooks/useAdminPermission'
 import { getErrorMessage } from '@/lib/errorUtils'
 import { useListQueryState } from '@/hooks/useListQueryState'
+import { Select } from '@/components/ui/select'
 
 type GroupTaskQuery = {
   page: number
@@ -357,7 +358,7 @@ export function GroupTaskManagePage() {
         <CardContent className="space-y-4">
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">状态筛选</span>
-            <select
+            <Select
               data-testid="group-task-status-filter"
               aria-label="状态筛选"
               className="h-9 rounded-md border border-input bg-background px-3 text-sm"
@@ -370,9 +371,9 @@ export function GroupTaskManagePage() {
               <option value="1">进行中</option>
               <option value="2">待审核</option>
               <option value="3">已完成</option>
-            </select>
+            </Select>
             <span className="text-sm text-muted-foreground">数据视图</span>
-            <select
+            <Select
               className="h-9 rounded-md border border-input bg-background px-3 text-sm"
               value={String(params.deletedFilter)}
               onChange={(event) => {
@@ -383,7 +384,7 @@ export function GroupTaskManagePage() {
             >
               <option value="0">未删除任务</option>
               <option value="1">已删除任务</option>
-            </select>
+            </Select>
           </div>
 
           <div className="flex flex-col gap-2 rounded-md border p-3 md:flex-row md:items-center">

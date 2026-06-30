@@ -35,6 +35,7 @@ import { useAdminPermission } from '@/hooks/useAdminPermission'
 import { getErrorMessage } from '@/lib/errorUtils'
 import { formatOptionalDate } from '@/lib/utils'
 import { exportCsv, type CsvColumn } from '@/lib/csvExport'
+import { Select } from '@/components/ui/select'
 
 const ORDER_STATUS_LABELS: Record<number, string> = {
   0: '待支付',
@@ -283,7 +284,7 @@ export function ChannelOrderPage() {
       <Card>
         <CardHeader>
           <FilterBar onSearch={handleStatusSearch} onReset={handleReset} searchText="查询">
-            <select
+            <Select
               className="h-9 rounded-md border border-input bg-background px-3 text-sm"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
@@ -294,7 +295,7 @@ export function ChannelOrderPage() {
               <option value="2">已退款</option>
               <option value="3">已取消</option>
               <option value="4">已过期</option>
-            </select>
+            </Select>
           </FilterBar>
         </CardHeader>
         <CardContent>

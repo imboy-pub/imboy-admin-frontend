@@ -25,6 +25,7 @@ import {
 import { formatOptionalDate } from '@/lib/utils'
 import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 import { getErrorMessage } from '@/lib/errorUtils'
+import { Select } from '@/components/ui/select'
 
 const COLLECT_KIND_OPTIONS = [
   { value: 0, label: '全部' },
@@ -237,7 +238,7 @@ export function UserCollectManagePage() {
             <div className="flex flex-wrap items-center gap-2">
               <Bookmark className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm text-muted-foreground">收藏类型</span>
-              <select
+              <Select
                 value={String(params.kind ?? 0)}
                 onChange={(event) => handleKindChange(Number(event.target.value))}
                 className="h-9 rounded-md border border-input bg-background px-2 text-sm"
@@ -247,7 +248,7 @@ export function UserCollectManagePage() {
                     {item.label}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
 
             <div className="flex w-full flex-col gap-2 lg:flex-row lg:items-center lg:justify-end xl:w-auto">

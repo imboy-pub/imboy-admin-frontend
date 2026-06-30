@@ -50,6 +50,7 @@ import {
 import type { EntityId } from '@/types/common'
 import { trackUxEvent } from '@/lib/uxTelemetry'
 import { getErrorMessage } from '@/lib/errorUtils'
+import { Select } from '@/components/ui/select'
 
 type TargetReportPanelProps = {
   targetType: NonMomentReportTargetType
@@ -485,7 +486,7 @@ export function TargetReportPanel({
               onKeyDown={(event) => event.key === 'Enter' && handleSearch()}
             />
           </div>
-          <select
+          <Select
             aria-label="举报状态筛选"
             className="h-10 min-w-40 rounded-md border border-input bg-background px-3 text-sm"
             value={statusFilter}
@@ -495,7 +496,7 @@ export function TargetReportPanel({
             <option value="0">待处理</option>
             <option value="1">已驳回</option>
             <option value="2">违规确认</option>
-          </select>
+          </Select>
         </FilterBar>
       </CardHeader>
       <CardContent>

@@ -28,6 +28,7 @@ import {
   SortingState,
 } from '@tanstack/react-table'
 import { useListQueryState } from '@/hooks/useListQueryState'
+import { Select } from '@/components/ui/select'
 
 type BillingInvoiceListPageQuery = {
   page: number
@@ -181,7 +182,7 @@ export function BillingInvoiceListPage() {
                 className="pl-10"
               />
             </div>
-            <select
+            <Select
               className="h-10 min-w-36 rounded-md border border-input bg-background px-3 text-sm"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
@@ -190,7 +191,7 @@ export function BillingInvoiceListPage() {
               <option value="0">待付</option>
               <option value="1">已付</option>
               <option value="2">逾期</option>
-            </select>
+            </Select>
           </FilterBar>
         </CardHeader>
         <CardContent>

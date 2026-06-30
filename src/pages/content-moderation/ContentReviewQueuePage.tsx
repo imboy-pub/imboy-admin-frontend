@@ -25,6 +25,7 @@ import { formatDate, truncate } from '@/lib/utils'
 import { useListQueryState } from '@/hooks/useListQueryState'
 import { getErrorMessage } from '@/lib/errorUtils'
 import type { EntityId } from '@/types/common'
+import { Select } from '@/components/ui/select'
 
 type PageQuery = {
   page: number
@@ -213,7 +214,7 @@ export function ContentReviewQueuePage() {
       <Card>
         <CardHeader>
           <div className="flex flex-wrap items-center gap-3">
-            <select
+            <Select
               className="h-10 rounded-md border border-input bg-background px-3 text-sm"
               value={params.status}
               onChange={(e) => setParams({ status: e.target.value, page: 1 })}
@@ -222,7 +223,7 @@ export function ContentReviewQueuePage() {
               <option value="pending">待审核</option>
               <option value="approved">已通过</option>
               <option value="rejected">已拒绝</option>
-            </select>
+            </Select>
             <Input
               placeholder="搜索发送者 / 内容关键字"
               value={params.keyword}

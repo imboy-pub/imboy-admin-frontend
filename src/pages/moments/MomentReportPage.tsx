@@ -46,6 +46,7 @@ import { useListQueryState } from '@/hooks/useListQueryState'
 import { formatDate } from '@/lib/utils'
 import { trackUxEvent } from '@/lib/uxTelemetry'
 import { getErrorMessage } from '@/lib/errorUtils'
+import { Select } from '@/components/ui/select'
 
 type MomentReportPageQuery = {
   page: number
@@ -546,7 +547,7 @@ export function MomentReportPage({ permissionOverride, showPageHeader = true }: 
                 onKeyDown={(event) => event.key === 'Enter' && handleQuickViewPost()}
               />
             </div>
-            <select
+            <Select
               aria-label="举报状态筛选"
               className="h-10 min-w-40 rounded-md border border-input bg-background px-3 text-sm"
               value={statusFilter}
@@ -556,7 +557,7 @@ export function MomentReportPage({ permissionOverride, showPageHeader = true }: 
               <option value="0">待处理</option>
               <option value="1">已驳回</option>
               <option value="2">违规确认</option>
-            </select>
+            </Select>
           </FilterBar>
         </CardHeader>
         <CardContent>

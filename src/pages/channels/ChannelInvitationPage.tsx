@@ -22,6 +22,7 @@ import {
 } from '@/modules/channels/api'
 import { formatOptionalDate } from '@/lib/utils'
 import { exportCsv, type CsvColumn } from '@/lib/csvExport'
+import { Select } from '@/components/ui/select'
 
 export function ChannelInvitationPage() {
   const { id } = useParams<{ id: string }>()
@@ -192,7 +193,7 @@ export function ChannelInvitationPage() {
       <Card>
         <CardHeader>
           <FilterBar onSearch={handleStatusSearch} onReset={handleReset} searchText="查询">
-            <select
+            <Select
               className="h-9 rounded-md border border-input bg-background px-3 text-sm"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
@@ -203,7 +204,7 @@ export function ChannelInvitationPage() {
               <option value="2">已拒绝</option>
               <option value="3">已过期</option>
               <option value="4">已取消</option>
-            </select>
+            </Select>
           </FilterBar>
         </CardHeader>
         <CardContent>

@@ -16,6 +16,7 @@ import {
 import { formatDate } from '@/lib/utils'
 import { getErrorMessage } from '@/lib/errorUtils'
 import { useListQueryState } from '@/hooks/useListQueryState'
+import { Select } from '@/components/ui/select'
 
 type StorageOverviewQuery = {
   page: number
@@ -221,7 +222,7 @@ export function StorageOverviewPage() {
             <Button variant="outline" size="sm" onClick={handleSearch}>
               搜索
             </Button>
-            <select
+            <Select
               className="h-10 min-w-36 rounded-md border border-input bg-background px-3 text-sm"
               value={params.mimeFilter}
               onChange={(e) => setParams({ mimeFilter: e.target.value, page: 1 })}
@@ -230,7 +231,7 @@ export function StorageOverviewPage() {
               <option value="image/">图片</option>
               <option value="video/">视频</option>
               <option value="application/pdf">PDF</option>
-            </select>
+            </Select>
           </div>
 
           {listLoading ? (
@@ -365,7 +366,7 @@ export function StorageOverviewPage() {
         <CardContent className="space-y-4">
           <div className="flex flex-wrap items-center gap-3">
             <span className="text-sm text-muted-foreground">清理超过</span>
-            <select
+            <Select
               className="h-9 rounded-md border border-input bg-background px-3 text-sm"
               value={ageDays}
               onChange={(e) => { setAgeDays(Number(e.target.value)); setOrphanQueryEnabled(false) }}
@@ -374,7 +375,7 @@ export function StorageOverviewPage() {
               <option value={30}>30 天</option>
               <option value={60}>60 天</option>
               <option value={90}>90 天</option>
-            </select>
+            </Select>
             <span className="text-sm text-muted-foreground">的孤儿文件</span>
             <Button
               variant="outline"

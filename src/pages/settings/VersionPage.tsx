@@ -19,6 +19,7 @@ import type { EntityId } from '@/types/common'
 import { formatDate } from '@/lib/utils'
 import { getErrorMessage } from '@/lib/errorUtils'
 import { useListQueryState } from '@/hooks/useListQueryState'
+import { Select } from '@/components/ui/select'
 
 type VersionPageQuery = {
   page: number
@@ -165,7 +166,7 @@ export function VersionPage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="platform">平台</Label>
-                  <select
+                  <Select
                     id="platform"
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                     value={formData.platform}
@@ -178,7 +179,7 @@ export function VersionPage() {
                         {p.label}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
 
                 <div className="space-y-2">

@@ -33,6 +33,7 @@ import { cn } from '@/lib/utils'
 import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 import { MessageScope } from '@/types/message'
 import { useListQueryState } from '@/hooks/useListQueryState'
+import { Select } from '@/components/ui/select'
 
 // ---------------------------------------------------------------------------
 // 类型定义
@@ -445,7 +446,7 @@ function UserEventsTab() {
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2">
               <ArrowRightLeft className="h-4 w-4 text-muted-foreground" />
-              <select
+              <Select
                 className="h-9 rounded-md border border-input bg-background px-3 text-sm"
                 value={params.eventTypeFilter}
                 onChange={(event) => {
@@ -455,7 +456,7 @@ function UserEventsTab() {
                 <option value="all">全部事件</option>
                 <option value="message">消息审计</option>
                 <option value="logout_apply">注销申请</option>
-              </select>
+              </Select>
             </div>
             <Input
               className="max-w-md"
@@ -724,7 +725,7 @@ function AdminOpsTab() {
             value={params.adm_user_id}
             onChange={(e) => setParams({ adm_user_id: e.target.value, page: 1 })}
           />
-          <select
+          <Select
             className="h-9 rounded-md border border-input bg-background px-3 text-sm"
             value={params.action}
             onChange={(e) => setParams({ action: e.target.value, page: 1 })}
@@ -735,7 +736,7 @@ function AdminOpsTab() {
                 {label}
               </option>
             ))}
-          </select>
+          </Select>
           <Button
             variant="outline"
             size="sm"

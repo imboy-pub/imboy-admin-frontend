@@ -44,6 +44,7 @@ import { getErrorMessage } from '@/lib/errorUtils'
 import { getLoginPage } from '@/modules/identity'
 import { encryptLoginPassword } from '@/lib/passwordCrypto'
 import type { Admin } from '@/types/admin'
+import { Select } from '@/components/ui/select'
 
 type AdminListPageQuery = {
   page: number
@@ -356,7 +357,7 @@ export function AdminListPage() {
         const isCurrent = String(admin.id) === currentAdminId
         return (
           <div className="flex min-w-44 items-center gap-2">
-            <select
+            <Select
               value={String(admin.role_id)}
               onChange={(event) => handleRoleChange(admin, event.target.value)}
               className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm"
@@ -367,7 +368,7 @@ export function AdminListPage() {
                   {option.name}
                 </option>
               ))}
-            </select>
+            </Select>
             {isCurrent && <span className="text-xs text-muted-foreground">当前</span>}
           </div>
         )
@@ -509,7 +510,7 @@ export function AdminListPage() {
               onChange={(event) => setSearchKeyword(event.target.value)}
               className="w-[220px]"
             />
-            <select
+            <Select
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value)}
               className="h-9 rounded-md border border-input bg-background px-3 text-sm"
@@ -517,8 +518,8 @@ export function AdminListPage() {
               <option value="-1">全部状态</option>
               <option value="1">正常</option>
               <option value="0">禁用</option>
-            </select>
-            <select
+            </Select>
+            <Select
               value={roleFilter}
               onChange={(event) => setRoleFilter(event.target.value)}
               className="h-9 rounded-md border border-input bg-background px-3 text-sm"
@@ -529,7 +530,7 @@ export function AdminListPage() {
                   {option.name}
                 </option>
               ))}
-            </select>
+            </Select>
             <Button
               variant="outline"
               size="sm"
@@ -663,7 +664,7 @@ export function AdminListPage() {
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <label className="text-sm font-medium">角色 *</label>
-              <select
+              <Select
                 value={String(effectiveCreateRoleId)}
                 onChange={(event) => setCreateForm((prev) => ({ ...prev, role_id: Number(event.target.value) }))}
                 className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
@@ -673,18 +674,18 @@ export function AdminListPage() {
                     {option.name}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">状态</label>
-              <select
+              <Select
                 value={String(createForm.status)}
                 onChange={(event) => setCreateForm((prev) => ({ ...prev, status: Number(event.target.value) }))}
                 className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
               >
                 <option value="1">正常</option>
                 <option value="0">禁用</option>
-              </select>
+              </Select>
             </div>
           </div>
         </div>

@@ -23,6 +23,7 @@ import {
   type Channel,
   type ChannelPriceParams,
 } from '@/modules/channels/api'
+import { Select } from '@/components/ui/select'
 
 type Props = {
   channelId: EntityId | null
@@ -179,7 +180,7 @@ function PriceFormFields({ channelId, initialForm, currentPriceFen, onOpenChange
         </div>
         <div className="space-y-2">
           <Label htmlFor="paid-currency" className="font-medium">货币</Label>
-          <select
+          <Select
             id="paid-currency"
             className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             value={form.currency}
@@ -187,11 +188,11 @@ function PriceFormFields({ channelId, initialForm, currentPriceFen, onOpenChange
           >
             <option value="CNY">CNY 人民币</option>
             <option value="USD">USD 美元</option>
-          </select>
+          </Select>
         </div>
         <div className="space-y-2">
           <Label htmlFor="paid-subscription-type" className="font-medium">订阅类型</Label>
-          <select
+          <Select
             id="paid-subscription-type"
             className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             value={String(form.subscription_type)}
@@ -200,7 +201,7 @@ function PriceFormFields({ channelId, initialForm, currentPriceFen, onOpenChange
             <option value="1">一次性</option>
             <option value="2">月订阅</option>
             <option value="3">年订阅</option>
-          </select>
+          </Select>
         </div>
         <div className="space-y-2 md:col-span-2">
           <Label htmlFor="paid-price-desc" className="font-medium">价格说明（可选）</Label>
