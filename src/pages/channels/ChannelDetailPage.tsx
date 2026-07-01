@@ -13,6 +13,7 @@ import { ChannelUpdateParams, ChannelPriceParams, deleteChannel, getChannelDetai
 import { formatDate } from '@/lib/utils'
 import { fenToYuan, yuanToFen } from '@/lib/money'
 import { useAdminFeatures, useAdminEntryEnabled } from '@/hooks/useAdminFeatures'
+import { useAdminPermission } from '@/hooks/useAdminPermission'
 import { isAdminFeatureEnabled } from '@/services/api/features'
 import { getErrorMessage } from '@/lib/errorUtils'
 import { Select } from '@/components/ui/select'
@@ -80,6 +81,14 @@ export function ChannelDetailPage() {
   const [priceFormData, setPriceFormData] = useState<ChannelPriceForm | null>(null)
   const { data: featureFlags } = useAdminFeatures()
   const channelEntryEnabled = useAdminEntryEnabled('channel')
+  const { allowed: canUpdateChannel } = useAdminPermission({
+    permission: 'channels:update',
+    roles: [1, 2],
+  })
+  const { allowed: canDeleteChannel } = useAdminPermission({
+    permission: 'channels:delete',
+    roles: [1, 2],
+  })
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['channel', channelId],
@@ -211,7 +220,7 @@ export function ChannelDetailPage() {
                 订单
               </Button>
             )}
-            {!isEditing && channel.status !== -1 && (
+            {canUpdateChannel && !isEditing && channel.status !== -1 && (
               <Button
                 variant="outline"
                 onClick={() => {
@@ -223,7 +232,7 @@ export function ChannelDetailPage() {
                 编辑频道
               </Button>
             )}
-            {!isEditing && channel.status === 1 && (
+            {canDeleteChannel && !isEditing && channel.status === 1 && (
               <Button variant="destructive" onClick={() => setShowConfirm(true)}>
                 <Trash2 className="h-4 w-4 mr-2" />
                 删除频道
@@ -412,7 +421,7 @@ export function ChannelDetailPage() {
               <DollarSign className="h-5 w-5" />
               频道价格
             </CardTitle>
-            {!isPriceEditing && (
+            {canUpdateChannel && !isPriceEditing && (
               <Button
                 variant="outline"
                 size="sm"
@@ -535,7 +544,7 @@ export function ChannelDetailPage() {
       )}
 
       <ConfirmDialog
-        open={showConfirm}
+        open={canDeleteChannel && showConfirm}
         onOpenChange={setShowConfirm}
         title="确认删除频道"
         description={`确定要删除频道「${channel.name}」吗？此操作不可恢复。`}

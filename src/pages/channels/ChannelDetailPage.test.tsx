@@ -63,6 +63,22 @@ describe('ChannelDetailPage flow', () => {
     mutableClient.get = async (url: string) => {
       getCalls.push(url)
 
+      if (url === '/rbac/me') {
+        return {
+          data: {
+            code: 0,
+            msg: 'ok',
+            payload: {
+              role_id: 1,
+              role_ids: [1],
+              role_name: 'super_admin',
+              permissions: ['channels:update', 'channels:delete'],
+              menu_paths: [],
+            },
+          },
+        }
+      }
+
       if (url === '/channel/detail/8') {
         return {
           data: {

@@ -23,6 +23,7 @@ import {
 import { formatDate, truncate } from '@/lib/utils'
 import { LogoutApplication, LogoutApplicationListParams } from '@/types/logoutApplication'
 import { getErrorMessage } from '@/lib/errorUtils'
+import { useAdminPermission } from '@/hooks/useAdminPermission'
 
 export function LogoutApplicationListPage() {
   const queryClient = useQueryClient()
@@ -37,6 +38,10 @@ export function LogoutApplicationListPage() {
   const [isExporting, setIsExporting] = useState(false)
   const [confirmUid, setConfirmUid] = useState<string | null>(null)
   const [approveConfirmUid, setApproveConfirmUid] = useState<string | null>(null)
+  const { allowed: canApprove } = useAdminPermission({
+    permission: 'logout_applications:approve',
+    roles: [1, 2],
+  })
 
   const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
     queryKey: ['logout-applications', params],
@@ -187,6 +192,7 @@ export function LogoutApplicationListPage() {
       cell: ({ row }) => {
         const status = row.original.user_status
         if (status !== 2) return <span className="text-muted-foreground text-xs">-</span>
+        if (!canApprove) return <span className="text-muted-foreground text-xs">无权限</span>
         return (
           <div className="flex gap-2">
             <Button
@@ -293,7 +299,7 @@ export function LogoutApplicationListPage() {
       </Card>
 
       <ConfirmDialog
-        open={confirmUid !== null}
+        open={canApprove && confirmUid !== null}
         onOpenChange={(open) => { if (!open) setConfirmUid(null) }}
         title="确认驳回"
         description={`确定要驳回用户 ${confirmUid ?? ''} 的注销申请吗？用户账号将恢复正常状态。`}
@@ -306,7 +312,7 @@ export function LogoutApplicationListPage() {
       />
 
       <ConfirmDialog
-        open={approveConfirmUid !== null}
+        open={canApprove && approveConfirmUid !== null}
         onOpenChange={(open) => { if (!open) setApproveConfirmUid(null) }}
         title="确认审批通过"
         description={`确定要审批通过用户 ${approveConfirmUid ?? ''} 的注销申请吗？该操作将注销用户账号，不可恢复。`}

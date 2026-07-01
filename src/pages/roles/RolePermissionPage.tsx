@@ -22,6 +22,7 @@ type RoleTemplate = RoleTemplateConfig
 const defaultPermissions: PermissionItem[] = [
   { key: 'dashboard:view', name: '查看仪表盘', module: '仪表盘', path: '/dashboard' },
   { key: 'users:read', name: '查看用户资料', module: '用户管理', path: '/users' },
+  { key: 'users:update', name: '封禁/解封/强制下线用户', module: '用户管理', path: '/users' },
   { key: 'groups:read', name: '查看群资料', module: '群组管理', path: '/groups' },
   { key: 'groups:delete', name: '删除群资料', module: '群组管理', path: '/groups' },
   { key: 'groups:vote:read', name: '查看群投票治理页', module: '群组管理', path: '/groups/:id/votes' },
@@ -55,6 +56,7 @@ const defaultPermissions: PermissionItem[] = [
   { key: 'reports:handle', name: '处理举报工单', module: '举报中心', path: '/reports' },
   { key: 'messages:read', name: '查看消息记录（只读）', module: '消息管理', path: '/messages' },
   { key: 'logout_applications:read', name: '查看注销申请（只读）', module: '注销申请', path: '/logout-applications' },
+  { key: 'logout_applications:approve', name: '批准/驳回注销申请', module: '注销申请', path: '/logout-applications' },
   { key: 'feedback:read', name: '查看反馈', module: '反馈管理', path: '/feedback' },
   { key: 'feedback:reply', name: '回复反馈', module: '反馈管理', path: '/feedback' },
   { key: 'settings:view', name: '查看系统设置', module: '系统设置', path: '/settings' },
@@ -71,6 +73,8 @@ const defaultPermissions: PermissionItem[] = [
   { key: 'roles:create', name: '新增角色', module: '角色权限', path: '/roles' },
   { key: 'roles:update', name: '编辑角色权限', module: '角色权限', path: '/roles' },
   { key: 'logs:view', name: '查看审计日志（只读）', module: '日志审计', path: '/logs' },
+  { key: 'stats:ranking:read', name: '查看排行榜统计', module: '仪表盘', path: '/dashboard' },
+  { key: 'license:write', name: '写入/更新 License 授权', module: '系统设置', path: '/settings' },
 ]
 
 const defaultRoleTemplates: RoleTemplate[] = [
@@ -86,7 +90,7 @@ const defaultRoleTemplates: RoleTemplate[] = [
     description: '负责用户、群组、频道和反馈等业务运营事务。',
     permissions: [
       'dashboard:view',
-      'users:read',
+      'users:read', 'users:update',
       'groups:read', 'groups:delete',
       'groups:vote:read', 'groups:vote:close', 'groups:notice:read', 'groups:notice:delete', 'groups:category:read', 'groups:category:delete', 'groups:tag:read', 'groups:tag:delete', 'groups:file:read', 'groups:file:delete', 'groups:album:read', 'groups:album:delete', 'groups:schedule:read', 'groups:schedule:cancel', 'groups:schedule:restore',
       'groups:task:read', 'groups:task:review', 'groups:task:close', 'groups:task:delete', 'groups:task:restore',
@@ -94,9 +98,10 @@ const defaultRoleTemplates: RoleTemplate[] = [
       'moments:read', 'moments:delete', 'moments:report:read', 'moments:report:handle',
       'reports:read', 'reports:handle',
       'messages:read',
-      'logout_applications:read',
+      'logout_applications:read', 'logout_applications:approve',
       'feedback:read',
       'feedback:reply',
+      'stats:ranking:read',
     ],
   },
   {

@@ -44,13 +44,16 @@ export function toApiError(error: Pick<AxiosError<ApiResponse>, 'response' | 'me
 
 // CSRF 防护说明:
 // - 登录请求通过 csrf_token 参数保护 (见 modules/identity/api/auth.ts)
-// - 登录后的 API 请求依赖 Cookie session + 后端 SameSite 策略
-// - 如需增强: 可在请求拦截器中为 POST/PUT/DELETE 添加 X-CSRF-Token header
+// - 登录后的写请求防护为两层: 后端 session cookie 设置 SameSite=Lax（阻止跨站表单/简单请求
+//   携带 cookie）+ 后端 CORS 白名单仅允许配置的 Origin 并对 JSON 类型强制 CORS 预检（阻止
+//   跨站 fetch/XHR）。X-Requested-With 是第三层纵深防御：该 header 不在 CORS 安全列表中，
+//   任何跨站请求都会被迫触发预检，若来源不在后端白名单，预检会被 403 拦截。
 const client: AxiosInstance = axios.create({
   baseURL: BASE_URL,
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
+    'X-Requested-With': 'XMLHttpRequest',
   },
   withCredentials: true,
   // 覆盖默认 JSON 解析，防止大整数 (TSID) 精度丢失

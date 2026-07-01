@@ -10,6 +10,7 @@ import { getUserDetailPayload, banUser, unbanUser } from '@/modules/identity/api
 import { formatDate } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import { getErrorMessage } from '@/lib/errorUtils'
+import { useAdminPermission } from '@/hooks/useAdminPermission'
 import { UserDeviceList } from './UserDeviceList'
 
 type DetailTab = 'profile' | 'stats' | 'devices' | 'actions'
@@ -53,6 +54,10 @@ export function UserDetailPage() {
   const uid = id ?? ''
   const [activeTab, setActiveTab] = useState<DetailTab>('profile')
   const [confirmAction, setConfirmAction] = useState<'ban' | 'unban' | null>(null)
+  const { allowed: canManageUser } = useAdminPermission({
+    permission: 'users:update',
+    roles: [1, 2],
+  })
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['user', uid],
@@ -117,7 +122,7 @@ export function UserDetailPage() {
               <ArrowLeft className="h-4 w-4 mr-2" />
               返回列表
             </Button>
-            {user.status === 1 ? (
+            {canManageUser && user.status === 1 ? (
               <Button
                 variant="destructive"
                 onClick={() => setConfirmAction('ban')}
@@ -130,7 +135,7 @@ export function UserDetailPage() {
                 )}
                 封禁
               </Button>
-            ) : user.status === 0 ? (
+            ) : canManageUser && user.status === 0 ? (
               <Button
                 onClick={() => setConfirmAction('unban')}
                 disabled={unbanMutation.isPending}
@@ -328,7 +333,7 @@ export function UserDetailPage() {
               <CardDescription>对该用户执行管理操作</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              {user.status === 1 ? (
+              {canManageUser && user.status === 1 ? (
                 <Button
                   variant="destructive"
                   className="w-full justify-start"
@@ -342,7 +347,7 @@ export function UserDetailPage() {
                   )}
                   封禁用户
                 </Button>
-              ) : user.status === 0 ? (
+              ) : canManageUser && user.status === 0 ? (
                 <Button
                   variant="outline"
                   className="w-full justify-start"
@@ -356,6 +361,8 @@ export function UserDetailPage() {
                   )}
                   解封用户
                 </Button>
+              ) : !canManageUser ? (
+                <p className="text-sm text-muted-foreground">无权限执行封禁/解封操作</p>
               ) : (
                 <p className="text-sm text-muted-foreground">该用户已删除，无法执行操作</p>
               )}
@@ -365,7 +372,7 @@ export function UserDetailPage() {
       )}
 
       <ConfirmDialog
-        open={confirmAction !== null}
+        open={canManageUser && confirmAction !== null}
         onOpenChange={(open) => { if (!open) setConfirmAction(null) }}
         title={confirmAction === 'ban' ? '确认封禁' : '确认解封'}
         description={
