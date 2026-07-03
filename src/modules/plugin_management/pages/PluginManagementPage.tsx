@@ -306,11 +306,10 @@ export function PluginManagementPage() {
       }
     })()
 
+    // 每个 mutation 自带 onError 已负责用户提示，这里只需吞掉 rejection
+    // 避免 unhandled promise rejection，不再重复弹一次通用错误提示
     mutPromise
-      .catch((err: unknown) => {
-        const errObj = err as { msg?: string; message?: string }
-        toast.error(errObj?.msg || errObj?.message || '操作失败，请重试')
-      })
+      .catch(() => {})
       .finally(() => {
         setPendingMap((prev) => {
           const next = { ...prev }
@@ -426,13 +425,16 @@ export function PluginManagementPage() {
           const name = uninstallTarget.name
           setUninstallTarget(null)
           setPendingMap((prev) => ({ ...prev, [name]: 'uninstall' }))
-          uninstallMut.mutateAsync(name).finally(() => {
-            setPendingMap((prev) => {
-              const next = { ...prev }
-              delete next[name]
-              return next
+          uninstallMut
+            .mutateAsync(name)
+            .catch(() => {})
+            .finally(() => {
+              setPendingMap((prev) => {
+                const next = { ...prev }
+                delete next[name]
+                return next
+              })
             })
-          })
         }}
         variant="destructive"
         loading={uninstallMut.isPending}

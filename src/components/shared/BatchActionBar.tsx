@@ -132,11 +132,11 @@ function BatchActionBarContent({
 
         const permissionAllowed = !hasPermissionRequirement ||
           grantedPermissions.size === 0 ||
-          grantedPermissions.has(permission!)
+          (permission != null && grantedPermissions.has(permission))
 
         const roleAllowed = !hasRoleRequirement ||
           effectiveRoleIds.length === 0 ||
-          action.roles!.some((roleId) => effectiveRoleIds.includes(roleId))
+          (action.roles?.some((roleId) => effectiveRoleIds.includes(roleId)) ?? false)
 
         const authorized = permissionAllowed && roleAllowed
         const hideWhenUnauthorized = action.hideWhenUnauthorized !== false

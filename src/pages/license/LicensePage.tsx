@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { ConfirmDialog, ErrorState, LoadingState, PageHeader, StatsCard } from '@/components/shared'
 import { getLicenseStatus, applyLicense } from '@/services/api/stats'
 import { cn } from '@/lib/utils'
+import { getErrorMessage } from '@/lib/errorUtils'
 import { toast } from 'sonner'
 
 const EDITION_LABELS: Record<string, string> = {
@@ -78,6 +79,9 @@ export function LicensePage() {
       setOpen(false)
       setLicenseText('')
       toast.success('授权已生效')
+    },
+    onError: (err) => {
+      toast.error(getErrorMessage(err))
     },
   })
 

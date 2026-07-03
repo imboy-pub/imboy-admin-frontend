@@ -60,7 +60,7 @@ export function useAdminPermission(options: UseAdminPermissionOptions = {}) {
   }, [rbacProfile])
 
   const effectiveRoleIds = profileRoleIds.length > 0 ? profileRoleIds : currentRoleIds
-  const roleAllowed = !hasRoleConstraint || effectiveRoleIds.some((roleId) => roles!.includes(roleId))
+  const roleAllowed = !hasRoleConstraint || effectiveRoleIds.some((roleId) => roles?.includes(roleId) ?? false)
 
   const roleTemplatePermissions = useMemo(() => {
     if (effectiveRoleIds.length === 0) return undefined
