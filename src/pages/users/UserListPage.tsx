@@ -88,7 +88,7 @@ export function UserListPage() {
 
   // 封禁用户
   const banMutation = useMutation({
-    mutationFn: banUser,
+    mutationFn: (targetUid: string) => banUser(targetUid),
     onSuccess: () => {
       toast.success('用户已封禁')
       pushNotification({ type: 'warning', title: '用户封禁', message: `管理员执行了用户封禁操作` })
@@ -114,8 +114,8 @@ export function UserListPage() {
 
   // 批量封禁用户
   const batchBanMutation = useMutation({
-    mutationFn: async ({ uids }: { uids: string[] }) =>
-      Promise.allSettled(uids.map((uid) => banUser(uid))),
+    mutationFn: async ({ uids, reason }: { uids: string[]; reason?: string }) =>
+      Promise.allSettled(uids.map((uid) => banUser(uid, reason))),
     onSuccess: (results) => {
       const successCount = results.filter((item) => item.status === 'fulfilled').length
       const failedCount = results.length - successCount
@@ -501,13 +501,14 @@ export function UserListPage() {
                 description: `将封禁 ${selectedActiveUserIds.length} 个用户账号。`,
                 disabled: selectedActiveUserIds.length === 0 || batchUnbanMutation.isPending,
                 loading: batchBanMutation.isPending,
-                onExecute: async () => {
+                onExecute: async ({ reason }) => {
                   if (selectedActiveUserIds.length === 0) {
                     toast.error('当前选择中没有可封禁用户')
                     return
                   }
                   await batchBanMutation.mutateAsync({
                     uids: selectedActiveUserIds,
+                    reason,
                   })
                 },
               },

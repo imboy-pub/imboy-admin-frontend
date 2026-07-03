@@ -42,8 +42,8 @@ export async function getUserDetailPayload(uid: EntityId): Promise<UserDetail> {
   return requireApiPayload(await getUserDetail(uid), '/user/detail')
 }
 
-export async function banUser(uid: EntityId): Promise<ApiResponse<Record<string, never>>> {
-  const response = await client.post('/user/ban', { user_id: uid })
+export async function banUser(uid: EntityId, reason?: string): Promise<ApiResponse<Record<string, never>>> {
+  const response = await client.post('/user/ban', { user_id: uid, ...(reason ? { reason } : {}) })
   return response.data
 }
 

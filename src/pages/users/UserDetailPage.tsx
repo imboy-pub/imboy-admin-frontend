@@ -66,7 +66,7 @@ export function UserDetailPage() {
   })
 
   const banMutation = useMutation({
-    mutationFn: banUser,
+    mutationFn: (targetUid: string) => banUser(targetUid),
     onSuccess: () => {
       toast.success('用户已封禁')
       queryClient.invalidateQueries({ queryKey: ['user', uid] })

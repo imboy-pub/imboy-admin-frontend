@@ -19,9 +19,11 @@ export interface AdminOperationLog {
   adm_user_id: EntityId
   action: AdminOperationAction
   target_id: EntityId
+  target_type: string
+  /** 操作详情（后端 jsonb），含 before/after 前后值与 reason */
+  detail?: Record<string, unknown>
   ip: string
   created_at: string
-  extra?: Record<string, unknown>
 }
 
 export interface AdminOperationLogParams {
@@ -58,6 +60,24 @@ export async function getAdminOperationLogs(
     return Number.isFinite(n) && n >= 0 ? Math.floor(n) : fallback
   }
 
+  // jsonb 字段可能以对象或 JSON 字符串两种形态到达，统一解析
+  const parseDetail = (v: unknown): Record<string, unknown> | undefined => {
+    if (typeof v === 'object' && v !== null && !Array.isArray(v)) {
+      return v as Record<string, unknown>
+    }
+    if (typeof v === 'string' && v.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(v) as unknown
+        if (typeof parsed === 'object' && parsed !== null) {
+          return parsed as Record<string, unknown>
+        }
+      } catch {
+        return undefined
+      }
+    }
+    return undefined
+  }
+
   const normalizeLog = (item: unknown): AdminOperationLog => {
     const r = typeof item === 'object' && item !== null ? (item as Record<string, unknown>) : {}
     return {
@@ -65,9 +85,10 @@ export async function getAdminOperationLogs(
       adm_user_id: String(r.adm_user_id ?? ''),
       action: String(r.action ?? '-'),
       target_id: String(r.target_id ?? r.target ?? ''),
+      target_type: String(r.target_type ?? ''),
+      detail: parseDetail(r.detail),
       ip: String(r.ip ?? '-'),
       created_at: String(r.created_at ?? ''),
-      extra: typeof r.extra === 'object' && r.extra !== null ? (r.extra as Record<string, unknown>) : undefined,
     }
   }
 

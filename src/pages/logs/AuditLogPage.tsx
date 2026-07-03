@@ -618,6 +618,10 @@ const ACTION_LABELS: Record<string, string> = {
   mute_user: '禁言用户',
   reset_password: '重置密码',
   assign_role: '分配角色',
+  channel_order_refund: '订单退款',
+  withdrawal_reject: '拒绝提现',
+  withdrawal_complete: '完成提现',
+  logout_apply_approve: '注销审批通过',
 }
 
 function AdminOpsTab() {
@@ -685,6 +689,20 @@ function AdminOpsTab() {
       cell: ({ row }) => (
         <span className="font-mono text-xs">{row.original.target_id || '-'}</span>
       ),
+    },
+    {
+      accessorKey: 'detail',
+      header: '详情',
+      cell: ({ row }) => {
+        const detail = row.original.detail
+        if (!detail || Object.keys(detail).length === 0) return <span>-</span>
+        const text = JSON.stringify(detail)
+        return (
+          <span className="font-mono text-xs text-muted-foreground" title={text}>
+            {text.length > 80 ? `${text.slice(0, 80)}…` : text}
+          </span>
+        )
+      },
     },
     {
       accessorKey: 'ip',
