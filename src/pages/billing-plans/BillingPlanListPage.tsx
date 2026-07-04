@@ -168,6 +168,10 @@ export function BillingPlanListPage() {
       setFormError('价格必须是有效数字（元）')
       return false
     }
+    if (Number(form.priceYuan) < 0) {
+      setFormError('价格不能为负数')
+      return false
+    }
     if (form.quota_config_str.trim()) {
       try { JSON.parse(form.quota_config_str) } catch {
         setFormError('配额配置 JSON 格式有误')

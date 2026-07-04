@@ -26,6 +26,18 @@ type VersionPageQuery = {
   size: number
 }
 
+// semver：主.次.修订，可带预发布/构建元数据
+const SEMVER_RE = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/
+
+function isValidHttpUrl(value: string): boolean {
+  try {
+    const url = new URL(value)
+    return url.protocol === 'http:' || url.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
 export function VersionPage() {
   const queryClient = useQueryClient()
   const { state: params, setState: setParams } = useListQueryState<VersionPageQuery>({
@@ -101,8 +113,22 @@ export function VersionPage() {
     setShowForm(true)
   }
 
+  const versionError =
+    formData.version.trim() && !SEMVER_RE.test(formData.version.trim())
+      ? '版本号需符合语义化版本格式，如 1.0.0'
+      : ''
+  const downloadUrlError =
+    formData.download_url.trim() && !isValidHttpUrl(formData.download_url.trim())
+      ? '下载地址需为合法的 http/https URL'
+      : ''
+  const canSubmit = !versionError && !downloadUrlError
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    if (!canSubmit) {
+      toast.error(versionError || downloadUrlError)
+      return
+    }
     // 强制更新会推送给全部客户端，发布前二次确认
     if (formData.force_update) {
       setForceUpdateConfirm(true)
@@ -168,6 +194,9 @@ export function VersionPage() {
                     }
                     required
                   />
+                  {versionError && (
+                    <p className="text-xs text-destructive">{versionError}</p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -199,6 +228,9 @@ export function VersionPage() {
                     }
                     required
                   />
+                  {downloadUrlError && (
+                    <p className="text-xs text-destructive">{downloadUrlError}</p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -237,7 +269,7 @@ export function VersionPage() {
                 <Button type="button" variant="outline" onClick={resetForm}>
                   取消
                 </Button>
-                <Button type="submit" disabled={saveMutation.isPending}>
+                <Button type="submit" disabled={saveMutation.isPending || !canSubmit}>
                   {saveMutation.isPending && (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   )}

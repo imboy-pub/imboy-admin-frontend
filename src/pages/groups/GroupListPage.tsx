@@ -486,14 +486,15 @@ export function GroupListPage() {
           <>
             <Button variant="outline" onClick={() => setEditTarget(null)} disabled={updateMutation.isPending}>取消</Button>
             <Button
-              disabled={updateMutation.isPending}
+              disabled={updateMutation.isPending || !editForm.title.trim()}
               onClick={() => {
                 if (!editTarget) return
+                if (!editForm.title.trim()) return
                 updateMutation.mutate({
                   gid: editTarget.id,
-                  title: editForm.title.trim() || undefined,
+                  title: editForm.title.trim(),
                   introduction: editForm.introduction.trim() || undefined,
-                  join_limit: editForm.join_limit > 0 ? editForm.join_limit : undefined,
+                  join_limit: editForm.join_limit,
                   member_max: editForm.member_max > 0 ? editForm.member_max : undefined,
                 })
               }}
@@ -505,8 +506,11 @@ export function GroupListPage() {
       >
         <div className="grid gap-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium">群名称</label>
+            <label className="text-sm font-medium">群名称 *</label>
             <Input value={editForm.title} onChange={(e) => setEditForm((p) => ({ ...p, title: e.target.value }))} placeholder="群名称" />
+            {!editForm.title.trim() && (
+              <p className="text-xs text-destructive">群名称不能为空</p>
+            )}
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">简介</label>
@@ -515,7 +519,14 @@ export function GroupListPage() {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">加入限制</label>
-              <Input type="number" min={0} value={editForm.join_limit} onChange={(e) => setEditForm((p) => ({ ...p, join_limit: Number(e.target.value) }))} />
+              <Select
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={editForm.join_limit}
+                onChange={(e) => setEditForm((p) => ({ ...p, join_limit: Number(e.target.value) }))}
+              >
+                <option value={0}>自由加入</option>
+                <option value={1}>需要审核</option>
+              </Select>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">成员上限</label>
