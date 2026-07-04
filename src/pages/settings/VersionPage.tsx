@@ -35,6 +35,7 @@ export function VersionPage() {
   const [showForm, setShowForm] = useState(false)
   const [editingVersion, setEditingVersion] = useState<AppVersion | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<EntityId | null>(null)
+  const [forceUpdateConfirm, setForceUpdateConfirm] = useState(false)
   const [formData, setFormData] = useState<VersionSaveParams>({
     version: '',
     platform: 'android',
@@ -102,6 +103,11 @@ export function VersionPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    // 强制更新会推送给全部客户端，发布前二次确认
+    if (formData.force_update) {
+      setForceUpdateConfirm(true)
+      return
+    }
     saveMutation.mutate(formData)
   }
 
@@ -337,6 +343,18 @@ export function VersionPage() {
         variant="destructive"
         loading={deleteMutation.isPending}
         onConfirm={() => { if (deleteConfirm) deleteMutation.mutate(deleteConfirm) }}
+      />
+
+      {/* 强制更新发布二次确认 */}
+      <ConfirmDialog
+        open={forceUpdateConfirm}
+        onOpenChange={setForceUpdateConfirm}
+        title="确认发布强制更新版本"
+        description={`该版本已勾选"强制更新"，发布后 ${formData.platform} 平台用户将被强制升级到 ${formData.version || '此版本'}。确定发布吗？`}
+        confirmText="确认发布"
+        variant="destructive"
+        loading={saveMutation.isPending}
+        onConfirm={() => saveMutation.mutate(formData)}
       />
     </div>
   )

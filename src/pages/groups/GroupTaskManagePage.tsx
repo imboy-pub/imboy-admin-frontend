@@ -140,6 +140,7 @@ export function GroupTaskManagePage() {
       setReviewCommentInput('')
       await refetchPendingReview()
       await refetchDetail()
+      await queryClient.invalidateQueries({ queryKey: ['group-tasks', gid] })
     },
     onError: (err: unknown) => {
       toast.error(`任务批改失败: ${getErrorMessage(err)}`)

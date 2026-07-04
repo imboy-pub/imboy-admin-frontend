@@ -561,7 +561,7 @@ export function AdminListPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>确认禁用管理员</AlertDialogTitle>
             <AlertDialogDescription>
-              禁用后该管理员将无法登录，可通过修改状态恢复。确认继续？
+              禁用后该管理员将无法登录，且当前后台暂不支持直接重新启用（需由后端处理）。确认继续？
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

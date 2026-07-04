@@ -115,9 +115,14 @@ export function ChannelMessagePage() {
       Promise.allSettled(ids.map((msgId) => pinChannelMessage(channelId, msgId, pinned))),
     onSuccess: (results, variables) => {
       const successCount = results.filter((r) => r.status === 'fulfilled').length
+      const failedCount = results.length - successCount
       const action = variables.pinned ? '置顶' : '取消置顶'
-      toast.success(`批量${action}完成：成功 ${successCount} 条消息`)
-      queryClient.invalidateQueries({ queryKey: ['channel-messages', channelId] })
+
+      if (successCount > 0) {
+        toast.success(`批量${action}完成：成功 ${successCount} 条消息`)
+        queryClient.invalidateQueries({ queryKey: ['channel-messages', channelId] })
+      }
+      if (failedCount > 0) toast.error(`批量${action}失败：${failedCount} 条消息`)
       setRowSelection({})
     },
     onError: (err: unknown) => {
