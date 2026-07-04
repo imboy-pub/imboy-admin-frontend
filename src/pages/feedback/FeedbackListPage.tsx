@@ -11,6 +11,7 @@ import {
   getFeedbackListPayload,
   replyFeedback,
   deleteFeedback,
+  updateFeedbackStatus,
 } from '@/modules/ops_governance/api'
 import { PaginatedResponse } from '@/types/api'
 import type { EntityId } from '@/types/common'
@@ -256,6 +257,17 @@ export function FeedbackListPage() {
     },
   })
 
+  const statusMutation = useMutation({
+    mutationFn: (feedbackId: EntityId) => updateFeedbackStatus(feedbackId, 3),
+    onSuccess: () => {
+      toast.success('反馈已标记完结')
+      void queryClient.invalidateQueries({ queryKey: ['feedback'] })
+    },
+    onError: (mutationError: unknown) => {
+      toast.error(`操作失败: ${getErrorMessage(mutationError)}`)
+    },
+  })
+
   const workflowConfigMutation = useMutation({
     mutationFn: (next: FeedbackWorkflowEditableConfig) =>
       saveFeedbackWorkflowConfig(next),
@@ -413,6 +425,7 @@ export function FeedbackListPage() {
       cell: ({ row }) => {
         const hasReplied = row.original.status === 2 || row.original.status === 3
         const isDeleted = row.original.status === -1
+        const canResolve = row.original.status === 1 || row.original.status === 2
 
         return (
           <div className="flex items-center gap-2">
@@ -426,6 +439,19 @@ export function FeedbackListPage() {
             >
               {hasReplied ? '查看' : '回复'}
             </Button>
+            {canResolve && (
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={statusMutation.isPending}
+                onClick={(event) => {
+                  event.stopPropagation()
+                  statusMutation.mutate(row.original.id)
+                }}
+              >
+                标记完结
+              </Button>
+            )}
             {!isDeleted && (
               <Button
                 size="sm"

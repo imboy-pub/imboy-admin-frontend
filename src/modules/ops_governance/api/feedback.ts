@@ -73,3 +73,18 @@ export async function deleteFeedback(feedbackId: EntityId): Promise<ApiResponse<
   const response = await client.post('/feedback/delete', { feedback_id: feedbackId })
   return response.data
 }
+
+/** 反馈状态：1 待处理 · 2 处理中（已回复）· 3 已完结。 */
+export type FeedbackStatus = 1 | 2 | 3
+
+/** 更新反馈状态（POST /adm/feedback/status）。 */
+export async function updateFeedbackStatus(
+  feedbackId: EntityId,
+  status: FeedbackStatus
+): Promise<ApiResponse<Record<string, never>>> {
+  const response = await client.post('/feedback/status', {
+    feedback_id: feedbackId,
+    status,
+  })
+  return response.data
+}
