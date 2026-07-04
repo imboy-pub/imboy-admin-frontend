@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useAdminPermission } from '@/hooks/useAdminPermission'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -114,6 +115,8 @@ export function BillingPlanListPage() {
     queryKey: ['billing-plans', requestParams],
     queryFn: () => getBillingPlanListPayload(requestParams),
   })
+
+  const { allowed: canWriteFinance } = useAdminPermission({ permission: 'finance:write' })
 
   const createMutation = useMutation({
     mutationFn: createBillingPlan,
@@ -251,7 +254,8 @@ export function BillingPlanListPage() {
       id: 'actions',
       header: '操作',
       enableHiding: false,
-      cell: ({ row }) => (
+      cell: ({ row }) =>
+        !canWriteFinance ? null : (
         <Button
           variant="ghost"
           size="icon"
@@ -287,7 +291,7 @@ export function BillingPlanListPage() {
       <PageHeader
         title="套餐管理"
         description="管理 SaaS 订阅套餐与定价"
-        actions={(
+        actions={!canWriteFinance ? undefined : (
           <Button onClick={openCreate} size="sm">
             <Plus className="mr-2 h-4 w-4" />
             新建套餐

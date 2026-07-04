@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useAdminPermission } from '@/hooks/useAdminPermission'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { CheckCircle, XCircle } from 'lucide-react'
@@ -39,6 +40,7 @@ const STATUS_VARIANTS: Record<number, 'warning' | 'success' | 'error'> = {
 
 export function WithdrawalsPage() {
   const qc = useQueryClient()
+  const { allowed: canWriteFinance } = useAdminPermission({ permission: 'finance:write' })
   const { state: params, setState: setParams, resetState: resetParams } =
     useListQueryState<PageQuery>({ page: 1, size: 10, status: -1, user_id: '' })
 
@@ -157,7 +159,7 @@ export function WithdrawalsPage() {
       id: 'actions',
       header: '操作',
       cell: ({ row }) =>
-        row.original.status === 0 ? (
+        row.original.status === 0 && canWriteFinance ? (
           <div className="flex gap-2">
             <Button
               size="sm"
