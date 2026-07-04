@@ -805,7 +805,7 @@ export function AuditLogPage() {
     <div className="space-y-6">
       <PageHeader
         title="日志审计"
-        description="统一查看用户行为事件与管理员操作日志"
+        description="基于消息与登出申请等业务记录的派生审计视图（非原始请求/响应报文），搜索与筛选仅覆盖已加载数据"
       />
 
       {/* Tab 导航栏 */}
