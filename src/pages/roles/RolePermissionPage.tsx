@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, Save, ShieldCheck, SlidersHorizontal } from 'lucide-react'
+import { Plus, Save, ShieldCheck, SlidersHorizontal, Ban, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -11,7 +11,14 @@ import { getErrorMessage } from '@/lib/errorUtils'
 import { getCurrentAdminPayload } from '@/modules/identity/api'
 import { getMyRbacProfilePayload } from '@/services/api/rbac'
 import { fetchSidebarMenuConfig, type PermissionCatalogItem, type RoleTemplateConfig } from '@/services/api/adminConfig'
-import { createRole, getRoleListPayload, updateRolePermissions } from '@/modules/identity/api'
+import {
+  createRole,
+  getRoleListPayload,
+  updateRolePermissions,
+  disableRole,
+  deleteRole,
+  type RoleItem,
+} from '@/modules/identity/api'
 import { PermissionMatrix } from './PermissionMatrix'
 import { CreateRoleDrawer } from './CreateRoleDrawer'
 import { Select } from '@/components/ui/select'
@@ -152,6 +159,9 @@ export function RolePermissionPage() {
   const [moduleFilter, setModuleFilter] = useState('全部')
   const [showSelectedOnly, setShowSelectedOnly] = useState(false)
   const [saveConfirmOpen, setSaveConfirmOpen] = useState(false)
+  const [roleActionTarget, setRoleActionTarget] = useState<
+    { id: RoleItem['id']; name: string; action: 'disable' | 'delete' } | null
+  >(null)
 
   const { data: currentAdmin, isLoading, error, refetch } = useQuery({
     queryKey: ['roles', 'current-admin'],
@@ -205,6 +215,32 @@ export function RolePermissionPage() {
     },
     onError: (mutationError) => {
       toast.error(`权限保存失败: ${getErrorMessage(mutationError)}`)
+    },
+  })
+
+  const disableRoleMutation = useMutation({
+    mutationFn: (roleId: number) => disableRole(roleId),
+    onSuccess: () => {
+      toast.success('角色已停用')
+      setRoleActionTarget(null)
+      queryClient.invalidateQueries({ queryKey: ['roles', 'list'] })
+      queryClient.invalidateQueries({ queryKey: ['roles', 'sidebar-config'] })
+    },
+    onError: (mutationError) => {
+      toast.error(`停用角色失败: ${getErrorMessage(mutationError)}`)
+    },
+  })
+
+  const deleteRoleMutation = useMutation({
+    mutationFn: (roleId: number) => deleteRole(roleId),
+    onSuccess: () => {
+      toast.success('角色已删除')
+      setRoleActionTarget(null)
+      queryClient.invalidateQueries({ queryKey: ['roles', 'list'] })
+      queryClient.invalidateQueries({ queryKey: ['roles', 'sidebar-config'] })
+    },
+    onError: (mutationError) => {
+      toast.error(`删除角色失败: ${getErrorMessage(mutationError)}`)
     },
   })
 
@@ -549,13 +585,35 @@ export function RolePermissionPage() {
                     />
                   </div>
                 </div>
-                <Button
-                  variant={isEditing ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => handleToggleRoleEditor(role.id)}
-                >
-                  {isEditing ? '收起编辑器' : (canUpdateRole ? '编辑权限' : '查看权限')}
-                </Button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    variant={isEditing ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => handleToggleRoleEditor(role.id)}
+                  >
+                    {isEditing ? '收起编辑器' : (canUpdateRole ? '编辑权限' : '查看权限')}
+                  </Button>
+                  {canUpdateRole && !isSystemRole && (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setRoleActionTarget({ id: role.id, name: role.name, action: 'disable' })}
+                      >
+                        <Ban className="mr-1 h-3.5 w-3.5" />
+                        停用
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => setRoleActionTarget({ id: role.id, name: role.name, action: 'delete' })}
+                      >
+                        <Trash2 className="mr-1 h-3.5 w-3.5" />
+                        删除
+                      </Button>
+                    </>
+                  )}
+                </div>
               </CardContent>
             </Card>
           )
@@ -786,6 +844,30 @@ export function RolePermissionPage() {
         variant="destructive"
         onConfirm={confirmSavePermissions}
         loading={updatePermissionMutation.isPending}
+      />
+
+      <ConfirmDialog
+        open={roleActionTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setRoleActionTarget(null)
+        }}
+        title={roleActionTarget?.action === 'delete' ? '确认删除角色' : '确认停用角色'}
+        description={
+          roleActionTarget?.action === 'delete'
+            ? `将永久删除角色「${roleActionTarget?.name}」。若该角色下仍有管理员在用将删除失败。此操作不可撤销，确认继续？`
+            : `将停用角色「${roleActionTarget?.name}」，该角色下管理员将失去对应权限。确认继续？`
+        }
+        confirmText={roleActionTarget?.action === 'delete' ? '删除' : '停用'}
+        variant="destructive"
+        loading={disableRoleMutation.isPending || deleteRoleMutation.isPending}
+        onConfirm={() => {
+          if (!roleActionTarget) return
+          if (roleActionTarget.action === 'delete') {
+            deleteRoleMutation.mutate(roleActionTarget.id)
+          } else {
+            disableRoleMutation.mutate(roleActionTarget.id)
+          }
+        }}
       />
     </div>
   )

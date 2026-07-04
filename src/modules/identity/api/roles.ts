@@ -37,6 +37,8 @@ const DEFAULT_ROLE_PERMISSION_SAVE_ENDPOINTS = [
   '/role/permission/update',
   '/roles/permissions/save',
 ]
+const DEFAULT_ROLE_DISABLE_ENDPOINTS = ['/role/disable', '/roles/disable']
+const DEFAULT_ROLE_DELETE_ENDPOINTS = ['/role/delete', '/roles/delete']
 
 
 const ROLE_LIST_ENDPOINTS = buildEndpointCandidates(import.meta.env.VITE_ROLE_LIST_ENDPOINT, DEFAULT_ROLE_LIST_ENDPOINTS)
@@ -45,6 +47,8 @@ const ROLE_PERMISSION_SAVE_ENDPOINTS = buildEndpointCandidates(
   import.meta.env.VITE_ROLE_PERMISSION_SAVE_ENDPOINT,
   DEFAULT_ROLE_PERMISSION_SAVE_ENDPOINTS
 )
+const ROLE_DISABLE_ENDPOINTS = buildEndpointCandidates(import.meta.env.VITE_ROLE_DISABLE_ENDPOINT, DEFAULT_ROLE_DISABLE_ENDPOINTS)
+const ROLE_DELETE_ENDPOINTS = buildEndpointCandidates(import.meta.env.VITE_ROLE_DELETE_ENDPOINT, DEFAULT_ROLE_DELETE_ENDPOINTS)
 
 export { isEndpointUnavailable as isRoleEndpointUnavailable }
 
@@ -238,4 +242,17 @@ export async function updateRolePermissions(
     role_id: roleId,
     permissions: normalizeStringArray(permissions),
   })
+}
+
+/** 停用角色（软停用，status→0）。内置角色（id<=3）由后端拒绝。 */
+export async function disableRole(roleId: number): Promise<ApiResponse<Record<string, never>>> {
+  return postToCandidates(ROLE_DISABLE_ENDPOINTS, { role_id: roleId })
+}
+
+/**
+ * 删除角色（硬删除）。后端会校验该角色下无在用管理员，否则拒绝。
+ * 内置角色（id<=3）由后端拒绝。
+ */
+export async function deleteRole(roleId: number): Promise<ApiResponse<Record<string, never>>> {
+  return postToCandidates(ROLE_DELETE_ENDPOINTS, { role_id: roleId })
 }
