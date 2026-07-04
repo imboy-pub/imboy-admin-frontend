@@ -56,6 +56,30 @@ export async function getWalletListPayload(
   return requireApiPayload(await getWalletList(params), `${FINANCE_BASE}/wallets`)
 }
 
+/**
+ * 冻结钱包资金（管理端，finance:write）：把 amount（整数分）从可用余额移入冻结额。
+ * 后端单行原子 UPDATE，守卫「可用余额 >= amount」，与解冻对称可逆。
+ */
+export async function freezeWallet(userId: EntityId, amount: number): Promise<void> {
+  const response = await client.post(`${FINANCE_BASE}/wallets/freeze`, {
+    user_id: userId,
+    amount,
+  })
+  requireApiPayload(response.data, `${FINANCE_BASE}/wallets/freeze`)
+}
+
+/**
+ * 解冻钱包资金（管理端，finance:write）：把 amount（整数分）从冻结额移回可用余额。
+ * 后端守卫「冻结额 >= amount」，freezeWallet 的逆操作。
+ */
+export async function unfreezeWallet(userId: EntityId, amount: number): Promise<void> {
+  const response = await client.post(`${FINANCE_BASE}/wallets/unfreeze`, {
+    user_id: userId,
+    amount,
+  })
+  requireApiPayload(response.data, `${FINANCE_BASE}/wallets/unfreeze`)
+}
+
 export interface WalletTransactionListParams {
   page?: number
   size?: number
@@ -118,6 +142,21 @@ export async function getRechargeOrderListPayload(
   )
 }
 
+/**
+ * 充值订单退款（管理端，finance:write）。
+ * 后端单事务：钱包扣回可用余额 + 订单置退款态 + 退款流水；已退款幂等拒绝。不可撤销。
+ */
+export async function refundRechargeOrder(
+  orderNo: string,
+  reason?: string
+): Promise<void> {
+  const response = await client.post(`${FINANCE_BASE}/recharge-orders/refund`, {
+    order_no: orderNo,
+    refund_reason: reason,
+  })
+  requireApiPayload(response.data, `${FINANCE_BASE}/recharge-orders/refund`)
+}
+
 // ─── 支付流水 ─────────────────────────────────────────────────────────────
 
 export interface PaymentTransactionListParams {
@@ -146,6 +185,22 @@ export async function getPaymentTransactionListPayload(
     await getPaymentTransactionList(params),
     `${FINANCE_BASE}/payment-transactions`
   )
+}
+
+/**
+ * 支付流水退款（管理端，finance:write）—— 对账层「原路退回」。
+ * 保守：充值(biz_type=1)/频道订单(biz_type=2)会被后端拒绝，须走各自专用退款入口，防重复退款。
+ * 仅对无内部钱包联动的流水（如 SaaS 账单）做网关原路退回 + 标记已退款。不可撤销。
+ */
+export async function refundPaymentTransaction(
+  tradeNo: string,
+  reason?: string
+): Promise<void> {
+  const response = await client.post(`${FINANCE_BASE}/payment-transactions/refund`, {
+    trade_no: tradeNo,
+    refund_reason: reason,
+  })
+  requireApiPayload(response.data, `${FINANCE_BASE}/payment-transactions/refund`)
 }
 
 // ─── 套餐管理 ─────────────────────────────────────────────────────────────

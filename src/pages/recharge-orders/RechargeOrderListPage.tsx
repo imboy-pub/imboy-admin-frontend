@@ -1,8 +1,11 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Search } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Search, RotateCcw } from 'lucide-react'
+import { toast } from 'sonner'
+import { useAdminPermission } from '@/hooks/useAdminPermission'
 import {
   PageHeader,
   LoadingState,
@@ -12,9 +15,11 @@ import {
   DataTablePagination,
   FilterBar,
   EntityDrawer,
+  ConfirmDialog,
 } from '@/components/shared'
 import {
   getRechargeOrderListPayload,
+  refundRechargeOrder,
   RechargeOrderListParams,
 } from '@/modules/finance/api'
 import { RechargeOrder } from '@/types/billing'
@@ -69,6 +74,21 @@ export function RechargeOrderListPage() {
   const [paymentMethodFilter, setPaymentMethodFilter] = useState(params.payment_method || '')
   const [sorting, setSorting] = useState<SortingState>([])
   const [drawerOrder, setDrawerOrder] = useState<RechargeOrder | null>(null)
+  const [refundTarget, setRefundTarget] = useState<RechargeOrder | null>(null)
+
+  const qc = useQueryClient()
+  const { allowed: canWriteFinance } = useAdminPermission({ permission: 'finance:write' })
+
+  const { mutate: doRefund, isPending: refunding } = useMutation({
+    mutationFn: (order: RechargeOrder) => refundRechargeOrder(order.order_no),
+    onSuccess: () => {
+      toast.success('退款成功')
+      qc.invalidateQueries({ queryKey: ['recharge-orders'] })
+      setRefundTarget(null)
+    },
+    onError: (e: unknown) =>
+      toast.error(e instanceof Error ? e.message : '退款失败，请重试'),
+  })
 
   const requestParams: RechargeOrderListParams = {
     page: params.page,
@@ -151,6 +171,24 @@ export function RechargeOrderListPage() {
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">{formatOptionalDate(row.original.paid_at)}</span>
       ),
+    },
+    {
+      id: 'actions',
+      header: '操作',
+      cell: ({ row }) =>
+        row.original.status === 1 && canWriteFinance ? (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={(e) => {
+              e.stopPropagation()
+              setRefundTarget(row.original)
+            }}
+          >
+            <RotateCcw className="mr-1 h-3.5 w-3.5 text-destructive" />
+            退款
+          </Button>
+        ) : null,
     },
   ]
 
@@ -277,6 +315,27 @@ export function RechargeOrderListPage() {
           </div>
         )}
       </EntityDrawer>
+
+      <ConfirmDialog
+        open={refundTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setRefundTarget(null)
+        }}
+        variant="destructive"
+        title="确认为该充值订单退款？"
+        description={
+          refundTarget
+            ? `订单 ${refundTarget.order_no} · 用户 ${refundTarget.user_id} · 金额 ${fenToYuan(
+                refundTarget.amount,
+              )}。退款将从用户钱包扣回等额可用余额（原路回退），操作不可撤销。`
+            : ''
+        }
+        confirmText="确认退款"
+        loading={refunding}
+        onConfirm={() => {
+          if (refundTarget) doRefund(refundTarget)
+        }}
+      />
     </div>
   )
 }

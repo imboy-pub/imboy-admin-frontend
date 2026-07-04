@@ -1,8 +1,11 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Search } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Search, Lock, Unlock, Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
+import { useAdminPermission } from '@/hooks/useAdminPermission'
 import {
   PageHeader,
   LoadingState,
@@ -14,14 +17,24 @@ import {
   EntityDrawer,
 } from '@/components/shared'
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog'
+import {
   getWalletListPayload,
   getWalletTransactionListPayload,
+  freezeWallet,
+  unfreezeWallet,
   WalletListParams,
 } from '@/modules/finance/api'
 import { Wallet, WalletTransaction } from '@/types/billing'
 import type { EntityId } from '@/types/common'
 import { formatDate } from '@/lib/utils'
-import { fenToYuan } from '@/lib/money'
+import { fenToYuan, yuanToFen } from '@/lib/money'
 import { ColumnDef, useReactTable, getCoreRowModel, getSortedRowModel, SortingState } from '@tanstack/react-table'
 import { useListQueryState } from '@/hooks/useListQueryState'
 import { Select } from '@/components/ui/select'
@@ -46,6 +59,37 @@ export function WalletListPage() {
   const [statusFilter, setStatusFilter] = useState(String(params.status))
   const [sorting, setSorting] = useState<SortingState>([])
   const [drawerWallet, setDrawerWallet] = useState<Wallet | null>(null)
+  const [freezeDialog, setFreezeDialog] = useState<{ wallet: Wallet; op: 'freeze' | 'unfreeze' } | null>(null)
+  const [amountYuan, setAmountYuan] = useState('')
+
+  const qc = useQueryClient()
+  const { allowed: canWriteFinance } = useAdminPermission({ permission: 'finance:write' })
+
+  const closeFreeze = () => {
+    setFreezeDialog(null)
+    setAmountYuan('')
+  }
+
+  const { mutate: submitFreeze, isPending: freezing } = useMutation({
+    mutationFn: ({ userId, amount, op }: { userId: EntityId; amount: number; op: 'freeze' | 'unfreeze' }) =>
+      op === 'freeze' ? freezeWallet(userId, amount) : unfreezeWallet(userId, amount),
+    onSuccess: (_res, vars) => {
+      toast.success(vars.op === 'freeze' ? '冻结成功' : '解冻成功')
+      qc.invalidateQueries({ queryKey: ['wallets'] })
+      closeFreeze()
+    },
+    onError: (e: unknown) =>
+      toast.error(e instanceof Error ? e.message : '操作失败，请重试'),
+  })
+
+  // 金额（元）转分并校验：正数、不超过上限（冻结=可用余额，解冻=已冻结额）
+  const amountFen = amountYuan.trim() === '' ? NaN : yuanToFen(amountYuan.trim())
+  const freezeMaxFen = freezeDialog
+    ? freezeDialog.op === 'freeze'
+      ? freezeDialog.wallet.balance - freezeDialog.wallet.frozen
+      : freezeDialog.wallet.frozen
+    : 0
+  const amountValid = Number.isFinite(amountFen) && amountFen > 0 && amountFen <= freezeMaxFen
 
   const requestParams: WalletListParams = {
     page: params.page,
@@ -137,6 +181,41 @@ export function WalletListPage() {
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">{formatDate(row.original.created_at)}</span>
       ),
+    },
+    {
+      id: 'actions',
+      header: '操作',
+      cell: ({ row }) =>
+        row.original.status === 1 && canWriteFinance ? (
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={row.original.balance - row.original.frozen <= 0}
+              onClick={(e) => {
+                e.stopPropagation()
+                setAmountYuan('')
+                setFreezeDialog({ wallet: row.original, op: 'freeze' })
+              }}
+            >
+              <Lock className="mr-1 h-3.5 w-3.5" />
+              冻结
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={row.original.frozen <= 0}
+              onClick={(e) => {
+                e.stopPropagation()
+                setAmountYuan('')
+                setFreezeDialog({ wallet: row.original, op: 'unfreeze' })
+              }}
+            >
+              <Unlock className="mr-1 h-3.5 w-3.5" />
+              解冻
+            </Button>
+          </div>
+        ) : null,
     },
   ]
 
@@ -267,6 +346,68 @@ export function WalletListPage() {
           </div>
         </div>
       </EntityDrawer>
+
+      <Dialog
+        open={freezeDialog !== null}
+        onOpenChange={(open) => {
+          if (!open) closeFreeze()
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {freezeDialog?.op === 'freeze' ? '冻结钱包资金' : '解冻钱包资金'}
+            </DialogTitle>
+            <DialogDescription>
+              {freezeDialog
+                ? `用户 ${freezeDialog.wallet.user_id} · 余额 ${fenToYuan(
+                    freezeDialog.wallet.balance,
+                  )} · 已冻结 ${fenToYuan(freezeDialog.wallet.frozen)}。${
+                    freezeDialog.op === 'freeze'
+                      ? `可冻结（可用余额）上限 ${fenToYuan(freezeMaxFen)}。`
+                      : `可解冻（已冻结）上限 ${fenToYuan(freezeMaxFen)}。`
+                  }`
+                : ''}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <label className="text-sm text-muted-foreground">金额（元）</label>
+            <Input
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="请输入金额（元）"
+              value={amountYuan}
+              onChange={(e) => setAmountYuan(e.target.value)}
+            />
+            {amountYuan.trim() !== '' && !amountValid && (
+              <p className="text-xs text-destructive">
+                金额须为正数且不超过上限 {fenToYuan(freezeMaxFen)}
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={closeFreeze} disabled={freezing}>
+              取消
+            </Button>
+            <Button
+              disabled={!amountValid || freezing}
+              onClick={() =>
+                freezeDialog &&
+                amountValid &&
+                submitFreeze({
+                  userId: freezeDialog.wallet.user_id,
+                  amount: amountFen,
+                  op: freezeDialog.op,
+                })
+              }
+            >
+              {freezing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {freezeDialog?.op === 'freeze' ? '确认冻结' : '确认解冻'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

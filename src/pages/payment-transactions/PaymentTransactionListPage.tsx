@@ -1,8 +1,11 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Search } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Search, RotateCcw } from 'lucide-react'
+import { toast } from 'sonner'
+import { useAdminPermission } from '@/hooks/useAdminPermission'
 import {
   PageHeader,
   LoadingState,
@@ -12,9 +15,11 @@ import {
   DataTablePagination,
   FilterBar,
   EntityDrawer,
+  ConfirmDialog,
 } from '@/components/shared'
 import {
   getPaymentTransactionListPayload,
+  refundPaymentTransaction,
   PaymentTransactionListParams,
 } from '@/modules/finance/api'
 import { PaymentTransaction } from '@/types/billing'
@@ -78,6 +83,21 @@ export function PaymentTransactionListPage() {
   const [statusFilter, setStatusFilter] = useState(String(params.status))
   const [sorting, setSorting] = useState<SortingState>([])
   const [drawerTx, setDrawerTx] = useState<PaymentTransaction | null>(null)
+  const [refundTarget, setRefundTarget] = useState<PaymentTransaction | null>(null)
+
+  const qc = useQueryClient()
+  const { allowed: canWriteFinance } = useAdminPermission({ permission: 'finance:write' })
+
+  const { mutate: doRefund, isPending: refunding } = useMutation({
+    mutationFn: (tx: PaymentTransaction) => refundPaymentTransaction(tx.trade_no),
+    onSuccess: () => {
+      toast.success('退款成功')
+      qc.invalidateQueries({ queryKey: ['payment-transactions'] })
+      setRefundTarget(null)
+    },
+    onError: (e: unknown) =>
+      toast.error(e instanceof Error ? e.message : '退款失败，请重试'),
+  })
 
   const requestParams: PaymentTransactionListParams = {
     page: params.page,
@@ -170,6 +190,25 @@ export function PaymentTransactionListPage() {
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">{formatDate(row.original.created_at)}</span>
       ),
+    },
+    {
+      id: 'actions',
+      header: '操作',
+      // 仅账单类(biz_type=3)成功流水可原路退回；充值/频道订单须走各自专用退款入口（后端会拒绝）
+      cell: ({ row }) =>
+        row.original.status === 1 && row.original.biz_type === 3 && canWriteFinance ? (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={(e) => {
+              e.stopPropagation()
+              setRefundTarget(row.original)
+            }}
+          >
+            <RotateCcw className="mr-1 h-3.5 w-3.5 text-destructive" />
+            退款
+          </Button>
+        ) : null,
     },
   ]
 
@@ -304,6 +343,27 @@ export function PaymentTransactionListPage() {
           </div>
         )}
       </EntityDrawer>
+
+      <ConfirmDialog
+        open={refundTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setRefundTarget(null)
+        }}
+        variant="destructive"
+        title="确认原路退回该支付流水？"
+        description={
+          refundTarget
+            ? `交易号 ${refundTarget.trade_no} · 网关 ${refundTarget.gateway} · 金额 ${fenToYuan(
+                refundTarget.amount,
+              )}。将通过原支付网关原路退回并标记流水为已退款，操作不可撤销。`
+            : ''
+        }
+        confirmText="确认退款"
+        loading={refunding}
+        onConfirm={() => {
+          if (refundTarget) doRefund(refundTarget)
+        }}
+      />
     </div>
   )
 }
