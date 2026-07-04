@@ -187,7 +187,7 @@ export function GroupTaskListPage() {
                 variant="ghost"
                 size="icon"
                 title="强制关闭任务"
-                onClick={() => setConfirmCloseTaskId(row.original.task_id)}
+                onClick={() => setConfirmCloseTaskId(String(row.original.id))}
               >
                 <CheckCircle2 className="h-4 w-4" />
               </Button>
@@ -289,7 +289,7 @@ export function GroupTaskListPage() {
             <>
               <DataTable
                 table={table}
-                onRowClick={(row) => setSelectedTaskId(row.task_id)}
+                onRowClick={(row) => setSelectedTaskId(String(row.id))}
               />
 
               {data && (

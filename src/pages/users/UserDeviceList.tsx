@@ -1,11 +1,10 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { LogOut, Smartphone, WifiOff, Monitor, Loader2 } from 'lucide-react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { LogOut, Loader2 } from 'lucide-react'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { ConfirmDialog, LoadingState, ErrorState, StatusBadge } from '@/components/shared'
-import { listUserDevicesPayload, kickDevice, forceLogoutAllDevices } from '@/services/api/userDevices'
-import { formatDate } from '@/lib/utils'
+import { ConfirmDialog } from '@/components/shared'
+import { forceLogoutUser } from '@/services/api/userDevices'
 import { getErrorMessage } from '@/lib/errorUtils'
 import type { EntityId } from '@/types/common'
 import { useState } from 'react'
@@ -15,151 +14,46 @@ interface UserDeviceListProps {
 }
 
 export function UserDeviceList({ userId }: UserDeviceListProps) {
-  const queryClient = useQueryClient()
-  const [kickTarget, setKickTarget] = useState<EntityId | null>(null)
   const [confirmForceLogout, setConfirmForceLogout] = useState(false)
 
-  const { data: devices, isLoading, error, refetch } = useQuery({
-    queryKey: ['user-devices', userId],
-    queryFn: () => listUserDevicesPayload(userId),
-    enabled: userId.length > 0,
-  })
-
-  const kickMutation = useMutation({
-    mutationFn: ({ did }: { did: EntityId }) => kickDevice(userId, did),
-    onSuccess: () => {
-      toast.success('设备已强制下线')
-      setKickTarget(null)
-      queryClient.invalidateQueries({ queryKey: ['user-devices', userId] })
-    },
-    onError: (err: unknown) => toast.error(`踢出失败: ${getErrorMessage(err)}`),
-  })
-
   const forceLogoutMutation = useMutation({
-    mutationFn: () => forceLogoutAllDevices(userId),
+    mutationFn: () => forceLogoutUser(userId),
     onSuccess: () => {
-      toast.success('已强制所有设备下线')
+      toast.success('已强制该用户全部下线')
       setConfirmForceLogout(false)
-      queryClient.invalidateQueries({ queryKey: ['user-devices', userId] })
     },
     onError: (err: unknown) => toast.error(`操作失败: ${getErrorMessage(err)}`),
   })
 
-  if (isLoading) return <LoadingState message="加载设备列表..." />
-  if (error) return <ErrorState message="加载设备列表失败" onRetry={() => refetch()} />
-
-  const deviceList = devices ?? []
-
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          共 {deviceList.length} 个登录设备
-        </p>
-        <Button
-          variant="destructive"
-          size="sm"
-          onClick={() => setConfirmForceLogout(true)}
-          disabled={deviceList.length === 0 || forceLogoutMutation.isPending}
-        >
-          {forceLogoutMutation.isPending ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <LogOut className="mr-2 h-4 w-4" />
-          )}
-          踢出全部设备
-        </Button>
-      </div>
+      <Card>
+        <CardContent className="flex flex-col items-start gap-3 py-6">
+          <p className="text-sm text-muted-foreground">
+            当前仅支持结束该用户在所有设备上的登录会话（强制下线）。逐设备查看与单独踢出功能待后端提供
+            管理端接口后开放。
+          </p>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => setConfirmForceLogout(true)}
+            disabled={forceLogoutMutation.isPending}
+          >
+            {forceLogoutMutation.isPending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <LogOut className="mr-2 h-4 w-4" />
+            )}
+            强制该用户全部下线
+          </Button>
+        </CardContent>
+      </Card>
 
-      {deviceList.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center py-10 text-muted-foreground">
-            <Monitor className="h-10 w-10 mb-3 opacity-40" />
-            <p>该用户暂无登录设备</p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-3">
-          {deviceList.map((device) => (
-            <Card key={String(device.did)}>
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Smartphone className="h-5 w-5 text-muted-foreground" />
-                    <div>
-                      <CardTitle className="text-base">
-                        {device.device_name || device.device_model || '未知设备'}
-                      </CardTitle>
-                      <CardDescription className="font-mono text-xs">
-                        DID: {device.did}
-                      </CardDescription>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <StatusBadge
-                      status={device.online ? 'online' : 'offline'}
-                      labels={{ online: '在线', offline: '离线' }}
-                      variants={{ online: 'success', offline: 'secondary' }}
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setKickTarget(device.did)}
-                      disabled={kickMutation.isPending && kickTarget === device.did}
-                    >
-                      {kickMutation.isPending && kickTarget === device.did ? (
-                        <Loader2 className="mr-2 h-3 w-3 animate-spin" />
-                      ) : (
-                        <WifiOff className="mr-2 h-3 w-3" />
-                      )}
-                      踢出
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="text-sm">
-                <div className="grid grid-cols-2 gap-2 text-muted-foreground md:grid-cols-4">
-                  <div>
-                    <p className="text-xs">操作系统</p>
-                    <p className="font-medium text-foreground">{device.os} {device.os_version}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs">设备型号</p>
-                    <p className="font-medium text-foreground">{device.device_model || '-'}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs">App 版本</p>
-                    <p className="font-medium text-foreground">{device.app_version || '-'}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs">最后活跃</p>
-                    <p className="font-medium text-foreground">{formatDate(device.last_active_at)}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
-
-      {/* 踢出单设备确认 */}
-      <ConfirmDialog
-        open={kickTarget !== null}
-        onOpenChange={(open) => { if (!open) setKickTarget(null) }}
-        title="确认踢出设备"
-        description="将强制该设备下线，用户需要重新登录。确认继续？"
-        confirmText="踢出"
-        variant="destructive"
-        loading={kickMutation.isPending}
-        onConfirm={() => {
-          if (kickTarget) kickMutation.mutate({ did: kickTarget })
-        }}
-      />
-
-      {/* 踢出全部设备确认 */}
       <ConfirmDialog
         open={confirmForceLogout}
-        onOpenChange={(open) => { if (!open) setConfirmForceLogout(false) }}
+        onOpenChange={(open) => {
+          if (!open) setConfirmForceLogout(false)
+        }}
         title="强制全部设备下线"
         description="将强制该用户所有设备同时下线，用户需要在每台设备重新登录。此操作不可撤销，确认继续？"
         confirmText="强制全部下线"

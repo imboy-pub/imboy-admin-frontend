@@ -33,17 +33,17 @@ type Props = {
 const ORDER_STATUS_LABELS: Record<string, string> = {
   '0': '待支付',
   '1': '已支付',
-  '2': '已取消',
-  '3': '已退款',
+  '2': '已退款',
+  '3': '已取消',
   '4': '已过期',
 }
 
 const ORDER_STATUS_VARIANTS: Record<string, 'success' | 'warning' | 'error' | 'info' | 'secondary'> = {
   '0': 'warning',
   '1': 'success',
-  '2': 'secondary',
-  '3': 'error',
-  '4': 'error',
+  '2': 'error',
+  '3': 'secondary',
+  '4': 'secondary',
 }
 
 export function ChannelOrdersDialog({ channelId, channelName, open, onOpenChange }: Props) {

@@ -186,7 +186,7 @@ export function MutedUsersPage() {
                     </TableCell>
                     <TableCell className="font-mono text-sm">{userId}</TableCell>
                     <TableCell>
-                      {new Date(user.mute_until * 1000).toLocaleString('zh-CN')}
+                      {new Date(user.mute_until).toLocaleString('zh-CN')}
                     </TableCell>
                     <TableCell>{formatRemaining(user.remaining_seconds)}</TableCell>
                     <TableCell>
