@@ -142,6 +142,7 @@ export const defaultConfig: SidebarMenuConfig = {
         { path: '/storage', icon: 'HardDrive', label: '存储管理', roles: [1], permission: 'storage:view' },
         { path: '/admins', icon: 'Shield', label: '管理员', roles: [1], permission: 'admins:read' },
         { path: '/roles', icon: 'KeyRound', label: '角色权限', roles: [1, 3], permission: 'roles:view' },
+        { path: '/settings/sso', icon: 'Link2', label: 'SSO 外部认证', roles: [1], permission: 'settings:view' },
       ],
     },
   ],
