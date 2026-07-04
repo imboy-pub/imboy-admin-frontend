@@ -186,7 +186,7 @@ export function GroupGovernanceLogPage() {
       { header: '附加信息', accessor: (row) => summarizeExtra(row.extra) },
     ]
     exportCsv(csvColumns, logs, 'group_governance_logs')
-    toast.success(`已导出 ${logs.length} 条治理日志`)
+    toast.success(`已导出当前页 ${logs.length} 条治理日志`)
   }
 
   return (
@@ -203,7 +203,7 @@ export function GroupGovernanceLogPage() {
               disabled={logs.length === 0}
             >
               <Download className="mr-2 h-4 w-4" />
-              导出 CSV
+              导出当前页 CSV
             </Button>
             <Button variant="outline" onClick={() => navigate(`/groups/context?gid=${gid}`)}>
               <ArrowLeft className="h-4 w-4 mr-2" />

@@ -184,7 +184,7 @@ export function GroupFileManagePage() {
       { header: '创建时间', accessor: (row) => formatOptionalDate(row.created_at) },
     ]
     exportCsv(csvColumns, files, 'group_files')
-    toast.success(`已导出 ${files.length} 条数据`)
+    toast.success(`已导出当前页 ${files.length} 条数据`)
   }
   const table = useReactTable({
     data: files,
@@ -209,7 +209,7 @@ export function GroupFileManagePage() {
           <>
             <Button variant="outline" size="sm" onClick={handleExportCsv} disabled={files.length === 0}>
               <Download className="mr-2 h-4 w-4" />
-              导出 CSV
+              导出当前页 CSV
             </Button>
             <Button variant="outline" onClick={() => navigate(`/groups/${gid}`)}>
               <ArrowLeft className="h-4 w-4 mr-2" />

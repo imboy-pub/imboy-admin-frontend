@@ -160,7 +160,7 @@ export function GroupAlbumManagePage() {
       { header: '创建时间', accessor: (row) => formatOptionalDate(row.created_at) },
     ]
     exportCsv(csvColumns, albums, 'group_albums')
-    toast.success(`已导出 ${albums.length} 条数据`)
+    toast.success(`已导出当前页 ${albums.length} 条数据`)
   }
   const table = useReactTable({
     data: albums,
@@ -185,7 +185,7 @@ export function GroupAlbumManagePage() {
           <>
             <Button variant="outline" size="sm" onClick={handleExportCsv} disabled={albums.length === 0}>
               <Download className="mr-2 h-4 w-4" />
-              导出 CSV
+              导出当前页 CSV
             </Button>
             <Button variant="outline" onClick={() => navigate(`/groups/${gid}`)}>
               <ArrowLeft className="h-4 w-4 mr-2" />

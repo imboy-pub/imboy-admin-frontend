@@ -234,7 +234,7 @@ export function WalletListPage() {
           </div>
 
           <div>
-            <p className="mb-2 font-medium">最近交易流水</p>
+            <p className="mb-2 font-medium">最近交易流水（仅显示最新 10 条）</p>
             {txLoading && <p className="text-muted-foreground text-xs">加载中...</p>}
             {txError && <p className="text-destructive text-xs">加载流水失败</p>}
             {txData && txData.items.length === 0 && (

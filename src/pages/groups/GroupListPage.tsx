@@ -132,7 +132,7 @@ export function GroupListPage() {
       { header: '创建时间', accessor: (row) => formatDate(row.created_at) },
     ]
     exportCsv(csvColumns, groups, 'groups_export')
-    toast.success(`已导出 ${groups.length} 条群组数据`)
+    toast.success(`已导出当前页 ${groups.length} 条群组数据`)
   }
 
   // 搜索处理
@@ -379,7 +379,7 @@ export function GroupListPage() {
               disabled={groups.length === 0}
             >
               <Download className="mr-2 h-4 w-4" />
-              导出 CSV
+              导出当前页 CSV
             </Button>
             <div className="relative">
               <Button

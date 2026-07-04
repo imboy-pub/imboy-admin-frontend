@@ -157,7 +157,7 @@ export function GroupMemberManagePage() {
       { header: '加入时间', accessor: (row) => formatDate(row.joined_at) },
     ]
     exportCsv(csvColumns, members, 'group_members')
-    toast.success(`已导出 ${members.length} 条数据`)
+    toast.success(`已导出当前页 ${members.length} 条数据`)
   }
 
   const table = useReactTable({
@@ -179,7 +179,7 @@ export function GroupMemberManagePage() {
           <>
             <Button variant="outline" size="sm" onClick={handleExportCsv} disabled={members.length === 0}>
               <Download className="mr-2 h-4 w-4" />
-              导出 CSV
+              导出当前页 CSV
             </Button>
             <Button variant="outline" onClick={() => navigate(`/groups/${gid}`)}>
               <ArrowLeft className="h-4 w-4 mr-2" />
