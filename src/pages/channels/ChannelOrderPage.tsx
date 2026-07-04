@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
@@ -36,6 +36,7 @@ import { getErrorMessage } from '@/lib/errorUtils'
 import { formatOptionalDate } from '@/lib/utils'
 import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 import { Select } from '@/components/ui/select'
+import { useListQueryState } from '@/hooks/useListQueryState'
 
 const ORDER_STATUS_LABELS: Record<number, string> = {
   0: '待支付',
@@ -59,11 +60,16 @@ export function ChannelOrderPage() {
   const channelId = id ?? ''
 
   const queryClient = useQueryClient()
-  const [params, setParams] = useState<ChannelGovernanceListParams>({
+  const { state: params, setState: setParams } = useListQueryState<{
+    page: number
+    size: number
+    status: number
+  }>({
     page: 1,
     size: 10,
+    status: -1,
   })
-  const [statusFilter, setStatusFilter] = useState('-1')
+  const [statusFilter, setStatusFilter] = useState(String(params.status))
   // 退款对话框：受控承载「退款原因」输入；关闭即清空
   const [refundOrder, setRefundOrder] = useState<ChannelOrder | null>(null)
   const [refundReason, setRefundReason] = useState('')
@@ -74,11 +80,20 @@ export function ChannelOrderPage() {
     permission: 'channel_order_refund',
   })
 
-  const queryKey = ['channel-orders', channelId, params] as const
+  const requestParams = useMemo<ChannelGovernanceListParams & { status?: number }>(() => {
+    const p: ChannelGovernanceListParams & { status?: number } = {
+      page: params.page,
+      size: params.size,
+    }
+    if (params.status !== -1) p.status = params.status
+    return p
+  }, [params.page, params.size, params.status])
+
+  const queryKey = ['channel-orders', channelId, requestParams] as const
 
   const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
     queryKey,
-    queryFn: () => getChannelOrdersPayload(channelId, params),
+    queryFn: () => getChannelOrdersPayload(channelId, requestParams),
     enabled: channelId.length > 0,
   })
 
@@ -113,24 +128,23 @@ export function ChannelOrderPage() {
   }
 
   const handlePageChange = (page: number) => {
-    setParams((prev) => ({ ...prev, page }))
+    setParams({ page })
   }
 
   const handlePageSizeChange = (size: number) => {
-    setParams((prev) => ({ ...prev, page: 1, size }))
+    setParams({ page: 1, size })
   }
 
   const handleStatusSearch = () => {
-    setParams((prev) => ({
-      ...prev,
+    setParams({
       page: 1,
-      status: statusFilter === '-1' ? undefined : Number(statusFilter),
-    }))
+      status: statusFilter === '-1' ? -1 : Number(statusFilter),
+    })
   }
 
   const handleReset = () => {
     setStatusFilter('-1')
-    setParams({ page: 1, size: 10 })
+    setParams({ page: 1, size: 10, status: -1 })
   }
 
   const orders = data?.items || []

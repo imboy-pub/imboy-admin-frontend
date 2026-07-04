@@ -16,7 +16,6 @@ import {
 } from '@/components/shared'
 import {
   ChannelAdmin,
-  ChannelGovernanceListParams,
   getChannelAdminsPayload,
   removeChannelAdmin,
   updateChannelAdminRole,
@@ -26,6 +25,7 @@ import { formatDate } from '@/lib/utils'
 import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 import { getErrorMessage } from '@/lib/errorUtils'
 import { Select } from '@/components/ui/select'
+import { useListQueryState } from '@/hooks/useListQueryState'
 
 const ROLE_LABELS: Record<number, string> = {
   1: '管理员',
@@ -39,7 +39,7 @@ export function ChannelAdminPage() {
   const queryClient = useQueryClient()
   const channelId = id ?? ''
 
-  const [params, setParams] = useState<ChannelGovernanceListParams>({
+  const { state: params, setState: setParams } = useListQueryState<{ page: number; size: number }>({
     page: 1,
     size: 10,
   })
@@ -83,11 +83,11 @@ export function ChannelAdminPage() {
   })
 
   const handlePageChange = (page: number) => {
-    setParams((prev) => ({ ...prev, page }))
+    setParams({ page })
   }
 
   const handlePageSizeChange = (size: number) => {
-    setParams((prev) => ({ ...prev, page: 1, size }))
+    setParams({ page: 1, size })
   }
 
   const handleRoleChange = (admin: ChannelAdmin, role: number) => {

@@ -17,7 +17,6 @@ import {
 } from '@/components/shared'
 import {
   ChannelMessage,
-  ChannelMessageListParams,
   deleteChannelMessage,
   getChannelMessagesPayload,
   pinChannelMessage,
@@ -26,6 +25,7 @@ import type { EntityId } from '@/types/common'
 import { formatDate, truncate } from '@/lib/utils'
 import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 import { getErrorMessage } from '@/lib/errorUtils'
+import { useListQueryState } from '@/hooks/useListQueryState'
 
 export function ChannelMessagePage() {
   const { id } = useParams<{ id: string }>()
@@ -33,7 +33,7 @@ export function ChannelMessagePage() {
   const queryClient = useQueryClient()
   const channelId = id ?? ''
 
-  const [params, setParams] = useState<ChannelMessageListParams>({
+  const { state: params, setState: setParams } = useListQueryState<{ page: number; size: number }>({
     page: 1,
     size: 10,
   })
@@ -131,11 +131,11 @@ export function ChannelMessagePage() {
   })
 
   const handlePageChange = (page: number) => {
-    setParams((prev) => ({ ...prev, page }))
+    setParams({ page })
   }
 
   const handlePageSizeChange = (size: number) => {
-    setParams((prev) => ({ ...prev, page: 1, size }))
+    setParams({ page: 1, size })
   }
 
   const handleExportCsv = () => {

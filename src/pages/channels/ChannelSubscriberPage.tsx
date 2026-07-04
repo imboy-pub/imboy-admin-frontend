@@ -15,7 +15,6 @@ import {
   PageHeader,
 } from '@/components/shared'
 import {
-  ChannelGovernanceListParams,
   ChannelSubscriber,
   getChannelSubscribersPayload,
   removeChannelSubscriber,
@@ -24,6 +23,7 @@ import type { EntityId } from '@/types/common'
 import { formatOptionalDate } from '@/lib/utils'
 import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 import { getErrorMessage } from '@/lib/errorUtils'
+import { useListQueryState } from '@/hooks/useListQueryState'
 
 export function ChannelSubscriberPage() {
   const { id } = useParams<{ id: string }>()
@@ -31,7 +31,7 @@ export function ChannelSubscriberPage() {
   const queryClient = useQueryClient()
   const channelId = id ?? ''
 
-  const [params, setParams] = useState<ChannelGovernanceListParams>({
+  const { state: params, setState: setParams } = useListQueryState<{ page: number; size: number }>({
     page: 1,
     size: 10,
   })
@@ -62,11 +62,11 @@ export function ChannelSubscriberPage() {
   })
 
   const handlePageChange = (page: number) => {
-    setParams((prev) => ({ ...prev, page }))
+    setParams({ page })
   }
 
   const handlePageSizeChange = (size: number) => {
-    setParams((prev) => ({ ...prev, page: 1, size }))
+    setParams({ page: 1, size })
   }
 
   const columns: ColumnDef<ChannelSubscriber>[] = [

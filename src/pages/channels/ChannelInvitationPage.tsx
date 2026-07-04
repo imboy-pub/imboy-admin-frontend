@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
@@ -23,45 +23,59 @@ import {
 import { formatOptionalDate } from '@/lib/utils'
 import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 import { Select } from '@/components/ui/select'
+import { useListQueryState } from '@/hooks/useListQueryState'
 
 export function ChannelInvitationPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const channelId = id ?? ''
 
-  const [params, setParams] = useState<ChannelGovernanceListParams>({
+  const { state: params, setState: setParams } = useListQueryState<{
+    page: number
+    size: number
+    status: number
+  }>({
     page: 1,
     size: 10,
+    status: -1,
   })
-  const [statusFilter, setStatusFilter] = useState('-1')
+  const [statusFilter, setStatusFilter] = useState(String(params.status))
 
-  const queryKey = ['channel-invitations', channelId, params] as const
+  const requestParams = useMemo<ChannelGovernanceListParams & { status?: number }>(() => {
+    const p: ChannelGovernanceListParams & { status?: number } = {
+      page: params.page,
+      size: params.size,
+    }
+    if (params.status !== -1) p.status = params.status
+    return p
+  }, [params.page, params.size, params.status])
+
+  const queryKey = ['channel-invitations', channelId, requestParams] as const
 
   const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
     queryKey,
-    queryFn: () => getChannelInvitationsPayload(channelId, params),
+    queryFn: () => getChannelInvitationsPayload(channelId, requestParams),
     enabled: channelId.length > 0,
   })
 
   const handlePageChange = (page: number) => {
-    setParams((prev) => ({ ...prev, page }))
+    setParams({ page })
   }
 
   const handlePageSizeChange = (size: number) => {
-    setParams((prev) => ({ ...prev, page: 1, size }))
+    setParams({ page: 1, size })
   }
 
   const handleStatusSearch = () => {
-    setParams((prev) => ({
-      ...prev,
+    setParams({
       page: 1,
-      status: statusFilter === '-1' ? undefined : Number(statusFilter),
-    }))
+      status: statusFilter === '-1' ? -1 : Number(statusFilter),
+    })
   }
 
   const handleReset = () => {
     setStatusFilter('-1')
-    setParams({ page: 1, size: 10 })
+    setParams({ page: 1, size: 10, status: -1 })
   }
 
   const invitations = data?.items || []
