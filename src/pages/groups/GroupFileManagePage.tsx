@@ -27,6 +27,7 @@ import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 import { useAdminPermission } from '@/hooks/useAdminPermission'
 import { getErrorMessage } from '@/lib/errorUtils'
 import { useListQueryState } from '@/hooks/useListQueryState'
+import { useDebounce } from '@/hooks/useDebounce'
 
 type GroupFileManageQuery = {
   page: number
@@ -55,14 +56,18 @@ export function GroupFileManagePage() {
     roles: [1, 2],
   })
 
+  // 逐字符输入的 keyword/category 防抖 300ms 再驱动查询
+  const debouncedKeyword = useDebounce(params.keyword.trim(), 300)
+  const debouncedCategory = useDebounce(params.category.trim(), 300)
+
   const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
-    queryKey: ['group-files', gid, params.page, params.size, params.keyword, params.category],
+    queryKey: ['group-files', gid, params.page, params.size, debouncedKeyword, debouncedCategory],
     queryFn: () =>
       getGroupFilesPayload(gid, {
         page: params.page,
         size: params.size,
-        keyword: params.keyword.trim() || undefined,
-        category: params.category.trim() || undefined,
+        keyword: debouncedKeyword || undefined,
+        category: debouncedCategory || undefined,
       }),
     enabled: gid.length > 0,
   })

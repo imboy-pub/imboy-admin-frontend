@@ -25,6 +25,7 @@ import { getGroupDetailPayload } from '@/modules/groups/api'
 import { useAdminPermission } from '@/hooks/useAdminPermission'
 import { getErrorMessage } from '@/lib/errorUtils'
 import { useListQueryState } from '@/hooks/useListQueryState'
+import { useDebounce } from '@/hooks/useDebounce'
 
 type GroupCategoryManageQuery = {
   page: number
@@ -69,18 +70,21 @@ export function GroupCategoryManagePage() {
   }, [groupDetail?.owner_uid, params.targetUid, setParams])
 
   const uid = params.targetUid.trim()
+  // 逐字符输入的 UID/keyword 防抖 300ms 再驱动查询
+  const debouncedUid = useDebounce(uid, 300)
+  const debouncedKeyword = useDebounce(params.keyword.trim(), 300)
 
   const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
-    queryKey: ['group-categories', gid, uid, params.page, params.size, params.keyword],
+    queryKey: ['group-categories', gid, debouncedUid, params.page, params.size, debouncedKeyword],
     queryFn: () =>
       getGroupCategoriesPayload({
         gid,
-        uid,
+        uid: debouncedUid,
         page: params.page,
         size: params.size,
-        keyword: params.keyword.trim() || undefined,
+        keyword: debouncedKeyword || undefined,
       }),
-    enabled: gid.length > 0 && uid.length > 0,
+    enabled: gid.length > 0 && debouncedUid.length > 0,
   })
 
   const deleteMutation = useMutation({

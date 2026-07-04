@@ -17,6 +17,8 @@ import {
   type RankingItem,
   type FinanceSummaryData,
 } from '@/services/api/stats'
+import { getSystemHealthStats } from '@/services/api/systemHealth'
+import type { OverviewStats } from '@/services/api/stats'
 import { dashboardPanelRegistry } from '@/modules/dashboard/registry/dashboardPanelRegistry'
 import {
   LineChart,
@@ -37,9 +39,63 @@ import {
 const CHART_COLOR_PRIMARY = 'hsl(var(--primary))'
 const CHART_COLOR_SUCCESS = 'hsl(142 71% 45%)'
 
-dashboardPanelRegistry.register({
-  id: 'system-status',
-  render: ({ stats: panelStats }) => (
+type StatusDotProps = {
+  title: string
+  color: string
+  text: string
+}
+
+function StatusDot({ title, color, text }: StatusDotProps) {
+  return (
+    <div className="flex items-center gap-3">
+      <div className={`h-3 w-3 rounded-full ${color}`} />
+      <div>
+        <p className="font-medium">{title}</p>
+        <p className="text-sm text-muted-foreground">{text}</p>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * 系统状态面板：以 /metrics 健康数据驱动状态点颜色。
+ * 健康接口未响应时显示灰色「未知」而非假绿，避免 DB/API 真故障仍显示正常。
+ * ponytail: 指标仅有连接池计数，DB 故障靠「接口不可达/连接池耗尽」间接判定，
+ * 若后端将来暴露显式 db_up 探针可直接替换判定条件。
+ */
+function SystemStatusPanel({ panelStats }: { panelStats: OverviewStats | undefined }) {
+  const { data: health, isLoading, isError } = useQuery({
+    queryKey: ['system-health-stats'],
+    queryFn: getSystemHealthStats,
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+    retry: 1,
+  })
+
+  const unknown = { color: 'bg-muted-foreground/40', text: '状态未知' }
+  const pending = { color: 'bg-muted-foreground/40', text: '检测中…' }
+
+  const api = isLoading
+    ? pending
+    : isError || !health
+      ? unknown
+      : { color: 'bg-green-500', text: '运行正常' }
+
+  const ws = isLoading
+    ? pending
+    : isError || !health
+      ? unknown
+      : { color: 'bg-green-500', text: `在线 ${panelStats?.online_users ?? health.wsConnections} 用户 / ${health.wsConnections} 连接` }
+
+  const db = isLoading
+    ? pending
+    : isError || !health
+      ? unknown
+      : health.dbPoolFree + health.dbPoolInUse > 0
+        ? { color: 'bg-green-500', text: `连接正常（空闲 ${health.dbPoolFree} / 使用 ${health.dbPoolInUse}）` }
+        : { color: 'bg-amber-500', text: '连接池无可用连接' }
+
+  return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
@@ -49,31 +105,18 @@ dashboardPanelRegistry.register({
       </CardHeader>
       <CardContent>
         <div className="grid gap-4 md:grid-cols-3">
-          <div className="flex items-center gap-3">
-            <div className="h-3 w-3 rounded-full bg-green-500" />
-            <div>
-              <p className="font-medium">API 服务</p>
-              <p className="text-sm text-muted-foreground">运行正常</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="h-3 w-3 rounded-full bg-green-500" />
-            <div>
-              <p className="font-medium">WebSocket 服务</p>
-              <p className="text-sm text-muted-foreground">在线 {panelStats?.online_users || 0} 用户</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="h-3 w-3 rounded-full bg-green-500" />
-            <div>
-              <p className="font-medium">数据库</p>
-              <p className="text-sm text-muted-foreground">连接正常</p>
-            </div>
-          </div>
+          <StatusDot title="API 服务" color={api.color} text={api.text} />
+          <StatusDot title="WebSocket 服务" color={ws.color} text={ws.text} />
+          <StatusDot title="数据库" color={db.color} text={db.text} />
         </div>
       </CardContent>
     </Card>
-  ),
+  )
+}
+
+dashboardPanelRegistry.register({
+  id: 'system-status',
+  render: ({ stats: panelStats }) => <SystemStatusPanel panelStats={panelStats} />,
 })
 
 const TYPE_ICON_MAP: Record<NotificationType, string> = {

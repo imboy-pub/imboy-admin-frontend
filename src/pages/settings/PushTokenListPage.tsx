@@ -141,19 +141,19 @@ export function PushTokenListPage() {
           title="Android"
           value={stats.android}
           icon={<Smartphone className="h-5 w-5" />}
-          description="FCM 推送"
+          description="FCM 推送（仅本页）"
         />
         <StatsCard
           title="iOS"
           value={stats.ios}
           icon={<Tablet className="h-5 w-5" />}
-          description="APNs 推送"
+          description="APNs 推送（仅本页）"
         />
         <StatsCard
           title="其他平台"
           value={stats.other}
           icon={<Monitor className="h-5 w-5" />}
-          description="其他推送渠道"
+          description="其他推送渠道（仅本页）"
         />
       </div>
 
@@ -161,7 +161,7 @@ export function PushTokenListPage() {
       <div className="relative max-w-sm">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
-          placeholder="搜索用户 ID、设备类型、平台..."
+          placeholder="搜索本页用户 ID、设备类型、平台..."
           value={searchText}
           onChange={(e) => { setSearchText(e.target.value); setParams({ page: 1 }) }}
           className="pl-9"

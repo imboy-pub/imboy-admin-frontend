@@ -222,6 +222,7 @@ export function PluginManagementPage() {
   const navigate = useNavigate()
   const [pendingMap, setPendingMap] = useState<Record<string, string>>({})
   const [uninstallTarget, setUninstallTarget] = useState<PluginInfo | null>(null)
+  const [confirmTarget, setConfirmTarget] = useState<{ action: 'disable' | 'reset'; plugin: PluginInfo } | null>(null)
 
   const { data: plugins, isLoading, error, refetch } = useQuery({
     queryKey: pluginKeys.list(),
@@ -288,11 +289,7 @@ export function PluginManagementPage() {
     },
   })
 
-  const handleAction = (action: string, plugin: PluginInfo) => {
-    if (action === 'uninstall') {
-      setUninstallTarget(plugin)
-      return
-    }
+  const executeAction = (action: string, plugin: PluginInfo) => {
     setPendingMap((prev) => ({ ...prev, [plugin.name]: action }))
 
     const mutPromise = (() => {
@@ -317,6 +314,19 @@ export function PluginManagementPage() {
           return next
         })
       })
+  }
+
+  const handleAction = (action: string, plugin: PluginInfo) => {
+    // 破坏性操作先二次确认：卸载、禁用、重置
+    if (action === 'uninstall') {
+      setUninstallTarget(plugin)
+      return
+    }
+    if (action === 'disable' || action === 'reset') {
+      setConfirmTarget({ action, plugin })
+      return
+    }
+    executeAction(action, plugin)
   }
 
   if (isLoading) {
@@ -438,6 +448,26 @@ export function PluginManagementPage() {
         }}
         variant="destructive"
         loading={uninstallMut.isPending}
+      />
+
+      <ConfirmDialog
+        open={confirmTarget !== null}
+        onOpenChange={(open) => { if (!open) setConfirmTarget(null) }}
+        title={confirmTarget?.action === 'disable' ? '确认禁用插件' : '确认重置插件'}
+        description={
+          confirmTarget?.action === 'disable'
+            ? `确定要禁用插件 "${confirmTarget?.plugin.name}"？禁用后其功能将立即停用。`
+            : `确定要重置插件 "${confirmTarget?.plugin.name}"？该操作会清除插件运行状态，不可撤销。`
+        }
+        confirmText={confirmTarget?.action === 'disable' ? '禁用' : '重置'}
+        variant="destructive"
+        loading={disableMut.isPending || resetMut.isPending}
+        onConfirm={() => {
+          if (!confirmTarget) return
+          const { action, plugin } = confirmTarget
+          setConfirmTarget(null)
+          executeAction(action, plugin)
+        }}
       />
     </div>
   )
