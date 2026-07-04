@@ -99,6 +99,14 @@ export const defaultConfig: SidebarMenuConfig = {
       ],
     },
     {
+      label: '内容审核',
+      icon: 'ShieldAlert',
+      children: [
+        { path: '/moderation/sensitive-words', icon: 'ShieldAlert', label: '敏感词管理', roles: [1, 2], permission: 'reports:read' },
+        { path: '/moderation/review-queue', icon: 'ListChecks', label: '人工复审队列', roles: [1, 2], permission: 'reports:read' },
+      ],
+    },
+    {
       label: '审计中心',
       icon: 'FileText',
       children: [

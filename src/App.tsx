@@ -559,7 +559,7 @@ function App() {
                 <Route
                   path="/moderation/sensitive-words"
                   element={(
-                    <PermissionRoute permission="settings:view" roles={[1, 2]}>
+                    <PermissionRoute permission="reports:read" roles={[1, 2]}>
                       <SensitiveWordPage />
                     </PermissionRoute>
                   )}
@@ -567,7 +567,7 @@ function App() {
                 <Route
                   path="/moderation/review-queue"
                   element={(
-                    <PermissionRoute permission="settings:view" roles={[1, 2]}>
+                    <PermissionRoute permission="reports:read" roles={[1, 2]}>
                       <ContentReviewQueuePage />
                     </PermissionRoute>
                   )}
