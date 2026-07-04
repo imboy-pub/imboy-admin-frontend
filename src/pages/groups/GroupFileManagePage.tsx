@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
 import { toast } from 'sonner'
 import { ArrowLeft, Download, Eye, Trash2 } from 'lucide-react'
@@ -70,6 +70,7 @@ export function GroupFileManagePage() {
         category: debouncedCategory || undefined,
       }),
     enabled: gid.length > 0,
+    placeholderData: keepPreviousData,
   })
 
   const {
@@ -191,7 +192,7 @@ export function GroupFileManagePage() {
     getCoreRowModel: getCoreRowModel(),
   })
 
-  if (isLoading) {
+  if (isLoading && !data) {
     return <LoadingState message="加载群文件数据..." />
   }
 

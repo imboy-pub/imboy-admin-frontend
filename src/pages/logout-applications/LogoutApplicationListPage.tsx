@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
 import { Search, Download, XCircle, CheckCircle } from 'lucide-react'
 import { toast } from 'sonner'
@@ -46,6 +46,7 @@ export function LogoutApplicationListPage() {
   const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
     queryKey: ['logout-applications', params],
     queryFn: () => getLogoutApplicationListPayload(params),
+    placeholderData: keepPreviousData,
   })
 
   const rejectMutation = useMutation({
@@ -226,7 +227,7 @@ export function LogoutApplicationListPage() {
     getCoreRowModel: getCoreRowModel(),
   })
 
-  if (isLoading) {
+  if (isLoading && !data) {
     return <LoadingState message="加载注销申请数据..." />
   }
 

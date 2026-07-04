@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
 import { ArrowLeft, Search, ShieldCheck, Download } from 'lucide-react'
 
@@ -105,6 +105,7 @@ export function GroupGovernanceLogPage() {
     queryKey: ['group-governance-logs', queryParams],
     queryFn: () => getGroupGovernanceLogsPayload(queryParams),
     enabled: gid.length > 0,
+    placeholderData: keepPreviousData,
   })
 
   const columns: ColumnDef<GroupGovernanceLog>[] = useMemo(
@@ -163,7 +164,7 @@ export function GroupGovernanceLogPage() {
     getCoreRowModel: getCoreRowModel(),
   })
 
-  if (isLoading) {
+  if (isLoading && !data) {
     return <LoadingState message="加载群治理日志..." />
   }
 

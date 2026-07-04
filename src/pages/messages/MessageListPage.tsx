@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { JsonTree, highlightText, parsePayload } from './messageRenderingHelpers'
 import {
   columnLabels,
@@ -82,6 +82,7 @@ export function MessageListPage() {
   const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
     queryKey: ['messages', params],
     queryFn: () => getMessageListPayload(params),
+    placeholderData: keepPreviousData,
   })
   const {
     data: detailData,
@@ -270,7 +271,7 @@ export function MessageListPage() {
   const payloadMeta = parsePayload(detailData?.payload || '')
   const payloadText = payloadView === 'raw' ? detailData?.payload || '-' : payloadMeta.display
 
-  if (isLoading) {
+  if (isLoading && !data) {
     return <LoadingState message="加载消息数据..." />
   }
 

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
 import { toast } from 'sonner'
 import { ArrowLeft, CheckCircle2, Download, Eye, RotateCcw, Trash2 } from 'lucide-react'
@@ -91,6 +91,7 @@ export function GroupTaskManagePage() {
         deleted: params.deletedFilter === 1 ? 1 : undefined,
       }),
     enabled: gid.length > 0,
+    placeholderData: keepPreviousData,
   })
 
   const {
@@ -305,7 +306,7 @@ export function GroupTaskManagePage() {
     getCoreRowModel: getCoreRowModel(),
   })
 
-  if (isLoading) {
+  if (isLoading && !data) {
     return <LoadingState message="加载群任务数据..." />
   }
 

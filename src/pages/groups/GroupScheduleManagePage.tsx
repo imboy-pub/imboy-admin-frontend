@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
 import { toast } from 'sonner'
 import { ArrowLeft, Download, Eye, RotateCcw, XCircle } from 'lucide-react'
@@ -76,6 +76,7 @@ export function GroupScheduleManagePage() {
     queryKey: ['group-schedules', gid, params.page, params.size],
     queryFn: () => getGroupSchedulesPayload(gid, { page: params.page, size: params.size }),
     enabled: gid.length > 0,
+    placeholderData: keepPreviousData,
   })
 
   const {
@@ -226,7 +227,7 @@ export function GroupScheduleManagePage() {
     getCoreRowModel: getCoreRowModel(),
   })
 
-  if (isLoading) {
+  if (isLoading && !data) {
     return <LoadingState message="加载群日程数据..." />
   }
 
