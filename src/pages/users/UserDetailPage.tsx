@@ -291,8 +291,8 @@ export function UserDetailPage() {
       {activeTab === 'devices' && (
         <Card>
           <CardHeader>
-            <CardTitle>会话管理</CardTitle>
-            <CardDescription>强制结束该用户在所有设备上的登录会话</CardDescription>
+            <CardTitle>设备管理</CardTitle>
+            <CardDescription>查看该用户的登录设备，可单独踢出或强制全部下线</CardDescription>
           </CardHeader>
           <CardContent>
             <UserDeviceList userId={uid} />
