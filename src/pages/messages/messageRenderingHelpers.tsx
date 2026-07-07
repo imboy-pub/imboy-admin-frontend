@@ -1,11 +1,15 @@
 import type { ReactNode } from 'react'
+import { safeParseBigIntJson } from '@/lib/safeParseBigIntJson'
 
+// CONTRACT-02: payload 内可能嵌入裸 64-bit TSID（如 S2C e2ee_key_changed_ack 的
+// payload.uid，见 imboy/src/logic/msg_s2c_logic.erl:255），标准 JSON.parse 会
+// 丢失精度，故复用 safeParseBigIntJson 统一大整数防护。
 export function parsePayload(payload: string): { display: string; isJson: boolean; parsed: unknown } {
   if (!payload) {
     return { display: '-', isJson: false, parsed: null }
   }
   try {
-    const parsed = JSON.parse(payload) as unknown
+    const parsed = safeParseBigIntJson(payload)
     return { display: JSON.stringify(parsed, null, 2), isJson: true, parsed }
   } catch {
     return { display: payload, isJson: false, parsed: payload }
