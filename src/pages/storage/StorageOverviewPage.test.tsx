@@ -30,7 +30,7 @@ const listFixture = {
   list: [
     {
       id: 'file-001',
-      md5: 'abc123',
+      file_hash256: 'abc123',
       mime_type: 'image/png',
       path: '/uploads/2026/01/sample-image.png',
       url: 'https://cdn.example.com/sample-image.png',
