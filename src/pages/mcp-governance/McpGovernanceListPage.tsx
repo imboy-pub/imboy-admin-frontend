@@ -190,7 +190,7 @@ export function McpGovernanceListPage() {
     <div className="space-y-6">
       <PageHeader
         title="MCP 治理"
-        description="审批 MCP 客户端接入、按 scope/tool 管理授权并查看审计（后端 /api/adm/mcp/* 待实现，当前为 mock 数据）"
+        description="审批 MCP 客户端接入、按 scope/tool 管理授权并查看审计"
       />
 
       <Card>
