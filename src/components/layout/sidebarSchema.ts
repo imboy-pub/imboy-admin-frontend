@@ -26,6 +26,7 @@ import {
   ShieldAlert,
   ListChecks,
   Link2,
+  Bot,
   type LucideIcon,
 } from 'lucide-react'
 import type { SidebarMenuConfig } from '@/services/api/adminConfig'
@@ -70,6 +71,7 @@ export const iconMap: Record<string, LucideIcon> = {
   ShieldAlert,
   ListChecks,
   Link2,
+  Bot,
 }
 
 export const defaultConfig: SidebarMenuConfig = {
@@ -114,6 +116,7 @@ export const defaultConfig: SidebarMenuConfig = {
         { path: '/messages', icon: 'MessageSquare', label: '消息管理', roles: [1, 2, 3], permission: 'messages:read' },
         { path: '/logout-applications', icon: 'UserMinus', label: '注销申请', roles: [1, 2, 3], permission: 'logout_applications:read' },
         { path: '/logs', icon: 'FileText', label: '日志审计', roles: [1, 3], permission: 'logs:view' },
+        { path: '/mcp-governance', icon: 'Bot', label: 'MCP 治理', roles: [1, 2], permission: 'mcp_clients:approve' },
       ],
     },
     {
