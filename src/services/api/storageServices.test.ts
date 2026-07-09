@@ -82,7 +82,7 @@ describe('getStorageStats', () => {
 
 describe('getStorageList', () => {
   it('returns paginated items with correct shape', async () => {
-    const items = [{ id: '1', md5: 'abc', mime_type: 'image/png', path: '/p', url: '/u', size: 100, referer_time: 0, status: 1, created_at: '2024-01-01' }]
+    const items = [{ id: '1', file_hash256: 'abc', mime_type: 'image/png', path: '/p', url: '/u', size: 100, referer_time: 0, status: 1, created_at: '2024-01-01' }]
     mutableClient.get = async () => ({
       data: { code: 0, msg: 'ok', payload: { list: items, page: 1, size: 10, total: 1 } },
     })

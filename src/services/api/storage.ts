@@ -16,7 +16,7 @@ type StorageStats = {
 
 export type StorageItem = {
   id: EntityId
-  md5: string
+  file_hash256: string
   mime_type: string
   path: string
   url: string
