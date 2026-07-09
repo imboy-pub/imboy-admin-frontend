@@ -85,6 +85,7 @@ const LicensePage = lazy(() => import('@/pages/license/LicensePage').then((m) =>
 const SensitiveWordPage = lazy(() => import('@/pages/content-moderation/SensitiveWordPage').then((m) => ({ default: m.SensitiveWordPage })))
 const ContentReviewQueuePage = lazy(() => import('@/pages/content-moderation/ContentReviewQueuePage').then((m) => ({ default: m.ContentReviewQueuePage })))
 const SSOConfigPage = lazy(() => import('@/pages/settings/SSOConfigPage').then((m) => ({ default: m.SSOConfigPage })))
+const McpGovernanceListPage = lazy(() => import('@/pages/mcp-governance/McpGovernanceListPage').then((m) => ({ default: m.McpGovernanceListPage })))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -698,6 +699,16 @@ function App() {
                   element={(
                     <PermissionRoute permission="finance:read" roles={[1, 2]}>
                       <PricingPage />
+                    </PermissionRoute>
+                  )}
+                />
+
+                {/* MCP 治理（roadmap T3.5，后端 /api/adm/mcp/* 待实现） */}
+                <Route
+                  path="/mcp-governance"
+                  element={(
+                    <PermissionRoute permission="mcp_clients:approve" roles={[1, 2]}>
+                      <McpGovernanceListPage />
                     </PermissionRoute>
                   )}
                 />
