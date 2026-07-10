@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -16,21 +16,40 @@ import {
   Wrench,
   ArrowUpCircle,
   FileSearch,
+  Plus,
+  Info,
+  ShieldAlert,
 } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
   ConfirmDialog,
+  EntityDrawer,
   ErrorState,
   LoadingState,
   PageHeader,
 } from '@/components/shared'
 import {
   getPluginList,
+  getPluginDetail,
+  getPluginState,
+  getPluginHealth,
+  installPlugin,
   enablePlugin,
   disablePlugin,
   uninstallPlugin,
+  forceUninstallPlugin,
   resetPlugin,
   upgradePlugin,
   pluginKeys,
@@ -129,6 +148,16 @@ function PluginCard({
         )}
 
         <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => onAction('detail', plugin)}
+            disabled={isPending}
+          >
+            <Info className="mr-1 h-3 w-3" />
+            详情
+          </Button>
+
           {plugin.state === 'disabled' && (
             <Button
               size="sm"
@@ -209,9 +238,206 @@ function PluginCard({
               卸载
             </Button>
           )}
+
+          {plugin.state === 'error' && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+              onClick={() => onAction('force_uninstall', plugin)}
+              disabled={isPending}
+            >
+              {pendingAction === 'force_uninstall' ? (
+                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+              ) : (
+                <ShieldAlert className="mr-1 h-3 w-3" />
+              )}
+              强制卸载
+            </Button>
+          )}
         </div>
       </CardContent>
     </Card>
+  )
+}
+
+// --- Detail drawer body ---
+
+/** 一行只读展示。 */
+function DetailRow({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div className="flex items-start justify-between gap-4 border-b py-2 text-sm last:border-0">
+      <span className="text-muted-foreground shrink-0">{label}</span>
+      <span className="text-right break-all">{value ?? '-'}</span>
+    </div>
+  )
+}
+
+/**
+ * 详情/状态/健康数据主体。以 key=name 挂载，三个查询各自命中对应端点。
+ */
+function PluginDetailBody({ name }: { name: string }) {
+  const detailQuery = useQuery({
+    queryKey: pluginKeys.detail(name),
+    queryFn: () => getPluginDetail(name),
+  })
+  const stateQuery = useQuery({
+    queryKey: pluginKeys.state(name),
+    queryFn: () => getPluginState(name),
+  })
+  const healthQuery = useQuery({
+    queryKey: pluginKeys.health(name),
+    queryFn: () => getPluginHealth(name),
+  })
+
+  if (detailQuery.isLoading) {
+    return <LoadingState message="加载插件详情..." />
+  }
+
+  const detail = detailQuery.data
+  const state = stateQuery.data
+  const health = healthQuery.data
+
+  return (
+    <div className="space-y-6">
+      <section>
+        <h3 className="mb-2 text-sm font-semibold">基本信息</h3>
+        <DetailRow label="名称" value={detail?.name} />
+        <DetailRow label="版本" value={detail?.version ? `v${detail.version}` : '-'} />
+        <DetailRow label="描述" value={detail?.description || '-'} />
+        <DetailRow label="安装时间" value={detail?.installed_at || '-'} />
+        <DetailRow label="启用时间" value={detail?.enabled_at || '-'} />
+        {detail?.error_message && (
+          <DetailRow label="错误信息" value={<span className="text-red-600">{detail.error_message}</span>} />
+        )}
+      </section>
+
+      <section>
+        <h3 className="mb-2 text-sm font-semibold">运行状态</h3>
+        {stateQuery.isLoading ? (
+          <p className="text-sm text-muted-foreground">加载中...</p>
+        ) : state ? (
+          <DetailRow label="当前状态" value={<StateBadge state={state.state} />} />
+        ) : (
+          <p className="text-sm text-muted-foreground">无法获取状态</p>
+        )}
+      </section>
+
+      <section>
+        <h3 className="mb-2 text-sm font-semibold">健康检查</h3>
+        {healthQuery.isLoading ? (
+          <p className="text-sm text-muted-foreground">加载中...</p>
+        ) : health ? (
+          <>
+            <DetailRow
+              label="健康"
+              value={
+                health.healthy ? (
+                  <span className="text-green-600">正常</span>
+                ) : (
+                  <span className="text-red-600">异常</span>
+                )
+              }
+            />
+            <DetailRow label="状态" value={health.status || '-'} />
+            <DetailRow label="运行时长" value={`${health.uptime_seconds} 秒`} />
+            {health.last_error && (
+              <DetailRow label="最近错误" value={<span className="text-red-600">{health.last_error}</span>} />
+            )}
+          </>
+        ) : (
+          <p className="text-sm text-muted-foreground">无法获取健康信息</p>
+        )}
+      </section>
+    </div>
+  )
+}
+
+// --- Install dialog ---
+
+function InstallPluginDialog({
+  open,
+  onOpenChange,
+  onSuccess,
+}: {
+  open: boolean
+  onOpenChange: (_open: boolean) => void
+  onSuccess: () => void
+}) {
+  const [name, setName] = useState('')
+  const [path, setPath] = useState('')
+
+  const installMut = useMutation({
+    mutationFn: () =>
+      installPlugin({ name: name.trim(), path: path.trim() || undefined }),
+    onSuccess: () => {
+      toast.success('插件安装成功')
+      setName('')
+      setPath('')
+      onOpenChange(false)
+      onSuccess()
+    },
+    onError: (err: unknown) => {
+      toast.error(`安装失败: ${err instanceof Error ? err.message : String(err)}`)
+    },
+  })
+
+  const handleSubmit = () => {
+    if (!name.trim()) {
+      toast.error('请填写插件名称')
+      return
+    }
+    installMut.mutate()
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>安装插件</DialogTitle>
+          <DialogDescription>填写插件名称，可选填插件包路径。</DialogDescription>
+        </DialogHeader>
+
+        <div className="grid gap-4 py-2">
+          <div className="space-y-2">
+            <Label htmlFor="plugin-install-name" className="font-medium">
+              插件名称
+            </Label>
+            <Input
+              id="plugin-install-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="例如 my_plugin"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="plugin-install-path" className="font-medium">
+              插件路径（可选）
+            </Label>
+            <Input
+              id="plugin-install-path"
+              value={path}
+              onChange={(e) => setPath(e.target.value)}
+              placeholder="例如 /opt/plugins/my_plugin"
+            />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={installMut.isPending}>
+            取消
+          </Button>
+          <Button onClick={handleSubmit} disabled={installMut.isPending}>
+            {installMut.isPending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Plus className="mr-2 h-4 w-4" />
+            )}
+            安装
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -222,7 +448,10 @@ export function PluginManagementPage() {
   const navigate = useNavigate()
   const [pendingMap, setPendingMap] = useState<Record<string, string>>({})
   const [uninstallTarget, setUninstallTarget] = useState<PluginInfo | null>(null)
+  const [forceUninstallTarget, setForceUninstallTarget] = useState<PluginInfo | null>(null)
   const [confirmTarget, setConfirmTarget] = useState<{ action: 'disable' | 'reset'; plugin: PluginInfo } | null>(null)
+  const [detailTarget, setDetailTarget] = useState<PluginInfo | null>(null)
+  const [installOpen, setInstallOpen] = useState(false)
 
   const { data: plugins, isLoading, error, refetch } = useQuery({
     queryKey: pluginKeys.list(),
@@ -266,6 +495,17 @@ export function PluginManagementPage() {
     },
   })
 
+  const forceUninstallMut = useMutation({
+    mutationFn: (name: string) => forceUninstallPlugin({ name, mode: 'hard' }),
+    onSuccess: () => {
+      toast.success('插件已强制卸载')
+      invalidateList()
+    },
+    onError: (err: unknown) => {
+      toast.error(`强制卸载失败: ${err instanceof Error ? err.message : String(err)}`)
+    },
+  })
+
   const resetMut = useMutation({
     mutationFn: (name: string) => resetPlugin({ name }),
     onSuccess: () => {
@@ -297,6 +537,7 @@ export function PluginManagementPage() {
         case 'enable': return enableMut.mutateAsync(plugin.name)
         case 'disable': return disableMut.mutateAsync(plugin.name)
         case 'uninstall': return uninstallMut.mutateAsync(plugin.name)
+        case 'force_uninstall': return forceUninstallMut.mutateAsync(plugin.name)
         case 'reset': return resetMut.mutateAsync(plugin.name)
         case 'upgrade': return upgradeMut.mutateAsync({ name: plugin.name, version: '' })
         default: return Promise.resolve()
@@ -317,9 +558,18 @@ export function PluginManagementPage() {
   }
 
   const handleAction = (action: string, plugin: PluginInfo) => {
-    // 破坏性操作先二次确认：卸载、禁用、重置
+    // 只读查看：打开详情抽屉
+    if (action === 'detail') {
+      setDetailTarget(plugin)
+      return
+    }
+    // 破坏性操作先二次确认：卸载、强制卸载、禁用、重置
     if (action === 'uninstall') {
       setUninstallTarget(plugin)
+      return
+    }
+    if (action === 'force_uninstall') {
+      setForceUninstallTarget(plugin)
       return
     }
     if (action === 'disable' || action === 'reset') {
@@ -353,6 +603,10 @@ export function PluginManagementPage() {
         description="管理应用插件的安装、启停和升级"
         actions={
           <div className="flex items-center gap-2">
+            <Button size="sm" onClick={() => setInstallOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              安装插件
+            </Button>
             <Button variant="outline" size="sm" onClick={() => navigate('/plugins/logs')}>
               <FileSearch className="mr-2 h-4 w-4" />
               操作日志
@@ -451,6 +705,22 @@ export function PluginManagementPage() {
       />
 
       <ConfirmDialog
+        open={forceUninstallTarget !== null}
+        onOpenChange={(open) => { if (!open) setForceUninstallTarget(null) }}
+        title="确认强制卸载插件"
+        description={`确定要强制卸载插件 "${forceUninstallTarget?.name}"？将无视错误状态直接移除，此操作不可撤销。`}
+        confirmText="强制卸载"
+        onConfirm={() => {
+          if (!forceUninstallTarget) return
+          const plugin = forceUninstallTarget
+          setForceUninstallTarget(null)
+          executeAction('force_uninstall', plugin)
+        }}
+        variant="destructive"
+        loading={forceUninstallMut.isPending}
+      />
+
+      <ConfirmDialog
         open={confirmTarget !== null}
         onOpenChange={(open) => { if (!open) setConfirmTarget(null) }}
         title={confirmTarget?.action === 'disable' ? '确认禁用插件' : '确认重置插件'}
@@ -468,6 +738,21 @@ export function PluginManagementPage() {
           setConfirmTarget(null)
           executeAction(action, plugin)
         }}
+      />
+
+      <EntityDrawer
+        open={detailTarget !== null}
+        onOpenChange={(open) => { if (!open) setDetailTarget(null) }}
+        title="插件详情"
+        subtitle={detailTarget?.name}
+      >
+        {detailTarget && <PluginDetailBody key={detailTarget.name} name={detailTarget.name} />}
+      </EntityDrawer>
+
+      <InstallPluginDialog
+        open={installOpen}
+        onOpenChange={setInstallOpen}
+        onSuccess={invalidateList}
       />
     </div>
   )

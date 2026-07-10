@@ -703,7 +703,7 @@ function App() {
                   )}
                 />
 
-                {/* MCP 治理（roadmap T3.5，后端 /api/adm/mcp/* 待实现） */}
+                {/* MCP 治理（roadmap T3.5，后端 /api/adm/mcp/* 已就绪） */}
                 <Route
                   path="/mcp-governance"
                   element={(
