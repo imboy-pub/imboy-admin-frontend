@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useQuery, useMutation } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { CheckCircle2, XCircle, Loader2, Server, ShieldCheck, Key } from 'lucide-react'
 import { toast } from 'sonner'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -105,13 +105,17 @@ function LdapForm({ initial }: { initial?: LdapConfig }) {
     display_name_attr: initial?.display_name_attr ?? 'cn',
   })
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null)
+  const queryClient = useQueryClient()
 
   const setField = <K extends keyof LdapConfig>(key: K, value: LdapConfig[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }))
 
   const saveMutation = useMutation({
     mutationFn: () => saveSSOConfig(form),
-    onSuccess: () => toast.success('LDAP 配置已保存'),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sso-config'] })
+      toast.success('LDAP 配置已保存')
+    },
     onError: (err: unknown) => toast.error(`保存失败: ${getErrorMessage(err)}`),
   })
 
@@ -247,13 +251,17 @@ function SamlForm({ initial }: { initial?: SamlConfig }) {
     name_id_format: initial?.name_id_format ?? 'urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress',
   })
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null)
+  const queryClient = useQueryClient()
 
   const setField = <K extends keyof SamlConfig>(key: K, value: SamlConfig[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }))
 
   const saveMutation = useMutation({
     mutationFn: () => saveSSOConfig(form),
-    onSuccess: () => toast.success('SAML 配置已保存'),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sso-config'] })
+      toast.success('SAML 配置已保存')
+    },
     onError: (err: unknown) => toast.error(`保存失败: ${getErrorMessage(err)}`),
   })
 
@@ -352,13 +360,17 @@ function OAuth2Form({ initial }: { initial?: OAuth2Config }) {
     scopes: initial?.scopes ?? 'openid profile email',
   })
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null)
+  const queryClient = useQueryClient()
 
   const setField = <K extends keyof OAuth2Config>(key: K, value: OAuth2Config[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }))
 
   const saveMutation = useMutation({
     mutationFn: () => saveSSOConfig(form),
-    onSuccess: () => toast.success('OAuth2 配置已保存'),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sso-config'] })
+      toast.success('OAuth2 配置已保存')
+    },
     onError: (err: unknown) => toast.error(`保存失败: ${getErrorMessage(err)}`),
   })
 
