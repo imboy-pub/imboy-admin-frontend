@@ -284,7 +284,7 @@ export function AdminListPage() {
       return
     }
 
-    let encryptedPwd = pwd
+    let encryptedPwd: string
     try {
       const pageData = await getLoginPage()
       const encrypted = await encryptLoginPassword(pwd, pageData.public_key)

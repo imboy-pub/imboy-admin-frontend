@@ -168,9 +168,9 @@ describe('useTheme — localStorage resolution', () => {
 async function runSetupGuardLogic(
   statusFn: () => Promise<{ initialized: boolean }>
 ): Promise<SetupGuardState> {
-  let loading = true
-  let needSetup = false
-  let error: string | null = null
+  let loading: boolean
+  let needSetup: boolean
+  let error: string | null
 
   try {
     const status = await statusFn()

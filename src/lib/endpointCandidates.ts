@@ -66,7 +66,6 @@ export async function tryPutWithPostFallback<T>(
       return await putAttempt(endpoint)
     } catch (putError) {
       if (!isEndpointUnavailable(putError)) throw putError
-      lastError = putError
       if (import.meta.env.DEV && debugLabel) {
         console.warn(`${debugLabel} PUT ${endpoint} unavailable, falling back to POST:`, getErrorMessage(putError))
       }
