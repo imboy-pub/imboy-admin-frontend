@@ -12,6 +12,9 @@ import {
   getSSOConfigPayload,
   saveSSOConfig,
   testSSOConnection,
+  secretInitial,
+  secretForSubmit,
+  oidcCallbackUrl,
   type LdapConfig,
   type SamlConfig,
   type OAuth2Config,
@@ -98,7 +101,8 @@ function LdapForm({ initial }: { initial?: LdapConfig }) {
     use_ssl: initial?.use_ssl ?? false,
     base_dn: initial?.base_dn ?? '',
     bind_dn: initial?.bind_dn ?? '',
-    bind_password: initial?.bind_password ?? '',
+    // 哨兵契约：GET 返回 *** 表示已配置（脱敏），不进 input
+    bind_password: secretInitial(initial?.bind_password),
     user_filter: initial?.user_filter ?? '(uid={{username}})',
     uid_attr: initial?.uid_attr ?? 'uid',
     mail_attr: initial?.mail_attr ?? 'mail',
@@ -110,8 +114,11 @@ function LdapForm({ initial }: { initial?: LdapConfig }) {
   const setField = <K extends keyof LdapConfig>(key: K, value: LdapConfig[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }))
 
+  // 哨兵契约：未改动（空）→ 提交 ***，后端保留已存密文
+  const payload = (): LdapConfig => ({ ...form, bind_password: secretForSubmit(form.bind_password) })
+
   const saveMutation = useMutation({
-    mutationFn: () => saveSSOConfig(form),
+    mutationFn: (cfg: LdapConfig) => saveSSOConfig(cfg),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sso-config'] })
       toast.success('LDAP 配置已保存')
@@ -120,7 +127,7 @@ function LdapForm({ initial }: { initial?: LdapConfig }) {
   })
 
   const testMutation = useMutation({
-    mutationFn: () => testSSOConnection('ldap', form),
+    mutationFn: (cfg: LdapConfig) => testSSOConnection('ldap', cfg),
     onSuccess: (res) => setTestResult(res.payload ?? { success: false, message: '测试失败' }),
     onError: (err: unknown) => setTestResult({ success: false, message: getErrorMessage(err) }),
   })
@@ -176,7 +183,7 @@ function LdapForm({ initial }: { initial?: LdapConfig }) {
           value={form.bind_password}
           onChange={(v) => setField('bind_password', v)}
           type="password"
-          placeholder="••••••••"
+          placeholder={initial?.has_bind_password ? '已配置，留空则保持不变' : '尚未配置'}
         />
         <FormField
           id="ldap-user-filter"
@@ -221,14 +228,14 @@ function LdapForm({ initial }: { initial?: LdapConfig }) {
       <div className="flex gap-2">
         <Button
           variant="outline"
-          onClick={() => testMutation.mutate()}
+          onClick={() => testMutation.mutate(payload())}
           disabled={testMutation.isPending || !form.host}
         >
           {testMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           连接测试
         </Button>
         <Button
-          onClick={() => saveMutation.mutate()}
+          onClick={() => saveMutation.mutate(payload())}
           disabled={saveMutation.isPending}
         >
           {saveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -257,7 +264,7 @@ function SamlForm({ initial }: { initial?: SamlConfig }) {
     setForm((prev) => ({ ...prev, [key]: value }))
 
   const saveMutation = useMutation({
-    mutationFn: () => saveSSOConfig(form),
+    mutationFn: (cfg: SamlConfig) => saveSSOConfig(cfg),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sso-config'] })
       toast.success('SAML 配置已保存')
@@ -266,7 +273,7 @@ function SamlForm({ initial }: { initial?: SamlConfig }) {
   })
 
   const testMutation = useMutation({
-    mutationFn: () => testSSOConnection('saml', form),
+    mutationFn: (cfg: SamlConfig) => testSSOConnection('saml', cfg),
     onSuccess: (res) => setTestResult(res.payload ?? { success: false, message: '测试失败' }),
     onError: (err: unknown) => setTestResult({ success: false, message: getErrorMessage(err) }),
   })
@@ -328,14 +335,14 @@ function SamlForm({ initial }: { initial?: SamlConfig }) {
       <div className="flex gap-2">
         <Button
           variant="outline"
-          onClick={() => testMutation.mutate()}
+          onClick={() => testMutation.mutate(form)}
           disabled={testMutation.isPending || !form.metadata_url}
         >
           {testMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           获取元数据测试
         </Button>
         <Button
-          onClick={() => saveMutation.mutate()}
+          onClick={() => saveMutation.mutate(form)}
           disabled={saveMutation.isPending}
         >
           {saveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -353,7 +360,9 @@ function OAuth2Form({ initial }: { initial?: OAuth2Config }) {
     provider: 'oauth2',
     enabled: initial?.enabled ?? false,
     client_id: initial?.client_id ?? '',
-    client_secret: initial?.client_secret ?? '',
+    // 哨兵契约：GET 返回 *** 表示已配置（脱敏），不进 input
+    client_secret: secretInitial(initial?.client_secret),
+    issuer: initial?.issuer ?? '',
     auth_url: initial?.auth_url ?? '',
     token_url: initial?.token_url ?? '',
     userinfo_url: initial?.userinfo_url ?? '',
@@ -365,8 +374,11 @@ function OAuth2Form({ initial }: { initial?: OAuth2Config }) {
   const setField = <K extends keyof OAuth2Config>(key: K, value: OAuth2Config[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }))
 
+  // 哨兵契约：未改动（空）→ 提交 ***，后端保留已存密文
+  const payload = (): OAuth2Config => ({ ...form, client_secret: secretForSubmit(form.client_secret) })
+
   const saveMutation = useMutation({
-    mutationFn: () => saveSSOConfig(form),
+    mutationFn: (cfg: OAuth2Config) => saveSSOConfig(cfg),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sso-config'] })
       toast.success('OAuth2 配置已保存')
@@ -375,7 +387,7 @@ function OAuth2Form({ initial }: { initial?: OAuth2Config }) {
   })
 
   const testMutation = useMutation({
-    mutationFn: () => testSSOConnection('oauth2', form),
+    mutationFn: (cfg: OAuth2Config) => testSSOConnection('oauth2', cfg),
     onSuccess: (res) => setTestResult(res.payload ?? { success: false, message: '测试失败' }),
     onError: (err: unknown) => setTestResult({ success: false, message: getErrorMessage(err) }),
   })
@@ -406,8 +418,15 @@ function OAuth2Form({ initial }: { initial?: OAuth2Config }) {
           value={form.client_secret}
           onChange={(v) => setField('client_secret', v)}
           type="password"
-          placeholder="••••••••"
-          required
+          placeholder={initial?.has_client_secret ? '已配置，留空则保持不变' : '尚未配置'}
+          required={!initial?.has_client_secret}
+        />
+        <FormField
+          id="oauth2-issuer"
+          label="Issuer（OIDC 签发者，用于 id_token 校验）"
+          value={form.issuer ?? ''}
+          onChange={(v) => setField('issuer', v)}
+          placeholder="https://idp.example.com"
         />
         <FormField
           id="oauth2-auth-url"
@@ -441,9 +460,29 @@ function OAuth2Form({ initial }: { initial?: OAuth2Config }) {
         />
       </div>
 
-      <div className="rounded-md border bg-muted/40 p-3 text-sm">
-        <p className="font-medium mb-1">回调 URL（需在 IdP 侧配置）</p>
-        <code className="font-mono text-xs">{window.location.origin}/api/adm/sso/oauth2/callback</code>
+      <div className="rounded-md border bg-muted/40 p-3 text-sm space-y-2">
+        <p className="font-medium">OIDC 回调地址（需在 IdP 侧登记为 Redirect URI）</p>
+        <div className="flex items-center gap-2">
+          <Input readOnly value={oidcCallbackUrl()} className="font-mono text-xs" aria-label="OIDC 回调地址" />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(oidcCallbackUrl())
+                toast.success('回调地址已复制')
+              } catch {
+                toast.error('复制失败')
+              }
+            }}
+          >
+            复制
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          用户端登录由 GET /api/v1/auth/oidc/authorize 发起；如 API 部署在独立域名，请以实际 API 域名为准。
+        </p>
       </div>
 
       <TestResult result={testResult} />
@@ -451,14 +490,14 @@ function OAuth2Form({ initial }: { initial?: OAuth2Config }) {
       <div className="flex gap-2">
         <Button
           variant="outline"
-          onClick={() => testMutation.mutate()}
+          onClick={() => testMutation.mutate(payload())}
           disabled={testMutation.isPending || !form.client_id}
         >
           {testMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           连接测试
         </Button>
         <Button
-          onClick={() => saveMutation.mutate()}
+          onClick={() => saveMutation.mutate(payload())}
           disabled={saveMutation.isPending}
         >
           {saveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
