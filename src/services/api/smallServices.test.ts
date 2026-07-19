@@ -178,7 +178,7 @@ describe('listComplianceKeys', () => {
 })
 
 describe('createComplianceKey', () => {
-  it('posts public_key and private_key_encrypted and returns key_id', async () => {
+  it('posts only public_key and returns key_id (零信任改造线 A)', async () => {
     let capturedBody: Record<string, unknown> = {}
     mutableClient.post = async (url: string, body: Record<string, unknown>) => {
       expect(url).toBe('/admin/compliance_key/create')
@@ -188,12 +188,12 @@ describe('createComplianceKey', () => {
 
     const result = await createComplianceKey({
       public_key: '-----BEGIN PUBLIC KEY-----\nMIIB...\n-----END PUBLIC KEY-----',
-      private_key_encrypted: 'encrypted-base64-string',
     })
 
     expect(result.key_id).toBe('new-key-001')
     expect(capturedBody.public_key).toContain('BEGIN PUBLIC KEY')
-    expect(capturedBody.private_key_encrypted).toBe('encrypted-base64-string')
+    // 守护：禁止上送 private_key_encrypted（零信任改造线 A）
+    expect(capturedBody).not.toHaveProperty('private_key_encrypted')
   })
 })
 

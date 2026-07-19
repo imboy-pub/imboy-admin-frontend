@@ -24,8 +24,14 @@ interface ComplianceKeyListResponse {
 }
 
 interface ComplianceKeyCreateParams {
+  /**
+   * 合规公钥（PEM 格式）。
+   * 零信任改造（线 A）：仅上送公钥；合规私钥由审计方在本地（HSM / 离线介质）
+   * 生成与保管，服务端永不接收、永不落盘。
+   * Zero-trust (line A): only the public key is uploaded. The compliance
+   * private key is generated and held locally by the auditor.
+   */
   public_key: string
-  private_key_encrypted: string
 }
 
 interface ComplianceKeyCreateResponse {

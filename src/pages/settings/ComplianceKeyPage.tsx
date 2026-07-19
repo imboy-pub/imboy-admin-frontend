@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
-import { ArrowLeft, ShieldCheck, ShieldOff, Plus, Eye, EyeOff } from 'lucide-react'
+import { ArrowLeft, ShieldCheck, ShieldOff, Plus } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -32,9 +32,7 @@ export function ComplianceKeyPage() {
   const queryClient = useQueryClient()
   const [showCreate, setShowCreate] = useState(false)
   const [publicKey, setPublicKey] = useState('')
-  const [privateKeyEncrypted, setPrivateKeyEncrypted] = useState('')
   const [revokeTarget, setRevokeTarget] = useState<string | null>(null)
-  const [showPrivateKey, setShowPrivateKey] = useState(false)
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: complianceKeyQueryKey(),
@@ -48,7 +46,6 @@ export function ComplianceKeyPage() {
       queryClient.invalidateQueries({ queryKey: complianceKeyQueryKey() })
       setShowCreate(false)
       setPublicKey('')
-      setPrivateKeyEncrypted('')
     },
     onError: (err: unknown) => toast.error(`创建失败: ${getErrorMessage(err)}`),
   })
@@ -137,7 +134,8 @@ export function ComplianceKeyPage() {
           <DialogHeader>
             <DialogTitle>创建合规密钥</DialogTitle>
             <DialogDescription>
-              上传 RSA 公钥和加密后的私钥。公钥用于加密消息副本，私钥由合规部门保管。
+              仅上传 RSA 公钥。公钥用于让客户端在 compliance 模式下额外加密一份消息密钥副本；
+              合规私钥由审计方在本地（HSM / 离线介质）生成与妥善保管，服务端永不接收。
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -151,37 +149,12 @@ export function ComplianceKeyPage() {
                 onChange={(e) => setPublicKey(e.target.value)}
               />
             </div>
-            <div>
-              <div className="flex items-center justify-between">
-                <Label>加密后的私钥</Label>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 px-2"
-                  onClick={() => setShowPrivateKey((prev) => !prev)}
-                >
-                  {showPrivateKey ? <EyeOff className="mr-1 h-3.5 w-3.5" /> : <Eye className="mr-1 h-3.5 w-3.5" />}
-                  {showPrivateKey ? '隐藏' : '显示'}
-                </Button>
-              </div>
-              {showPrivateKey ? (
-                <Textarea
-                  className="mt-1 font-mono text-xs"
-                  rows={6}
-                  placeholder="使用管理密码加密后的私钥..."
-                  value={privateKeyEncrypted}
-                  onChange={(e) => setPrivateKeyEncrypted(e.target.value)}
-                />
-              ) : (
-                <input
-                  type="password"
-                  className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-xs shadow-sm"
-                  placeholder="使用管理密码加密后的私钥..."
-                  value={privateKeyEncrypted}
-                  onChange={(e) => setPrivateKeyEncrypted(e.target.value)}
-                />
-              )}
+            <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
+              <p className="font-semibold">⚠️ 离线保管提示</p>
+              <p className="mt-1 leading-relaxed">
+                请确保您已在审计方本地（HSM / USB / 纸质等离线介质）妥善生成并保存了对应的合规私钥。
+                服务端不再保存任何私钥，私钥一旦丢失，<b>所有用此公钥加密的历史合规密文将永久无法解密</b>。
+              </p>
             </div>
           </div>
           <DialogFooter>
@@ -189,7 +162,7 @@ export function ComplianceKeyPage() {
               取消
             </Button>
             <Button
-              disabled={!publicKey.trim() || !privateKeyEncrypted.trim() || !isValidPemFormat(publicKey) || createMutation.isPending}
+              disabled={!publicKey.trim() || !isValidPemFormat(publicKey) || createMutation.isPending}
               onClick={() => {
                 if (!isValidPemFormat(publicKey)) {
                   toast.error('公钥格式不正确，请提供 PEM 格式（以 -----BEGIN 开头，-----END 结尾）')
@@ -197,7 +170,6 @@ export function ComplianceKeyPage() {
                 }
                 createMutation.mutate({
                   public_key: publicKey.trim(),
-                  private_key_encrypted: privateKeyEncrypted.trim(),
                 })
               }}
             >

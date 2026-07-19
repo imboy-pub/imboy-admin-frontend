@@ -58,14 +58,14 @@ describe('listComplianceKeys', () => {
 describe('createComplianceKey', () => {
   it('resolves with key_id on success', async () => {
     mutableClient.post = async () => ({ data: { code: 0, msg: 'ok', payload: { key_id: '999' } } })
-    const result = await createComplianceKey({ public_key: 'pub', private_key_encrypted: 'enc' })
+    const result = await createComplianceKey({ public_key: 'pub' })
     expect(result.key_id).toBe('999')
   })
 
   it('throws on API error', async () => {
     mutableClient.post = async () => ({ data: { code: 1, msg: 'error' } })
     await expect(
-      createComplianceKey({ public_key: 'pub', private_key_encrypted: 'enc' })
+      createComplianceKey({ public_key: 'pub' })
     ).rejects.toThrow()
   })
 })
