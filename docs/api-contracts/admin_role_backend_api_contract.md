@@ -1,3 +1,5 @@
+> **契约状态**：草案（未建模进 `imboy/api/openapi.yaml`）。建模完成后请删除本文档并在 imboy/docs/reference/api/ 查阅正式参考。
+
 # 管理员与角色联调清单（curl）
 
 本文档用于联调以下后台能力：

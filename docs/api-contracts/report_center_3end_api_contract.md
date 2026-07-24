@@ -1,3 +1,5 @@
+> **契约状态**：草案（未建模进 `imboy/api/openapi.yaml`）。建模完成后请删除本文档并在 imboy/docs/reference/api/ 查阅正式参考。
+
 # Report Center 3-End API Contract
 
 本文档用于对齐 IMBoy 举报体系在 3 端（APP 端、后端、管理后台端）的统一联调契约。

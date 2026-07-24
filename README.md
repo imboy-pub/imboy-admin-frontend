@@ -1,185 +1,73 @@
-# imboy-admin-frontend
+# IMBoy 管理后台
 
-ImBoy 管理后台前端（React + TypeScript + Vite + Bun）。
+IMBoy 的 Web 管理后台，基于 React、TypeScript、Vite 和 Bun，提供用户、群组、消息、频道、举报及系统配置等管理功能。
 
-## Related Decisions / 相关 ADR
+## 本地启动
 
-- [2026-03-15-admin-feature-module-boundaries](docs/adr/2026-03-15-admin-feature-module-boundaries.md)
+### 1. 准备环境
 
-## Related Docs / 相关文档
+- Bun
+- 已启动的 IMBoy 后端（默认 `http://127.0.0.1:9800`）
 
-- [Admin Module Map](docs/module_map.md)
-
-## Migration Status / 迁移状态（2026-03-29 — 闭环）
-
-> Workspace Modular + Plugin Architecture 迁移已全部完成（Task 0-17）；兼容 shim（`services/api/groupEnhancements`、`services/api/auth`）已于 2026-06 移除。
-
-- Stable public entries: `src/modules/identity/public.ts`, `src/modules/social_graph/public.ts`, `src/modules/groups/public.ts`, `src/modules/channels/public.ts`, `src/modules/messages/public.ts`, `src/modules/moments/public.ts`, `src/modules/ops_governance/public.ts`.
-- Module-owned API implementations: `src/modules/identity/api/{auth,users,roles}.ts`, `src/modules/social_graph/api/{tags,collects}.ts`, `src/modules/channels/api/public.ts`, `src/modules/groups/api/public.ts`, `src/modules/messages/api/public.ts`, `src/modules/moments/api/public.ts`, `src/modules/ops_governance/api/{reports,feedback,versions,ddl}.ts`.
-- Production extension points: `src/modules/dashboard/registry/dashboardPanelRegistry.ts`, `src/modules/reports/registry/reportPanelRegistry.ts`.
-- Boundary gate: `eslint.config.js` no-restricted-imports rule.
-- Regression: 75 tests passed / 0 failed, `bun run build` 2.78s, `eslint` 0 errors.
-
-## 技术栈
-
-- React 19
-- TypeScript 5
-- Vite 7
-- Bun（依赖安装与测试）
-- TanStack Query / TanStack Table
-- Zustand
-- React Hook Form + Zod
-
-## 本地开发
+### 2. 安装并运行
 
 ```bash
 bun install
 bun run dev
 ```
 
-默认开发地址：`http://localhost:8082`
+浏览器打开 `http://127.0.0.1:8082`。开发服务器会把 `/api/adm` 和 `/metrics` 请求代理到本地后端。
 
-Vite 代理配置见 `vite.config.ts`，默认将 `/adm` 代理到 `http://localhost:9800`。
-
-## 环境变量
-
-开发环境：`.env.development`
-
-生产环境：`.env.production`
-
-关键变量：
-
-- `VITE_API_BASE_URL`
-- `VITE_APP_NAME`
-- `VITE_SIDEBAR_CONFIG_URL`（可选，菜单/RBAC 配置接口；失败时自动回退 `public/sidebar-menu.json`）
-- `VITE_UX_EVENT_REPORT_URL`（可选，UX 埋点上报接口，默认 `/adm/admin/ux/events`，批量载荷格式：`{ "events": [...] }`）
-- `VITE_FEEDBACK_WORKFLOW_CONFIG_URL`（可选，反馈模板/SLA 配置接口，默认 `/adm/admin/config/feedback-workflow`）
-- `VITE_FEEDBACK_WORKFLOW_CONFIG_SAVE_URL`（可选，反馈模板/SLA 保存接口，默认 `/adm/admin/config/feedback-workflow`，优先尝试 `PUT`，回退 `POST`）
-- `VITE_ADMIN_LIST_ENDPOINT`（可选，管理员列表接口，支持逗号分隔多候选端点）
-- `VITE_ADMIN_CREATE_ENDPOINT`（可选，新增管理员接口，支持逗号分隔多候选端点）
-- `VITE_ADMIN_ASSIGN_ROLE_ENDPOINT`（可选，管理员角色分配接口，支持逗号分隔多候选端点）
-- `VITE_ROLE_LIST_ENDPOINT`（可选，角色列表接口，支持逗号分隔多候选端点）
-- `VITE_ROLE_CREATE_ENDPOINT`（可选，新增角色接口，支持逗号分隔多候选端点）
-- `VITE_ROLE_PERMISSION_SAVE_ENDPOINT`（可选，角色权限保存接口，支持逗号分隔多候选端点）
+需要修改开发环境时，编辑 `.env.development`，不要把真实账号或密钥提交到仓库。
 
 ## 常用命令
 
 ```bash
-bun run dev
-bun run lint
-bun run test
-bun run test:e2e:list
-bun run test:e2e
-bun run build
+bun run dev          # 启动开发服务器
+bun run lint         # ESLint 与模块边界检查
+bun run typecheck    # TypeScript 类型检查
+bun test             # 单元测试
+bun run build        # 生产构建
+bun run check        # lint + typecheck + deadcode
 ```
 
-## Playwright 浏览器 E2E
-
-E2E 场景见 `tests/e2e/` 目录。
-
-运行前准备：
-
-1. 启动本地后端与前端。
-2. 在本仓库 `tests/e2e/fixtures/` 下准备统一场景清单，例如：
+运行浏览器端到端测试：
 
 ```bash
-cp tests/e2e/fixtures/three-end-first-batch.example.json tests/e2e/fixtures/three-end-first-batch.local.json
-```
-
-3. 在 `imboy-admin-frontend` 下准备 `.env.e2e`，可直接参考 `.env.e2e.example`。
-4. 将 `IMBOY_TEST_SCENARIO_MANIFEST` 指向你的本地场景清单。
-5. 安装浏览器二进制：
-
-```bash
+cp .env.e2e.example .env.e2e
+# 编辑 .env.e2e，填入本地测试环境
 bun run test:e2e:install
+bun run test:e2e
 ```
 
-推荐先做 preflight：
+## 代码入口
 
-```bash
-node tests/e2e/scripts/check_scenario_manifest.mjs --strict tests/e2e/fixtures/three-end-first-batch.local.json
+```text
+src/pages/        页面
+src/components/   通用组件
+src/modules/      业务模块及其 API
+src/services/     HTTP 客户端和历史共享服务
+src/stores/       Zustand 状态
+src/types/        TypeScript 类型
+src/test/         测试工具
+tests/e2e/        Playwright 端到端测试
 ```
 
-运行 E2E 测试：
+## 开发前记住
 
-```bash
-bun run test:e2e              # 运行全部 E2E
-bun run test:e2e:headed       # 有头模式
-PLAYWRIGHT_DISABLE_WEBSERVER=1 bun run test:e2e:list  # 仅枚举用例
-```
+- 新业务 API 放在 `src/modules/*/api`，模块外通过公开入口导入。
+- 64 位 TSID 使用 `EntityId`，不要转成 `number`。
+- 列表页统一使用 `DataTablePagination`，筛选变化后重置到第 1 页。
+- 提交前至少运行 `bun run lint`、`bun test` 和 `bun run build`。
 
-`playwright.config.ts` 会自动读取 `.env.e2e`，命令行显式传入的环境变量优先级更高。
-- 管理后台登录验证码在 `local/dev/test` 环境支持固定验证码 `1234`，用于浏览器自动化；生产环境不生效。
-- 普通登录用例使用 `IMBOY_ADMIN_E2E_ACCOUNT` / `IMBOY_ADMIN_E2E_PASSWORD`。
-- 管理员与角色页建议使用超级管理员账号，可单独提供 `IMBOY_ADMIN_E2E_SUPER_ACCOUNT` / `IMBOY_ADMIN_E2E_SUPER_PASSWORD`。
-- 举报中心和频道消息治理页依赖共享场景清单中的固定工单 / 固定消息数据。
-- `reportId` / `reportIds` / `channelId` / `pinMessageId` / `deleteMessageId` 应填写管理后台 UI 或 `/adm` 接口返回的 ID，而不是默认假设数据库自增主键。
-- `tests/e2e/fixtures/three-end-first-batch.example.json` 现在只保留结构占位值，复制成 `.local.json` 并替换为真实 ID 后再跑。
-- `IMBOY_ADMIN_E2E_CHANNEL_ID` 仍可作为频道 ID 的兜底变量，但推荐统一写进场景清单。
+## 继续阅读
 
-## Architecture Gates / 架构门禁
+- [项目约定](./CLAUDE.md)
+- [设计规范](./DESIGN.md)
+- [模块地图](./docs/module_map.md)
+- [管理员与角色接口](./docs/api-contracts/admin_role_backend_api_contract.md)
+- [举报中心三端契约](./docs/api-contracts/report_center_3end_api_contract.md)
 
-- 模块边界 lint：`bun run lint`
-- 生产构建验证：`bun run build`
-- 约束规则：模块外代码优先从 `src/modules/<domain>` 公开入口导入，不能继续直连已建 barrel 的 `src/pages/*`、`src/services/api/*` 或 `src/modules/<domain>/*` 内部路径
+## 许可证
 
-后端接口就绪检查（默认检查 `http://127.0.0.1:9800/adm`）：
-
-```bash
-bash scripts/check_report_backend_readiness.sh
-bash scripts/check_admin_role_backend_readiness.sh
-
-# 自定义后端地址
-IMBOY_ADMIN_BASE_URL='http://127.0.0.1:9800/adm' bash scripts/check_report_backend_readiness.sh
-IMBOY_ADMIN_BASE_URL='http://127.0.0.1:9800/adm' bash scripts/check_admin_role_backend_readiness.sh
-
-# fail-fast gate mode
-bash scripts/check_report_backend_readiness.sh --strict
-bash scripts/check_admin_role_backend_readiness.sh --strict
-```
-
-说明：反馈工作流配置接口当前没有独立的 readiness 脚本，建议结合 `bun test src/services/api/feedbackWorkflowConfig.test.ts` 与页面联调一起验证。
-
-## 鉴权模型
-
-- 会话基于 Cookie（`withCredentials: true`）
-- 受保护路由入口：`src/components/auth/ProtectedRoute.tsx`
-- API 层 401 处理采用事件通知（`imboy:auth-expired`），由路由守卫统一执行登出与跳转
-
-## CI
-
-GitHub Actions：`.github/workflows/ci.yml`
-
-流水线默认执行：
-
-- `bun install --frozen-lockfile`
-- `bun run lint`
-- `bun run test`
-- `bun run build`
-
-可选后端联调门禁：
-
-- 配置仓库变量 `IMBOY_ADMIN_BASE_URL` 后，CI 会执行：
-  - `bash scripts/check_report_backend_readiness.sh --strict`
-  - `bash scripts/check_admin_role_backend_readiness.sh --strict`
-- 任一关键端点不是 `READY`（含 `MISSING/UNKNOWN/UNREACHABLE`）将直接失败。
-
-## 目录约定
-
-- 页面：`src/pages`
-- 组件：`src/components`
-- API：新代码一律放 `src/modules/*/api`；`src/services/api` 仅余历史共享层，不新增
-- 状态：`src/stores`
-- 类型：`src/types`
-
-## 联调建议
-
-- 后端本地启动后，先访问登录页检查 Cookie 下发。
-- 若接口返回 401，前端会发出 `imboy:auth-expired` 事件，由 `ProtectedRoute` 收敛处理。
-- 若发生跨域问题，优先检查后端 CORS 白名单与 `Origin` 是否匹配。
-
-## 联调文档
-
-- [反馈模板与 SLA 配置契约](docs/feedback_workflow_api_contract.md)
-- [朋友圈举报批量处理契约](docs/moment_report_batch_resolve_api_contract.md)
-- [管理员与角色联调清单](docs/admin_role_backend_api_contract.md)
+[木兰宽松许可证，第 2 版](./LICENSE)

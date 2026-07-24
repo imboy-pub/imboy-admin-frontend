@@ -1,3 +1,5 @@
+> **契约状态**：草案（未建模进 `imboy/api/openapi.yaml`）。建模完成后请删除本文档并在 imboy/docs/reference/api/ 查阅正式参考。
+
 # Moment Report Batch Resolve API Contract
 
 本文档定义“朋友圈举报批量处理”前后端联调契约，用于管理后台与治理服务协同上线。
