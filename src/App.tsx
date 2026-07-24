@@ -24,6 +24,8 @@ const ChannelAdminPage = lazy(() => import('@/modules/channels').then((m) => ({ 
 const ChannelInvitationPage = lazy(() => import('@/modules/channels').then((m) => ({ default: m.ChannelInvitationPage })))
 const ChannelOrderPage = lazy(() => import('@/modules/channels').then((m) => ({ default: m.ChannelOrderPage })))
 const PaidChannelOpsPage = lazy(() => import('@/modules/channels').then((m) => ({ default: m.PaidChannelOpsPage })))
+const AiAgentListPage = lazy(() => import('@/modules/ai_agent').then((m) => ({ default: m.AiAgentListPage })))
+const OnboardingConfigPage = lazy(() => import('@/modules/ai_agent').then((m) => ({ default: m.OnboardingConfigPage })))
 
 const GroupListPage = lazy(() => import('@/modules/groups').then((m) => ({ default: m.GroupListPage })))
 const GroupDetailPage = lazy(() => import('@/modules/groups').then((m) => ({ default: m.GroupDetailPage })))
@@ -136,6 +138,22 @@ function App() {
                   element={(
                     <PermissionRoute permission="users:read" roles={[1, 2]}>
                       <UserListPage />
+                    </PermissionRoute>
+                  )}
+                />
+                <Route
+                  path="/ai-agents"
+                  element={(
+                    <PermissionRoute permission="users:read" roles={[1, 2]}>
+                      <AiAgentListPage />
+                    </PermissionRoute>
+                  )}
+                />
+                <Route
+                  path="/ai-agents/onboarding"
+                  element={(
+                    <PermissionRoute permission="users:read" roles={[1, 2]}>
+                      <OnboardingConfigPage />
                     </PermissionRoute>
                   )}
                 />
