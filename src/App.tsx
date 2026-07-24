@@ -26,6 +26,7 @@ const ChannelOrderPage = lazy(() => import('@/modules/channels').then((m) => ({ 
 const PaidChannelOpsPage = lazy(() => import('@/modules/channels').then((m) => ({ default: m.PaidChannelOpsPage })))
 const AiAgentListPage = lazy(() => import('@/modules/ai_agent').then((m) => ({ default: m.AiAgentListPage })))
 const OnboardingConfigPage = lazy(() => import('@/modules/ai_agent').then((m) => ({ default: m.OnboardingConfigPage })))
+const KnowledgeConfigPage = lazy(() => import('@/modules/ai_agent').then((m) => ({ default: m.KnowledgeConfigPage })))
 
 const GroupListPage = lazy(() => import('@/modules/groups').then((m) => ({ default: m.GroupListPage })))
 const GroupDetailPage = lazy(() => import('@/modules/groups').then((m) => ({ default: m.GroupDetailPage })))
@@ -154,6 +155,14 @@ function App() {
                   element={(
                     <PermissionRoute permission="users:read" roles={[1, 2]}>
                       <OnboardingConfigPage />
+                    </PermissionRoute>
+                  )}
+                />
+                <Route
+                  path="/ai-agents/knowledge"
+                  element={(
+                    <PermissionRoute permission="users:read" roles={[1, 2]}>
+                      <KnowledgeConfigPage />
                     </PermissionRoute>
                   )}
                 />

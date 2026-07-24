@@ -59,6 +59,13 @@ export interface OnboardingConfig {
   welcome_llm_enabled: boolean
 }
 
+/** 知识库配置（config 表 ai_agent.kb.* 键；供 @管家 答疑注入） */
+export interface KnowledgeConfig {
+  enabled: boolean
+  group_rule: string
+  faq: string
+}
+
 export interface AiAgentListParams {
   page: number
   size: number
@@ -111,4 +118,16 @@ export async function putOnboardingConfig(
 ): Promise<OnboardingConfig> {
   const response = await client.post('/ai_agent/onboarding_config', patch)
   return requireApiPayload<OnboardingConfig>(response.data, '/ai_agent/onboarding_config')
+}
+
+export async function getKnowledgeConfig(): Promise<KnowledgeConfig> {
+  const response = await client.get('/ai_agent/knowledge_config')
+  return requireApiPayload<KnowledgeConfig>(response.data, '/ai_agent/knowledge_config')
+}
+
+export async function putKnowledgeConfig(
+  patch: Partial<KnowledgeConfig>
+): Promise<KnowledgeConfig> {
+  const response = await client.post('/ai_agent/knowledge_config', patch)
+  return requireApiPayload<KnowledgeConfig>(response.data, '/ai_agent/knowledge_config')
 }
