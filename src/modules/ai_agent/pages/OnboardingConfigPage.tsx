@@ -169,6 +169,8 @@ export function OnboardingConfigPage() {
   const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
     queryKey: QUERY_KEY,
     queryFn: () => getOnboardingConfig(),
+    // 失败立即进入错误态由「重试」按钮手动恢复，避免静默自动重试掩盖错误（与 RolePermissionPage 一致）
+    retry: false,
   })
 
   if (isLoading) return <LoadingState message="加载新手引导配置..." />

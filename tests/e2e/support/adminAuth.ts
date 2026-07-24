@@ -41,15 +41,16 @@ export function requireAdminCredentials(kind: CredentialKind = 'default'): Admin
 export async function loginAsAdmin(page: Page, credentials: AdminCredentials): Promise<void> {
   await page.goto('/login')
 
-  await expect(page.getByLabel('账号')).toBeVisible()
-  await expect(page.getByLabel('密码')).toBeVisible()
-  await expect(page.getByLabel('验证码')).toBeVisible()
+  // exact: 避免命中 aria-label 含「密码/验证码」的辅助按钮（显示密码、刷新验证码）
+  await expect(page.getByLabel('账号', { exact: true })).toBeVisible()
+  await expect(page.getByLabel('密码', { exact: true })).toBeVisible()
+  await expect(page.getByLabel('验证码', { exact: true })).toBeVisible()
   // 验证码图片依赖后端 API，无后端时不可见，不阻塞登录
   await expect(page.getByRole('img', { name: '验证码' })).toBeVisible({ timeout: 3_000 }).catch(() => {})
 
-  await page.getByLabel('账号').fill(credentials.account)
-  await page.getByLabel('密码').fill(credentials.password)
-  await page.getByLabel('验证码').fill(FIXED_TEST_CAPTCHA)
+  await page.getByLabel('账号', { exact: true }).fill(credentials.account)
+  await page.getByLabel('密码', { exact: true }).fill(credentials.password)
+  await page.getByLabel('验证码', { exact: true }).fill(FIXED_TEST_CAPTCHA)
   await page.getByRole('button', { name: '登录' }).click()
 
   await expect(page).toHaveURL(/\/dashboard(?:\?.*)?$/)
