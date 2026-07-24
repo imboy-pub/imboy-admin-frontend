@@ -1,3 +1,5 @@
+> **契约状态**：草案（未建模进 `imboy/api/openapi.yaml`）。建模完成后请删除本文档并在 imboy/docs/reference/api/ 查阅正式参考。
+
 # Feedback Workflow API Contract
 
 本文档定义反馈模板与 SLA 配置的前后端契约，供管理后台与配置服务联调使用。
