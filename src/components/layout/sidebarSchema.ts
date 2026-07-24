@@ -88,6 +88,8 @@ export const defaultConfig: SidebarMenuConfig = {
         { path: '/channels', icon: 'Radio', label: '频道管理', roles: [1, 2], permission: 'channels:read' },
         { path: '/channels/paid', icon: 'DollarSign', label: '付费频道运营', roles: [1, 2], permission: 'channels:read' },
         { path: '/moments', icon: 'Camera', label: '朋友圈管理', roles: [1, 2], permission: 'moments:read' },
+        { path: '/ai-agents', icon: 'Bot', label: 'AI 助手管理', roles: [1, 2], permission: 'users:read' },
+        { path: '/ai-agents/onboarding', icon: 'Bot', label: '新手引导配置', roles: [1, 2], permission: 'users:read' },
         { path: '/analytics', icon: 'BarChart3', label: '运营分析', roles: [1, 2], permission: 'analytics:view' },
       ],
     },
