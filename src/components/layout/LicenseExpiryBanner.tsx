@@ -9,6 +9,12 @@ export function LicenseExpiryBanner() {
     queryFn: getLicenseStatus,
     staleTime: 5 * 60_000,
     // ponytail: silent on error — layout must not crash on license fetch failure
+    // 上限：接口失败时 data 为 undefined → 直接 return null，横幅整条消失。本组件是
+    // 「授权即将/已经到期」在全站唯一的被动提示通道（LicensePage 有 ErrorState，但要人主动点进去），
+    // 所以「license 已过期 + 接口挂掉」会退化成到期当天零预警，且与「授权正常」界面上无法区分。
+    // 升级触发：后端一旦对过期授权做真实功能降级，或线上出现一次「到期无提示」事故，
+    // 就改为 isError 时渲染灰色「授权状态未知，请检查」条，
+    // 对齐 DashboardPage SystemStatusPanel「不假绿」的既有约定。
   })
 
   // 挂载时取一次当前时间（useState 惰性初始化器，仅运行一次）：到期天数无需渲染期实时刷新
