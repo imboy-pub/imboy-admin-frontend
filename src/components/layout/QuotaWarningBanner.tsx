@@ -13,12 +13,10 @@ export function QuotaWarningBanner() {
     queryKey: ['license-status'],
     queryFn: getLicenseStatus,
     staleTime: 5 * 60_000,
-    // ponytail: silent on error — layout must not crash on license fetch failure
-    // 上限：接口失败时 data 为 undefined → 直接 return null，横幅整条消失，
-    // 「拉不到授权」与「授权健康」在界面上完全不可区分；配额已超但接口挂掉时零提示。
-    // 升级触发：后端一旦对超配额做真实功能降级（拒绝新用户注册/建群），或线上出现一次
-    // 「超配额无提示」事故，就改为 isError 时渲染灰色「授权状态未知」条，
-    // 对齐 DashboardPage SystemStatusPanel「不假绿」的既有约定。
+    // ponytail: 错误态由 LicenseExpiryBanner 统一渲染，本组件失败时保持静默 —— 二者共用同一个
+    // ['license-status'] 查询，一次失败在两处各渲染一条会得到一字不差的重复提示。
+    // 上限：依赖 LicenseExpiryBanner 在 AdminLayout 中一同挂载；若它被摘掉，需把那段
+    // isError 灰色「授权状态未知」条搬到这里，否则配额通道又会退回静默失败。
   })
 
   if (!data || !data.max_users || data.max_users <= 0) return null

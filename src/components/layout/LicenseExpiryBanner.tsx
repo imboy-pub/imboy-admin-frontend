@@ -1,24 +1,34 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { AlertTriangle, XCircle } from 'lucide-react'
+import { AlertTriangle, XCircle, HelpCircle } from 'lucide-react'
 import { getLicenseStatus } from '@/services/api/stats'
 
 export function LicenseExpiryBanner() {
-  const { data } = useQuery({
+  const { data, isError } = useQuery({
     queryKey: ['license-status'],
     queryFn: getLicenseStatus,
     staleTime: 5 * 60_000,
-    // ponytail: silent on error — layout must not crash on license fetch failure
-    // 上限：接口失败时 data 为 undefined → 直接 return null，横幅整条消失。本组件是
-    // 「授权即将/已经到期」在全站唯一的被动提示通道（LicensePage 有 ErrorState，但要人主动点进去），
-    // 所以「license 已过期 + 接口挂掉」会退化成到期当天零预警，且与「授权正常」界面上无法区分。
-    // 升级触发：后端一旦对过期授权做真实功能降级，或线上出现一次「到期无提示」事故，
-    // 就改为 isError 时渲染灰色「授权状态未知，请检查」条，
-    // 对齐 DashboardPage SystemStatusPanel「不假绿」的既有约定。
+    // ponytail: 失败不再静默 —— isError 时渲染灰色「授权状态未知」条（下方），
+    // 对齐 DashboardPage SystemStatusPanel「健康接口未响应时显示灰色未知而非假绿」的既有约定。
+    // 上限：不区分 401/网络中断/后端 5xx，也不提供重试按钮；只告诉运营方「这条通道当前不可信」。
+    // 升级触发：出现「明明有权限却长期显示未知」的误报，再按 error 分类文案 / 加重试入口。
   })
 
   // 挂载时取一次当前时间（useState 惰性初始化器，仅运行一次）：到期天数无需渲染期实时刷新
   const [nowMs] = useState(() => Date.now())
+
+  // ponytail: 「未知」条只在本组件渲染一条。QuotaWarningBanner 共用同一个 ['license-status']
+  // 查询，同一次失败若两处都渲染会得到两条一字不差的重复提示；错误源只有一个，提示就只该有一条。
+  // 上限：本条与 QuotaWarningBanner 的「静默」是一对约定，两者在 AdminLayout 里相邻挂载；
+  // 若将来 LicenseExpiryBanner 被摘掉，需把这段错误态搬到留下的那个横幅里。
+  if (isError) {
+    return (
+      <div className="flex items-center gap-2 px-4 py-2 text-sm bg-muted text-muted-foreground border-b">
+        <HelpCircle className="h-4 w-4 shrink-0" />
+        <span>授权状态未知：暂时无法获取授权信息，到期与配额预警当前均不可用，请检查后端服务</span>
+      </div>
+    )
+  }
 
   if (!data || !data.expires_at) return null
 
