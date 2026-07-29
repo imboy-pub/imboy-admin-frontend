@@ -130,8 +130,14 @@ function BatchActionBarContent({
         const hasPermissionRequirement = Boolean(permission)
         const hasRoleRequirement = Array.isArray(action.roles) && action.roles.length > 0
 
+        // riskLevel='high' 即破坏性批量操作（删除/封禁等），fail-closed：
+        // 权限集为空（/rbac/me 不可达或返回空）时必须拒绝。此前无条件
+        // `grantedPermissions.size === 0 ||` 放行 —— RBAC 一挂，批量删除/封禁
+        // 就对所有登录管理员开放。低/中风险动作保持原有降级行为，
+        // 避免权限服务抖动就让整个管理台不可用。
+        const isHighRisk = action.riskLevel === 'high'
         const permissionAllowed = !hasPermissionRequirement ||
-          grantedPermissions.size === 0 ||
+          (grantedPermissions.size === 0 && !isHighRisk) ||
           (permission != null && grantedPermissions.has(permission))
 
         const roleAllowed = !hasRoleRequirement ||

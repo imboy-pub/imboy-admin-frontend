@@ -8,6 +8,14 @@ type UseAdminPermissionOptions = {
   permission?: string | string[]
   roles?: number[]
   enabled?: boolean
+  /**
+   * 敏感写操作（删除、封禁、批量处置、授权变更等）。
+   *
+   * 默认的角色级降级是 fail-open：/rbac/me 不可用时按角色放行，避免细粒度
+   * 权限服务抖动就把管理员全部锁在门外。但敏感写操作必须反过来——权限数据
+   * 拿不到就一律拒绝：宁可挡住合法操作，也不能在权限未知时放行破坏性动作。
+   */
+  sensitive?: boolean
 }
 
 function normalizeRoleIds(value: unknown): number[] {
@@ -24,6 +32,7 @@ function normalizeRoleIds(value: unknown): number[] {
 export function useAdminPermission(options: UseAdminPermissionOptions = {}) {
   const { permission, roles } = options
   const gateEnabled = options.enabled !== false
+  const isSensitive = options.sensitive === true
   const normalizedPermissions = (Array.isArray(permission) ? permission : [permission])
     .map((item) => (typeof item === 'string' ? item.trim() : ''))
     .filter((item) => item.length > 0)
@@ -91,7 +100,17 @@ export function useAdminPermission(options: UseAdminPermissionOptions = {}) {
     // 加载中时（rbacLoading || configLoading 为 true）返回 false，
     // 避免在数据到来之前意外开放访问。
     if (rbacLoading || configLoading) return false
-    // SECURITY(H11): fail-open design
+
+    // 敏感写操作 fail-closed：权限数据不可用时一律拒绝，不降级到角色级放行。
+    if (isSensitive) {
+      console.warn(
+        '[SECURITY] RBAC endpoint unavailable; denying sensitive action. Ensure /rbac/me is reachable in production.'
+      )
+      return false
+    }
+
+    // 非敏感操作维持角色级降级（fail-open by design）：
+    // /rbac/me 抖动不应把管理员整个锁在门外。
     console.warn('[SECURITY] RBAC endpoint unavailable, falling back to role-level access. Ensure /rbac/me is reachable in production.')
     // 生产部署必须确保 /rbac/me 端点可用，否则细粒度权限形同虚设
     return roleAllowed
@@ -103,6 +122,7 @@ export function useAdminPermission(options: UseAdminPermissionOptions = {}) {
     rbacLoading,
     configLoading,
     roleAllowed,
+    isSensitive,
   ])
 
   const waitingForRoleResolution =
