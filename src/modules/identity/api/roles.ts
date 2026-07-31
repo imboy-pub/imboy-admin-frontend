@@ -1,12 +1,8 @@
 import client from '@/services/api/client'
-import { fetchSidebarMenuConfig } from '@/services/api/adminConfig'
 import { requireApiPayload } from '@/services/api/responseAdapter'
 import { ApiResponse, PaginatedResponse } from '@/types/api'
 import {
-  buildEndpointCandidates,
-  isEndpointUnavailable,
-  tryWithFallback,
-  tryPutWithPostFallback,
+  resolveEndpoint,
 } from '@/lib/endpointCandidates'
 import { ROLE_PICKER_FETCH_SIZE } from '@/lib/pagination'
 
@@ -30,27 +26,23 @@ export interface RoleListPayload extends PaginatedResponse<RoleItem> {
   source: 'list' | 'config'
 }
 
-const DEFAULT_ROLE_LIST_ENDPOINTS = ['/role/list', '/roles/list']
-const DEFAULT_ROLE_CREATE_ENDPOINTS = ['/role/create', '/roles/create']
-const DEFAULT_ROLE_PERMISSION_SAVE_ENDPOINTS = [
-  '/role/permissions/save',
-  '/role/permission/update',
-  '/roles/permissions/save',
-]
-const DEFAULT_ROLE_DISABLE_ENDPOINTS = ['/role/disable', '/roles/disable']
-const DEFAULT_ROLE_DELETE_ENDPOINTS = ['/role/delete', '/roles/delete']
+// 与 imboy_router.erl 的 /api/adm/role/* 一一对应（后端另注册了 /roles/* 等
+// 别名指向同一 action，此处只认规范形式，不再运行时探测）
+const DEFAULT_ROLE_LIST_ENDPOINT = '/role/list'
+const DEFAULT_ROLE_CREATE_ENDPOINT = '/role/create'
+const DEFAULT_ROLE_PERMISSION_SAVE_ENDPOINT = '/role/permissions/save'
+const DEFAULT_ROLE_DISABLE_ENDPOINT = '/role/disable'
+const DEFAULT_ROLE_DELETE_ENDPOINT = '/role/delete'
 
 
-const ROLE_LIST_ENDPOINTS = buildEndpointCandidates(import.meta.env.VITE_ROLE_LIST_ENDPOINT, DEFAULT_ROLE_LIST_ENDPOINTS)
-const ROLE_CREATE_ENDPOINTS = buildEndpointCandidates(import.meta.env.VITE_ROLE_CREATE_ENDPOINT, DEFAULT_ROLE_CREATE_ENDPOINTS)
-const ROLE_PERMISSION_SAVE_ENDPOINTS = buildEndpointCandidates(
+const ROLE_LIST_ENDPOINT = resolveEndpoint(import.meta.env.VITE_ROLE_LIST_ENDPOINT, DEFAULT_ROLE_LIST_ENDPOINT)
+const ROLE_CREATE_ENDPOINT = resolveEndpoint(import.meta.env.VITE_ROLE_CREATE_ENDPOINT, DEFAULT_ROLE_CREATE_ENDPOINT)
+const ROLE_PERMISSION_SAVE_ENDPOINT = resolveEndpoint(
   import.meta.env.VITE_ROLE_PERMISSION_SAVE_ENDPOINT,
-  DEFAULT_ROLE_PERMISSION_SAVE_ENDPOINTS
+  DEFAULT_ROLE_PERMISSION_SAVE_ENDPOINT
 )
-const ROLE_DISABLE_ENDPOINTS = buildEndpointCandidates(import.meta.env.VITE_ROLE_DISABLE_ENDPOINT, DEFAULT_ROLE_DISABLE_ENDPOINTS)
-const ROLE_DELETE_ENDPOINTS = buildEndpointCandidates(import.meta.env.VITE_ROLE_DELETE_ENDPOINT, DEFAULT_ROLE_DELETE_ENDPOINTS)
-
-export { isEndpointUnavailable as isRoleEndpointUnavailable }
+const ROLE_DISABLE_ENDPOINT = resolveEndpoint(import.meta.env.VITE_ROLE_DISABLE_ENDPOINT, DEFAULT_ROLE_DISABLE_ENDPOINT)
+const ROLE_DELETE_ENDPOINT = resolveEndpoint(import.meta.env.VITE_ROLE_DELETE_ENDPOINT, DEFAULT_ROLE_DELETE_ENDPOINT)
 
 function normalizeStringArray(input: unknown): string[] {
   if (Array.isArray(input)) {
@@ -146,76 +138,42 @@ function normalizeRoleListPayload(payload: unknown): PaginatedResponse<RoleItem>
   }
 }
 
-function getFromCandidates(endpoints: string[], params?: Record<string, unknown>): Promise<ApiResponse<unknown>> {
-  return tryWithFallback(
-    endpoints,
-    (ep) => client.get(ep, { params }).then((r) => r.data as ApiResponse<unknown>)
-  )
+function getEndpoint(endpoint: string, params?: Record<string, unknown>): Promise<ApiResponse<unknown>> {
+  return client.get(endpoint, { params }).then((r) => r.data as ApiResponse<unknown>)
 }
 
-function postToCandidates(endpoints: string[], body: Record<string, unknown>): Promise<ApiResponse<Record<string, never>>> {
-  return tryWithFallback(
-    endpoints,
-    (ep) => client.post(ep, body).then((r) => r.data as ApiResponse<Record<string, never>>)
-  )
+function postEndpoint(endpoint: string, body: Record<string, unknown>): Promise<ApiResponse<Record<string, never>>> {
+  return client.post(endpoint, body).then((r) => r.data as ApiResponse<Record<string, never>>)
 }
 
-function putOrPostToCandidates(endpoints: string[], body: Record<string, unknown>): Promise<ApiResponse<Record<string, never>>> {
-  return tryPutWithPostFallback(
-    endpoints,
-    (ep) => client.put(ep, body).then((r) => r.data as ApiResponse<Record<string, never>>),
-    (ep) => client.post(ep, body).then((r) => r.data as ApiResponse<Record<string, never>>)
-  )
+// adm_role_handler:permissions_save_action/3 对 PUT 与 POST 都路由到同一个
+// save_permissions_handle/2，无需方法协商
+function putEndpoint(endpoint: string, body: Record<string, unknown>): Promise<ApiResponse<Record<string, never>>> {
+  return client.put(endpoint, body).then((r) => r.data as ApiResponse<Record<string, never>>)
 }
 
-async function getRoleListByConfigFallback(): Promise<RoleListPayload> {
-  const sidebarConfig = await fetchSidebarMenuConfig()
-  const roles = Array.isArray(sidebarConfig.rbac?.roles) ? sidebarConfig.rbac?.roles : []
-  const items: RoleItem[] = roles
-    .map((item) => ({
-      id: Number(item.id),
-      name: item.name || '',
-      description: item.description || '',
-      permissions: Array.isArray(item.permissions)
-        ? item.permissions.map((permission) => String(permission).trim()).filter((permission) => permission.length > 0)
-        : [],
-      status: 1,
-      created_at: '',
-    }))
-    .filter((item) => Number.isFinite(item.id) && item.id > 0 && item.name.length > 0)
-
-  const size = Math.max(items.length, 1)
-  return {
-    items,
-    page: 1,
-    size,
-    total: items.length,
-    total_pages: 1,
-    source: 'config',
-  }
-}
 
 export async function getRoleList(): Promise<ApiResponse<unknown>> {
-  return getFromCandidates(ROLE_LIST_ENDPOINTS, {
+  return getEndpoint(ROLE_LIST_ENDPOINT, {
     page: 1,
     size: ROLE_PICKER_FETCH_SIZE,
     status: -1,
   })
 }
 
+// 注：此处曾有一条 catch 分支，在 isEndpointUnavailable(error) 为真时回落到
+// 由侧边栏配置推导角色列表。移除理由：
+//   1) 判据不可靠 —— 业务错误码 404 与"路由不存在"在 client.ts 压平后无法区分；
+//   2) /api/adm/role/list 在 imboy_router.erl 中确实注册，回落分支从未被正当触发；
+//   3) 回落产出的角色对象是残缺的（status 硬编码 1、created_at 为空），
+//      静默展示错误数据比报错更糟。
+// 错误如实向上抛，由调用方与 ErrorBoundary 呈现。
 export async function getRoleListPayload(): Promise<RoleListPayload> {
-  try {
-    const payload = requireApiPayload(await getRoleList(), '/role/list')
-    const normalized = normalizeRoleListPayload(payload)
-    return {
-      ...normalized,
-      source: 'list',
-    }
-  } catch (error) {
-    if (!isEndpointUnavailable(error)) {
-      throw error
-    }
-    return getRoleListByConfigFallback()
+  const payload = requireApiPayload(await getRoleList(), '/role/list')
+  const normalized = normalizeRoleListPayload(payload)
+  return {
+    ...normalized,
+    source: 'list',
   }
 }
 
@@ -231,14 +189,14 @@ export async function createRole(input: CreateRoleInput): Promise<ApiResponse<Re
     body.description = input.description.trim()
   }
 
-  return postToCandidates(ROLE_CREATE_ENDPOINTS, body)
+  return postEndpoint(ROLE_CREATE_ENDPOINT, body)
 }
 
 export async function updateRolePermissions(
   roleId: number,
   permissions: string[]
 ): Promise<ApiResponse<Record<string, never>>> {
-  return putOrPostToCandidates(ROLE_PERMISSION_SAVE_ENDPOINTS, {
+  return putEndpoint(ROLE_PERMISSION_SAVE_ENDPOINT, {
     role_id: roleId,
     permissions: normalizeStringArray(permissions),
   })
@@ -246,7 +204,7 @@ export async function updateRolePermissions(
 
 /** 停用角色（软停用，status→0）。内置角色（id<=3）由后端拒绝。 */
 export async function disableRole(roleId: number): Promise<ApiResponse<Record<string, never>>> {
-  return postToCandidates(ROLE_DISABLE_ENDPOINTS, { role_id: roleId })
+  return postEndpoint(ROLE_DISABLE_ENDPOINT, { role_id: roleId })
 }
 
 /**
@@ -254,5 +212,5 @@ export async function disableRole(roleId: number): Promise<ApiResponse<Record<st
  * 内置角色（id<=3）由后端拒绝。
  */
 export async function deleteRole(roleId: number): Promise<ApiResponse<Record<string, never>>> {
-  return postToCandidates(ROLE_DELETE_ENDPOINTS, { role_id: roleId })
+  return postEndpoint(ROLE_DELETE_ENDPOINT, { role_id: roleId })
 }
