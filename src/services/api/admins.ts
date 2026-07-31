@@ -2,13 +2,9 @@ import client from './client'
 import { ApiResponse, PaginatedResponse } from '@/types/api'
 import { Admin } from '@/types/admin'
 import { requireApiPayload } from './responseAdapter'
-import { getCurrentAdminPayload } from '@/modules/identity/api/auth'
 import type { EntityId } from '@/types/common'
 import {
-  buildEndpointCandidates,
-  isEndpointUnavailable,
-  tryWithFallback,
-  tryPutWithPostFallback,
+  resolveEndpoint,
 } from '@/lib/endpointCandidates'
 
 export interface AdminListParams {
@@ -38,18 +34,22 @@ interface AdminListPayload extends PaginatedResponse<Admin> {
   source: 'list' | 'current'
 }
 
-const DEFAULT_ADMIN_LIST_ENDPOINTS = ['/admin/list', '/admins/list']
-const DEFAULT_ADMIN_CREATE_ENDPOINTS = ['/admin/create', '/admins/create']
-const DEFAULT_ADMIN_ASSIGN_ROLE_ENDPOINTS = ['/admin/assign_role', '/admin/role/update', '/admins/assign-role']
-const DEFAULT_ADMIN_DISABLE_ENDPOINTS = ['/admin/disable', '/admins/disable', '/admin/delete', '/admins/delete']
+// 与 imboy_router.erl 的 /api/adm/admin/* 一一对应。
+// ⚠️ DISABLE 此前的候选链是 ['/admin/disable','/admins/disable','/admin/delete','/admins/delete']
+//    —— 禁用请求失败会回退去调**删除**。语义完全不同的两个操作被放进同一条
+//    回退链，一个"管理员不存在"的业务错误就足以把禁用升级成删除尝试。
+const DEFAULT_ADMIN_LIST_ENDPOINT = '/admin/list'
+const DEFAULT_ADMIN_CREATE_ENDPOINT = '/admin/create'
+const DEFAULT_ADMIN_ASSIGN_ROLE_ENDPOINT = '/admin/assign_role'
+const DEFAULT_ADMIN_DISABLE_ENDPOINT = '/admin/disable'
 
 
-const ADMIN_LIST_ENDPOINTS = buildEndpointCandidates(import.meta.env.VITE_ADMIN_LIST_ENDPOINT, DEFAULT_ADMIN_LIST_ENDPOINTS)
-const ADMIN_CREATE_ENDPOINTS = buildEndpointCandidates(import.meta.env.VITE_ADMIN_CREATE_ENDPOINT, DEFAULT_ADMIN_CREATE_ENDPOINTS)
-const ADMIN_DISABLE_ENDPOINTS = buildEndpointCandidates(import.meta.env.VITE_ADMIN_DISABLE_ENDPOINT, DEFAULT_ADMIN_DISABLE_ENDPOINTS)
-const ADMIN_ASSIGN_ROLE_ENDPOINTS = buildEndpointCandidates(
+const ADMIN_LIST_ENDPOINT = resolveEndpoint(import.meta.env.VITE_ADMIN_LIST_ENDPOINT, DEFAULT_ADMIN_LIST_ENDPOINT)
+const ADMIN_CREATE_ENDPOINT = resolveEndpoint(import.meta.env.VITE_ADMIN_CREATE_ENDPOINT, DEFAULT_ADMIN_CREATE_ENDPOINT)
+const ADMIN_DISABLE_ENDPOINT = resolveEndpoint(import.meta.env.VITE_ADMIN_DISABLE_ENDPOINT, DEFAULT_ADMIN_DISABLE_ENDPOINT)
+const ADMIN_ASSIGN_ROLE_ENDPOINT = resolveEndpoint(
   import.meta.env.VITE_ADMIN_ASSIGN_ROLE_ENDPOINT,
-  DEFAULT_ADMIN_ASSIGN_ROLE_ENDPOINTS
+  DEFAULT_ADMIN_ASSIGN_ROLE_ENDPOINT
 )
 
 
@@ -135,61 +135,38 @@ function normalizeAdminListPayload(payload: unknown): PaginatedResponse<Admin> {
   }
 }
 
-function getFromCandidates(endpoints: string[], params?: Record<string, unknown>): Promise<ApiResponse<unknown>> {
-  return tryWithFallback(
-    endpoints,
-    (ep) => client.get(ep, { params }).then((r) => r.data as ApiResponse<unknown>),
-    '[admins] GET'
-  )
+function getEndpoint(endpoint: string, params?: Record<string, unknown>): Promise<ApiResponse<unknown>> {
+  return client.get(endpoint, { params }).then((r) => r.data as ApiResponse<unknown>)
 }
 
-function postToCandidates(endpoints: string[], body: Record<string, unknown>): Promise<ApiResponse<Record<string, never>>> {
-  return tryWithFallback(
-    endpoints,
-    (ep) => client.post(ep, body).then((r) => r.data as ApiResponse<Record<string, never>>),
-    '[admins] POST'
-  )
+function postEndpoint(endpoint: string, body: Record<string, unknown>): Promise<ApiResponse<Record<string, never>>> {
+  return client.post(endpoint, body).then((r) => r.data as ApiResponse<Record<string, never>>)
 }
 
-function putOrPostToCandidates(endpoints: string[], body: Record<string, unknown>): Promise<ApiResponse<Record<string, never>>> {
-  return tryPutWithPostFallback(
-    endpoints,
-    (ep) => client.put(ep, body).then((r) => r.data as ApiResponse<Record<string, never>>),
-    (ep) => client.post(ep, body).then((r) => r.data as ApiResponse<Record<string, never>>),
-    '[admins]'
-  )
+// adm_admin_handler 的 assign_role 与 adm_role_handler 同样对 PUT/POST 同等处理，
+// 无需方法协商
+function putEndpoint(endpoint: string, body: Record<string, unknown>): Promise<ApiResponse<Record<string, never>>> {
+  return client.put(endpoint, body).then((r) => r.data as ApiResponse<Record<string, never>>)
 }
 
 async function getAdminList(
   params: AdminListParams = { page: 1, size: 10, status: -1 }
 ): Promise<ApiResponse<unknown>> {
-  return getFromCandidates(ADMIN_LIST_ENDPOINTS, params as Record<string, unknown>)
+  return getEndpoint(ADMIN_LIST_ENDPOINT, params as Record<string, unknown>)
 }
 
 export async function getAdminListPayload(
   params: AdminListParams = { page: 1, size: 10, status: -1 }
 ): Promise<AdminListPayload> {
-  try {
-    const payload = requireApiPayload(await getAdminList(params), '/admin/list')
-    const normalized = normalizeAdminListPayload(payload)
-    return {
-      ...normalized,
-      source: 'list',
-    }
-  } catch (error) {
-    if (!isEndpointUnavailable(error)) {
-      throw error
-    }
-
-    const currentAdmin = normalizeAdmin(await getCurrentAdminPayload())
-    return {
-      items: [currentAdmin],
-      page: 1,
-      size: 1,
-      total: 1,
-      total_pages: 1,
-      source: 'current',
-    }
+  // 注：此处曾有一条 catch 分支，在 isEndpointUnavailable(error) 为真时回落成
+  // "只显示当前管理员"的单条列表。移除理由同 roles.ts：判据不可靠，且
+  // /api/adm/admin/list 确实注册；静默展示一条残缺数据会让管理员误以为
+  // 系统里只有自己，比直接报错危险得多。
+  const payload = requireApiPayload(await getAdminList(params), '/admin/list')
+  const normalized = normalizeAdminListPayload(payload)
+  return {
+    ...normalized,
+    source: 'list',
   }
 }
 
@@ -214,16 +191,16 @@ export async function createAdmin(input: CreateAdminInput): Promise<ApiResponse<
     body.mobile = input.mobile.trim()
   }
 
-  return postToCandidates(ADMIN_CREATE_ENDPOINTS, body)
+  return postEndpoint(ADMIN_CREATE_ENDPOINT, body)
 }
 
 export async function assignAdminRole(input: AssignAdminRoleInput): Promise<ApiResponse<Record<string, never>>> {
-  return putOrPostToCandidates(ADMIN_ASSIGN_ROLE_ENDPOINTS, {
+  return putEndpoint(ADMIN_ASSIGN_ROLE_ENDPOINT, {
     admin_id: input.admin_id,
     role_id: input.role_id,
   })
 }
 
 export async function disableAdmin(adminId: EntityId): Promise<ApiResponse<Record<string, never>>> {
-  return postToCandidates(ADMIN_DISABLE_ENDPOINTS, { admin_id: adminId })
+  return postEndpoint(ADMIN_DISABLE_ENDPOINT, { admin_id: adminId })
 }

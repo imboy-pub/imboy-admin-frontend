@@ -61,49 +61,30 @@ describe('getAdminListPayload', () => {
     expect(result.total).toBe(1)
   })
 
-  it('falls back to secondary endpoint /admins/list when primary returns 404', async () => {
-    let callCount = 0
+  // 反转：探测/回退机制已移除。误判会重放写请求，而判据在结构上不可能正确
+  // （client.ts 把业务错误码与 HTTP 状态压平成同一个 {code,msg}）。
+  // 现在锁定单一端点，错误如实抛出，且**不得**发出第二个请求。
+  it('does not retry another endpoint when list fails', async () => {
+    const calledUrls: string[] = []
     mutableClient.get = async (url: string) => {
-      callCount++
-      if (url === '/admin/list') throw { code: 404, msg: 'not found' }
-      if (url === '/admins/list') {
-        return {
-          data: {
-            code: 0, msg: 'ok',
-            payload: { items: [rawAdminFixture], page: 1, size: 10, total: 1, total_pages: 1 },
-          },
-        }
-      }
-      throw new Error(`unexpected GET: ${url}`)
+      calledUrls.push(url)
+      throw { code: 404, msg: 'not found' }
     }
 
-    const result = await getAdminListPayload()
-    expect(result.source).toBe('list')
-    expect(callCount).toBe(2)
-    expect(result.items[0].account).toBe('admin')
+    await expect(getAdminListPayload()).rejects.toMatchObject({ code: 404 })
+    expect(calledUrls).toEqual(['/admin/list'])
   })
 
-  it('falls back to current admin singleton when all list endpoints unavailable', async () => {
-    mutableClient.get = async (url: string) => {
-      if (url === '/admin/list' || url === '/admins/list') {
-        throw { code: 404, msg: 'not found' }
-      }
-      if (url === '/current') {
-        return {
-          data: {
-            code: 0, msg: 'ok',
-            payload: rawAdminFixture,
-          },
-        }
-      }
-      throw new Error(`unexpected GET: ${url}`)
+  // 反转：探测/回退机制已移除。误判会重放写请求，而判据在结构上不可能正确
+  // （client.ts 把业务错误码与 HTTP 状态压平成同一个 {code,msg}）。
+  // 现在锁定单一端点，错误如实抛出，且**不得**发出第二个请求。
+  it('does not degrade to a current-admin singleton list', async () => {
+    // 静默展示一条残缺数据会让管理员误以为系统里只有自己
+    mutableClient.get = async () => {
+      throw { code: 404, msg: 'not found' }
     }
 
-    const result = await getAdminListPayload()
-    expect(result.source).toBe('current')
-    expect(result.items).toHaveLength(1)
-    expect(result.items[0].account).toBe('admin')
-    expect(result.total).toBe(1)
+    await expect(getAdminListPayload()).rejects.toMatchObject({ code: 404 })
   })
 
   it('normalizes admin fields from alternative key names', async () => {
@@ -236,18 +217,18 @@ describe('createAdmin', () => {
     expect(capturedBody.pwd).toBe('secret')
   })
 
-  it('falls back to secondary endpoint when primary returns 404', async () => {
+  // 反转：探测/回退机制已移除。误判会重放写请求，而判据在结构上不可能正确
+  // （client.ts 把业务错误码与 HTTP 状态压平成同一个 {code,msg}）。
+  // 现在锁定单一端点，错误如实抛出，且**不得**发出第二个请求。
+  it('does not retry another endpoint when create fails', async () => {
     const calledUrls: string[] = []
-
     mutableClient.post = async (url: string) => {
       calledUrls.push(url)
-      if (url === '/admin/create') throw { code: 404, msg: 'not found' }
-      return { data: { code: 0, msg: 'ok', payload: {} } }
+      throw { code: 404, msg: 'not found' }
     }
 
-    await createAdmin({ account: 'test', pwd: 'pass', role_id: 1 })
-    expect(calledUrls).toContain('/admin/create')
-    expect(calledUrls).toContain('/admins/create')
+    await expect(createAdmin({ account: 'a', pwd: 'p', role_id: 2 })).rejects.toMatchObject({ code: 404 })
+    expect(calledUrls).toEqual(['/admin/create'])
   })
 })
 
@@ -271,24 +252,23 @@ describe('assignAdminRole', () => {
     expect(capturedBody.role_id).toBe(2)
   })
 
-  it('falls back to POST on same endpoint when PUT returns 404', async () => {
-    const calls: Array<{ method: string; url: string }> = []
-
+  // 反转：探测/回退机制已移除。误判会重放写请求，而判据在结构上不可能正确
+  // （client.ts 把业务错误码与 HTTP 状态压平成同一个 {code,msg}）。
+  // 现在锁定单一端点，错误如实抛出，且**不得**发出第二个请求。
+  it('does not fall back to POST when PUT fails', async () => {
+    const putUrls: string[] = []
+    const postUrls: string[] = []
     mutableClient.put = async (url: string) => {
-      calls.push({ method: 'PUT', url })
-      throw { code: 404, msg: 'method not allowed' }
+      putUrls.push(url)
+      throw { code: 404, msg: 'not found' }
     }
     mutableClient.post = async (url: string) => {
-      calls.push({ method: 'POST', url })
+      postUrls.push(url)
       return { data: { code: 0, msg: 'ok', payload: {} } }
     }
 
-    await assignAdminRole({ admin_id: '10001', role_id: 3 })
-
-    expect(calls.some((c) => c.method === 'PUT')).toBe(true)
-    expect(calls.some((c) => c.method === 'POST')).toBe(true)
-    // Both calls to the same endpoint
-    const urls = [...new Set(calls.map((c) => c.url))]
-    expect(urls).toHaveLength(1)
+    await expect(assignAdminRole('1', 2)).rejects.toMatchObject({ code: 404 })
+    expect(putUrls).toEqual(['/admin/assign_role'])
+    expect(postUrls).toEqual([])
   })
 })

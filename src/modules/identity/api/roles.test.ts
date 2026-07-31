@@ -1,14 +1,12 @@
 /**
  * Unit tests for identity/api/roles:
- *   isRoleEndpointUnavailable — pure classifier
- *   getRoleListPayload — primary + fallback behavior
- *   createRole — endpoint fallback, body normalization
- *   updateRolePermissions — PUT → POST fallback
+ *   getRoleListPayload — 正常路径；端点探测/回退已移除
+ *   createRole — body normalization
+ *   updateRolePermissions — PUT（后端 PUT/POST 同一 handler，无需协商）
  */
 import { afterEach, describe, expect, it } from 'bun:test'
 import client from '@/services/api/client'
 import {
-  isRoleEndpointUnavailable,
   getRoleListPayload,
   createRole,
   updateRolePermissions,
@@ -26,44 +24,6 @@ afterEach(() => {
   mutableClient.get = originalGet
   mutableClient.post = originalPost
   mutableClient.put = originalPut
-})
-
-// ---------------------------------------------------------------------------
-// isRoleEndpointUnavailable
-// ---------------------------------------------------------------------------
-describe('isRoleEndpointUnavailable', () => {
-  it('returns true for code 404', () => {
-    expect(isRoleEndpointUnavailable({ code: 404, msg: 'not found' })).toBe(true)
-  })
-
-  it('returns true for code 405', () => {
-    expect(isRoleEndpointUnavailable({ code: 405, msg: 'method not allowed' })).toBe(true)
-  })
-
-  it('returns true for code 501', () => {
-    expect(isRoleEndpointUnavailable({ code: 501, msg: 'not implemented' })).toBe(true)
-  })
-
-  it('returns true for Error with "not found" message', () => {
-    expect(isRoleEndpointUnavailable(new Error('endpoint not found'))).toBe(true)
-  })
-
-  it('returns true for Error with "method not allowed" message', () => {
-    expect(isRoleEndpointUnavailable(new Error('method not allowed for this endpoint'))).toBe(true)
-  })
-
-  it('returns false for code 500', () => {
-    expect(isRoleEndpointUnavailable({ code: 500, msg: 'internal server error' })).toBe(false)
-  })
-
-  it('returns false for network error', () => {
-    expect(isRoleEndpointUnavailable(new Error('network timeout'))).toBe(false)
-  })
-
-  it('returns false for null/undefined', () => {
-    expect(isRoleEndpointUnavailable(null)).toBe(false)
-    expect(isRoleEndpointUnavailable(undefined)).toBe(false)
-  })
 })
 
 // ---------------------------------------------------------------------------
@@ -155,46 +115,18 @@ describe('getRoleListPayload', () => {
     expect(result.items[0].id).toBe(3)
   })
 
-  it('falls back to sidebar config when all list endpoints return 404', async () => {
+  // 反转：探测/回退机制已移除。误判会重放写请求，而判据在结构上不可能正确
+  // （client.ts 把业务错误码与 HTTP 状态压平成同一个 {code,msg}）。
+  // 现在锁定单一端点，错误如实抛出，且**不得**发出第二个请求。
+  it('propagates the error instead of deriving roles from sidebar config', async () => {
+    const calledUrls: string[] = []
     mutableClient.get = async (url: string) => {
-      if (url === '/role/list' || url === '/roles/list') {
-        throw { code: 404, msg: 'not found' }
-      }
-      // Sidebar config request
-      if (url.includes('sidebar')) {
-        throw new Error('not a config endpoint')
-      }
-      throw new Error(`unexpected GET: ${url}`)
+      calledUrls.push(url)
+      throw { code: 404, msg: 'not found' }
     }
 
-    // Mock fetch for sidebar config
-    const originalFetch = globalThis.fetch
-    globalThis.fetch = async (input: RequestInfo | URL) => {
-      const url = String(input).replace(/\?t=\d+$/, '')
-      if (url === '/api/adm/admin/config/sidebar') {
-        return new Response(JSON.stringify({
-          code: 0, msg: 'ok',
-          payload: {
-            items: [],
-            rbac: {
-              roles: [
-                { id: 1, name: '超级管理员', description: '全权限', permissions: ['admin:all'] },
-              ],
-            },
-          },
-        }), { status: 200, headers: { 'Content-Type': 'application/json' } })
-      }
-      return new Response('Not Found', { status: 404 })
-    }
-
-    try {
-      const result = await getRoleListPayload()
-      expect(result.source).toBe('config')
-      expect(result.items).toHaveLength(1)
-      expect(result.items[0].name).toBe('超级管理员')
-    } finally {
-      globalThis.fetch = originalFetch
-    }
+    await expect(getRoleListPayload()).rejects.toMatchObject({ code: 404 })
+    expect(calledUrls).toEqual(['/role/list'])
   })
 })
 
@@ -241,17 +173,18 @@ describe('createRole', () => {
     expect(capturedBody.description).toBe('内容审核专员')
   })
 
-  it('falls back to secondary endpoint when primary returns 404', async () => {
+  // 反转：探测/回退机制已移除。误判会重放写请求，而判据在结构上不可能正确
+  // （client.ts 把业务错误码与 HTTP 状态压平成同一个 {code,msg}）。
+  // 现在锁定单一端点，错误如实抛出，且**不得**发出第二个请求。
+  it('does not retry another endpoint when create fails', async () => {
     const calledUrls: string[] = []
     mutableClient.post = async (url: string) => {
       calledUrls.push(url)
-      if (url === '/role/create') throw { code: 404, msg: 'not found' }
-      return { data: { code: 0, msg: 'ok', payload: {} } }
+      throw { code: 404, msg: 'not found' }
     }
 
-    await createRole({ name: '测试角色' })
-    expect(calledUrls).toContain('/role/create')
-    expect(calledUrls).toContain('/roles/create')
+    await expect(createRole({ name: '测试角色' })).rejects.toMatchObject({ code: 404 })
+    expect(calledUrls).toEqual(['/role/create'])
   })
 })
 
@@ -274,20 +207,24 @@ describe('updateRolePermissions', () => {
     expect(capturedBody.permissions).toEqual(['users:read', 'users:write'])
   })
 
-  it('falls back to POST when PUT returns 404', async () => {
-    const calls: Array<{ method: string; url: string }> = []
+  // 反转：探测/回退机制已移除。误判会重放写请求，而判据在结构上不可能正确
+  // （client.ts 把业务错误码与 HTTP 状态压平成同一个 {code,msg}）。
+  // 现在锁定单一端点，错误如实抛出，且**不得**发出第二个请求。
+  it('does not fall back to POST when PUT fails', async () => {
+    const putUrls: string[] = []
+    const postUrls: string[] = []
     mutableClient.put = async (url: string) => {
-      calls.push({ method: 'PUT', url })
+      putUrls.push(url)
       throw { code: 404, msg: 'not found' }
     }
     mutableClient.post = async (url: string) => {
-      calls.push({ method: 'POST', url })
+      postUrls.push(url)
       return { data: { code: 0, msg: 'ok', payload: {} } }
     }
 
-    await updateRolePermissions(2, ['groups:read'])
-    expect(calls.some((c) => c.method === 'PUT')).toBe(true)
-    expect(calls.some((c) => c.method === 'POST')).toBe(true)
+    await expect(updateRolePermissions(1, ['a'])).rejects.toMatchObject({ code: 404 })
+    expect(putUrls).toEqual(['/role/permissions/save'])
+    expect(postUrls).toEqual([])
   })
 
   it('deduplicates and trims permissions array', async () => {
