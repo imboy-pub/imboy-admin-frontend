@@ -60,15 +60,32 @@ imboy-admin-frontend/
 
 **已实现的解决方案**（`src/services/api/client.ts`）:
 
-后端 API 以 **JSON integer** 返回 TSID。`axios` 的 `transformResponse` 中注册了 `safeParseBigIntJson`，在 JSON 解析阶段将 **16 位及以上整数**自动转为 `string`，前端代码无感知。
+后端 API 以 **JSON integer** 返回 TSID。`axios` 的 `transformResponse` 中注册了 `safeParseBigIntJson`（`src/lib/safeParseBigIntJson.ts`），在 JSON 解析阶段把**会丢失精度的整数**自动转为 `string`，前端代码无感知。
+
+实现要点（**不要改回正则**）：
+
+- **带状态的线性扫描**，逐字符跟踪是否位于字符串字面量内（含 `\"` 转义处理），只对**结构区**的数字加引号。
+- **判据是 `Number.isSafeInteger`**，不是位数。
+
+两条都是踩过坑之后定下来的：
 
 ```typescript
-// client.ts — 已配置，无需手动处理
-const safeText = trimmed.replace(
-  /(?<=[:,[\s])(-?\d{16,})(?=[,\]}\s])/g,
-  '"$1"'
-)
+// ❌ 历史实现（已废弃）：正则无法表达「当前位置在不在字符串内」
+const safeText = trimmed.replace(/(?<=[:,[\s])(-?\d{16,})(?=[,\]}\s])/g, '"$1"')
+
+// 后顾与前瞻都含 \s，于是字符串**值内部**的长数字也被加引号：
+//   {"remark":"备注 1838294017982464000, 完"}
+//     -> {"remark":"备注 "1838294017982464000", 完"}   // JSON.parse 抛错
+// 而审计日志正文 / 消息内容 / 用户反馈里出现 TSID 是常态。抛错后 client.ts
+// catch 住返回原始字符串，被判定为 HTML 放行，最终 requireApiPayload 抛
+// "Missing payload" —— 表现为整页白屏。
+//
+// 另：MAX_SAFE_INTEGER = 9007199254740991 本身就是 16 位，按「≥16 位」一刀切
+// 会把 16 位的微秒时间戳（如 1785000000000000）转成 string，下游
+// new Date(number) 与算术全部失效。
 ```
+
+回归用例见 `src/lib/safeParseBigIntJson.test.ts`（16 个，含字符串内长数字、转义引号、安全边界 ±1）。
 
 **TypeScript 类型规范**:
 
