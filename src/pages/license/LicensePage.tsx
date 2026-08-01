@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { daysUntilExpiry, expiryToDate } from '@/lib/licenseExpiry'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { BadgeCheck, BadgeX, Users, Server, Calendar, Upload } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -45,15 +46,20 @@ function QuotaBar({ current, max }: { current: number; max: number }) {
   )
 }
 
+// B-20：expires_at 是**毫秒**，此前这两处都按秒额外乘了 1000 ——
+// 到期日显示成公元五万年、剩余天数是个荒谬的大数。换算已收进 lib/licenseExpiry。
 function formatExpiry(ts: number): string {
   if (!ts) return '永久有效'
-  const d = new Date(ts * 1000)
-  return d.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })
+  return expiryToDate(ts).toLocaleDateString('zh-CN', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  })
 }
 
 function daysRemaining(ts: number): string {
   if (!ts) return '永久'
-  const diff = Math.ceil((ts * 1000 - Date.now()) / 86400000)
+  const diff = daysUntilExpiry(ts, Date.now())
   if (diff < 0) return '已过期'
   if (diff === 0) return '今天到期'
   return `还有 ${diff} 天`
