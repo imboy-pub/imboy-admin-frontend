@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { AlertTriangle, XCircle, HelpCircle } from 'lucide-react'
 import { getLicenseStatus } from '@/services/api/stats'
+import { daysUntilExpiry } from '@/lib/licenseExpiry'
 
 export function LicenseExpiryBanner() {
   const { data, isError } = useQuery({
@@ -32,7 +33,10 @@ export function LicenseExpiryBanner() {
 
   if (!data || !data.expires_at) return null
 
-  const daysLeft = Math.ceil((data.expires_at * 1000 - nowMs) / 86400000)
+  // B-20：expires_at 是**毫秒**，此前这里额外乘了 1000 → 时间戳大 1000 倍 →
+  // daysLeft 巨大 → 下面 `> 30` 恒成立 → **横幅永不显示**。
+  // 换算收进 lib/licenseExpiry，三处调用方不再各写一遍。
+  const daysLeft = daysUntilExpiry(data.expires_at, nowMs)
 
   if (daysLeft > 30) return null
 
