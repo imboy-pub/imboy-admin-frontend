@@ -208,6 +208,73 @@ describe('ChannelAdminPage flow', () => {
     })
   })
 
+  it('locks the creator row and forbids promoting non-creators to creator (BUG#126)', async () => {
+    mutableClient.get = async (url: string) => {
+      if (url !== '/channel/8/admins') {
+        throw new Error(`unexpected GET url: ${url}`)
+      }
+      return {
+        data: {
+          code: 0,
+          msg: 'ok',
+          payload: {
+            items: [
+              {
+                id: 1,
+                channel_id: 8,
+                user_id: 117,
+                role: 3,
+                created_at: '2026-02-22 10:00:00',
+                user: { id: 117, nickname: 'creator-117' },
+              },
+              {
+                id: 2,
+                channel_id: 8,
+                user_id: 3001,
+                role: 2,
+                created_at: '2026-02-22 10:00:00',
+                user: { id: 3001, nickname: 'admin-user' },
+              },
+            ],
+            page: 1,
+            size: 10,
+            total: 2,
+            total_pages: 1,
+          },
+        },
+      }
+    }
+
+    let view: ReturnType<typeof renderChannelAdminPage>
+    await act(async () => {
+      view = renderChannelAdminPage()
+    })
+
+    await waitFor(() => {
+      expect(view.container.textContent).toContain('creator-117')
+    })
+
+    const selects = view.getAllByRole('combobox') as HTMLSelectElement[]
+    // DataTable 同时渲染桌面表格与移动端卡片，每行角色 Select 出现两次；取桌面视图前两个
+    const roleSelects = selects.filter((select) => hasRoleOptions(select))
+    expect(roleSelects.length).toBe(4)
+    const [creatorSelect, adminSelect] = roleSelects
+
+    // 创建者行（role=3）：角色选择与移除按钮均禁用，isCreator 判定以 role===3 为准
+    expect(creatorSelect.value).toBe('3')
+    expect(creatorSelect.disabled).toBe(true)
+    const creatorRemove = Array.from(view.baseElement.querySelectorAll('button'))
+      .find((btn) => btn.getAttribute('title') === '创建者不可移除')
+    expect(creatorRemove).toBeTruthy()
+    expect((creatorRemove as HTMLButtonElement).disabled).toBe(true)
+
+    // 非创建者行（role=2）：可改角色但不可提升为创建者（选项 3 禁用）
+    expect(adminSelect.value).toBe('2')
+    expect(adminSelect.disabled).toBe(false)
+    const option3 = Array.from(adminSelect.options).find((option) => option.value === '3')
+    expect(option3?.disabled).toBe(true)
+  })
+
   it('shows error state when API fails', async () => {
     mutableClient.get = async () => { throw new Error('network error') }
 

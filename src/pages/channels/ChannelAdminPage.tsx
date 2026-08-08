@@ -27,9 +27,10 @@ import { getErrorMessage } from '@/lib/errorUtils'
 import { Select } from '@/components/ui/select'
 import { useListQueryState } from '@/hooks/useListQueryState'
 
+// 规范角色码：1=编辑, 2=管理员, 3=创建者（与 app 端 ChannelUserRole 一致）
 const ROLE_LABELS: Record<number, string> = {
-  1: '管理员',
-  2: '高级管理员',
+  1: '编辑',
+  2: '管理员',
   3: '创建者',
 }
 
@@ -96,6 +97,10 @@ export function ChannelAdminPage() {
       toast.error('创建者角色不可修改')
       return
     }
+    if (role === 3) {
+      toast.error('创建者角色不可授予')
+      return
+    }
     roleMutation.mutate({ userId: admin.user_id, role })
   }
 
@@ -130,9 +135,9 @@ export function ChannelAdminPage() {
             onChange={(event) => handleRoleChange(admin, Number(event.target.value))}
             className="h-8 rounded-md border border-input bg-background px-2 text-sm"
           >
-            <option value="1">管理员</option>
-            <option value="2">高级管理员</option>
-            <option value="3">创建者</option>
+            <option value="1">编辑</option>
+            <option value="2">管理员</option>
+            <option value="3" disabled={!isCreator}>创建者</option>
           </Select>
         )
       },
@@ -185,7 +190,7 @@ export function ChannelAdminPage() {
     const csvColumns: CsvColumn<ChannelAdmin>[] = [
       { header: 'ID', accessor: (row) => String(row.id) },
       { header: '用户ID', accessor: (row) => String(row.user_id) },
-      { header: '角色', accessor: (row) => ({ 1: '管理员', 2: '高级管理员', 3: '创建者' }[row.role] ?? String(row.role)) },
+      { header: '角色', accessor: (row) => ({ 1: '编辑', 2: '管理员', 3: '创建者' }[row.role] ?? String(row.role)) },
       { header: '创建时间', accessor: (row) => formatDate(row.created_at) },
       { header: '用户昵称', accessor: (row) => row.user?.nickname || row.user?.account || '-' },
     ]
