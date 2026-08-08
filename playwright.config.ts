@@ -34,6 +34,7 @@ loadEnvFile('.env.e2e')
 const e2ePort = Number(process.env.IMBOY_ADMIN_E2E_PORT || 8082)
 const baseURL = process.env.IMBOY_ADMIN_E2E_BASE_URL || `http://127.0.0.1:${e2ePort}`
 const disableWebServer = process.env.PLAYWRIGHT_DISABLE_WEBSERVER === '1'
+const executablePath = process.env.PLAYWRIGHT_EXECUTABLE_PATH
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -54,6 +55,7 @@ export default defineConfig({
     ...devices['Desktop Chrome'],
     baseURL,
     headless: process.env.PLAYWRIGHT_HEADLESS !== '0',
+    launchOptions: executablePath ? { executablePath } : undefined,
     screenshot: 'only-on-failure',
     trace: 'on-first-retry',
     video: 'retain-on-failure',

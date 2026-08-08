@@ -1,4 +1,5 @@
 export { AiAgentListPage } from './pages/AiAgentListPage'
 export { OnboardingConfigPage } from './pages/OnboardingConfigPage'
 export { KnowledgeConfigPage } from './pages/KnowledgeConfigPage'
+export { AiRolesPage } from './pages/AiRolesPage'
 export * from './api/public'
