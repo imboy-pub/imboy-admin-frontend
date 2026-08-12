@@ -35,8 +35,8 @@ jobs:
 
       - name: Channel regression gate
         run: |
-          bun test src/services/api/payloadServices.test.ts
-          bun test src/pages/channels/ChannelMessagePage.test.tsx \
+          bun test --isolate src/services/api/payloadServices.test.ts
+          bun test --isolate src/pages/channels/ChannelMessagePage.test.tsx \
             src/pages/channels/ChannelSubscriberPage.test.tsx \
             src/pages/channels/ChannelAdminPage.test.tsx \
             src/pages/channels/ChannelInvitationPage.test.tsx \
@@ -44,7 +44,7 @@ jobs:
 
       - name: Moment regression gate
         run: |
-          bun test src/pages/moments/MomentReportPage.test.tsx
+          bun test --isolate src/pages/moments/MomentReportPage.test.tsx
 
       - name: Backend readiness gate skipped
         if: ${{ vars.IMBOY_ADMIN_BASE_URL == '' }}

@@ -26,7 +26,7 @@ bun run dev
 bun run dev          # 启动开发服务器
 bun run lint         # ESLint 与模块边界检查
 bun run typecheck    # TypeScript 类型检查
-bun test             # 单元测试
+bun run test         # 单元测试（隔离每个测试文件，避免共享 DOM/Mock 污染）
 bun run build        # 生产构建
 bun run check        # lint + typecheck + deadcode
 ```
@@ -38,6 +38,8 @@ cp .env.e2e.example .env.e2e
 # 编辑 .env.e2e，填入本地测试环境
 bun run test:e2e:install
 bun run test:e2e
+# 生产健康检查（需显式配置 IMBOY_ADMIN_E2E_BASE_URL，谨慎执行）
+IMBOY_ADMIN_E2E_BASE_URL=https://your-admin.example.com bun run test:e2e:prod
 ```
 
 ## 代码入口
@@ -58,7 +60,7 @@ tests/e2e/        Playwright 端到端测试
 - 新业务 API 放在 `src/modules/*/api`，模块外通过公开入口导入。
 - 64 位 TSID 使用 `EntityId`，不要转成 `number`。
 - 列表页统一使用 `DataTablePagination`，筛选变化后重置到第 1 页。
-- 提交前至少运行 `bun run lint`、`bun test` 和 `bun run build`。
+- 提交前至少运行 `bun run lint`、`bun run test` 和 `bun run build`。
 
 ## 继续阅读
 
