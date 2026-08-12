@@ -491,6 +491,18 @@ describe('ConfirmDialog', () => {
     expect(getByText('此操作不可撤销')).toBeTruthy()
   })
 
+  it('provides an accessible fallback description when omitted', () => {
+    const { getByText } = render(
+      <ConfirmDialog
+        open={true}
+        onOpenChange={() => {}}
+        title="确认删除"
+        onConfirm={() => {}}
+      />
+    )
+    expect(getByText('确定要执行“确认删除”吗？')).toBeTruthy()
+  })
+
   it('renders default 确认 and 取消 button labels', () => {
     const { getByText } = render(
       <ConfirmDialog

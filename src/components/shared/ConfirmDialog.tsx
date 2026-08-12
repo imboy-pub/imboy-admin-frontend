@@ -44,9 +44,9 @@ export function ConfirmDialog({
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
-          {description && (
-            <AlertDialogDescription>{description}</AlertDialogDescription>
-          )}
+          <AlertDialogDescription className={description ? undefined : 'sr-only'}>
+            {description ?? `确定要执行“${title}”吗？`}
+          </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel disabled={loading}>{cancelText}</AlertDialogCancel>
