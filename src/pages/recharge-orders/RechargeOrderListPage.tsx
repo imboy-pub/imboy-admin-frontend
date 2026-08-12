@@ -25,13 +25,8 @@ import {
 import { RechargeOrder } from '@/types/billing'
 import { formatDate, formatOptionalDate } from '@/lib/utils'
 import { fenToYuan } from '@/lib/money'
-import {
-  ColumnDef,
-  useReactTable,
-  getCoreRowModel,
-  getSortedRowModel,
-  SortingState,
-} from '@tanstack/react-table'
+import { LegacyColumnDef, useLegacyTable, getCoreRowModel, getSortedRowModel } from '@tanstack/react-table/legacy'
+import { SortingState } from '@tanstack/react-table'
 import { useListQueryState } from '@/hooks/useListQueryState'
 import { Select } from '@/components/ui/select'
 
@@ -122,7 +117,7 @@ export function RechargeOrderListPage() {
   const handlePageChange = (page: number) => setParams({ page })
   const handlePageSizeChange = (size: number) => setParams({ page: 1, size })
 
-  const columns: ColumnDef<RechargeOrder>[] = [
+  const columns: LegacyColumnDef<RechargeOrder>[] = [
     {
       accessorKey: 'order_no',
       header: '订单号',
@@ -194,7 +189,7 @@ export function RechargeOrderListPage() {
 
   const orders = data?.items || []
 
-  const table = useReactTable({
+  const table = useLegacyTable({
     data: orders,
     columns,
     state: { sorting },

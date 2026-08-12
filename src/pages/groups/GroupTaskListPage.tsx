@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
+import { LegacyColumnDef, getCoreRowModel, useLegacyTable } from '@tanstack/react-table/legacy'
 import { toast } from 'sonner'
 import { CheckCircle2, Eye, Search } from 'lucide-react'
 
@@ -108,7 +108,7 @@ export function GroupTaskListPage() {
     setParams({ statusFilter: Number(value), page: 1 })
   }
 
-  const columns: ColumnDef<GroupTask>[] = useMemo(
+  const columns: LegacyColumnDef<GroupTask>[] = useMemo(
     () => [
       {
         accessorKey: 'task_id',
@@ -201,7 +201,7 @@ export function GroupTaskListPage() {
 
   const tasks = data?.items ?? []
 
-  const table = useReactTable({
+  const table = useLegacyTable({
     data: tasks,
     columns,
     getCoreRowModel: getCoreRowModel(),

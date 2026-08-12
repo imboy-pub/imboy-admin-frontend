@@ -20,13 +20,8 @@ import {
 import { BillingInvoice } from '@/types/billing'
 import { formatDate, formatOptionalDate } from '@/lib/utils'
 import { fenToYuan } from '@/lib/money'
-import {
-  ColumnDef,
-  useReactTable,
-  getCoreRowModel,
-  getSortedRowModel,
-  SortingState,
-} from '@tanstack/react-table'
+import { LegacyColumnDef, useLegacyTable, getCoreRowModel, getSortedRowModel } from '@tanstack/react-table/legacy'
+import { SortingState } from '@tanstack/react-table'
 import { useListQueryState } from '@/hooks/useListQueryState'
 import { Select } from '@/components/ui/select'
 
@@ -92,7 +87,7 @@ export function BillingInvoiceListPage() {
   const handlePageChange = (page: number) => setParams({ page })
   const handlePageSizeChange = (size: number) => setParams({ page: 1, size })
 
-  const columns: ColumnDef<BillingInvoice>[] = [
+  const columns: LegacyColumnDef<BillingInvoice>[] = [
     {
       accessorKey: 'invoice_no',
       header: '账单号',
@@ -152,7 +147,7 @@ export function BillingInvoiceListPage() {
 
   const invoices = data?.items || []
 
-  const table = useReactTable({
+  const table = useLegacyTable({
     data: invoices,
     columns,
     state: { sorting },

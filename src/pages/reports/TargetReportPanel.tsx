@@ -1,11 +1,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import {
-  ColumnDef,
-  RowSelectionState,
-  getCoreRowModel,
-  useReactTable,
-} from '@tanstack/react-table'
+import { LegacyColumnDef, getCoreRowModel, useLegacyTable } from '@tanstack/react-table/legacy'
+import { RowSelectionState } from '@tanstack/react-table'
 import { CheckCircle2, Eye, Loader2, Search, XCircle } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -278,7 +274,7 @@ export function TargetReportPanel({
     setParams({ page: 1, size })
   }
 
-  const columns: ColumnDef<ReportTicket>[] = [
+  const columns: LegacyColumnDef<ReportTicket>[] = [
     {
       id: 'select',
       header: ({ table }) => (
@@ -390,7 +386,7 @@ export function TargetReportPanel({
   ]
 
   const reports = useMemo(() => data?.items || [], [data?.items])
-  const table = useReactTable({
+  const table = useLegacyTable({
     data: reports,
     columns,
     state: {

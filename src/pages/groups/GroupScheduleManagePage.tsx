@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
+import { LegacyColumnDef, getCoreRowModel, useLegacyTable } from '@tanstack/react-table/legacy'
 import { toast } from 'sonner'
 import { ArrowLeft, Download, Eye, RotateCcw, XCircle } from 'lucide-react'
 
@@ -122,7 +122,7 @@ export function GroupScheduleManagePage() {
     },
   })
 
-  const columns: ColumnDef<GroupSchedule>[] = useMemo(
+  const columns: LegacyColumnDef<GroupSchedule>[] = useMemo(
     () => [
       {
         accessorKey: 'schedule_id',
@@ -221,7 +221,7 @@ export function GroupScheduleManagePage() {
     exportCsv(csvColumns, schedules, 'group_schedules')
     toast.success(`已导出当前页 ${schedules.length} 条数据`)
   }
-  const table = useReactTable({
+  const table = useLegacyTable({
     data: schedules,
     columns,
     getCoreRowModel: getCoreRowModel(),

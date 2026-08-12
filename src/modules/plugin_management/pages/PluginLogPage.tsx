@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
+import { LegacyColumnDef, getCoreRowModel, useLegacyTable } from '@tanstack/react-table/legacy'
 import { FileSearch, Download } from 'lucide-react'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -74,7 +74,7 @@ export function PluginLogPage() {
     queryFn: () => getPluginLogList(queryParams),
   })
 
-  const columns: ColumnDef<PluginLogEntry>[] = [
+  const columns: LegacyColumnDef<PluginLogEntry>[] = [
     {
       accessorKey: 'created_at',
       header: '时间',
@@ -132,7 +132,7 @@ export function PluginLogPage() {
     },
   ]
 
-  const table = useReactTable({
+  const table = useLegacyTable({
     data: data?.items ?? [],
     columns,
     getCoreRowModel: getCoreRowModel(),

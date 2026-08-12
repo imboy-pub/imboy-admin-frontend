@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ColumnDef, RowSelectionState, getCoreRowModel, useReactTable } from '@tanstack/react-table'
+import { LegacyColumnDef, getCoreRowModel, useLegacyTable } from '@tanstack/react-table/legacy'
+import { RowSelectionState } from '@tanstack/react-table'
 import { useNavigate } from 'react-router-dom'
 import { Eye, Flag, Search, Trash2, Download } from 'lucide-react'
 import { toast } from 'sonner'
@@ -122,7 +123,7 @@ export function MomentListPage() {
     setParams((prev) => ({ ...prev, page: 1, size }))
   }
 
-  const columns: ColumnDef<MomentItem>[] = [
+  const columns: LegacyColumnDef<MomentItem>[] = [
     {
       id: 'select',
       header: ({ table }) => (
@@ -259,7 +260,7 @@ export function MomentListPage() {
 
   const moments = data?.items || []
 
-  const table = useReactTable({
+  const table = useLegacyTable({
     data: moments,
     columns,
     state: {

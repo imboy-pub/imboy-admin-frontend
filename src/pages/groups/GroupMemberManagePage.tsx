@@ -1,10 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import {
-  ColumnDef,
-  getCoreRowModel,
-  useReactTable,
-} from '@tanstack/react-table'
+import { LegacyColumnDef, getCoreRowModel, useLegacyTable } from '@tanstack/react-table/legacy'
 import { ArrowLeft, Download, UserMinus } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -68,7 +64,7 @@ export function GroupMemberManagePage() {
     },
   })
 
-  const columns = useMemo<ColumnDef<GroupMember>[]>(() => [
+  const columns = useMemo<LegacyColumnDef<GroupMember>[]>(() => [
     {
       accessorKey: 'user_id',
       header: '用户 ID',
@@ -160,7 +156,7 @@ export function GroupMemberManagePage() {
     toast.success(`已导出当前页 ${members.length} 条数据`)
   }
 
-  const table = useReactTable({
+  const table = useLegacyTable({
     data: members,
     columns,
     getCoreRowModel: getCoreRowModel(),

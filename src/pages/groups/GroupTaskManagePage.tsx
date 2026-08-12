@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
+import { LegacyColumnDef, getCoreRowModel, useLegacyTable } from '@tanstack/react-table/legacy'
 import { toast } from 'sonner'
 import { ArrowLeft, CheckCircle2, Download, Eye, RotateCcw, Trash2 } from 'lucide-react'
 
@@ -180,7 +180,7 @@ export function GroupTaskManagePage() {
     },
   })
 
-  const columns: ColumnDef<GroupTask>[] = useMemo(
+  const columns: LegacyColumnDef<GroupTask>[] = useMemo(
     () => [
       {
         accessorKey: 'id',
@@ -300,7 +300,7 @@ export function GroupTaskManagePage() {
     exportCsv(csvColumns, tasks, 'group_tasks')
     toast.success(`已导出当前页 ${tasks.length} 条数据`)
   }
-  const table = useReactTable({
+  const table = useLegacyTable({
     data: tasks,
     columns,
     getCoreRowModel: getCoreRowModel(),

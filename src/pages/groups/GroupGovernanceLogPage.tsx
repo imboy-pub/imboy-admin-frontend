@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
+import { LegacyColumnDef, getCoreRowModel, useLegacyTable } from '@tanstack/react-table/legacy'
 import { ArrowLeft, Search, ShieldCheck, Download } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -108,7 +108,7 @@ export function GroupGovernanceLogPage() {
     placeholderData: keepPreviousData,
   })
 
-  const columns: ColumnDef<GroupGovernanceLog>[] = useMemo(
+  const columns: LegacyColumnDef<GroupGovernanceLog>[] = useMemo(
     () => [
       {
         accessorKey: 'occurred_at',
@@ -158,7 +158,7 @@ export function GroupGovernanceLogPage() {
     []
   )
 
-  const table = useReactTable({
+  const table = useLegacyTable({
     data: data?.items || [],
     columns,
     getCoreRowModel: getCoreRowModel(),

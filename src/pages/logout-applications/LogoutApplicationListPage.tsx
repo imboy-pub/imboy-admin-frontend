@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { keepPreviousData, useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
+import { LegacyColumnDef, getCoreRowModel, useLegacyTable } from '@tanstack/react-table/legacy'
 import { Search, Download, XCircle, CheckCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
@@ -118,7 +118,7 @@ export function LogoutApplicationListPage() {
     }
   }
 
-  const columns: ColumnDef<LogoutApplication>[] = [
+  const columns: LegacyColumnDef<LogoutApplication>[] = [
     {
       accessorKey: 'uid',
       header: 'UID',
@@ -221,7 +221,7 @@ export function LogoutApplicationListPage() {
   const items = data?.items || []
   const pagination = data
 
-  const table = useReactTable({
+  const table = useLegacyTable({
     data: items,
     columns,
     getCoreRowModel: getCoreRowModel(),

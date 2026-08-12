@@ -11,7 +11,8 @@ import { getChannelListPayload, getChannelDetailPayload, deleteChannel, ChannelL
 import type { EntityId } from '@/types/common'
 import { formatDate } from '@/lib/utils'
 import { exportCsv, type CsvColumn } from '@/lib/csvExport'
-import { ColumnDef, useReactTable, getCoreRowModel, RowSelectionState } from '@tanstack/react-table'
+import { LegacyColumnDef, useLegacyTable, getCoreRowModel } from '@tanstack/react-table/legacy'
+import { RowSelectionState } from '@tanstack/react-table'
 import { useListQueryState } from '@/hooks/useListQueryState'
 import { trackUxEvent } from '@/lib/uxTelemetry'
 import { getErrorMessage } from '@/lib/errorUtils'
@@ -214,7 +215,7 @@ export function ChannelListPage() {
   }
 
   // 表格列定义
-  const columns: ColumnDef<Channel>[] = [
+  const columns: LegacyColumnDef<Channel>[] = [
     {
       id: 'select',
       header: ({ table }) => (
@@ -373,7 +374,7 @@ export function ChannelListPage() {
   const channels = data?.items || []
   const pagination = data
 
-  const table = useReactTable({
+  const table = useLegacyTable({
     data: channels,
     columns,
     state: {
