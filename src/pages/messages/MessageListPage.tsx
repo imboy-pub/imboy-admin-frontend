@@ -27,7 +27,8 @@ import {
 } from '@/modules/messages/api'
 import { ManagedMessage, MessageListParams } from '@/types/message'
 import { formatDate, truncate } from '@/lib/utils'
-import { ColumnDef, VisibilityState, getCoreRowModel, useReactTable } from '@tanstack/react-table'
+import { LegacyColumnDef, getCoreRowModel, useLegacyTable } from '@tanstack/react-table/legacy'
+import { ColumnVisibilityState } from '@tanstack/react-table'
 import { toast } from 'sonner'
 import { Select } from '@/components/ui/select'
 
@@ -49,7 +50,7 @@ export function MessageListPage() {
   } | null>(null)
   const [isExporting, setIsExporting] = useState(false)
   const [showColumnPanel, setShowColumnPanel] = useState(false)
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
+  const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>({})
   const [payloadView, setPayloadView] = useState<PayloadViewMode>('pretty')
   const [payloadKeyword, setPayloadKeyword] = useState('')
 
@@ -165,7 +166,7 @@ export function MessageListPage() {
     setSelectedMessage(null)
   }
 
-  const columns: ColumnDef<ManagedMessage>[] = [
+  const columns: LegacyColumnDef<ManagedMessage>[] = [
     {
       accessorKey: 'scope',
       header: '范围',
@@ -260,7 +261,7 @@ export function MessageListPage() {
   const messages = data?.items || []
   const pagination = data
 
-  const table = useReactTable({
+  const table = useLegacyTable({
     data: messages,
     columns,
     state: { columnVisibility },

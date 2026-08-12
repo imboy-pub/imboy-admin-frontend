@@ -8,12 +8,13 @@ import {
 } from '@/components/ui/table'
 import { EmptyState } from './EmptyState'
 import { LoadingState } from './LoadingState'
-import { flexRender, Table as ReactTable } from '@tanstack/react-table'
+import { flexRender, type RowData } from '@tanstack/react-table'
+import { LegacyTable as ReactTable } from '@tanstack/react-table/legacy'
 import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select'
 import { ArrowUpDown, ArrowUp, ArrowDown, RefreshCw } from 'lucide-react'
 
-interface DataTableProps<TData> {
+interface DataTableProps<TData extends RowData> {
   table: ReactTable<TData>
   loading?: boolean
   emptyMessage?: string
@@ -22,7 +23,7 @@ interface DataTableProps<TData> {
   cardTitleKey?: string
 }
 
-export function DataTable<TData>({
+export function DataTable<TData extends RowData>({
   table,
   loading = false,
   emptyMessage = '暂无数据',

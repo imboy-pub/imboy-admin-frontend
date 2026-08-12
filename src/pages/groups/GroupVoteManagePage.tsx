@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
+import { LegacyColumnDef, getCoreRowModel, useLegacyTable } from '@tanstack/react-table/legacy'
 import { toast } from 'sonner'
 import { ArrowLeft, Download, Eye, StopCircle } from 'lucide-react'
 
@@ -82,7 +82,7 @@ export function GroupVoteManagePage() {
     },
   })
 
-  const columns: ColumnDef<GroupVote>[] = useMemo(
+  const columns: LegacyColumnDef<GroupVote>[] = useMemo(
     () => [
       {
         accessorKey: 'vote_id',
@@ -165,7 +165,7 @@ export function GroupVoteManagePage() {
     exportCsv(csvColumns, votes, 'group_votes')
     toast.success(`已导出当前页 ${votes.length} 条数据`)
   }
-  const table = useReactTable({
+  const table = useLegacyTable({
     data: votes,
     columns,
     getCoreRowModel: getCoreRowModel(),

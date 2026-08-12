@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
+import { LegacyColumnDef, getCoreRowModel, useLegacyTable } from '@tanstack/react-table/legacy'
 import { ArrowLeft, Download, Search, Tags, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -99,7 +99,7 @@ export function UserTagManagePage() {
     setParams((prev) => ({ ...prev, page: 1, size }))
   }
 
-  const columns: ColumnDef<UserTagItem>[] = useMemo(
+  const columns: LegacyColumnDef<UserTagItem>[] = useMemo(
     () => [
       {
         accessorKey: 'id',
@@ -171,7 +171,7 @@ export function UserTagManagePage() {
     exportCsv(csvColumns, tags, 'user_tags')
     toast.success(`已导出 ${tags.length} 条数据`)
   }
-  const table = useReactTable({
+  const table = useLegacyTable({
     data: tags,
     columns,
     getCoreRowModel: getCoreRowModel(),

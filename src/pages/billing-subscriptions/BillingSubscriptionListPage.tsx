@@ -19,13 +19,8 @@ import {
 } from '@/modules/finance/api'
 import { BillingSubscription } from '@/types/billing'
 import { formatDate, formatOptionalDate } from '@/lib/utils'
-import {
-  ColumnDef,
-  useReactTable,
-  getCoreRowModel,
-  getSortedRowModel,
-  SortingState,
-} from '@tanstack/react-table'
+import { LegacyColumnDef, useLegacyTable, getCoreRowModel, getSortedRowModel } from '@tanstack/react-table/legacy'
+import { SortingState } from '@tanstack/react-table'
 import { useListQueryState } from '@/hooks/useListQueryState'
 import { Select } from '@/components/ui/select'
 
@@ -93,7 +88,7 @@ export function BillingSubscriptionListPage() {
   const handlePageChange = (page: number) => setParams({ page })
   const handlePageSizeChange = (size: number) => setParams({ page: 1, size })
 
-  const columns: ColumnDef<BillingSubscription>[] = [
+  const columns: LegacyColumnDef<BillingSubscription>[] = [
     {
       accessorKey: 'id',
       header: 'ID',
@@ -148,7 +143,7 @@ export function BillingSubscriptionListPage() {
 
   const subscriptions = data?.items || []
 
-  const table = useReactTable({
+  const table = useLegacyTable({
     data: subscriptions,
     columns,
     state: { sorting },

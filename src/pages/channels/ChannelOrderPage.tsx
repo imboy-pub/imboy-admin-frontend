@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
+import { LegacyColumnDef, getCoreRowModel, useLegacyTable } from '@tanstack/react-table/legacy'
 import { ArrowLeft, Download, RotateCcw } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -168,7 +168,7 @@ export function ChannelOrderPage() {
     toast.success(`已导出 ${orders.length} 条订单记录`)
   }
 
-  const columns: ColumnDef<ChannelOrder>[] = [
+  const columns: LegacyColumnDef<ChannelOrder>[] = [
     {
       accessorKey: 'id',
       header: '订单 ID',
@@ -252,12 +252,12 @@ export function ChannelOrderPage() {
                   退款
                 </Button>
               ) : null,
-          } as ColumnDef<ChannelOrder>,
+          } as LegacyColumnDef<ChannelOrder>,
         ]
       : []),
   ]
 
-  const table = useReactTable({
+  const table = useLegacyTable({
     data: orders,
     columns,
     getCoreRowModel: getCoreRowModel(),

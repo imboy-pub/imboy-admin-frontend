@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
+import { LegacyColumnDef, getCoreRowModel, useLegacyTable } from '@tanstack/react-table/legacy'
 import { ArrowLeft, Download, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -104,7 +104,7 @@ export function ChannelAdminPage() {
     roleMutation.mutate({ userId: admin.user_id, role })
   }
 
-  const columns: ColumnDef<ChannelAdmin>[] = [
+  const columns: LegacyColumnDef<ChannelAdmin>[] = [
     {
       accessorKey: 'id',
       header: '记录 ID',
@@ -198,7 +198,7 @@ export function ChannelAdminPage() {
     toast.success(`已导出 ${admins.length} 条数据`)
   }
 
-  const table = useReactTable({
+  const table = useLegacyTable({
     data: admins,
     columns,
     getCoreRowModel: getCoreRowModel(),

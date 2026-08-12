@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
+import { LegacyColumnDef, getCoreRowModel, useLegacyTable } from '@tanstack/react-table/legacy'
 import { Plus, Trash2, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -142,7 +142,7 @@ export function SensitiveWordPage() {
     event.target.value = ''
   }
 
-  const columns: ColumnDef<SensitiveWord>[] = [
+  const columns: LegacyColumnDef<SensitiveWord>[] = [
     {
       accessorKey: 'word',
       header: '关键词',
@@ -192,7 +192,7 @@ export function SensitiveWordPage() {
     },
   ]
 
-  const table = useReactTable({
+  const table = useLegacyTable({
     data: data?.items ?? [],
     columns,
     getCoreRowModel: getCoreRowModel(),

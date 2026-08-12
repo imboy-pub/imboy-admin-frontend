@@ -17,7 +17,7 @@ import { PaginatedResponse } from '@/types/api'
 import type { EntityId } from '@/types/common'
 import { formatDate } from '@/lib/utils'
 import { exportCsv, type CsvColumn } from '@/lib/csvExport'
-import { ColumnDef, useReactTable, getCoreRowModel } from '@tanstack/react-table'
+import { LegacyColumnDef, useLegacyTable, getCoreRowModel } from '@tanstack/react-table/legacy'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
 import {
@@ -381,7 +381,7 @@ export function FeedbackListPage() {
   const slaInfo = getSlaInfo(activeFeedback, workflowConfig.slaHours)
 
   // 表格列定义
-  const columns: ColumnDef<Feedback>[] = [
+  const columns: LegacyColumnDef<Feedback>[] = [
     {
       accessorKey: 'id',
       header: 'ID',
@@ -487,7 +487,7 @@ export function FeedbackListPage() {
     toast.success(`已导出 ${feedbacks.length} 条反馈数据`)
   }
 
-  const table = useReactTable({
+  const table = useLegacyTable({
     data: feedbacks,
     columns,
     getCoreRowModel: getCoreRowModel(),

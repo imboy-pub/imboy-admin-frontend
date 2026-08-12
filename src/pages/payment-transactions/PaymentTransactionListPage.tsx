@@ -25,13 +25,8 @@ import {
 import { PaymentTransaction } from '@/types/billing'
 import { formatDate } from '@/lib/utils'
 import { fenToYuan } from '@/lib/money'
-import {
-  ColumnDef,
-  useReactTable,
-  getCoreRowModel,
-  getSortedRowModel,
-  SortingState,
-} from '@tanstack/react-table'
+import { LegacyColumnDef, useLegacyTable, getCoreRowModel, getSortedRowModel } from '@tanstack/react-table/legacy'
+import { SortingState } from '@tanstack/react-table'
 import { useListQueryState } from '@/hooks/useListQueryState'
 import { Select } from '@/components/ui/select'
 
@@ -135,7 +130,7 @@ export function PaymentTransactionListPage() {
   const handlePageChange = (page: number) => setParams({ page })
   const handlePageSizeChange = (size: number) => setParams({ page: 1, size })
 
-  const columns: ColumnDef<PaymentTransaction>[] = [
+  const columns: LegacyColumnDef<PaymentTransaction>[] = [
     {
       accessorKey: 'trade_no',
       header: '交易号',
@@ -214,7 +209,7 @@ export function PaymentTransactionListPage() {
 
   const transactions = data?.items || []
 
-  const table = useReactTable({
+  const table = useLegacyTable({
     data: transactions,
     columns,
     state: { sorting },

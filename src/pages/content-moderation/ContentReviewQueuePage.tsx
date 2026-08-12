@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
+import { LegacyColumnDef, getCoreRowModel, useLegacyTable } from '@tanstack/react-table/legacy'
 import { CheckCircle, XCircle, Eye } from 'lucide-react'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -88,7 +88,7 @@ export function ContentReviewQueuePage() {
     onError: (err: unknown) => toast.error(`操作失败: ${getErrorMessage(err)}`),
   })
 
-  const columns: ColumnDef<ReviewQueueItem>[] = [
+  const columns: LegacyColumnDef<ReviewQueueItem>[] = [
     {
       accessorKey: 'review_status',
       header: '状态',
@@ -195,7 +195,7 @@ export function ContentReviewQueuePage() {
     },
   ]
 
-  const table = useReactTable({
+  const table = useLegacyTable({
     data: data?.items ?? [],
     columns,
     getCoreRowModel: getCoreRowModel(),

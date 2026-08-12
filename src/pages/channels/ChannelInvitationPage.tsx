@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
+import { LegacyColumnDef, getCoreRowModel, useLegacyTable } from '@tanstack/react-table/legacy'
 import { ArrowLeft, Download } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -97,7 +97,7 @@ export function ChannelInvitationPage() {
     toast.success(`已导出 ${invitations.length} 条邀请记录`)
   }
 
-  const columns: ColumnDef<ChannelInvitation>[] = [
+  const columns: LegacyColumnDef<ChannelInvitation>[] = [
     {
       accessorKey: 'id',
       header: '邀请 ID',
@@ -166,7 +166,7 @@ export function ChannelInvitationPage() {
     },
   ]
 
-  const table = useReactTable({
+  const table = useLegacyTable({
     data: invitations,
     columns,
     getCoreRowModel: getCoreRowModel(),

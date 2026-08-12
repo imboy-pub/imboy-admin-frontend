@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
+import { LegacyColumnDef, getCoreRowModel, useLegacyTable } from '@tanstack/react-table/legacy'
 import { ArrowLeft, Download, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -69,7 +69,7 @@ export function ChannelSubscriberPage() {
     setParams({ page: 1, size })
   }
 
-  const columns: ColumnDef<ChannelSubscriber>[] = [
+  const columns: LegacyColumnDef<ChannelSubscriber>[] = [
     {
       accessorKey: 'id',
       header: '记录 ID',
@@ -157,7 +157,7 @@ export function ChannelSubscriberPage() {
     toast.success(`已导出 ${subscribers.length} 条数据`)
   }
 
-  const table = useReactTable({
+  const table = useLegacyTable({
     data: subscribers,
     columns,
     getCoreRowModel: getCoreRowModel(),

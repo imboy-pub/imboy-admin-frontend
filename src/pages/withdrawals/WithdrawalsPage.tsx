@@ -24,7 +24,7 @@ import type { WithdrawalTransaction } from '@/types/billing'
 import type { EntityId } from '@/types/common'
 import { formatDate } from '@/lib/utils'
 import { fenToYuan } from '@/lib/money'
-import { ColumnDef, useReactTable, getCoreRowModel } from '@tanstack/react-table'
+import { LegacyColumnDef, useLegacyTable, getCoreRowModel } from '@tanstack/react-table/legacy'
 import { useListQueryState } from '@/hooks/useListQueryState'
 import { toast } from 'sonner'
 import { Select } from '@/components/ui/select'
@@ -103,7 +103,7 @@ export function WithdrawalsPage() {
     resetParams({ page: 1, size: 10, status: -1, user_id: '' })
   }
 
-  const columns: ColumnDef<WithdrawalTransaction>[] = [
+  const columns: LegacyColumnDef<WithdrawalTransaction>[] = [
     {
       accessorKey: 'id',
       header: 'ID',
@@ -185,7 +185,7 @@ export function WithdrawalsPage() {
   ]
 
   const items = data?.items ?? []
-  const table = useReactTable({
+  const table = useLegacyTable({
     data: items,
     columns,
     getRowId: (row) => String(row.id),

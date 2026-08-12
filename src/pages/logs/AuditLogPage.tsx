@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
+import { LegacyColumnDef, getCoreRowModel, useLegacyTable } from '@tanstack/react-table/legacy'
 import {
   ArrowRightLeft,
   Copy,
@@ -346,7 +346,7 @@ function UserEventsTab() {
     }
   }
 
-  const columns: ColumnDef<AuditEvent>[] = [
+  const columns: LegacyColumnDef<AuditEvent>[] = [
     {
       accessorKey: 'eventType',
       header: '事件类型',
@@ -408,7 +408,7 @@ function UserEventsTab() {
     },
   ]
 
-  const table = useReactTable({
+  const table = useLegacyTable({
     data: pageEvents,
     columns,
     getCoreRowModel: getCoreRowModel(),
@@ -643,7 +643,7 @@ function AdminOpsTab() {
       }),
   })
 
-  const columns: ColumnDef<AdminOperationLog>[] = [
+  const columns: LegacyColumnDef<AdminOperationLog>[] = [
     {
       accessorKey: 'created_at',
       header: '操作时间',
@@ -713,7 +713,7 @@ function AdminOpsTab() {
     },
   ]
 
-  const table = useReactTable({
+  const table = useLegacyTable({
     data: data?.items ?? [],
     columns,
     getCoreRowModel: getCoreRowModel(),

@@ -12,7 +12,8 @@ import { Group } from '@/types/group'
 import type { EntityId } from '@/types/common'
 import { formatDate } from '@/lib/utils'
 import { exportCsv, type CsvColumn } from '@/lib/csvExport'
-import { ColumnDef, RowSelectionState, useReactTable, getCoreRowModel, getSortedRowModel, SortingState, VisibilityState } from '@tanstack/react-table'
+import { LegacyColumnDef, useLegacyTable, getCoreRowModel, getSortedRowModel } from '@tanstack/react-table/legacy'
+import { RowSelectionState, SortingState, ColumnVisibilityState } from '@tanstack/react-table'
 import { useListQueryState } from '@/hooks/useListQueryState'
 import { trackUxEvent } from '@/lib/uxTelemetry'
 import { getErrorMessage } from '@/lib/errorUtils'
@@ -51,7 +52,7 @@ export function GroupListPage() {
   const [statusFilter, setStatusFilter] = useState(String(params.status))
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
   const [sorting, setSorting] = useState<SortingState>([])
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
+  const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>({})
   const [showColumnPanel, setShowColumnPanel] = useState(false)
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean
@@ -174,7 +175,7 @@ export function GroupListPage() {
   }
 
   // 表格列定义
-  const columns: ColumnDef<Group>[] = [
+  const columns: LegacyColumnDef<Group>[] = [
     {
       id: 'select',
       header: ({ table }) => (
@@ -311,7 +312,7 @@ export function GroupListPage() {
   const groups = data?.items || []
   const pagination = data
 
-  const table = useReactTable({
+  const table = useLegacyTable({
     data: groups,
     columns,
     state: {

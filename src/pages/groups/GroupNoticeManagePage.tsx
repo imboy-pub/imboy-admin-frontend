@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
+import { LegacyColumnDef, getCoreRowModel, useLegacyTable } from '@tanstack/react-table/legacy'
 import { toast } from 'sonner'
 import { ArrowLeft, Download, Eye, Trash2 } from 'lucide-react'
 
@@ -83,7 +83,7 @@ export function GroupNoticeManagePage() {
     },
   })
 
-  const columns: ColumnDef<GroupNotice>[] = useMemo(
+  const columns: LegacyColumnDef<GroupNotice>[] = useMemo(
     () => [
       {
         accessorKey: 'id',
@@ -177,7 +177,7 @@ export function GroupNoticeManagePage() {
     exportCsv(csvColumns, notices, 'group_notices')
     toast.success(`已导出当前页 ${notices.length} 条数据`)
   }
-  const table = useReactTable({
+  const table = useLegacyTable({
     data: notices,
     columns,
     getCoreRowModel: getCoreRowModel(),

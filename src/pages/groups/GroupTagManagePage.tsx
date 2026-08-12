@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
+import { LegacyColumnDef, getCoreRowModel, useLegacyTable } from '@tanstack/react-table/legacy'
 import { toast } from 'sonner'
 import { ArrowLeft, Download, Trash2 } from 'lucide-react'
 
@@ -65,7 +65,7 @@ export function GroupTagManagePage() {
     },
   })
 
-  const columns: ColumnDef<GroupTag>[] = useMemo(
+  const columns: LegacyColumnDef<GroupTag>[] = useMemo(
     () => [
       {
         accessorKey: 'id',
@@ -125,7 +125,7 @@ export function GroupTagManagePage() {
     exportCsv(csvColumns, tags, 'group_tags')
     toast.success(`已导出当前页 ${tags.length} 条数据`)
   }
-  const table = useReactTable({
+  const table = useLegacyTable({
     data: tags,
     columns,
     getCoreRowModel: getCoreRowModel(),

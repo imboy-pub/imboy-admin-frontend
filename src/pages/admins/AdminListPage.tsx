@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
+import { LegacyColumnDef, getCoreRowModel, useLegacyTable } from '@tanstack/react-table/legacy'
 import { Activity, FileSearch, KeyRound, Plus, Shield, UserCircle, Download, Ban, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -329,7 +329,7 @@ export function AdminListPage() {
   const activeCount = adminRows.filter((item) => item.status === 1).length
   const disabledCount = adminRows.filter((item) => item.status !== 1).length
 
-  const columns: ColumnDef<Admin>[] = [
+  const columns: LegacyColumnDef<Admin>[] = [
     {
       accessorKey: 'id',
       header: 'ID',
@@ -437,7 +437,7 @@ export function AdminListPage() {
     },
   ]
 
-  const table = useReactTable({
+  const table = useLegacyTable({
     data: adminRows,
     columns,
     getCoreRowModel: getCoreRowModel(),

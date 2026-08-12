@@ -35,7 +35,8 @@ import { Wallet, WalletTransaction } from '@/types/billing'
 import type { EntityId } from '@/types/common'
 import { formatDate } from '@/lib/utils'
 import { fenToYuan, yuanToFen } from '@/lib/money'
-import { ColumnDef, useReactTable, getCoreRowModel, getSortedRowModel, SortingState } from '@tanstack/react-table'
+import { LegacyColumnDef, useLegacyTable, getCoreRowModel, getSortedRowModel } from '@tanstack/react-table/legacy'
+import { SortingState } from '@tanstack/react-table'
 import { useListQueryState } from '@/hooks/useListQueryState'
 import { Select } from '@/components/ui/select'
 
@@ -135,7 +136,7 @@ export function WalletListPage() {
   const handlePageChange = (page: number) => setParams({ page })
   const handlePageSizeChange = (size: number) => setParams({ page: 1, size })
 
-  const columns: ColumnDef<Wallet>[] = [
+  const columns: LegacyColumnDef<Wallet>[] = [
     {
       accessorKey: 'id',
       header: 'ID',
@@ -221,7 +222,7 @@ export function WalletListPage() {
 
   const wallets = data?.items || []
 
-  const table = useReactTable({
+  const table = useLegacyTable({
     data: wallets,
     columns,
     state: { sorting },

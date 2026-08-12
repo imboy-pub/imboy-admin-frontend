@@ -1,11 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import {
-  ColumnDef,
-  RowSelectionState,
-  getCoreRowModel,
-  useReactTable,
-} from '@tanstack/react-table'
+import { LegacyColumnDef, getCoreRowModel, useLegacyTable } from '@tanstack/react-table/legacy'
+import { RowSelectionState } from '@tanstack/react-table'
 import { useNavigate } from 'react-router-dom'
 import { CheckCircle2, Eye, Loader2, Search, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
@@ -294,7 +290,7 @@ export function MomentReportPage({ permissionOverride, showPageHeader = true }: 
     setParams({ page: 1, size })
   }
 
-  const columns: ColumnDef<MomentReport>[] = [
+  const columns: LegacyColumnDef<MomentReport>[] = [
     {
       id: 'select',
       header: ({ table }) => (
@@ -483,7 +479,7 @@ export function MomentReportPage({ permissionOverride, showPageHeader = true }: 
     moveActiveFocus,
   ])
 
-  const table = useReactTable({
+  const table = useLegacyTable({
     data: reports,
     columns,
     state: {

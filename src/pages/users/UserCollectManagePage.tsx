@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
+import { LegacyColumnDef, getCoreRowModel, useLegacyTable } from '@tanstack/react-table/legacy'
 import { ArrowLeft, Bookmark, Download, Search, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -114,7 +114,7 @@ export function UserCollectManagePage() {
     setParams((prev) => ({ ...prev, page: 1, size }))
   }
 
-  const columns: ColumnDef<UserCollectItem>[] = useMemo(
+  const columns: LegacyColumnDef<UserCollectItem>[] = useMemo(
     () => [
       {
         accessorKey: 'kind',
@@ -199,7 +199,7 @@ export function UserCollectManagePage() {
     exportCsv(csvColumns, collects, 'user_collects')
     toast.success(`已导出 ${collects.length} 条数据`)
   }
-  const table = useReactTable({
+  const table = useLegacyTable({
     data: collects,
     columns,
     getCoreRowModel: getCoreRowModel(),

@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ColumnDef, getCoreRowModel, useReactTable, RowSelectionState } from '@tanstack/react-table'
+import { LegacyColumnDef, getCoreRowModel, useLegacyTable } from '@tanstack/react-table/legacy'
+import { RowSelectionState } from '@tanstack/react-table'
 import { ArrowLeft, Pin, PinOff, Trash2, Download } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -155,7 +156,7 @@ export function ChannelMessagePage() {
 
   const selectedCount = Object.keys(rowSelection).length
 
-  const columns: ColumnDef<ChannelMessage>[] = [
+  const columns: LegacyColumnDef<ChannelMessage>[] = [
     {
       id: 'select',
       header: ({ table }) => (
@@ -272,7 +273,7 @@ export function ChannelMessagePage() {
     },
   ]
 
-  const table = useReactTable({
+  const table = useLegacyTable({
     data: messages,
     columns,
     state: { rowSelection },

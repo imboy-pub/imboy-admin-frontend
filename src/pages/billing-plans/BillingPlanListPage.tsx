@@ -28,13 +28,8 @@ import type { EntityId } from '@/types/common'
 import { formatDate } from '@/lib/utils'
 import { fenToYuan, yuanToFen } from '@/lib/money'
 import { getErrorMessage } from '@/lib/errorUtils'
-import {
-  ColumnDef,
-  useReactTable,
-  getCoreRowModel,
-  getSortedRowModel,
-  SortingState,
-} from '@tanstack/react-table'
+import { LegacyColumnDef, useLegacyTable, getCoreRowModel, getSortedRowModel } from '@tanstack/react-table/legacy'
+import { SortingState } from '@tanstack/react-table'
 import { useListQueryState } from '@/hooks/useListQueryState'
 import { Select } from '@/components/ui/select'
 
@@ -205,7 +200,7 @@ export function BillingPlanListPage() {
   const handlePageChange = (page: number) => setParams({ page })
   const handlePageSizeChange = (size: number) => setParams({ page: 1, size })
 
-  const columns: ColumnDef<BillingPlan>[] = [
+  const columns: LegacyColumnDef<BillingPlan>[] = [
     {
       accessorKey: 'code',
       header: '编码',
@@ -274,7 +269,7 @@ export function BillingPlanListPage() {
 
   const plans = data?.items || []
 
-  const table = useReactTable({
+  const table = useLegacyTable({
     data: plans,
     columns,
     state: { sorting },

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
+import { LegacyColumnDef, getCoreRowModel, useLegacyTable } from '@tanstack/react-table/legacy'
 import {
   Dialog,
   DialogContent,
@@ -57,7 +57,7 @@ export function ChannelOrdersDialog({ channelId, channelName, open, onOpenChange
 
   const orders = data?.items || []
 
-  const columns: ColumnDef<ChannelOrder>[] = [
+  const columns: LegacyColumnDef<ChannelOrder>[] = [
     {
       accessorKey: 'order_no',
       header: '订单号',
@@ -109,7 +109,7 @@ export function ChannelOrdersDialog({ channelId, channelName, open, onOpenChange
     },
   ]
 
-  const table = useReactTable({
+  const table = useLegacyTable({
     data: orders,
     columns,
     getCoreRowModel: getCoreRowModel(),

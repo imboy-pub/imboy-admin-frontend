@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useReactTable, getCoreRowModel, type ColumnDef } from '@tanstack/react-table'
+import { useLegacyTable, getCoreRowModel, type LegacyColumnDef } from '@tanstack/react-table/legacy'
 import { toast } from 'sonner'
 import { Plus, Pencil, Power, Copy, Upload } from 'lucide-react'
 import {
@@ -225,7 +225,7 @@ export function AiAgentListPage() {
     upsertMutation.mutate(input)
   }, [form, dialogMode, upsertMutation])
 
-  const columns = useMemo<ColumnDef<AiAgentListItem>[]>(
+  const columns = useMemo<LegacyColumnDef<AiAgentListItem>[]>(
     () => [
       {
         header: '助手',
@@ -306,7 +306,7 @@ export function AiAgentListPage() {
     [openEdit]
   )
 
-  const table = useReactTable({
+  const table = useLegacyTable({
     data: rows,
     columns,
     getCoreRowModel: getCoreRowModel(),

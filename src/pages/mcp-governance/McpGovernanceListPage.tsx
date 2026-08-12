@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
+import { LegacyColumnDef, getCoreRowModel, useLegacyTable } from '@tanstack/react-table/legacy'
 import { Search, CheckCircle, XCircle, Ban, Eye } from 'lucide-react'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
@@ -92,7 +92,7 @@ export function McpGovernanceListPage() {
     setParams((prev) => ({ ...prev, page: 1, status }))
   }
 
-  const columns: ColumnDef<McpClient>[] = [
+  const columns: LegacyColumnDef<McpClient>[] = [
     {
       accessorKey: 'name',
       header: '客户端名称',
@@ -170,7 +170,7 @@ export function McpGovernanceListPage() {
     },
   ]
 
-  const table = useReactTable({
+  const table = useLegacyTable({
     data: data?.items || [],
     columns,
     getCoreRowModel: getCoreRowModel(),

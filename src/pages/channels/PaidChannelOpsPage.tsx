@@ -1,10 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import {
-  ColumnDef,
-  getCoreRowModel,
-  useReactTable,
-} from '@tanstack/react-table'
+import { LegacyColumnDef, getCoreRowModel, useLegacyTable } from '@tanstack/react-table/legacy'
 import { DollarSign, ListOrdered, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
@@ -89,7 +85,7 @@ export function PaidChannelOpsPage() {
   const handlePageChange = (page: number) => setParams({ page })
   const handlePageSizeChange = (size: number) => setParams({ page: 1, size })
 
-  const columns: ColumnDef<Channel>[] = [
+  const columns: LegacyColumnDef<Channel>[] = [
     {
       accessorKey: 'id',
       header: '频道 ID',
@@ -161,7 +157,7 @@ export function PaidChannelOpsPage() {
     },
   ]
 
-  const table = useReactTable({
+  const table = useLegacyTable({
     data: paidChannels,
     columns,
     getRowId: (row) => String(row.id),

@@ -1,7 +1,7 @@
 // AI 角色模板管理：分页查看，保存草稿，显式发布后才影响绑定助手。
 import { useState, useMemo, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useReactTable, getCoreRowModel, type ColumnDef } from '@tanstack/react-table'
+import { useLegacyTable, getCoreRowModel, type LegacyColumnDef } from '@tanstack/react-table/legacy'
 import { toast } from 'sonner'
 import { Plus, Pencil, Power, Send, Trash2 } from 'lucide-react'
 import {
@@ -277,7 +277,7 @@ export function AiRolesPage() {
     onError: (err: unknown) => toast.error('删除失败: ' + getErrorMessage(err)),
   })
 
-  const columns = useMemo<ColumnDef<RoleRow>[]>(
+  const columns = useMemo<LegacyColumnDef<RoleRow>[]>(
     () => [
       {
         header: '角色',
@@ -344,7 +344,7 @@ export function AiRolesPage() {
     [openEdit]
   )
 
-  const table = useReactTable({ data: rows, columns, getCoreRowModel: getCoreRowModel() })
+  const table = useLegacyTable({ data: rows, columns, getCoreRowModel: getCoreRowModel() })
 
   if (isLoading) return <LoadingState message="加载 AI 角色..." />
   if (error) return <ErrorState message="加载 AI 角色失败" onRetry={() => refetch()} />

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
+import { LegacyColumnDef, getCoreRowModel, useLegacyTable } from '@tanstack/react-table/legacy'
 import { toast } from 'sonner'
 import { ArrowLeft, Download, Eye, Trash2 } from 'lucide-react'
 
@@ -83,7 +83,7 @@ export function GroupAlbumManagePage() {
     },
   })
 
-  const columns: ColumnDef<GroupAlbum>[] = useMemo(
+  const columns: LegacyColumnDef<GroupAlbum>[] = useMemo(
     () => [
       {
         accessorKey: 'id',
@@ -162,7 +162,7 @@ export function GroupAlbumManagePage() {
     exportCsv(csvColumns, albums, 'group_albums')
     toast.success(`已导出当前页 ${albums.length} 条数据`)
   }
-  const table = useReactTable({
+  const table = useLegacyTable({
     data: albums,
     columns,
     getCoreRowModel: getCoreRowModel(),
