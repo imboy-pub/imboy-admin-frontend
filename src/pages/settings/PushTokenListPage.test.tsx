@@ -125,13 +125,13 @@ describe('PushTokenListPage flow', () => {
     })
 
     const user = userEvent.setup()
-    const input = view.getByPlaceholderText('搜索用户 ID、设备类型、平台...') as HTMLInputElement
+    const input = view.getByPlaceholderText('搜索本页用户 ID、设备类型、平台...') as HTMLInputElement
 
     await user.clear(input)
     await user.type(input, '9001')
 
     await waitFor(() => {
-      expect((view.getByPlaceholderText('搜索用户 ID、设备类型、平台...') as HTMLInputElement).value).toBe('9001')
+      expect((view.getByPlaceholderText('搜索本页用户 ID、设备类型、平台...') as HTMLInputElement).value).toBe('9001')
     })
 
     await waitFor(() => {
