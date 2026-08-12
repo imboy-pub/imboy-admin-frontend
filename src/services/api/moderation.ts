@@ -13,14 +13,14 @@ export interface SensitiveWord {
   created_at: string
 }
 
-export interface SensitiveWordListParams {
+interface SensitiveWordListParams {
   page?: number
   size?: number
   keyword?: string
   category?: string
 }
 
-export async function getSensitiveWordList(
+async function getSensitiveWordList(
   params: SensitiveWordListParams
 ): Promise<ApiResponse<PaginatedResponse<SensitiveWord>>> {
   const response = await client.get('/moderation/sensitive-words', { params })
@@ -72,7 +72,7 @@ export interface ReviewQueueItem {
   created_at: string
 }
 
-export interface ReviewQueueParams {
+interface ReviewQueueParams {
   page?: number
   size?: number
   status?: ReviewStatus | 'all'
@@ -81,7 +81,7 @@ export interface ReviewQueueParams {
   end?: string
 }
 
-export async function getReviewQueue(
+async function getReviewQueue(
   params: ReviewQueueParams
 ): Promise<ApiResponse<PaginatedResponse<ReviewQueueItem>>> {
   const response = await client.get('/moderation/review-queue', { params })

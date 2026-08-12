@@ -3,7 +3,7 @@ import { ApiResponse, PaginatedResponse } from '@/types/api'
 import { requireApiPayload } from './responseAdapter'
 import type { EntityId } from '@/types/common'
 
-export type AdminOperationAction =
+type AdminOperationAction =
   | 'force_logout'
   | 'ban_user'
   | 'unban_user'
@@ -26,7 +26,7 @@ export interface AdminOperationLog {
   created_at: string
 }
 
-export interface AdminOperationLogParams {
+interface AdminOperationLogParams {
   adm_user_id?: EntityId
   action?: AdminOperationAction
   page?: number

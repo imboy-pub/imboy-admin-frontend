@@ -9,12 +9,12 @@ export interface MutedUser {
   remaining_seconds: number
 }
 
-export interface MutedUserListParams {
+interface MutedUserListParams {
   page?: number
   size?: number
 }
 
-export interface MutedUserListResponse {
+interface MutedUserListResponse {
   list: MutedUser[]
   total: number
   page: number

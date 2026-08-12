@@ -34,19 +34,19 @@ export interface McpClient {
   approved_at?: number
 }
 
-export interface McpToolGrant {
+interface McpToolGrant {
   name: string
   description?: string
   enabled: boolean
 }
 
-export interface McpScopeGrant {
+interface McpScopeGrant {
   scope: string
   description?: string
   enabled: boolean
 }
 
-export interface McpClientGrants {
+interface McpClientGrants {
   client_id: EntityId
   tools: McpToolGrant[]
   scopes: McpScopeGrant[]
@@ -70,7 +70,7 @@ export interface McpClientListParams {
   keyword?: string
 }
 
-export interface McpAuditListParams {
+interface McpAuditListParams {
   page: number
   size: number
   client_id?: EntityId
