@@ -32,7 +32,7 @@
 - [ ] `bun run lint` 通过 / 无新增 issue（ratchet 上限 10）
 - [ ] `bun run typecheck` 通过 / TS errors ≤ 31（ratchet）
 - [ ] `bun run deadcode` (knip) 不增（ratchet 35）
-- [ ] `bun test` 全绿
+- [ ] `bun run test` 全绿（测试文件隔离运行）
 - [ ] `bun run test:e2e` (Playwright) 关键 flow 通过
 
 ### 契约变更（如适用）

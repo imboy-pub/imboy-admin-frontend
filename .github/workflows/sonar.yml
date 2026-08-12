@@ -38,7 +38,7 @@ jobs:
       - name: Run tests with coverage（best-effort）
         run: |
           set -euxo pipefail
-          bun test --coverage || echo "::warning::bun test failed; sonar 仍上传源码 + lint baseline"
+          bun test --isolate --coverage || echo "::warning::bun test failed; sonar 仍上传源码 + lint baseline"
 
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@master
