@@ -114,7 +114,7 @@ export async function getFinanceSummary(): Promise<FinanceSummaryData> {
   return requireApiPayload(response.data, '/stats/finance')
 }
 
-export interface LicenseStatusData {
+interface LicenseStatusData {
   edition: string
   valid: boolean
   status: string
@@ -136,7 +136,7 @@ export async function applyLicense(licenseText: string): Promise<LicenseStatusDa
   return requireApiPayload(response.data, '/stats/license')
 }
 
-export interface FinanceMonthData {
+interface FinanceMonthData {
   month: string
   recharge_amount: number
   recharge_count: number
@@ -144,7 +144,7 @@ export interface FinanceMonthData {
   subscription_count: number
 }
 
-export interface FinanceReportData {
+interface FinanceReportData {
   data: FinanceMonthData[]
   months: number
 }

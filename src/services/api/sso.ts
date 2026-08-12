@@ -28,7 +28,7 @@ export function oidcCallbackUrl(): string {
 
 // ─── SSO 类型定义 ───────────────────────────────────────────────────────────────
 
-export type SSOProvider = 'ldap' | 'saml' | 'oauth2'
+type SSOProvider = 'ldap' | 'saml' | 'oauth2'
 
 export interface LdapConfig {
   provider: 'ldap'
@@ -71,15 +71,15 @@ export interface OAuth2Config {
   scopes: string
 }
 
-export type SSOConfig = LdapConfig | SamlConfig | OAuth2Config
+type SSOConfig = LdapConfig | SamlConfig | OAuth2Config
 
-export interface SSOConfigResponse {
+interface SSOConfigResponse {
   ldap?: LdapConfig
   saml?: SamlConfig
   oauth2?: OAuth2Config
 }
 
-export async function getSSOConfig(): Promise<ApiResponse<SSOConfigResponse>> {
+async function getSSOConfig(): Promise<ApiResponse<SSOConfigResponse>> {
   const response = await client.get('/sso/config')
   return response.data
 }

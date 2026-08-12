@@ -10,7 +10,7 @@
  * 绝不因为一个坏字段导致整个管理台不可用。
  */
 
-export type BrandTheme = 'light' | 'dark';
+type BrandTheme = 'light' | 'dark';
 
 export interface BrandConfig {
   siteName: string;

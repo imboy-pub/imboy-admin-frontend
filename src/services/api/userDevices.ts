@@ -7,7 +7,7 @@ import type { EntityId } from '@/types/common'
  * 设备记录。字段对齐后端 user_device_logic:page/3 返回的分页项：
  * device_id / device_name / device_type / device_vsn / last_active_at / online。
  */
-export interface UserDevice {
+interface UserDevice {
   device_id: string
   device_name: string
   device_type: string
@@ -24,7 +24,7 @@ interface UserDevicePage {
 }
 
 /** 列出指定用户的设备（GET /adm/user/devices?user_id=<uid>）。 */
-export async function listUserDevices(
+async function listUserDevices(
   userId: EntityId
 ): Promise<ApiResponse<UserDevicePage>> {
   const response = await client.get('/user/devices', {
