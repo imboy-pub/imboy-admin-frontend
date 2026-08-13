@@ -597,8 +597,15 @@ export async function getGroupGovernanceLogs(
 export async function getGroupGovernanceLogsPayload(
   params: GroupGovernanceLogListParams = { page: 1, size: 10 }
 ): Promise<PaginatedResponse<GroupGovernanceLog>> {
-  return requireApiPayload(
+  const payload = requireApiPayload(
     await getGroupGovernanceLogs(params),
     '/group/governance_log/list'
   )
+  // 后端该接口分页字段是 list（Erlang 惯例），前端 PaginatedResponse 约定 items；
+  // 无适配时页面恒为空表（total 正常但列表不渲染）
+  const raw = payload as PaginatedResponse<GroupGovernanceLog> & { list?: GroupGovernanceLog[] }
+  if (raw && Array.isArray(raw.list) && !Array.isArray(raw.items)) {
+    return { ...raw, items: raw.list }
+  }
+  return raw
 }
