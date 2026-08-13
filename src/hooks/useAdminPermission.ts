@@ -44,7 +44,7 @@ export function useAdminPermission(options: UseAdminPermissionOptions = {}) {
 
   const shouldResolvePermission = gateEnabled && (hasPermissionConstraint || hasRoleConstraint)
 
-  const { data: rbacProfile, isLoading: rbacLoading } = useQuery({
+  const { data: rbacProfile, isLoading: rbacLoading, isError: rbacError } = useQuery({
     queryKey: ['rbac', 'me', 'permission-gate'],
     queryFn: () => getMyRbacProfilePayload(),
     enabled: shouldResolvePermission,
@@ -125,17 +125,26 @@ export function useAdminPermission(options: UseAdminPermissionOptions = {}) {
     isSensitive,
   ])
 
+  // 时序修复：authStore persist rehydrate 尚未完成（currentRoleIds 为空）而
+  // /rbac/me profile 也未落地时，必须视为「加载中」等待，而不是用空角色集
+  // 判定无权限（曾导致登录后前几次导航被间歇性误跳 /forbidden）。
+  // 查询确定失败（rbacError）后不再等待，走下方角色级降级/fail-closed 分支。
   const waitingForRoleResolution =
     hasRoleConstraint &&
     effectiveRoleIds.length === 0 &&
     shouldResolvePermission &&
-    (rbacLoading || configLoading)
+    !rbacError &&
+    (!rbacProfile || rbacLoading || configLoading)
 
+  // 时序修复：rbac profile（权威权限源）尚未返回且查询仍在途时，一律等待，
+  // 不允许用先到的 sidebar 角色模板提前做否定判定——静态模板权限集不完整
+  // （曾导致 sidebar 先到 + /rbac/me 后到的竞态被间歇性误跳 /forbidden）。
+  // 查询确定失败（rbacError）后不再等待，走角色级降级 / fail-closed 分支。
   const waitingForPermissionResolution =
     hasPermissionConstraint &&
     !rbacProfile &&
-    !roleTemplatePermissions &&
     shouldResolvePermission &&
+    !rbacError &&
     (rbacLoading || configLoading)
 
   const loading =
