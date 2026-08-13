@@ -1,0 +1,89 @@
+{
+  "results": {
+    "AnnouncementListPage": {
+      "detected": true,
+      "detail": "错误态文案已渲染",
+      "forbidden": false
+    },
+    "BillingInvoiceListPage": {
+      "detected": true,
+      "detail": "错误态文案已渲染",
+      "forbidden": false
+    },
+    "BillingPlanListPage": {
+      "detected": true,
+      "detail": "错误态文案已渲染",
+      "forbidden": false
+    },
+    "BillingSubscriptionListPage": {
+      "detected": true,
+      "detail": "错误态文案已渲染",
+      "forbidden": false
+    },
+    "PaymentTransactionListPage": {
+      "detected": true,
+      "detail": "错误态文案已渲染",
+      "forbidden": false
+    },
+    "RechargeOrderListPage": {
+      "detected": true,
+      "detail": "错误态文案已渲染",
+      "forbidden": false
+    },
+    "WalletListPage": {
+      "detected": true,
+      "detail": "错误态文案已渲染",
+      "forbidden": false
+    },
+    "WithdrawalsPage": {
+      "detected": true,
+      "detail": "错误态文案已渲染",
+      "forbidden": false
+    },
+    "FinanceReportPage": {
+      "detected": true,
+      "detail": "错误态文案已渲染",
+      "forbidden": false
+    },
+    "PricingPage": {
+      "detected": false,
+      "detail": "Imboy Admin 仪表盘 运营中心 用户管理 群组管理 频道管理 朋友圈管理 治理中心 举报中心 反馈处理 审计中心 群上下文入口 消息管理 注销申请 日",
+      "forbidden": false
+    },
+    "LicensePage": {
+      "detected": false,
+      "detail": "                     æœ¨å…°å®½æ¾è®¸å¯è¯, ç¬¬2ç‰ˆ     æœ¨å…°å®½æ¾è®¸å¯è¯ï¼Œ",
+      "forbidden": false
+    },
+    "LogoutApplicationListPage": {
+      "detected": false,
+      "detail": "Imboy Admin 仪表盘 运营中心 用户管理 群组管理 频道管理 朋友圈管理 治理中心 举报中心 反馈处理 审计中心 群上下文入口 消息管理 注销申请 日",
+      "forbidden": false
+    },
+    "McpGovernanceListPage": {
+      "detected": true,
+      "detail": "错误态文案已渲染",
+      "forbidden": false
+    },
+    "ReportCenterPage": {
+      "detected": true,
+      "detail": "错误态文案已渲染",
+      "forbidden": false
+    },
+    "StorageOverviewPage": {
+      "detected": false,
+      "detail": "Imboy Admin 仪表盘 运营中心 用户管理 群组管理 频道管理 朋友圈管理 治理中心 举报中心 反馈处理 审计中心 群上下文入口 消息管理 注销申请 日",
+      "forbidden": false
+    },
+    "GroupTaskListPage": {
+      "detected": false,
+      "detail": "Imboy Admin 仪表盘 运营中心 用户管理 群组管理 频道管理 朋友圈管理 治理中心 举报中心 反馈处理 审计中心 群上下文入口 消息管理 注销申请 日",
+      "forbidden": false
+    },
+    "GroupContextGatewayPage": {
+      "detected": false,
+      "detail": "Imboy Admin 仪表盘 运营中心 用户管理 群组管理 频道管理 朋友圈管理 治理中心 举报中心 反馈处理 审计中心 群上下文入口 消息管理 注销申请 日",
+      "forbidden": false
+    }
+  }
+}

@@ -1,0 +1,165 @@
+{
+  "round": "writeops-0813",
+  "pages": [
+    {
+      "slug": "AnnouncementListPage",
+      "module": "announcements",
+      "path": "/announcements",
+      "tested": true,
+      "detail": "提交返回 2xx",
+      "apiCalls": [
+        {
+          "method": "POST",
+          "status": 200,
+          "url": "/api/adm/announcement/create"
+        }
+      ],
+      "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/announcements/writeops-0813-AnnouncementListPage-writeop-result.png"
+    },
+    {
+      "slug": "RolePermissionPage",
+      "module": "roles",
+      "path": "/roles",
+      "tested": true,
+      "detail": "提交返回 2xx",
+      "apiCalls": [
+        {
+          "method": "POST",
+          "status": 200,
+          "url": "/api/adm/role/create"
+        },
+        {
+          "method": "POST",
+          "status": 200,
+          "url": "/api/adm/role/create"
+        }
+      ],
+      "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/roles/writeops-0813-RolePermissionPage-writeop-result.png"
+    },
+    {
+      "slug": "SensitiveWordPage",
+      "module": "content-moderation",
+      "path": "/moderation/sensitive-words",
+      "tested": false,
+      "detail": "未找到新建类按钮",
+      "apiCalls": [],
+      "screenshot": ""
+    },
+    {
+      "slug": "UserTagManagePage",
+      "module": "users",
+      "path": "/users/{id}/tags",
+      "tested": false,
+      "detail": "未找到新建类按钮",
+      "apiCalls": [],
+      "screenshot": ""
+    },
+    {
+      "slug": "GroupCategoryManagePage",
+      "module": "groups",
+      "path": "/groups/{id}/categories",
+      "tested": false,
+      "detail": "未找到新建类按钮",
+      "apiCalls": [],
+      "screenshot": ""
+    },
+    {
+      "slug": "GroupTagManagePage",
+      "module": "groups",
+      "path": "/groups/{id}/tags",
+      "tested": false,
+      "detail": "未找到新建类按钮",
+      "apiCalls": [],
+      "screenshot": ""
+    },
+    {
+      "slug": "GroupNoticeManagePage",
+      "module": "groups",
+      "path": "/groups/{id}/notices",
+      "tested": false,
+      "detail": "填充 0 字段后未找到提交按钮",
+      "apiCalls": [],
+      "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/groups/writeops-0813-GroupNoticeManagePage-writeop-filled.png"
+    },
+    {
+      "slug": "GroupVoteManagePage",
+      "module": "groups",
+      "path": "/groups/{id}/votes",
+      "tested": false,
+      "detail": "填充 0 字段后未找到提交按钮",
+      "apiCalls": [],
+      "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/groups/writeops-0813-GroupVoteManagePage-writeop-filled.png"
+    },
+    {
+      "slug": "GroupScheduleManagePage",
+      "module": "groups",
+      "path": "/groups/{id}/schedules",
+      "tested": false,
+      "detail": "未找到新建类按钮",
+      "apiCalls": [],
+      "screenshot": ""
+    },
+    {
+      "slug": "GroupTaskManagePage",
+      "module": "groups",
+      "path": "/groups/{id}/tasks",
+      "tested": false,
+      "detail": "未找到新建类按钮",
+      "apiCalls": [],
+      "screenshot": ""
+    },
+    {
+      "slug": "GroupAlbumManagePage",
+      "module": "groups",
+      "path": "/groups/{id}/albums",
+      "tested": false,
+      "detail": "填充 0 字段后未找到提交按钮",
+      "apiCalls": [],
+      "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/groups/writeops-0813-GroupAlbumManagePage-writeop-filled.png"
+    },
+    {
+      "slug": "VersionPage",
+      "module": "settings",
+      "path": "/settings/versions",
+      "tested": false,
+      "detail": "填充 0 字段后未找到提交按钮",
+      "apiCalls": [],
+      "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/settings/writeops-0813-VersionPage-writeop-filled.png"
+    },
+    {
+      "slug": "AiRolesPage",
+      "module": "ai_agent",
+      "path": "/ai-agents/roles",
+      "tested": true,
+      "detail": "提交返回 2xx",
+      "apiCalls": [
+        {
+          "method": "POST",
+          "status": 200,
+          "url": "/api/adm/ai_agent/role/create"
+        },
+        {
+          "method": "POST",
+          "status": 500,
+          "url": "/api/adm/ai_agent/role/draft"
+        }
+      ],
+      "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/ai_agent/writeops-0813-AiRolesPage-writeop-result.png"
+    },
+    {
+      "slug": "AiAgentListPage",
+      "module": "ai_agent",
+      "path": "/ai-agents",
+      "tested": true,
+      "detail": "提交返回 2xx",
+      "apiCalls": [
+        {
+          "method": "POST",
+          "status": 200,
+          "url": "/api/adm/ai_agent/create"
+        }
+      ],
+      "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/ai_agent/writeops-0813-AiAgentListPage-writeop-result.png"
+    }
+  ]
+}

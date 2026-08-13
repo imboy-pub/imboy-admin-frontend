@@ -1,0 +1,29 @@
+{
+  "round": "round-0813-p2",
+  "guards": [
+    {
+      "slug": "guard-incognito",
+      "module": "auth",
+      "requestedPath": "/users",
+      "finalUrl": "http://127.0.0.1:8082/login",
+      "redirected": true,
+      "apis": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "actions": [],
+      "screenshots": []
+    },
+    {
+      "slug": "login-and-setup-when-authed",
+      "module": "auth",
+      "requestedPath": "/login → /setup",
+      "finalUrl": "http://127.0.0.1:8082/dashboard",
+      "redirected": false,
+      "apis": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "actions": [],
+      "screenshots": []
+    }
+  ]
+}
