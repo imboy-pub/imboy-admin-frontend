@@ -2,7 +2,7 @@
 
 # IMBoy Admin Frontend - AI 上下文文档 / AI Context Document
 
-> **最后更新 / Last updated**: 2026-04-11
+> **最后更新 / Last updated**: 2026-06-11
 > **技术栈 / Stack**: React 19.2 + TypeScript + Vite + Radix UI + Zustand + TanStack Query/Table
 > **包管理 / Package manager**: bun
 > **测试 / Testing**: bun test (unit) + Playwright (E2E)
@@ -32,6 +32,7 @@ imboy-admin-frontend/
 │   └── types/         # TypeScript 类型定义
 │       ├── admin.ts
 │       ├── api.ts
+│       ├── billing.ts
 │       ├── common.ts
 │       ├── group.ts
 │       ├── logoutApplication.ts

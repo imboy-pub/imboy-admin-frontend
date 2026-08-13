@@ -1,37 +1,52 @@
 # Admin Frontend Module Map
 
-> Date: 2026-03-15
+> Date: 2026-08 (rewritten from the 2026-03-15 plan to reflect the completed modular layout)
 > Scope: admin React app domain modules, public barrels, and extension-point boundaries
 
 ## Module Layout
 
-- `src/core`
-  - app-wide primitives such as auth shell, app bootstrap, shared runtime policies, and stable cross-domain infrastructure
 - `src/modules/*`
-  - domain modules that own their page exports, API adapters, hooks, schemas, registries, and feature routes
-- `src/app`
-  - top-level app composition, route wiring, shell layout, and startup integration
+  - Domain modules that own their page exports, API adapters, hooks, schemas, registries, and feature routes. Each module exposes a public barrel (`public.ts`) that is the ownership boundary for external importers.
+- `src/services/api/`
+  - Shared HTTP client (`client.ts`, with token refresh and response adapter) plus cross-domain and small services not yet promoted into a module.
+- `src/pages/`
+  - Route-level page components.
 
 ## Hard Rules
 
 - Pages, API, hooks, schemas, and feature routes for one domain should live under the same module.
-- External imports should prefer `src/modules/<domain>/index.ts` or other explicit public barrels rather than internal module files.
+- External imports should prefer `src/modules/<domain>/public.ts` (or `src/modules/<domain>/index.ts`) rather than internal module files.
 - Extension registries are narrow and in-repo only; they are for high-change dashboard/report panels, not for core auth, routing, or admin consistency flows.
 
-## Initial Domain Targets
+## Domain Modules
 
-| Domain | Current roots | Future public entry |
+Modules with a public barrel (the ownership boundary):
+
+| Domain | Module | Public barrel | API sources |
+|---|---|---|---|
+| Channels | `src/modules/channels` | `channels/public.ts` | `api/index.ts` |
+| Messages | `src/modules/messages` | `messages/public.ts` | `api/index.ts` |
+| Moments | `src/modules/moments` | `moments/public.ts` | `api/index.ts` |
+| Groups | `src/modules/groups` | `groups/public.ts` | `api/enhancements.ts`, `api/index.ts` |
+| Identity | `src/modules/identity` | `identity/public.ts` | `api/auth.ts`, `api/users.ts`, `api/roles.ts`, `api/index.ts` |
+| Social graph | `src/modules/social_graph` | `social_graph/public.ts` | `api/tags.ts`, `api/collects.ts`, `api/index.ts` |
+| Ops & governance | `src/modules/ops_governance` | `ops_governance/public.ts` | `api/reports.ts`, `api/feedback.ts`, `api/versions.ts`, `api/ddl.ts`, `api/index.ts` |
+| AI agent | `src/modules/ai_agent` | `ai_agent/public.ts` | `api/index.ts`, `pages/` |
+| Finance | `src/modules/finance` | `finance/public.ts` | `api/index.ts` |
+
+Extension-point modules (registry/contracts only, no public barrel):
+
+| Domain | Module | Layout |
 |---|---|---|
-| Channels | `src/pages/channels/`, `src/services/api/channels.ts` | `src/modules/channels/public.ts` |
-| Messages | `src/pages/messages/`, `src/services/api/messages.ts` | `src/modules/messages/public.ts` |
-| Moments | `src/pages/moments/`, `src/services/api/moments.ts` | `src/modules/moments/public.ts` |
-| Groups | `src/pages/groups/`, `src/services/api/groups.ts` | `src/modules/groups/public.ts` |
-| Identity | `src/pages/auth/`, `src/pages/users/`, `src/pages/roles/`, `src/modules/identity/api/{auth,users,roles}.ts` | `src/modules/identity/public.ts` |
-| Social graph | `src/pages/users/`, `src/modules/social_graph/api/{tags,collects}.ts` | `src/modules/social_graph/public.ts` |
-| Reports and governance | `src/pages/reports/`, `src/pages/feedback/`, `src/pages/settings/`, `src/modules/ops_governance/api/{reports,feedback,versions,ddl}.ts` | `src/modules/ops_governance/public.ts` |
+| Dashboard panels | `src/modules/dashboard` | `contracts/`, `registry/` |
+| Report panels | `src/modules/reports` | `contracts/`, `registry/` |
+| Plugin management | `src/modules/plugin_management` | `api/`, `pages/` |
 
 ## Migration Note
 
-Task 2 establishes the map and public-entry rule first. Physical page moves happen later, after module barrels and compatibility layers are in place.
+The modular migration outlined in the original 2026-03-15 plan is complete:
 
-Compatibility re-export files such as `src/services/api/auth.ts`, `src/services/api/users.ts`, `src/services/api/roles.ts`, `src/services/api/reports.ts`, `src/services/api/feedback.ts`, `src/services/api/versions.ts`, and `src/services/api/ddl.ts` remain temporary adapters for older imports and are not the ownership boundary anymore.
+- Domain logic lives under `src/modules/<domain>/` and is imported through `public.ts` barrels.
+- The former `src/services/api/*.ts` compatibility adapters for domain concerns (e.g. `auth.ts`, `users.ts`, `roles.ts`, `reports.ts`, `feedback.ts`, `versions.ts`, `ddl.ts`) have been removed; their capabilities moved into the corresponding modules.
+- `src/services/api/` now holds only the shared HTTP client and cross-domain services.
+- `src/core` and `src/app` (proposed in the original plan) were not adopted; app composition and route wiring live in `src/App.tsx` (entry `src/main.tsx`) instead.

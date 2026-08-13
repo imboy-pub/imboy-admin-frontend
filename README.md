@@ -38,7 +38,7 @@ cp .env.e2e.example .env.e2e
 # 编辑 .env.e2e，填入本地测试环境
 bun run test:e2e:install
 bun run test:e2e
-# 生产健康检查（需显式配置 IMBOY_ADMIN_E2E_BASE_URL，谨慎执行）
+# 生产健康检查（默认指向 https://prodadm.imboy.pub，可用 IMBOY_ADMIN_E2E_BASE_URL 覆盖；谨慎执行）
 IMBOY_ADMIN_E2E_BASE_URL=https://your-admin.example.com bun run test:e2e:prod
 ```
 
@@ -47,6 +47,8 @@ IMBOY_ADMIN_E2E_BASE_URL=https://your-admin.example.com bun run test:e2e:prod
 ```text
 src/pages/        页面
 src/components/   通用组件
+src/hooks/        自定义 Hooks
+src/lib/          工具函数
 src/modules/      业务模块及其 API
 src/services/     HTTP 客户端和历史共享服务
 src/stores/       Zustand 状态
