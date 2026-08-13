@@ -19,4 +19,4 @@
 | 阻塞 | 需人工验证 | `src/pages/users/UserListPage.tsx` | 「批量封禁」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 行内操作含不可逆动作（删除/解散/踢出），按规程人工执行 |
 | 阻塞 | 需人工验证 | `src/pages/users/UserListPage.tsx` | 「批量解封」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 行内操作含不可逆动作（删除/解散/踢出），按规程人工执行 |
 | 无待办 | - | `src/pages/users/UserListPage.tsx` | 「导出 N 条用户数据」操作提交成功并刷新列表数据 | 已通过 | 批次3 | 0 | 0 | 0 |  |
-| 回归复测 | 需交互验证入口 | `src/pages/users/UserListPage.tsx` | 跳转 `/users/:id` | 待重验 | 批次3 | 0 | 0 | 0 | 入口或为行点击，<a>断言不适用 |
+| 无待办 | - | `src/pages/users/UserListPage.tsx` | 跳转 `/users/:id` | 已通过 | 批次3 | 0 | 0 | 0 | eye(title=查看详情)导航验证（p17c） |

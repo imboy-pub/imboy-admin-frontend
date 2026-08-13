@@ -11,4 +11,4 @@
 | 阻塞 | 需 >10 条数据 | `src/pages/groups/GroupCategoryManagePage.tsx` | 分页翻页与每页条数切换（筛选/搜索变化时重置 page=1） | 未测 | 批次3 | 0 | 0 | 0 | 数据量不足，无第二页 |
 | 阻塞 | 需人工验证 | `src/pages/groups/GroupCategoryManagePage.tsx` | 危险/写操作二次确认弹窗（确认执行与取消） | 未测 | 批次3 | 0 | 0 | 0 | 确认执行路径属不可逆/敏感操作 |
 | 阻塞 | 需人工验证 | `src/pages/groups/GroupCategoryManagePage.tsx` | 「分类已删除」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 行内操作含不可逆动作（删除/解散/踢出），按规程人工执行 |
-| 回归复测 | 需人工点击验证 | `src/pages/groups/GroupCategoryManagePage.tsx` | 跳转 `/groups/:id` | 待重验 | 批次3 | 0 | 0 | 0 | 返回/入口按钮存在（截图），自动点击未命中文案 |
+| 无待办 | - | `src/pages/groups/GroupCategoryManagePage.tsx` | 跳转 `/groups/:id` | 已通过 | 批次3 | 0 | 0 | 0 | 返回按钮导航验证（p17） |

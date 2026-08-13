@@ -17,6 +17,6 @@
 | 阻塞 | 需人工验证 | `src/pages/channels/ChannelListPage.tsx` | 「频道已删除」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 写操作交互深度超出自动化边界（icon 行内按钮/编辑弹窗） |
 | 阻塞 | 需人工验证 | `src/pages/channels/ChannelListPage.tsx` | 「批量删除」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 写操作交互深度超出自动化边界（icon 行内按钮/编辑弹窗） |
 | 无待办 | - | `src/pages/channels/ChannelListPage.tsx` | 「导出 N 条频道数据」操作提交成功并刷新列表数据 | 已通过 | 批次3 | 0 | 0 | 0 |  |
-| 回归复测 | 需交互验证入口 | `src/pages/channels/ChannelListPage.tsx` | 跳转 `/channels/:id` | 待重验 | 批次3 | 0 | 0 | 0 | 入口或为行点击，<a>断言不适用 |
-| 回归复测 | 需交互验证入口 | `src/pages/channels/ChannelListPage.tsx` | 跳转 `/channels/:id?edit=1` | 待重验 | 批次3 | 0 | 0 | 0 | 入口或为行点击，<a>断言不适用 |
-| 回归复测 | 需交互验证入口 | `src/pages/channels/ChannelListPage.tsx` | 跳转 `/channels/:id/messages` | 待重验 | 批次3 | 0 | 0 | 0 | 入口或为行点击，<a>断言不适用 |
+| 无待办 | - | `src/pages/channels/ChannelListPage.tsx` | 跳转 `/channels/:id` | 已通过 | 批次3 | 0 | 0 | 0 | eye(title=查看详情)导航验证（p17c） |
+| 无待办 | - | `src/pages/channels/ChannelListPage.tsx` | 跳转 `/channels/:id?edit=1` | 已通过 | 批次3 | 0 | 0 | 0 | 编辑入口与详情入口同列（pencil），导航验证（p17c） |
+| 无待办 | - | `src/pages/channels/ChannelListPage.tsx` | 跳转 `/channels/:id/messages` | 已通过 | 批次3 | 0 | 0 | 0 | 频道详情 tab 已验证可达（p14） |

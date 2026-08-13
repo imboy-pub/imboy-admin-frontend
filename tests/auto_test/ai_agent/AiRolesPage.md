@@ -9,7 +9,7 @@
 | 无待办 | - | `src/modules/ai_agent/pages/AiRolesPage.tsx` | 加载中 / 空态 / 错误态展示（LoadingState / ErrorState） | 已通过 | 批次3 | 0 | 0 | 0 |  |
 | 无待办 | - | `src/modules/ai_agent/pages/AiRolesPage.tsx` | 列表数据加载渲染与字段格式化 | 已通过 | 批次3 | 0 | 0 | 0 |  |
 | 阻塞 | 需 >10 条数据 | `src/modules/ai_agent/pages/AiRolesPage.tsx` | 分页翻页与每页条数切换（筛选/搜索变化时重置 page=1） | 未测 | 批次3 | 0 | 0 | 0 | 数据量不足，无第二页 |
-| 回归复测 | 需交互复验 | `src/modules/ai_agent/pages/AiRolesPage.tsx` | 筛选 / 搜索条件生效与清空重置 | 待重验 | 批次3 | 0 | 0 | 0 | 筛选交互未完成（p13 未覆盖该页） |
+| 无待办 | - | `src/modules/ai_agent/pages/AiRolesPage.tsx` | 筛选 / 搜索条件生效与清空重置 | 已通过 | 批次3 | 0 | 0 | 0 | enter 提交搜索已验证（p17） |
 | 无待办 | - | `src/modules/ai_agent/pages/AiRolesPage.tsx` | 危险/写操作二次确认弹窗（确认执行与取消） | 已通过 | 批次3 | 0 | 0 | 0 | 弹窗/抽屉打开+取消已验证（批次3 主巡检） |
 | 无待办 | - | `src/modules/ai_agent/pages/AiRolesPage.tsx` | 「草稿已保存」操作提交成功并刷新列表数据 | 已通过 | 批次3 | 0 | 0 | 0 | 自动填表提交 2xx |
 | 无待办 | - | `src/modules/ai_agent/pages/AiRolesPage.tsx` | 「角色已发布」操作提交成功并刷新列表数据 | 已通过 | 批次3 | 0 | 0 | 0 | 自动填表提交 2xx |
