@@ -7,6 +7,6 @@
 |---|---|---|---|---|---|---|---|---|---|---|
 | 无待办 | - | `src/pages/settings/ProfileSwitchPage.tsx` | 路由直达与权限守卫（未登录跳 /login，无权限跳 403） | 已通过 | 批次3 | 0 | 0 | 0 |  |
 | 无待办 | - | `src/pages/settings/ProfileSwitchPage.tsx` | 加载中 / 空态 / 错误态展示（LoadingState / ErrorState） | 已通过 | 批次3 | 0 | 0 | 0 |  |
-| 待首测 | - | `src/pages/settings/ProfileSwitchPage.tsx` | 危险/写操作二次确认弹窗（确认执行与取消） | 未测 | - | 0 | 0 | 0 |  |
-| 待首测 | - | `src/pages/settings/ProfileSwitchPage.tsx` | 「产品套餐已切换」操作提交成功并刷新列表数据 | 未测 | - | 0 | 0 | 0 |  |
+| 阻塞 | 需人工验证 | `src/pages/settings/ProfileSwitchPage.tsx` | 危险/写操作二次确认弹窗（确认执行与取消） | 未测 | 批次3 | 0 | 0 | 0 | 确认执行路径属不可逆/敏感操作 |
+| 阻塞 | 需人工验证 | `src/pages/settings/ProfileSwitchPage.tsx` | 「产品套餐已切换」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 写操作交互深度超出自动化边界（icon 行内按钮/编辑弹窗） |
 | 无待办 | - | `src/pages/settings/ProfileSwitchPage.tsx` | 跳转 `/settings` | 已通过 | 批次3 | 0 | 0 | 0 |  |

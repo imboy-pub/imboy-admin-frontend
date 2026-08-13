@@ -7,6 +7,6 @@
 |---|---|---|---|---|---|---|---|---|---|---|
 | 无待办 | - | `src/pages/settings/ComplianceKeyPage.tsx` | 路由直达与权限守卫（未登录跳 /login，无权限跳 403） | 已通过 | 批次3 | 0 | 0 | 0 |  |
 | 无待办 | - | `src/pages/settings/ComplianceKeyPage.tsx` | 加载中 / 空态 / 错误态展示（LoadingState / ErrorState） | 已通过 | 批次3 | 0 | 0 | 0 |  |
-| 待首测 | - | `src/pages/settings/ComplianceKeyPage.tsx` | 「合规密钥创建」操作提交成功并刷新列表数据 | 未测 | - | 0 | 0 | 0 |  |
-| 待首测 | - | `src/pages/settings/ComplianceKeyPage.tsx` | 「密钥已撤销」操作提交成功并刷新列表数据 | 未测 | - | 0 | 0 | 0 |  |
+| 阻塞 | 需人工验证 | `src/pages/settings/ComplianceKeyPage.tsx` | 「合规密钥创建」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 资金/审批/配置类敏感操作，自动化跳过 |
+| 阻塞 | 需人工验证 | `src/pages/settings/ComplianceKeyPage.tsx` | 「密钥已撤销」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 资金/审批/配置类敏感操作，自动化跳过 |
 | 无待办 | - | `src/pages/settings/ComplianceKeyPage.tsx` | 跳转 `/settings` | 已通过 | 批次3 | 0 | 0 | 0 |  |

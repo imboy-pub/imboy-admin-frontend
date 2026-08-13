@@ -9,8 +9,8 @@
 | 无待办 | - | `src/pages/channels/ChannelSubscriberPage.tsx` | 加载中 / 空态 / 错误态展示（LoadingState / ErrorState） | 已通过 | 批次3 | 0 | 0 | 0 | 错误态注入待补测 |
 | 无待办 | - | `src/pages/channels/ChannelSubscriberPage.tsx` | 列表数据加载渲染与字段格式化 | 已通过 | 批次3 | 0 | 0 | 0 |  |
 | 阻塞 | 需 >10 条数据 | `src/pages/channels/ChannelSubscriberPage.tsx` | 分页翻页与每页条数切换（筛选/搜索变化时重置 page=1） | 未测 | 批次3 | 0 | 0 | 0 | 数据量不足，无第二页 |
-| 待首测 | - | `src/pages/channels/ChannelSubscriberPage.tsx` | 危险/写操作二次确认弹窗（确认执行与取消） | 未测 | - | 0 | 0 | 0 |  |
+| 阻塞 | 需人工验证 | `src/pages/channels/ChannelSubscriberPage.tsx` | 危险/写操作二次确认弹窗（确认执行与取消） | 未测 | 批次3 | 0 | 0 | 0 | 确认执行路径属不可逆/敏感操作 |
 | 阻塞 | 需 >10 条数据 | `src/pages/channels/ChannelSubscriberPage.tsx` | 导出 CSV（字段完整性与大数据量分页导出） | 未测 | 批次3 | 0 | 0 | 0 | 数据量不足，无第二页 |
-| 待首测 | - | `src/pages/channels/ChannelSubscriberPage.tsx` | 「订阅者已移除」操作提交成功并刷新列表数据 | 未测 | - | 0 | 0 | 0 |  |
-| 待首测 | - | `src/pages/channels/ChannelSubscriberPage.tsx` | 「导出 N 条数据」操作提交成功并刷新列表数据 | 未测 | - | 0 | 0 | 0 |  |
-| 待首测 | - | `src/pages/channels/ChannelSubscriberPage.tsx` | 跳转 `/channels/:id` | 未测 | - | 0 | 0 | 0 |  |
+| 阻塞 | 需测试数据 | `src/pages/channels/ChannelSubscriberPage.tsx` | 「订阅者已移除」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 本地库无该类数据，写操作无法真实执行 |
+| 阻塞 | 需 >10 条数据 | `src/pages/channels/ChannelSubscriberPage.tsx` | 「导出 N 条数据」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 列表为空导出按钮禁用/无数据可导 |
+| 回归复测 | 需人工点击验证 | `src/pages/channels/ChannelSubscriberPage.tsx` | 跳转 `/channels/:id` | 待重验 | 批次3 | 0 | 0 | 0 | 返回/入口按钮存在（截图），自动点击未命中文案 |

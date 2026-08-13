@@ -11,6 +11,8 @@ import { test, type Page } from '@playwright/test'
 import { loginAsAdmin, requireAdminCredentials } from './support/adminAuth'
 
 const ROUND = process.env.AUTO_TEST_ROUND || `writeops-${Date.now() % 100000}`
+/** 只跑这些 slug（逗号分隔） */
+const ONLY = (process.env.AUTO_TEST_ONLY || '').split(',').map((x) => x.trim()).filter(Boolean)
 const EVIDENCE_ROOT = path.resolve(process.cwd(), 'tests/auto_test/evidence')
 
 type Target = { slug: string; module: string; path: string }
@@ -110,16 +112,53 @@ function deepFindId(node: unknown, depth = 0): string | null {
   return null
 }
 
-async function fillVisibleInputs(page: Page, scope: string, stamp: string) {
-  const dialog = page.locator(scope).first()
+/**
+ * 定位表单容器：Radix Dialog → 内联 form（Card 表单模式）→ 整页兜底。
+ * 返回 Playwright Locator（容器）。
+ */
+async function locateFormScope(page: Page, formsBefore = 0) {
+  const dlg = page.locator('[role="dialog"]:visible, [role="alertdialog"]:visible').first()
+  if (await dlg.isVisible({ timeout: 600 }).catch(() => false)) return dlg
+  // 内联 Card 表单：点击后新增的 <form> 即目标（通常 append 在容器尾部）
+  const forms = page.locator('form:visible')
+  const formsAfter = await forms.count().catch(() => 0)
+  if (formsAfter > formsBefore) return forms.nth(formsAfter - 1)
+  if (formsAfter > 0) return forms.last()
+  return page.locator('body')
+}
+
+/** 找到第一个「可见」的匹配按钮（.first() 可能命中隐藏按钮） */
+async function firstVisibleButton(page: Page, name: RegExp, timeout = 1_500) {
+  const btns = page.getByRole('button', { name })
+  const start = Date.now()
+  while (Date.now() - start < timeout) {
+    const n = await btns.count().catch(() => 0)
+    for (let i = 0; i < Math.min(n, 10); i++) {
+      if (await btns.nth(i).isVisible().catch(() => false)) return btns.nth(i)
+    }
+    await page.waitForTimeout(250)
+  }
+  return null
+}
+
+async function fillVisibleInputs(page: Page, scope: import('@playwright/test').Locator, stamp: string) {
+  const dialog = scope
   const inputs = dialog.locator('input:visible, textarea:visible')
   const count = await inputs.count()
   for (let i = 0; i < count; i++) {
     const el = inputs.nth(i)
     const type = await el.getAttribute('type').catch(() => null)
-    if (type && ['checkbox', 'radio', 'file', 'hidden', 'date'].includes(type)) continue
+    if (type && ['checkbox', 'radio', 'file', 'hidden', 'date', 'search'].includes(type)) continue
     if (await el.isDisabled().catch(() => true)) continue
-    if (type === 'number') {
+    // 跳过筛选/搜索区输入（兜底整页扫描时避免误填）
+    const ph = ((await el.getAttribute('placeholder').catch(() => '')) ?? '')
+    if (/搜索|筛选|查询/.test(ph)) continue
+    const inputmode = await el.getAttribute('inputmode').catch(() => null)
+    const step = await el.getAttribute('step').catch(() => null)
+    const role = await el.getAttribute('role').catch(() => null)
+    // 数字字段识别：type=number / inputmode=numeric / step / spinbutton
+    const isNumeric = type === 'number' || inputmode === 'numeric' || inputmode === 'decimal' || Boolean(step) || role === 'spinbutton'
+    if (isNumeric) {
       await el.fill('1').catch(() => {})
     } else {
       const tag = await el.evaluate((n) => n.tagName).catch(() => 'INPUT')
@@ -170,6 +209,7 @@ test('auto_test 写操作真实提交（白名单页面）', async ({ page }) =>
 
   for (let idx = 0; idx < TARGETS.length; idx++) {
     const t = TARGETS[idx]
+    if (ONLY.length && !ONLY.includes(t.slug)) continue
     const stamp = `${stampBase}_${idx}`
     const entry: WriteOpReport = { slug: t.slug, module: t.module, path: t.path, tested: false, detail: '', apiCalls: [], screenshot: '' }
 
@@ -199,27 +239,37 @@ test('auto_test 写操作真实提交（白名单页面）', async ({ page }) =>
       await page.waitForLoadState('networkidle', { timeout: 6_000 }).catch(() => {})
       await page.waitForTimeout(400)
 
-      const createBtn = page.getByRole('button', { name: /^(新建|创建|新增)/ }).first()
-      if (!(await createBtn.isVisible({ timeout: 1_500 }).catch(() => false))) {
+      // 按钮文案按页面实际用词放宽：新建/创建/新增/添加/发布；遍历找第一个可见的
+      const createBtn = await firstVisibleButton(page, /^(新建|创建|新增|添加|发布)/)
+      if (!createBtn) {
         entry.detail = '未找到新建类按钮'
         report.push(entry)
         saveReport()
         page.off('response', handler)
         continue
       }
+      const formsBefore = await page.locator('form:visible').count().catch(() => 0)
       await createBtn.click()
       await page.waitForTimeout(1_000)
 
-      const scope = (await page.locator('[role="dialog"]').first().isVisible().catch(() => false))
-        ? '[role="dialog"]'
-        : '[role="dialog"], [data-state="open"]'
+      // 表单容器：Dialog 优先，其次新增的内联 Card 表单（form），最后整页
+      const scope = await locateFormScope(page, formsBefore)
       const filled = await fillVisibleInputs(page, scope, stamp)
       entry.screenshot = await shot(t.module, `${t.slug}-writeop-filled`)
 
-      // 提交（排除取消/关闭）
-      const submitBtn = page.locator('[role="dialog"] button, [data-state="open"] button')
-        .filter({ hasText: /^(确[认定]|保存|创建|提交|添加|发布)/ })
-        .first()
+      // 提交（Dialog 内按钮 / form submit / form 内动作按钮）
+      const dlgOpen = await page.locator('[role="dialog"]:visible').first().isVisible().catch(() => false)
+      let submitBtn = dlgOpen
+        ? page.locator('[role="dialog"] button')
+            .filter({ hasText: /^(确[认定]|保存|创建|提交|添加|发布)/ })
+            .last()
+        : page.locator('form button[type="submit"]').first()
+      if (!(await submitBtn.isVisible({ timeout: 800 }).catch(() => false))) {
+        // 无 form submit 时：整页找动作按钮（排除取消/关闭/导入/导出/搜索）
+        submitBtn = page.getByRole('button', { name: /^(确[认定]|保存|创建|提交|添加|发布)/ })
+          .filter({ hasNotText: /取消|关闭|导入|导出|搜索|重置/ })
+          .last()
+      }
       const submittable = await submitBtn.isVisible({ timeout: 1_500 }).catch(() => false)
       if (!submittable) {
         entry.detail = `填充 ${filled} 字段后未找到提交按钮`

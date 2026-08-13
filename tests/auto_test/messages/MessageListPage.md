@@ -12,4 +12,4 @@
 | 无待办 | - | `src/pages/messages/MessageListPage.tsx` | 抽屉（详情/编辑）打开、提交与关闭 | 已通过 | 批次3 | 0 | 0 | 0 | 打开+取消已验证 |
 | 无待办 | - | `src/pages/messages/MessageListPage.tsx` | 导出 CSV（字段完整性与大数据量分页导出） | 已通过 | 批次3 | 0 | 0 | 0 |  |
 | 无待办 | - | `src/pages/messages/MessageListPage.tsx` | 「开始下载导出文件」操作提交成功并刷新列表数据 | 已通过 | 批次3 | 0 | 0 | 0 |  |
-| 待首测 | - | `src/pages/messages/MessageListPage.tsx` | 「N已复制」操作提交成功并刷新列表数据 | 未测 | - | 0 | 0 | 0 |  |
+| 阻塞 | 需人工验证 | `src/pages/messages/MessageListPage.tsx` | 「N已复制」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 写操作交互深度超出自动化边界（icon 行内按钮/编辑弹窗） |
