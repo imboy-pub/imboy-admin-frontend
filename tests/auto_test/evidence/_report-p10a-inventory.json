@@ -1,0 +1,341 @@
+{
+ "ids": {
+  "uid": "106808244793772032",
+  "gid": "",
+  "cid": ""
+ },
+ "inventory": {
+  "SensitiveWordPage": {
+   "buttons": [
+    "重试"
+   ],
+   "rowButtons": [],
+   "inputs": [],
+   "hasTable": false,
+   "rows": 0
+  },
+  "VersionPage": {
+   "buttons": [
+    "重试"
+   ],
+   "rowButtons": [],
+   "inputs": [],
+   "hasTable": false,
+   "rows": 0
+  },
+  "UserTagManagePage": {
+   "buttons": [
+    "重试"
+   ],
+   "rowButtons": [],
+   "inputs": [],
+   "hasTable": false,
+   "rows": 0
+  },
+  "UserCollectManagePage": {
+   "buttons": [
+    "重试"
+   ],
+   "rowButtons": [],
+   "inputs": [],
+   "hasTable": false,
+   "rows": 0
+  },
+  "GroupTagManagePage": {
+   "buttons": [],
+   "rowButtons": [],
+   "inputs": [],
+   "hasTable": false,
+   "rows": 0
+  },
+  "GroupCategoryManagePage": {
+   "buttons": [],
+   "rowButtons": [],
+   "inputs": [],
+   "hasTable": false,
+   "rows": 0
+  },
+  "GroupNoticeManagePage": {
+   "buttons": [],
+   "rowButtons": [],
+   "inputs": [],
+   "hasTable": false,
+   "rows": 0
+  },
+  "GroupVoteManagePage": {
+   "buttons": [],
+   "rowButtons": [],
+   "inputs": [],
+   "hasTable": false,
+   "rows": 0
+  },
+  "GroupScheduleManagePage": {
+   "buttons": [],
+   "rowButtons": [],
+   "inputs": [],
+   "hasTable": false,
+   "rows": 0
+  },
+  "GroupTaskManagePage": {
+   "buttons": [],
+   "rowButtons": [],
+   "inputs": [],
+   "hasTable": false,
+   "rows": 0
+  },
+  "GroupAlbumManagePage": {
+   "buttons": [],
+   "rowButtons": [],
+   "inputs": [],
+   "hasTable": false,
+   "rows": 0
+  },
+  "GroupFileManagePage": {
+   "buttons": [],
+   "rowButtons": [],
+   "inputs": [],
+   "hasTable": false,
+   "rows": 0
+  },
+  "GroupMemberManagePage": {
+   "buttons": [],
+   "rowButtons": [],
+   "inputs": [],
+   "hasTable": false,
+   "rows": 0
+  },
+  "UserListPage": {
+   "buttons": [
+    "返回上页"
+   ],
+   "rowButtons": [],
+   "inputs": [],
+   "hasTable": false,
+   "rows": 0
+  },
+  "GroupListPage": {
+   "buttons": [
+    "导出当前页 CSV",
+    "列显示",
+    "重置",
+    "搜索",
+    "ID",
+    "群名称",
+    "群主 ID",
+    "成员数",
+    "类型",
+    "状态",
+    "创建时间",
+    "上一页",
+    "1",
+    "2",
+    "3",
+    "4",
+    "25",
+    "下一页"
+   ],
+   "rowButtons": [],
+   "inputs": [
+    "input#[搜索群名称...]",
+    "input#[]",
+    "input#[]",
+    "input#[]",
+    "input#[]",
+    "input#[]",
+    "input#[]",
+    "input#[]",
+    "input#[]",
+    "input#[]",
+    "input#[]",
+    "input#[]"
+   ],
+   "hasTable": true,
+   "rows": 10
+  },
+  "ChannelListPage": {
+   "buttons": [
+    "导出 CSV",
+    "重置",
+    "搜索",
+    "ID",
+    "频道名称",
+    "创建者 ID",
+    "类型",
+    "订阅数",
+    "状态",
+    "创建时间",
+    "上一页",
+    "1",
+    "下一页"
+   ],
+   "rowButtons": [],
+   "inputs": [
+    "input#[搜索频道名称...]",
+    "input#[]",
+    "input#[]",
+    "input#[]",
+    "input#[]"
+   ],
+   "hasTable": true,
+   "rows": 3
+  },
+  "ChannelDetailPage": {
+   "buttons": [
+    "导出 CSV",
+    "重置",
+    "搜索",
+    "ID",
+    "频道名称",
+    "创建者 ID",
+    "类型",
+    "订阅数",
+    "状态",
+    "创建时间",
+    "上一页",
+    "1",
+    "下一页"
+   ],
+   "rowButtons": [],
+   "inputs": [
+    "input#[搜索频道名称...]",
+    "input#[]",
+    "input#[]",
+    "input#[]",
+    "input#[]"
+   ],
+   "hasTable": true,
+   "rows": 3
+  },
+  "ChannelMessagePage": {
+   "buttons": [],
+   "rowButtons": [],
+   "inputs": [],
+   "hasTable": false,
+   "rows": 0
+  },
+  "ChannelSubscriberPage": {
+   "buttons": [],
+   "rowButtons": [],
+   "inputs": [],
+   "hasTable": false,
+   "rows": 0
+  },
+  "ChannelAdminPage": {
+   "buttons": [],
+   "rowButtons": [],
+   "inputs": [],
+   "hasTable": false,
+   "rows": 0
+  },
+  "ChannelInvitationPage": {
+   "buttons": [],
+   "rowButtons": [],
+   "inputs": [],
+   "hasTable": false,
+   "rows": 0
+  },
+  "ChannelOrderPage": {
+   "buttons": [],
+   "rowButtons": [],
+   "inputs": [],
+   "hasTable": false,
+   "rows": 0
+  },
+  "MutedUsersPage": {
+   "buttons": [],
+   "rowButtons": [],
+   "inputs": [],
+   "hasTable": false,
+   "rows": 0
+  },
+  "SSOConfigPage": {
+   "buttons": [
+    "LDAP / AD",
+    "SAML 2.0",
+    "OAuth 2.0",
+    "连接测试",
+    "保存配置"
+   ],
+   "rowButtons": [],
+   "inputs": [
+    "input#ldap-host[ldap.example]",
+    "input#ldap-port[389 / 636 (S]",
+    "input#ldap-base-dn[dc=example,d]",
+    "input#ldap-bind-dn[cn=admin,dc=]",
+    "input#ldap-bind-password[尚未配置]",
+    "input#ldap-user-filter[(uid={{usern]",
+    "input#ldap-uid-attr[uid]",
+    "input#ldap-mail-attr[mail]",
+    "input#ldap-name-attr[cn]"
+   ],
+   "hasTable": false,
+   "rows": 0
+  },
+  "ComplianceKeyPage": {
+   "buttons": [
+    "返回",
+    "创建密钥"
+   ],
+   "rowButtons": [],
+   "inputs": [],
+   "hasTable": false,
+   "rows": 0
+  },
+  "BillingPlanListPage": {
+   "buttons": [
+    "新建套餐",
+    "重置",
+    "搜索",
+    "编码",
+    "套餐名称",
+    "价格",
+    "计费周期",
+    "状态",
+    "创建时间",
+    "上一页",
+    "1",
+    "下一页"
+   ],
+   "rowButtons": [],
+   "inputs": [],
+   "hasTable": true,
+   "rows": 1
+  },
+  "FeedbackListPage": {
+   "buttons": [
+    "重试"
+   ],
+   "rowButtons": [],
+   "inputs": [],
+   "hasTable": false,
+   "rows": 0
+  },
+  "PluginManagementPage": {
+   "buttons": [
+    "重试"
+   ],
+   "rowButtons": [],
+   "inputs": [],
+   "hasTable": false,
+   "rows": 0
+  },
+  "MomentListPage": {
+   "buttons": [
+    "重试"
+   ],
+   "rowButtons": [],
+   "inputs": [],
+   "hasTable": false,
+   "rows": 0
+  },
+  "AnnouncementListPage": {
+   "buttons": [
+    "返回上页"
+   ],
+   "rowButtons": [],
+   "inputs": [],
+   "hasTable": false,
+   "rows": 0
+  }
+ }
+}

@@ -1,0 +1,92 @@
+{
+  "GroupNoticeManagePage": {
+    "outcome": "none-safe",
+    "detail": "菜单项: 空",
+    "apis": [],
+    "shot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/groups/p12-13167-GroupNoticeManagePage-menu.png"
+  },
+  "GroupVoteManagePage": {
+    "outcome": "none-safe",
+    "detail": "菜单项: 空",
+    "apis": [],
+    "shot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/groups/p12-13167-GroupVoteManagePage-menu.png"
+  },
+  "GroupTagManagePage": {
+    "outcome": "none-safe",
+    "detail": "菜单项: 空",
+    "apis": [],
+    "shot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/groups/p12-13167-GroupTagManagePage-menu.png"
+  },
+  "GroupMemberManagePage": {
+    "outcome": "no-op",
+    "detail": "直接执行：无写请求",
+    "apis": [],
+    "shot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/groups/p12-13167-GroupMemberManagePage-direct.png"
+  },
+  "UserListPage": {
+    "outcome": "none-safe",
+    "detail": "菜单项: 空",
+    "apis": [],
+    "shot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/users/p12-13167-UserListPage-menu.png"
+  },
+  "GroupListPage": {
+    "outcome": "none-safe",
+    "detail": "菜单项: 空",
+    "apis": [],
+    "shot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/groups/p12-13167-GroupListPage-menu.png"
+  },
+  "ChannelListPage": {
+    "outcome": "none-safe",
+    "detail": "菜单项: 空",
+    "apis": [],
+    "shot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/channels/p12-13167-ChannelListPage-menu.png"
+  },
+  "ChannelDetailPage": {
+    "outcome": "error",
+    "detail": "TimeoutError: locator.waitFor: Timeout 5000ms exceeded.",
+    "apis": [],
+    "shot": ""
+  },
+  "MutedUsersPage": {
+    "outcome": "error",
+    "detail": "TimeoutError: locator.waitFor: Timeout 5000ms exceeded.",
+    "apis": [],
+    "shot": ""
+  },
+  "SensitiveWordPage": {
+    "outcome": "no-buttons",
+    "detail": "行内无按钮",
+    "apis": [],
+    "shot": ""
+  },
+  "UserTagManagePage": {
+    "outcome": "no-buttons",
+    "detail": "行内无按钮",
+    "apis": [],
+    "shot": ""
+  },
+  "UserCollectManagePage": {
+    "outcome": "no-buttons",
+    "detail": "行内无按钮",
+    "apis": [],
+    "shot": ""
+  },
+  "ComplianceKeyPage": {
+    "outcome": "error",
+    "detail": "TimeoutError: locator.waitFor: Timeout 5000ms exceeded.",
+    "apis": [],
+    "shot": ""
+  },
+  "BillingPlanListPage": {
+    "outcome": "none-safe",
+    "detail": "菜单项: 空",
+    "apis": [],
+    "shot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/billing-plans/p12-13167-BillingPlanListPage-menu.png"
+  },
+  "FeedbackListPage": {
+    "outcome": "no-buttons",
+    "detail": "行内无按钮",
+    "apis": [],
+    "shot": ""
+  }
+}

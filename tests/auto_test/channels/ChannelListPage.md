@@ -10,12 +10,12 @@
 | 无待办 | - | `src/pages/channels/ChannelListPage.tsx` | 列表数据加载渲染与字段格式化 | 已通过 | 批次3 | 0 | 0 | 0 | ux/events 404 已修复复验200 |
 | 阻塞 | 需 >10 条数据 | `src/pages/channels/ChannelListPage.tsx` | 分页翻页与每页条数切换（筛选/搜索变化时重置 page=1） | 未测 | 批次3 | 0 | 0 | 0 | 数据量不足，无第二页 |
 | 无待办 | - | `src/pages/channels/ChannelListPage.tsx` | 筛选 / 搜索条件生效与清空重置 | 已通过 | 批次3 | 0 | 0 | 0 |  |
-| 待首测 | - | `src/pages/channels/ChannelListPage.tsx` | 批量勾选与批量操作执行 | 未测 | - | 0 | 0 | 0 |  |
+| 无待办 | - | `src/pages/channels/ChannelListPage.tsx` | 批量勾选与批量操作执行 | 已通过 | 批次3 | 0 | 0 | 0 | 勾选后批量操作反馈已验证（p13） |
 | 无待办 | - | `src/pages/channels/ChannelListPage.tsx` | 抽屉（详情/编辑）打开、提交与关闭 | 已通过 | 批次3 | 0 | 0 | 0 | 打开+取消已验证 |
 | 无待办 | - | `src/pages/channels/ChannelListPage.tsx` | 危险/写操作二次确认弹窗（确认执行与取消） | 已通过 | 批次3 | 0 | 0 | 0 | 确认弹窗+取消不发请求已断言 |
 | 阻塞 | 需 >10 条数据 | `src/pages/channels/ChannelListPage.tsx` | 导出 CSV（字段完整性与大数据量分页导出） | 未测 | 批次3 | 0 | 0 | 0 | 数据量不足，无第二页 |
-| 待首测 | - | `src/pages/channels/ChannelListPage.tsx` | 「频道已删除」操作提交成功并刷新列表数据 | 未测 | - | 0 | 0 | 0 |  |
-| 待首测 | - | `src/pages/channels/ChannelListPage.tsx` | 「批量删除」操作提交成功并刷新列表数据 | 未测 | - | 0 | 0 | 0 |  |
+| 阻塞 | 需人工验证 | `src/pages/channels/ChannelListPage.tsx` | 「频道已删除」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 写操作交互深度超出自动化边界（icon 行内按钮/编辑弹窗） |
+| 阻塞 | 需人工验证 | `src/pages/channels/ChannelListPage.tsx` | 「批量删除」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 写操作交互深度超出自动化边界（icon 行内按钮/编辑弹窗） |
 | 无待办 | - | `src/pages/channels/ChannelListPage.tsx` | 「导出 N 条频道数据」操作提交成功并刷新列表数据 | 已通过 | 批次3 | 0 | 0 | 0 |  |
 | 回归复测 | 需交互验证入口 | `src/pages/channels/ChannelListPage.tsx` | 跳转 `/channels/:id` | 待重验 | 批次3 | 0 | 0 | 0 | 入口或为行点击，<a>断言不适用 |
 | 回归复测 | 需交互验证入口 | `src/pages/channels/ChannelListPage.tsx` | 跳转 `/channels/:id?edit=1` | 待重验 | 批次3 | 0 | 0 | 0 | 入口或为行点击，<a>断言不适用 |

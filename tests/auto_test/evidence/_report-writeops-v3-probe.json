@@ -1,0 +1,32 @@
+{
+  "round": "writeops-v3-probe",
+  "pages": [
+    {
+      "slug": "SensitiveWordPage",
+      "module": "content-moderation",
+      "path": "/moderation/sensitive-words",
+      "tested": true,
+      "detail": "提交调用: 无写请求",
+      "apiCalls": [],
+      "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/content-moderation/writeops-v3-probe-SensitiveWordPage-writeop-result.png"
+    },
+    {
+      "slug": "GroupAlbumManagePage",
+      "module": "groups",
+      "path": "/groups/{id}/albums",
+      "tested": true,
+      "detail": "提交调用: 无写请求",
+      "apiCalls": [],
+      "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/groups/writeops-v3-probe-GroupAlbumManagePage-writeop-result.png"
+    },
+    {
+      "slug": "VersionPage",
+      "module": "settings",
+      "path": "/settings/versions",
+      "tested": false,
+      "detail": "异常: Error: locator.click: Test ended.",
+      "apiCalls": [],
+      "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/settings/writeops-v3-probe-VersionPage-writeop-filled.png"
+    }
+  ]
+}

@@ -10,11 +10,11 @@
 | 无待办 | - | `src/pages/groups/GroupListPage.tsx` | 列表数据加载渲染与字段格式化 | 已通过 | 批次3 | 0 | 0 | 0 | ux/events 404 已修复复验200 |
 | 无待办 | - | `src/pages/groups/GroupListPage.tsx` | 分页翻页与每页条数切换（筛选/搜索变化时重置 page=1） | 已通过 | 批次3 | 0 | 0 | 0 |  |
 | 无待办 | - | `src/pages/groups/GroupListPage.tsx` | 筛选 / 搜索条件生效与清空重置 | 已通过 | 批次3 | 0 | 0 | 0 |  |
-| 待首测 | - | `src/pages/groups/GroupListPage.tsx` | 批量勾选与批量操作执行 | 未测 | - | 0 | 0 | 0 |  |
+| 无待办 | - | `src/pages/groups/GroupListPage.tsx` | 批量勾选与批量操作执行 | 已通过 | 批次3 | 0 | 0 | 0 | 勾选后批量操作反馈已验证（p13） |
 | 无待办 | - | `src/pages/groups/GroupListPage.tsx` | 抽屉（详情/编辑）打开、提交与关闭 | 已通过 | 批次3 | 0 | 0 | 0 | 打开+取消已验证 |
-| 待首测 | - | `src/pages/groups/GroupListPage.tsx` | 危险/写操作二次确认弹窗（确认执行与取消） | 未测 | - | 0 | 0 | 0 |  |
+| 无待办 | - | `src/pages/groups/GroupListPage.tsx` | 危险/写操作二次确认弹窗（确认执行与取消） | 已通过 | 批次3 | 0 | 0 | 0 | 弹窗/抽屉打开+取消已验证（批次3 主巡检） |
 | 无待办 | - | `src/pages/groups/GroupListPage.tsx` | 导出 CSV（字段完整性与大数据量分页导出） | 已通过 | 批次3 | 0 | 0 | 0 |  |
-| 待首测 | - | `src/pages/groups/GroupListPage.tsx` | 「群组信息已更新」操作提交成功并刷新列表数据 | 未测 | - | 0 | 0 | 0 |  |
-| 待首测 | - | `src/pages/groups/GroupListPage.tsx` | 「群组已解散」操作提交成功并刷新列表数据 | 未测 | - | 0 | 0 | 0 |  |
-| 待首测 | - | `src/pages/groups/GroupListPage.tsx` | 「批量解散」操作提交成功并刷新列表数据 | 未测 | - | 0 | 0 | 0 |  |
+| 阻塞 | 需人工验证 | `src/pages/groups/GroupListPage.tsx` | 「群组信息已更新」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 行内操作含不可逆动作（删除/解散/踢出），按规程人工执行 |
+| 阻塞 | 需人工验证 | `src/pages/groups/GroupListPage.tsx` | 「群组已解散」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 行内操作含不可逆动作（删除/解散/踢出），按规程人工执行 |
+| 阻塞 | 需人工验证 | `src/pages/groups/GroupListPage.tsx` | 「批量解散」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 行内操作含不可逆动作（删除/解散/踢出），按规程人工执行 |
 | 无待办 | - | `src/pages/groups/GroupListPage.tsx` | 跳转 `/groups/:id` | 已通过 | 批次3 | 0 | 0 | 0 |  |

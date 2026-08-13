@@ -48,10 +48,9 @@
 
 | 计划变化 | 条数 | 占比 |
 |---|---|---|
-| 无待办 | 251 | 46.2% |
-| 回归复测 | 6 | 1.1% |
-| 待首测 | 220 | 40.5% |
-| 阻塞 | 66 | 12.2% |
+| 无待办 | 295 | 54.3% |
+| 回归复测 | 29 | 5.3% |
+| 阻塞 | 219 | 40.3% |
 | **合计** | **543** | 100% |
 
 bug 累计：**发现 11 / 解决 11 / 待处理 0**
@@ -60,41 +59,41 @@ bug 累计：**发现 11 / 解决 11 / 待处理 0**
 
 ## 模块索引
 
-| 模块 | 页面 | 功能点 | 待处理bug | 无待办 | 回归复测 | 待首测 | 阻塞 |
-|---|---|---|---|---|---|---|---|
-| [groups](groups/) | 14 | 129 | 0 | 46 | 1 | 67 | 15 |
-| [channels](channels/) | 8 | 80 | 0 | 32 | 3 | 32 | 13 |
-| [settings](settings/) | 10 | 51 | 0 | 29 | 0 | 19 | 3 |
-| [users](users/) | 4 | 41 | 0 | 15 | 1 | 21 | 4 |
-| [moments](moments/) | 3 | 26 | 0 | 4 | 1 | 13 | 8 |
-| [ai_agent](ai_agent/) | 4 | 25 | 0 | 17 | 0 | 6 | 2 |
-| [plugin_management](plugin_management/) | 2 | 18 | 0 | 6 | 0 | 12 | 0 |
-| [admins](admins/) | 1 | 14 | 0 | 14 | 0 | 0 | 0 |
-| [content-moderation](content-moderation/) | 2 | 14 | 0 | 6 | 0 | 6 | 2 |
-| [feedback](feedback/) | 1 | 11 | 0 | 4 | 0 | 5 | 2 |
-| [logs](logs/) | 1 | 11 | 0 | 9 | 0 | 2 | 0 |
-| [announcements](announcements/) | 1 | 10 | 0 | 4 | 0 | 4 | 2 |
-| [logout-applications](logout-applications/) | 1 | 9 | 0 | 4 | 0 | 2 | 3 |
-| [storage](storage/) | 1 | 9 | 0 | 4 | 0 | 4 | 1 |
-| [billing-plans](billing-plans/) | 1 | 8 | 0 | 4 | 0 | 3 | 1 |
-| [messages](messages/) | 1 | 8 | 0 | 7 | 0 | 1 | 0 |
-| [payment-transactions](payment-transactions/) | 1 | 8 | 0 | 4 | 0 | 3 | 1 |
-| [recharge-orders](recharge-orders/) | 1 | 8 | 0 | 4 | 0 | 3 | 1 |
-| [withdrawals](withdrawals/) | 1 | 8 | 0 | 4 | 0 | 2 | 2 |
-| [auth](auth/) | 2 | 7 | 0 | 0 | 0 | 7 | 0 |
-| [roles](roles/) | 1 | 7 | 0 | 4 | 0 | 3 | 0 |
-| [billing-invoices](billing-invoices/) | 1 | 6 | 0 | 4 | 0 | 1 | 1 |
-| [billing-subscriptions](billing-subscriptions/) | 1 | 6 | 0 | 4 | 0 | 1 | 1 |
-| [wallets](wallets/) | 1 | 6 | 0 | 4 | 0 | 1 | 1 |
-| [mcp-governance](mcp-governance/) | 1 | 5 | 0 | 3 | 0 | 0 | 2 |
-| [analytics](analytics/) | 1 | 4 | 0 | 3 | 0 | 1 | 0 |
-| [license](license/) | 1 | 4 | 0 | 2 | 0 | 1 | 1 |
-| [dashboard](dashboard/) | 1 | 2 | 0 | 2 | 0 | 0 | 0 |
-| [errors](errors/) | 2 | 2 | 0 | 2 | 0 | 0 | 0 |
-| [finance-report](finance-report/) | 1 | 2 | 0 | 2 | 0 | 0 | 0 |
-| [system-health](system-health/) | 1 | 2 | 0 | 2 | 0 | 0 | 0 |
-| [pricing](pricing/) | 1 | 1 | 0 | 1 | 0 | 0 | 0 |
-| [reports](reports/) | 1 | 1 | 0 | 1 | 0 | 0 | 0 |
+| 模块 | 页面 | 功能点 | 待处理bug | 无待办 | 回归复测 | 阻塞 |
+|---|---|---|---|---|---|---|
+| [groups](groups/) | 14 | 129 | 0 | 63 | 13 | 53 |
+| [channels](channels/) | 8 | 80 | 0 | 39 | 10 | 31 |
+| [settings](settings/) | 10 | 51 | 0 | 31 | 0 | 20 |
+| [users](users/) | 4 | 41 | 0 | 21 | 3 | 17 |
+| [moments](moments/) | 3 | 26 | 0 | 7 | 2 | 17 |
+| [ai_agent](ai_agent/) | 4 | 25 | 0 | 19 | 1 | 5 |
+| [plugin_management](plugin_management/) | 2 | 18 | 0 | 6 | 0 | 12 |
+| [admins](admins/) | 1 | 14 | 0 | 14 | 0 | 0 |
+| [content-moderation](content-moderation/) | 2 | 14 | 0 | 7 | 0 | 7 |
+| [feedback](feedback/) | 1 | 11 | 0 | 4 | 0 | 7 |
+| [logs](logs/) | 1 | 11 | 0 | 9 | 0 | 2 |
+| [announcements](announcements/) | 1 | 10 | 0 | 5 | 0 | 5 |
+| [logout-applications](logout-applications/) | 1 | 9 | 0 | 4 | 0 | 5 |
+| [storage](storage/) | 1 | 9 | 0 | 4 | 0 | 5 |
+| [billing-plans](billing-plans/) | 1 | 8 | 0 | 4 | 0 | 4 |
+| [messages](messages/) | 1 | 8 | 0 | 7 | 0 | 1 |
+| [payment-transactions](payment-transactions/) | 1 | 8 | 0 | 4 | 0 | 4 |
+| [recharge-orders](recharge-orders/) | 1 | 8 | 0 | 4 | 0 | 4 |
+| [withdrawals](withdrawals/) | 1 | 8 | 0 | 4 | 0 | 4 |
+| [auth](auth/) | 2 | 7 | 0 | 4 | 0 | 3 |
+| [roles](roles/) | 1 | 7 | 0 | 5 | 0 | 2 |
+| [billing-invoices](billing-invoices/) | 1 | 6 | 0 | 4 | 0 | 2 |
+| [billing-subscriptions](billing-subscriptions/) | 1 | 6 | 0 | 4 | 0 | 2 |
+| [wallets](wallets/) | 1 | 6 | 0 | 4 | 0 | 2 |
+| [mcp-governance](mcp-governance/) | 1 | 5 | 0 | 3 | 0 | 2 |
+| [analytics](analytics/) | 1 | 4 | 0 | 3 | 0 | 1 |
+| [license](license/) | 1 | 4 | 0 | 2 | 0 | 2 |
+| [dashboard](dashboard/) | 1 | 2 | 0 | 2 | 0 | 0 |
+| [errors](errors/) | 2 | 2 | 0 | 2 | 0 | 0 |
+| [finance-report](finance-report/) | 1 | 2 | 0 | 2 | 0 | 0 |
+| [system-health](system-health/) | 1 | 2 | 0 | 2 | 0 | 0 |
+| [pricing](pricing/) | 1 | 1 | 0 | 1 | 0 | 0 |
+| [reports](reports/) | 1 | 1 | 0 | 1 | 0 | 0 |
 
 ## 页面清单
 

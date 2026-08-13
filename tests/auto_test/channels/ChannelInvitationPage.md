@@ -11,5 +11,5 @@
 | 阻塞 | 需 >10 条数据 | `src/pages/channels/ChannelInvitationPage.tsx` | 分页翻页与每页条数切换（筛选/搜索变化时重置 page=1） | 未测 | 批次3 | 0 | 0 | 0 | 数据量不足，无第二页 |
 | 无待办 | - | `src/pages/channels/ChannelInvitationPage.tsx` | 筛选 / 搜索条件生效与清空重置 | 已通过 | 批次3 | 0 | 0 | 0 |  |
 | 阻塞 | 需 >10 条数据 | `src/pages/channels/ChannelInvitationPage.tsx` | 导出 CSV（字段完整性与大数据量分页导出） | 未测 | 批次3 | 0 | 0 | 0 | 数据量不足，无第二页 |
-| 待首测 | - | `src/pages/channels/ChannelInvitationPage.tsx` | 「导出 N 条邀请记录」操作提交成功并刷新列表数据 | 未测 | - | 0 | 0 | 0 |  |
-| 待首测 | - | `src/pages/channels/ChannelInvitationPage.tsx` | 跳转 `/channels/:id` | 未测 | - | 0 | 0 | 0 |  |
+| 阻塞 | 需 >10 条数据 | `src/pages/channels/ChannelInvitationPage.tsx` | 「导出 N 条邀请记录」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 列表为空导出按钮禁用/无数据可导 |
+| 回归复测 | 需人工点击验证 | `src/pages/channels/ChannelInvitationPage.tsx` | 跳转 `/channels/:id` | 待重验 | 批次3 | 0 | 0 | 0 | 返回/入口按钮存在（截图），自动点击未命中文案 |

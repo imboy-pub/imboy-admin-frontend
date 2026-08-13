@@ -1,0 +1,189 @@
+{
+  "round": "p11-0813",
+  "pages": [
+    {
+      "slug": "UserTagManagePage",
+      "path": "/users/106808244793772032/tags",
+      "rowButtons": [],
+      "apiCalls": [],
+      "detail": "表格无行内操作按钮（或无数据行）",
+      "screenshot": "",
+      "outcome": "no-op"
+    },
+    {
+      "slug": "UserCollectManagePage",
+      "path": "/users/106808244793772032/collects",
+      "rowButtons": [],
+      "apiCalls": [],
+      "detail": "表格无行内操作按钮（或无数据行）",
+      "screenshot": "",
+      "outcome": "no-op"
+    },
+    {
+      "slug": "GroupTagManagePage",
+      "path": "/groups/106571324669036544/tags",
+      "rowButtons": [],
+      "apiCalls": [],
+      "detail": "表格无行内操作按钮（或无数据行）",
+      "screenshot": "",
+      "outcome": "no-op"
+    },
+    {
+      "slug": "GroupCategoryManagePage",
+      "path": "/groups/106571324669036544/categories",
+      "rowButtons": [],
+      "apiCalls": [],
+      "detail": "表格无行内操作按钮（或无数据行）",
+      "screenshot": "",
+      "outcome": "no-op"
+    },
+    {
+      "slug": "GroupNoticeManagePage",
+      "path": "/groups/106571324669036544/notices",
+      "rowButtons": [],
+      "apiCalls": [],
+      "detail": "表格无行内操作按钮（或无数据行）",
+      "screenshot": "",
+      "outcome": "no-op"
+    },
+    {
+      "slug": "GroupVoteManagePage",
+      "path": "/groups/106571324669036544/votes",
+      "rowButtons": [],
+      "apiCalls": [],
+      "detail": "表格无行内操作按钮（或无数据行）",
+      "screenshot": "",
+      "outcome": "no-op"
+    },
+    {
+      "slug": "GroupScheduleManagePage",
+      "path": "/groups/106571324669036544/schedules",
+      "rowButtons": [],
+      "apiCalls": [],
+      "detail": "表格无行内操作按钮（或无数据行）",
+      "screenshot": "",
+      "outcome": "no-op"
+    },
+    {
+      "slug": "GroupTaskManagePage",
+      "path": "/groups/106571324669036544/tasks",
+      "rowButtons": [],
+      "apiCalls": [],
+      "detail": "表格无行内操作按钮（或无数据行）",
+      "screenshot": "",
+      "outcome": "no-op"
+    },
+    {
+      "slug": "GroupAlbumManagePage",
+      "path": "/groups/106571324669036544/albums",
+      "rowButtons": [],
+      "apiCalls": [],
+      "detail": "表格无行内操作按钮（或无数据行）",
+      "screenshot": "",
+      "outcome": "no-op"
+    },
+    {
+      "slug": "GroupFileManagePage",
+      "path": "/groups/106571324669036544/files",
+      "rowButtons": [],
+      "apiCalls": [],
+      "detail": "表格无行内操作按钮（或无数据行）",
+      "screenshot": "",
+      "outcome": "no-op"
+    },
+    {
+      "slug": "GroupMemberManagePage",
+      "path": "/groups/106571324669036544/members",
+      "rowButtons": [
+        "106571324662745088",
+        "查看用户"
+      ],
+      "apiCalls": [],
+      "detail": "「106571324662745088」直接执行：无写请求（可能为前端态切换）",
+      "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/groups/p11-0813-GroupMemberManagePage-p11-direct.png",
+      "picked": "106571324662745088",
+      "outcome": "no-op"
+    },
+    {
+      "slug": "ChannelSubscriberPage",
+      "path": "/channels/103209560378181632/subscribers",
+      "rowButtons": [],
+      "apiCalls": [],
+      "detail": "表格无行内操作按钮（或无数据行）",
+      "screenshot": "",
+      "outcome": "no-op"
+    },
+    {
+      "slug": "ChannelAdminPage",
+      "path": "/channels/103209560378181632/admins",
+      "rowButtons": [],
+      "apiCalls": [],
+      "detail": "表格无行内操作按钮（或无数据行）",
+      "screenshot": "",
+      "outcome": "no-op"
+    },
+    {
+      "slug": "ChannelOrderPage",
+      "path": "/channels/103209560378181632/orders",
+      "rowButtons": [],
+      "apiCalls": [],
+      "detail": "表格无行内操作按钮（或无数据行）",
+      "screenshot": "",
+      "outcome": "no-op"
+    },
+    {
+      "slug": "ChannelInvitationPage",
+      "path": "/channels/103209560378181632/invitations",
+      "rowButtons": [],
+      "apiCalls": [],
+      "detail": "表格无行内操作按钮（或无数据行）",
+      "screenshot": "",
+      "outcome": "no-op"
+    },
+    {
+      "slug": "UserListPage",
+      "path": "/users",
+      "rowButtons": [],
+      "apiCalls": [],
+      "detail": "表格无行内操作按钮（或无数据行）",
+      "screenshot": "",
+      "outcome": "no-op"
+    },
+    {
+      "slug": "GroupListPage",
+      "path": "/groups",
+      "rowButtons": [],
+      "apiCalls": [],
+      "detail": "表格无行内操作按钮（或无数据行）",
+      "screenshot": "",
+      "outcome": "no-op"
+    },
+    {
+      "slug": "ChannelListPage",
+      "path": "/channels",
+      "rowButtons": [],
+      "apiCalls": [],
+      "detail": "表格无行内操作按钮（或无数据行）",
+      "screenshot": "",
+      "outcome": "no-op"
+    },
+    {
+      "slug": "MutedUsersPage",
+      "path": "/settings/muted-users",
+      "rowButtons": [],
+      "apiCalls": [],
+      "detail": "表格无行内操作按钮（或无数据行）",
+      "screenshot": "",
+      "outcome": "no-op"
+    },
+    {
+      "slug": "SensitiveWordPage",
+      "path": "/moderation/sensitive-words",
+      "rowButtons": [],
+      "apiCalls": [],
+      "detail": "表格无行内操作按钮（或无数据行）",
+      "screenshot": "",
+      "outcome": "no-op"
+    }
+  ]
+}
