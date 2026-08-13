@@ -5,5 +5,5 @@
 
 | 计划变化 | 计划时间 | 页面path | 功能介绍 | 测试状态 | 测试轮次 | 发现bug | 解决bug | 待处理bug | 备注 |
 |---|---|---|---|---|---|---|---|---|---|---|
-| 待首测 | - | `src/pages/groups/GroupContextGatewayPage.tsx` | 路由直达与权限守卫（未登录跳 /login，无权限跳 403） | 未测 | - | 0 | 0 | 0 |  |
-| 待首测 | - | `src/pages/groups/GroupContextGatewayPage.tsx` | 跳转 `/groups/:id:id?from=context` | 未测 | - | 0 | 0 | 0 |  |
+| 无待办 | - | `src/pages/groups/GroupContextGatewayPage.tsx` | 路由直达与权限守卫（未登录跳 /login，无权限跳 403） | 已通过 | 批次3 | 0 | 0 | 0 |  |
+| 回归复测 | 需交互验证入口 | `src/pages/groups/GroupContextGatewayPage.tsx` | 跳转 `/groups/:id:id?from=context` | 待重验 | 批次3 | 0 | 0 | 0 | 种子路径含:id:id，入口待人工核对 |
