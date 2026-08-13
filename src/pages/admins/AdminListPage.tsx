@@ -201,6 +201,9 @@ export function AdminListPage() {
   }
 
   const handleSearch = () => {
+    // 全局 staleTime=5min：命中缓存的查询键不会重新拉取。
+    // 搜索是显式的刷新意图，先失效再改参数，保证一定发新请求
+    queryClient.invalidateQueries({ queryKey: ['admins'] })
     setParams({
       page: 1,
       keyword: searchKeyword.trim(),
@@ -210,6 +213,8 @@ export function AdminListPage() {
   }
 
   const handleReset = () => {
+    // 同上：重置回默认键时可能命中 5 分钟内的缓存而静默不发请求（实测空表）
+    queryClient.invalidateQueries({ queryKey: ['admins'] })
     setSearchKeyword('')
     setStatusFilter('-1')
     setRoleFilter('-1')
