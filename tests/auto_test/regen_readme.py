@@ -1,0 +1,152 @@
+#!/usr/bin/env python3
+"""从各模块 md 重新生成 tests/auto_test/README.md 的汇总与索引。
+
+每轮测试/修复回写完 md 之后必须跑一次，否则 README 的统计会陈旧：
+
+    cd imboyadmin && python3 tests/auto_test/regen_readme.py
+
+只读各 `<module>/<page>.md` 里的表格行，重算全局汇总、模块索引、页面清单。
+README 的规则说明与列定义是静态文案，写死在本脚本里，不从旧 README 继承——
+避免「改了规则忘了同步」。
+"""
+import os
+import sys
+import glob
+import collections
+
+BASE = os.path.dirname(os.path.abspath(__file__))
+KEYS = ['无待办', '回归复测', '待重验', '待首测', '待修复', '待复验', '阻塞']
+# 测试状态列（第 6 列）合法取值。野值会污染统计与 LOOP_PROMPT 的选取命令。
+TEST_STATUS_KEYS = {'已通过', '有BUG待修', '未测', '待重验', ''}
+
+
+def parse(errors):
+    """返回 {module: {page_md: (path, rows, counter, pending)}}
+
+    errors 收集两类硬错误：整个文件 0 行计入（格式不合规）与列取值野值。
+    """
+    data = collections.defaultdict(dict)
+    for f in sorted(glob.glob(os.path.join(BASE, '*', '*.md'))):
+        mod = os.path.basename(os.path.dirname(f))
+        name = os.path.basename(f)
+        rows, c, found, solved, pending, path = 0, collections.Counter(), 0, 0, 0, ''
+        for lineno, line in enumerate(open(f, encoding='utf-8'), 1):
+            if not line.startswith('| ') or line.startswith('| 计划变化'):
+                continue
+            col = [x.strip() for x in line.split('|')]
+            if len(col) < 11:
+                print(f'⚠️ 跳过列数不足的行: {f}:{lineno} 列数={len(col)} | {line.rstrip()[:60]}…',
+                      file=sys.stderr)
+                continue
+            rows += 1
+            if col[1] not in KEYS:
+                errors.append(f'{f}:{lineno} 计划变化野值 {col[1]!r} | {line.rstrip()[:60]}…')
+            if col[5] not in TEST_STATUS_KEYS:
+                errors.append(f'{f}:{lineno} 测试状态野值 {col[5]!r} | {line.rstrip()[:60]}…')
+            c[col[1]] += 1
+            if not path:
+                path = col[3].strip('`')
+            try:
+                found += int(col[7])
+                solved += int(col[8])
+                pending += int(col[9])
+            except ValueError:
+                pass
+        if rows:
+            data[mod][name] = (path, rows, c, found, solved, pending)
+        else:
+            errors.append(f'{f} 无一行计入统计（表格列数 <11 或格式不合规），请转标准 11 列格式')
+    return data
+
+
+def main():
+    errors = []
+    data = parse(errors)
+    if errors:
+        for e in errors:
+            print(f'❌ {e}', file=sys.stderr)
+        raise SystemExit('regen 中止：%d 处格式/取值错误，修复后重跑' % len(errors))
+    tot = collections.Counter()
+    pages = sum(len(v) for v in data.values())
+    for mod in data.values():
+        for _, rows, c, found, solved, pending in mod.values():
+            tot.update(c)
+            tot['_rows'] += rows
+            tot['_found'] += found
+            tot['_solved'] += solved
+            tot['_pending'] += pending
+
+    present = [k for k in KEYS if tot[k]]
+    L = []
+    A = L.append
+    A('# imboyadmin 自动化测试计划 —— 索引\n')
+    A('> **权威文档**。imboyadmin 现有全部功能点（已完成 / 未完成 / 阻塞 全部纳入）。')
+    A('> 覆盖 **%d 个页面 / %d 个功能点**' % (pages, tot['_rows']))
+    A('> 数据源：`src/pages/**` 与 `src/modules/**/pages/**` 真实源码抽取 ＋ 浏览器实测记录\n')
+    A('> ⚠️ 本文件由 `regen_readme.py` 生成，**不要手改**。')
+    A('> 每轮回写完各模块 md 后跑：`python3 tests/auto_test/regen_readme.py`\n')
+    A('## 目录结构\n')
+    A('本目录**镜像 `src/pages/` 与 `src/modules/` 结构**：改了 `src/pages/users/UserListPage.tsx`，')
+    A('就去 `tests/auto_test/users/UserListPage.md` 更新对应功能点。\n')
+    A('执行规程见 [LOOP_PROMPT.md](./LOOP_PROMPT.md)。\n')
+    A('## 表格规则（保证有限膨胀）\n')
+    A('| 规则 | 说明 |\n|---|---|')
+    A('| **一行 = 一个功能点** | 行数只随功能增加，**不随测试轮次增加** |')
+    A('| **按功能介绍覆盖写** | 同一功能点永远只有一行。新一轮改状态和计数，不加行 |')
+    A('| **bug 用计数不用叙述** | `待处理 = 发现 − 解决`，恒等式可自动校验 |')
+    A('| **备注只写当前未闭环的事** | 闭环即清空。修复细节去 git log 查 |\n')
+    A('## 列定义\n')
+    A('| 计划变化 | 含义 |\n|---|---|')
+    A('| `待首测` | 从没测过 |')
+    A('| `回归复测` | 页面整体标过通过，但这个功能点当初没被单独验证 |')
+    A('| `待修复` | 有未修 bug |')
+    A('| `待复验` | 代码已改，缺浏览器实测证据 |')
+    A('| `阻塞` | 缺外部条件（后端未发布 / 测试数据 / 权限配置 / 特定数据规模） |')
+    A('| `无待办` | 当前无动作，只在回归轮被动扫到 |\n')
+    A('## 「测试状态」列取值（第 6 列，白名单）\n')
+    A('| 取值 | 含义 |\n|---|---|')
+    A('| `已通过` | 该功能点浏览器实测通过（网络响应/截图有证据） |')
+    A('| `未测` | 条件不具备，从未执行 |')
+    A('| `待重验` | 已按判据测过或代码已改，缺浏览器实测证据待补 |')
+    A('| `有BUG待修` | 发现 bug，等待修复 |')
+    A('| 空 | 未记录（历史行允许，新写行不推荐） |\n')
+    A('## 全局汇总\n')
+    A('| 计划变化 | 条数 | 占比 |\n|---|---|---|')
+    for k in present:
+        A('| %s | %d | %.1f%% |' % (k, tot[k], tot[k] * 100.0 / tot['_rows']))
+    A('| **合计** | **%d** | 100%% |\n' % tot['_rows'])
+    A('bug 累计：**发现 %d / 解决 %d / 待处理 %d**\n'
+      % (tot['_found'], tot['_solved'], tot['_pending']))
+    bad = tot['_found'] - tot['_solved'] - tot['_pending']
+    A('> 恒等式 `发现 − 解决 = 待处理` %s\n' % ('成立' if bad == 0 else '**不成立，差 %d，需排查**' % bad))
+    A('## 模块索引\n')
+    head = ' | '.join(present)
+    A('| 模块 | 页面 | 功能点 | 待处理bug | %s |' % head)
+    A('|---|---|---|---|%s' % ('---|' * len(present)))
+    for mod in sorted(data, key=lambda m: -sum(v[1] for v in data[m].values())):
+        rows = sum(v[1] for v in data[mod].values())
+        pend = sum(v[5] for v in data[mod].values())
+        c = collections.Counter()
+        for v in data[mod].values():
+            c.update(v[2])
+        A('| [%s](%s/) | %d | %d | %d | %s |'
+          % (mod, mod, len(data[mod]), rows, pend,
+             ' | '.join(str(c[k]) for k in present)))
+    A('\n## 页面清单\n')
+    for mod in sorted(data):
+        A('\n### %s\n' % mod)
+        for name in sorted(data[mod]):
+            _, rows, _, _, _, pend = data[mod][name]
+            flag = ' ⚠️ %d 待处理' % pend if pend else ''
+            A('- [%s](%s/%s) — %d 功能点%s' % (name[:-3], mod, name, rows, flag))
+
+    out = os.path.join(BASE, 'README.md')
+    open(out, 'w', encoding='utf-8').write('\n'.join(L) + '\n')
+    print('README 已重生成：%d 页面 / %d 功能点 / 待处理 bug %d'
+          % (pages, tot['_rows'], tot['_pending']))
+    if bad:
+        raise SystemExit('恒等式不成立，差 %d' % bad)
+
+
+if __name__ == '__main__':
+    main()
