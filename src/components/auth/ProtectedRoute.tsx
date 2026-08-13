@@ -18,8 +18,13 @@ export function ProtectedRoute() {
       try {
         const admin = await getCurrentAdminPayload()
         setAdmin(admin)
-      } catch {
-        logout()
+      } catch (error) {
+        // 只有明确的 401（会话失效）才登出；429/5xx/网络抖动属于瞬态故障，
+        // 回退到本地持久化的登录态，避免限流把管理员踢回登录页
+        const code = (error as { code?: number })?.code
+        if (code === 401) {
+          logout()
+        }
       } finally {
         if (active) {
           setChecking(false)
