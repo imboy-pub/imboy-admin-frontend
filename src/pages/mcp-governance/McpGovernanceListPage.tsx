@@ -121,7 +121,8 @@ export function McpGovernanceListPage() {
       accessorKey: 'status',
       header: '状态',
       cell: ({ row }) => {
-        const meta = STATUS_META[row.original.status]
+        // 未知状态兜底：后端新增枚举或脏数据时显示原始值，不白屏
+        const meta = STATUS_META[row.original.status] ?? { label: String(row.original.status), className: 'bg-muted text-muted-foreground' }
         return (
           <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${meta.className}`}>
             {meta.label}
