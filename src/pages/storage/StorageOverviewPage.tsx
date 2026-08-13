@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { PageHeader, LoadingState, StatsCard, DataTablePagination, StatusBadge, ConfirmDialog } from '@/components/shared'
+import { PageHeader, LoadingState, ErrorState, StatsCard, DataTablePagination, StatusBadge, ConfirmDialog } from '@/components/shared'
 import {
   getStorageStats, getStorageList, formatFileSize, type StorageItem,
   disableAttachment, enableAttachment, deleteAttachment,
@@ -50,12 +50,12 @@ export function StorageOverviewPage() {
   const [pendingAction, setPendingAction] = useState<{ type: 'disable' | 'enable' | 'delete'; id: string } | null>(null)
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
 
-  const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useQuery({
+  const { data: stats, isLoading: statsLoading, isError: statsError, refetch: refetchStats } = useQuery({
     queryKey: ['storage', 'stats'],
     queryFn: () => getStorageStats(),
   })
 
-  const { data: listData, isLoading: listLoading, refetch: refetchList, dataUpdatedAt: listDataUpdatedAt } = useQuery({
+  const { data: listData, isLoading: listLoading, isError: listError, refetch: refetchList, dataUpdatedAt: listDataUpdatedAt } = useQuery({
     queryKey: ['storage', 'list', { page: params.page, pageSize: params.pageSize, mimeFilter: params.mimeFilter, keyword: params.keyword }],
     queryFn: () => getStorageList({
       page: params.page,
@@ -134,6 +134,19 @@ export function StorageOverviewPage() {
   const actionLoading = disableMutation.isPending || enableMutation.isPending || deleteMutation.isPending
 
   if (statsLoading && !stats) return <LoadingState message="加载存储统计..." />
+
+  // 接口失败时必须渲染错误态（含重试），不能把失败当空数据渲染 0 值卡片
+  if ((statsError && !stats) || (listError && !listData)) {
+    return (
+      <ErrorState
+        message="加载存储数据失败"
+        onRetry={() => {
+          void refetchStats()
+          void refetchList()
+        }}
+      />
+    )
+  }
 
   return (
     <div className="space-y-6">

@@ -115,14 +115,15 @@ describe('StorageOverviewPage flow', () => {
     })
   })
 
-  it('still renders page shell when stats API fails', async () => {
+  it('renders error state when stats API fails', async () => {
     mutableClient.get = async () => { throw new Error('network error') }
 
     let view: ReturnType<typeof renderPage>
     await act(async () => { view = renderPage() })
 
     await waitFor(() => {
-      expect(view.container.textContent).toContain('存储管理')
+      // 接口失败应渲染错误态（含重试），而非把失败当空数据渲染 0 值卡片
+      expect(view.container.textContent).toContain('加载存储数据失败')
     })
   })
 
