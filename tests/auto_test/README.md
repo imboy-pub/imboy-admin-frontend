@@ -48,11 +48,11 @@
 
 | 计划变化 | 条数 | 占比 |
 |---|---|---|
-| 无待办 | 364 | 67.0% |
-| 阻塞 | 179 | 33.0% |
+| 无待办 | 370 | 68.1% |
+| 阻塞 | 173 | 31.9% |
 | **合计** | **543** | 100% |
 
-bug 累计：**发现 13 / 解决 13 / 待处理 0**
+bug 累计：**发现 14 / 解决 14 / 待处理 0**
 
 > 恒等式 `发现 − 解决 = 待处理` 成立
 
@@ -62,7 +62,7 @@ bug 累计：**发现 13 / 解决 13 / 待处理 0**
 |---|---|---|---|---|---|
 | [groups](groups/) | 14 | 129 | 0 | 95 | 34 |
 | [channels](channels/) | 8 | 80 | 0 | 59 | 21 |
-| [settings](settings/) | 10 | 51 | 0 | 31 | 20 |
+| [settings](settings/) | 10 | 51 | 0 | 34 | 17 |
 | [users](users/) | 4 | 41 | 0 | 24 | 17 |
 | [moments](moments/) | 3 | 26 | 0 | 14 | 12 |
 | [ai_agent](ai_agent/) | 4 | 25 | 0 | 20 | 5 |
@@ -78,13 +78,13 @@ bug 累计：**发现 13 / 解决 13 / 待处理 0**
 | [messages](messages/) | 1 | 8 | 0 | 7 | 1 |
 | [payment-transactions](payment-transactions/) | 1 | 8 | 0 | 4 | 4 |
 | [recharge-orders](recharge-orders/) | 1 | 8 | 0 | 4 | 4 |
-| [withdrawals](withdrawals/) | 1 | 8 | 0 | 4 | 4 |
+| [withdrawals](withdrawals/) | 1 | 8 | 0 | 5 | 3 |
 | [auth](auth/) | 2 | 7 | 0 | 4 | 3 |
 | [roles](roles/) | 1 | 7 | 0 | 5 | 2 |
 | [billing-invoices](billing-invoices/) | 1 | 6 | 0 | 4 | 2 |
 | [billing-subscriptions](billing-subscriptions/) | 1 | 6 | 0 | 4 | 2 |
-| [wallets](wallets/) | 1 | 6 | 0 | 4 | 2 |
-| [mcp-governance](mcp-governance/) | 1 | 5 | 0 | 3 | 2 |
+| [wallets](wallets/) | 1 | 6 | 0 | 5 | 1 |
+| [mcp-governance](mcp-governance/) | 1 | 5 | 0 | 4 | 1 |
 | [analytics](analytics/) | 1 | 4 | 0 | 3 | 1 |
 | [license](license/) | 1 | 4 | 0 | 2 | 2 |
 | [dashboard](dashboard/) | 1 | 2 | 0 | 2 | 0 |
