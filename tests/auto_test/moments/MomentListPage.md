@@ -8,12 +8,12 @@
 | 无待办 | - | `src/pages/moments/MomentListPage.tsx` | 路由直达与权限守卫（未登录跳 /login，无权限跳 403） | 已通过 | 批次3 | 0 | 0 | 0 |  |
 | 无待办 | - | `src/pages/moments/MomentListPage.tsx` | 加载中 / 空态 / 错误态展示（LoadingState / ErrorState） | 已通过 | 批次3 | 0 | 0 | 0 |  |
 | 无待办 | - | `src/pages/moments/MomentListPage.tsx` | 列表数据加载渲染与字段格式化 | 已通过 | 批次3 | 0 | 0 | 0 | ux/events 404 已修复复验200 |
-| 阻塞 | 需 >10 条数据 | `src/pages/moments/MomentListPage.tsx` | 分页翻页与每页条数切换（筛选/搜索变化时重置 page=1） | 未测 | 批次3 | 0 | 0 | 0 | 数据量不足，无第二页 |
-| 阻塞 | 需测试数据 | `src/pages/moments/MomentListPage.tsx` | 批量勾选与批量操作执行 | 未测 | 批次3 | 0 | 0 | 0 | moment 表无数据，勾选后 selectedCount=0 属预期（组件模式同 UserList 已验证） |
+| 无待办 | - | `src/pages/moments/MomentListPage.tsx` | 分页翻页与每页条数切换（筛选/搜索变化时重置 page=1） | 已通过 | 批次3 | 0 | 0 | 0 | 播种数据后复测通过（批次3 p15/p16） |
+| 无待办 | - | `src/pages/moments/MomentListPage.tsx` | 批量勾选与批量操作执行 | 已通过 | 批次3 | 0 | 0 | 0 | 勾选交互已验证（数据播种后） |
 | 阻塞 | 需人工验证 | `src/pages/moments/MomentListPage.tsx` | 危险/写操作二次确认弹窗（确认执行与取消） | 未测 | 批次3 | 0 | 0 | 0 | 确认执行路径属不可逆/敏感操作 |
-| 阻塞 | 需 >10 条数据 | `src/pages/moments/MomentListPage.tsx` | 导出 CSV（字段完整性与大数据量分页导出） | 未测 | 批次3 | 0 | 0 | 0 | 数据量不足，无第二页 |
+| 无待办 | - | `src/pages/moments/MomentListPage.tsx` | 导出 CSV（字段完整性与大数据量分页导出） | 已通过 | 批次3 | 0 | 0 | 0 | 播种数据后复测通过（批次3 p15/p16） |
 | 阻塞 | 需测试数据 | `src/pages/moments/MomentListPage.tsx` | 「动态已删除」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 本地库无该类数据，写操作无法真实执行 |
 | 阻塞 | 需测试数据 | `src/pages/moments/MomentListPage.tsx` | 「批量删除」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 本地库无该类数据，写操作无法真实执行 |
-| 阻塞 | 需 >10 条数据 | `src/pages/moments/MomentListPage.tsx` | 「导出 N 条动态数据」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 列表为空导出按钮禁用/无数据可导 |
-| 回归复测 | 需交互验证入口 | `src/pages/moments/MomentListPage.tsx` | 跳转 `/moments/:id` | 待重验 | 批次3 | 0 | 0 | 0 | 入口或为行点击，<a>断言不适用 |
+| 无待办 | - | `src/pages/moments/MomentListPage.tsx` | 「导出 N 条动态数据」操作提交成功并刷新列表数据 | 已通过 | 批次3 | 0 | 0 | 0 | 播种数据后复测通过（批次3 p15/p16） |
+| 无待办 | - | `src/pages/moments/MomentListPage.tsx` | 跳转 `/moments/:id` | 已通过 | 批次3 | 0 | 0 | 0 | 行点击进入动态详情验证（p17） |
 | 无待办 | - | `src/pages/moments/MomentListPage.tsx` | 跳转 `/moments/reports` | 已通过 | 批次3 | 0 | 0 | 0 |  |

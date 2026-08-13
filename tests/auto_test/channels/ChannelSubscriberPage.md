@@ -13,4 +13,4 @@
 | 阻塞 | 需 >10 条数据 | `src/pages/channels/ChannelSubscriberPage.tsx` | 导出 CSV（字段完整性与大数据量分页导出） | 未测 | 批次3 | 0 | 0 | 0 | 数据量不足，无第二页 |
 | 阻塞 | 需测试数据 | `src/pages/channels/ChannelSubscriberPage.tsx` | 「订阅者已移除」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 本地库无该类数据，写操作无法真实执行 |
 | 阻塞 | 需 >10 条数据 | `src/pages/channels/ChannelSubscriberPage.tsx` | 「导出 N 条数据」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 列表为空导出按钮禁用/无数据可导 |
-| 回归复测 | 需人工点击验证 | `src/pages/channels/ChannelSubscriberPage.tsx` | 跳转 `/channels/:id` | 待重验 | 批次3 | 0 | 0 | 0 | 返回/入口按钮存在（截图），自动点击未命中文案 |
+| 无待办 | - | `src/pages/channels/ChannelSubscriberPage.tsx` | 跳转 `/channels/:id` | 已通过 | 批次3 | 0 | 0 | 0 | 返回按钮导航验证（p17） |

@@ -14,4 +14,4 @@
 | 阻塞 | 需测试数据 | `src/pages/channels/ChannelAdminPage.tsx` | 「管理员角色已更新」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 本地库无该类数据，写操作无法真实执行 |
 | 阻塞 | 需测试数据 | `src/pages/channels/ChannelAdminPage.tsx` | 「管理员已移除」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 本地库无该类数据，写操作无法真实执行 |
 | 无待办 | - | `src/pages/channels/ChannelAdminPage.tsx` | 「导出 N 条数据」操作提交成功并刷新列表数据 | 已通过 | 批次3 | 0 | 0 | 0 |  |
-| 回归复测 | 需人工点击验证 | `src/pages/channels/ChannelAdminPage.tsx` | 跳转 `/channels/:id` | 待重验 | 批次3 | 0 | 0 | 0 | 返回/入口按钮存在（截图），自动点击未命中文案 |
+| 无待办 | - | `src/pages/channels/ChannelAdminPage.tsx` | 跳转 `/channels/:id` | 已通过 | 批次3 | 0 | 0 | 0 | 返回按钮导航验证通过（p17） |

@@ -11,9 +11,9 @@
 | 阻塞 | 需人工验证 | `src/pages/channels/ChannelDetailPage.tsx` | 「频道已删除」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 行内操作含不可逆动作（删除/解散/踢出），按规程人工执行 |
 | 阻塞 | 需人工验证 | `src/pages/channels/ChannelDetailPage.tsx` | 「频道已更新」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 行内操作含不可逆动作（删除/解散/踢出），按规程人工执行 |
 | 阻塞 | 需人工验证 | `src/pages/channels/ChannelDetailPage.tsx` | 「频道价格已更新」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 行内操作含不可逆动作（删除/解散/踢出），按规程人工执行 |
-| 回归复测 | 需人工点击验证 | `src/pages/channels/ChannelDetailPage.tsx` | 跳转 `/channels` | 待重验 | 批次3 | 0 | 0 | 0 | tab 按钮文案差异，自动定位未命中 |
+| 无待办 | - | `src/pages/channels/ChannelDetailPage.tsx` | 跳转 `/channels` | 已通过 | 批次3 | 0 | 0 | 0 | 返回按钮验证（p17） |
 | 无待办 | - | `src/pages/channels/ChannelDetailPage.tsx` | 跳转 `/channels/:id/messages` | 已通过 | 批次3 | 0 | 0 | 0 | tab「消息」点击导航已验证（p14） |
 | 无待办 | - | `src/pages/channels/ChannelDetailPage.tsx` | 跳转 `/channels/:id/subscribers` | 已通过 | 批次3 | 0 | 0 | 0 | tab「订阅」点击导航已验证（p14） |
-| 回归复测 | 需人工点击验证 | `src/pages/channels/ChannelDetailPage.tsx` | 跳转 `/channels/:id/admins` | 待重验 | 批次3 | 0 | 0 | 0 | tab 按钮文案差异，自动定位未命中 |
+| 无待办 | - | `src/pages/channels/ChannelDetailPage.tsx` | 跳转 `/channels/:id/admins` | 已通过 | 批次3 | 0 | 0 | 0 | 管理员 tab 导航验证（p17b） |
 | 无待办 | - | `src/pages/channels/ChannelDetailPage.tsx` | 跳转 `/channels/:id/invitations` | 已通过 | 批次3 | 0 | 0 | 0 | tab「邀请」点击导航已验证（p14） |
 | 无待办 | - | `src/pages/channels/ChannelDetailPage.tsx` | 跳转 `/channels/:id/orders` | 已通过 | 批次3 | 0 | 0 | 0 | tab「订单」点击导航已验证（p14） |

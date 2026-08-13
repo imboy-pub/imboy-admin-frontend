@@ -16,4 +16,4 @@
 | 阻塞 | 需人工验证 | `src/pages/channels/ChannelMessagePage.tsx` | 「批量删除」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 写操作交互深度超出自动化边界（icon 行内按钮/编辑弹窗） |
 | 阻塞 | 需人工验证 | `src/pages/channels/ChannelMessagePage.tsx` | 「批量N」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 写操作交互深度超出自动化边界（icon 行内按钮/编辑弹窗） |
 | 无待办 | - | `src/pages/channels/ChannelMessagePage.tsx` | 「导出 N 条消息数据」操作提交成功并刷新列表数据 | 已通过 | 批次3 | 0 | 0 | 0 |  |
-| 回归复测 | 需人工点击验证 | `src/pages/channels/ChannelMessagePage.tsx` | 跳转 `/channels/:id` | 待重验 | 批次3 | 0 | 0 | 0 | 返回/入口按钮存在（截图），自动点击未命中文案 |
+| 无待办 | - | `src/pages/channels/ChannelMessagePage.tsx` | 跳转 `/channels/:id` | 已通过 | 批次3 | 0 | 0 | 0 | 返回按钮导航验证（p17） |

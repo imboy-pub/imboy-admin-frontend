@@ -20,4 +20,4 @@
 | 无待办 | - | `src/pages/groups/GroupDetailPage.tsx` | 跳转 `/groups/:id/albums` | 已通过 | 批次3 | 0 | 0 | 0 | tab「相册」点击导航已验证（p14） |
 | 无待办 | - | `src/pages/groups/GroupDetailPage.tsx` | 跳转 `/groups/:id/schedules` | 已通过 | 批次3 | 0 | 0 | 0 | tab「日程」点击导航已验证（p14） |
 | 无待办 | - | `src/pages/groups/GroupDetailPage.tsx` | 跳转 `/groups/:id/tasks` | 已通过 | 批次3 | 0 | 0 | 0 | tab「任务」点击导航已验证（p14） |
-| 回归复测 | 需人工点击验证 | `src/pages/groups/GroupDetailPage.tsx` | 跳转 `/groups/:id/governance-logs` | 待重验 | 批次3 | 0 | 0 | 0 | tab 按钮文案差异，自动定位未命中 |
+| 无待办 | - | `src/pages/groups/GroupDetailPage.tsx` | 跳转 `/groups/:id/governance-logs` | 已通过 | 批次3 | 0 | 0 | 0 | 「治理日志」tab 导航验证（p17b） |

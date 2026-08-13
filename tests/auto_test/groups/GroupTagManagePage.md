@@ -13,4 +13,4 @@
 | 阻塞 | 需 >10 条数据 | `src/pages/groups/GroupTagManagePage.tsx` | 导出 CSV（字段完整性与大数据量分页导出） | 未测 | 批次3 | 0 | 0 | 0 | 数据量不足，无第二页 |
 | 阻塞 | 需人工验证 | `src/pages/groups/GroupTagManagePage.tsx` | 「标签已删除」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 行内操作含不可逆动作（删除/解散/踢出），按规程人工执行 |
 | 阻塞 | 需 >10 条数据 | `src/pages/groups/GroupTagManagePage.tsx` | 「导出当前页 N 条数据」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 列表为空导出按钮禁用/无数据可导 |
-| 回归复测 | 需人工点击验证 | `src/pages/groups/GroupTagManagePage.tsx` | 跳转 `/groups/:id` | 待重验 | 批次3 | 0 | 0 | 0 | 返回/入口按钮存在（截图），自动点击未命中文案 |
+| 无待办 | - | `src/pages/groups/GroupTagManagePage.tsx` | 跳转 `/groups/:id` | 已通过 | 批次3 | 0 | 0 | 0 | 返回按钮导航验证（p17） |
