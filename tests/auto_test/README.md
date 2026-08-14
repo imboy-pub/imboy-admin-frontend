@@ -48,11 +48,11 @@
 
 | 计划变化 | 条数 | 占比 |
 |---|---|---|
-| 无待办 | 373 | 68.7% |
-| 阻塞 | 170 | 31.3% |
+| 无待办 | 379 | 69.8% |
+| 阻塞 | 164 | 30.2% |
 | **合计** | **543** | 100% |
 
-bug 累计：**发现 15 / 解决 15 / 待处理 0**
+bug 累计：**发现 16 / 解决 16 / 待处理 0**
 
 > 恒等式 `发现 − 解决 = 待处理` 成立
 
@@ -60,9 +60,9 @@ bug 累计：**发现 15 / 解决 15 / 待处理 0**
 
 | 模块 | 页面 | 功能点 | 待处理bug | 无待办 | 阻塞 |
 |---|---|---|---|---|---|
-| [groups](groups/) | 14 | 129 | 0 | 96 | 33 |
+| [groups](groups/) | 14 | 129 | 0 | 100 | 29 |
 | [channels](channels/) | 8 | 80 | 0 | 59 | 21 |
-| [settings](settings/) | 10 | 51 | 0 | 34 | 17 |
+| [settings](settings/) | 10 | 51 | 0 | 35 | 16 |
 | [users](users/) | 4 | 41 | 0 | 24 | 17 |
 | [moments](moments/) | 3 | 26 | 0 | 14 | 12 |
 | [ai_agent](ai_agent/) | 4 | 25 | 0 | 20 | 5 |
@@ -82,7 +82,7 @@ bug 累计：**发现 15 / 解决 15 / 待处理 0**
 | [auth](auth/) | 2 | 7 | 0 | 4 | 3 |
 | [roles](roles/) | 1 | 7 | 0 | 5 | 2 |
 | [billing-invoices](billing-invoices/) | 1 | 6 | 0 | 4 | 2 |
-| [billing-subscriptions](billing-subscriptions/) | 1 | 6 | 0 | 4 | 2 |
+| [billing-subscriptions](billing-subscriptions/) | 1 | 6 | 0 | 5 | 1 |
 | [wallets](wallets/) | 1 | 6 | 0 | 5 | 1 |
 | [mcp-governance](mcp-governance/) | 1 | 5 | 0 | 4 | 1 |
 | [analytics](analytics/) | 1 | 4 | 0 | 3 | 1 |
