@@ -48,8 +48,7 @@
 
 | 计划变化 | 条数 | 占比 |
 |---|---|---|
-| 无待办 | 379 | 69.8% |
-| 待复验 | 1 | 0.2% |
+| 无待办 | 380 | 70.0% |
 | 阻塞 | 163 | 30.0% |
 | **合计** | **543** | 100% |
 
@@ -59,41 +58,41 @@ bug 累计：**发现 16 / 解决 16 / 待处理 0**
 
 ## 模块索引
 
-| 模块 | 页面 | 功能点 | 待处理bug | 无待办 | 待复验 | 阻塞 |
-|---|---|---|---|---|---|---|
-| [groups](groups/) | 14 | 129 | 0 | 100 | 0 | 29 |
-| [channels](channels/) | 8 | 80 | 0 | 59 | 0 | 21 |
-| [settings](settings/) | 10 | 51 | 0 | 35 | 0 | 16 |
-| [users](users/) | 4 | 41 | 0 | 24 | 0 | 17 |
-| [moments](moments/) | 3 | 26 | 0 | 14 | 0 | 12 |
-| [ai_agent](ai_agent/) | 4 | 25 | 0 | 20 | 0 | 5 |
-| [plugin_management](plugin_management/) | 2 | 18 | 0 | 6 | 0 | 12 |
-| [admins](admins/) | 1 | 14 | 0 | 14 | 0 | 0 |
-| [content-moderation](content-moderation/) | 2 | 14 | 0 | 8 | 0 | 6 |
-| [feedback](feedback/) | 1 | 11 | 0 | 7 | 0 | 4 |
-| [logs](logs/) | 1 | 11 | 0 | 9 | 0 | 2 |
-| [announcements](announcements/) | 1 | 10 | 0 | 7 | 0 | 3 |
-| [logout-applications](logout-applications/) | 1 | 9 | 0 | 6 | 0 | 3 |
-| [storage](storage/) | 1 | 9 | 0 | 4 | 0 | 5 |
-| [billing-plans](billing-plans/) | 1 | 8 | 0 | 4 | 0 | 4 |
-| [messages](messages/) | 1 | 8 | 0 | 7 | 0 | 1 |
-| [payment-transactions](payment-transactions/) | 1 | 8 | 0 | 4 | 0 | 4 |
-| [recharge-orders](recharge-orders/) | 1 | 8 | 0 | 4 | 0 | 4 |
-| [withdrawals](withdrawals/) | 1 | 8 | 0 | 5 | 0 | 3 |
-| [auth](auth/) | 2 | 7 | 0 | 4 | 0 | 3 |
-| [roles](roles/) | 1 | 7 | 0 | 5 | 0 | 2 |
-| [billing-invoices](billing-invoices/) | 1 | 6 | 0 | 4 | 0 | 2 |
-| [billing-subscriptions](billing-subscriptions/) | 1 | 6 | 0 | 5 | 0 | 1 |
-| [wallets](wallets/) | 1 | 6 | 0 | 5 | 1 | 0 |
-| [mcp-governance](mcp-governance/) | 1 | 5 | 0 | 4 | 0 | 1 |
-| [analytics](analytics/) | 1 | 4 | 0 | 3 | 0 | 1 |
-| [license](license/) | 1 | 4 | 0 | 2 | 0 | 2 |
-| [dashboard](dashboard/) | 1 | 2 | 0 | 2 | 0 | 0 |
-| [errors](errors/) | 2 | 2 | 0 | 2 | 0 | 0 |
-| [finance-report](finance-report/) | 1 | 2 | 0 | 2 | 0 | 0 |
-| [system-health](system-health/) | 1 | 2 | 0 | 2 | 0 | 0 |
-| [pricing](pricing/) | 1 | 1 | 0 | 1 | 0 | 0 |
-| [reports](reports/) | 1 | 1 | 0 | 1 | 0 | 0 |
+| 模块 | 页面 | 功能点 | 待处理bug | 无待办 | 阻塞 |
+|---|---|---|---|---|---|
+| [groups](groups/) | 14 | 129 | 0 | 100 | 29 |
+| [channels](channels/) | 8 | 80 | 0 | 59 | 21 |
+| [settings](settings/) | 10 | 51 | 0 | 35 | 16 |
+| [users](users/) | 4 | 41 | 0 | 24 | 17 |
+| [moments](moments/) | 3 | 26 | 0 | 14 | 12 |
+| [ai_agent](ai_agent/) | 4 | 25 | 0 | 20 | 5 |
+| [plugin_management](plugin_management/) | 2 | 18 | 0 | 6 | 12 |
+| [admins](admins/) | 1 | 14 | 0 | 14 | 0 |
+| [content-moderation](content-moderation/) | 2 | 14 | 0 | 8 | 6 |
+| [feedback](feedback/) | 1 | 11 | 0 | 7 | 4 |
+| [logs](logs/) | 1 | 11 | 0 | 9 | 2 |
+| [announcements](announcements/) | 1 | 10 | 0 | 7 | 3 |
+| [logout-applications](logout-applications/) | 1 | 9 | 0 | 6 | 3 |
+| [storage](storage/) | 1 | 9 | 0 | 4 | 5 |
+| [billing-plans](billing-plans/) | 1 | 8 | 0 | 4 | 4 |
+| [messages](messages/) | 1 | 8 | 0 | 7 | 1 |
+| [payment-transactions](payment-transactions/) | 1 | 8 | 0 | 4 | 4 |
+| [recharge-orders](recharge-orders/) | 1 | 8 | 0 | 4 | 4 |
+| [withdrawals](withdrawals/) | 1 | 8 | 0 | 5 | 3 |
+| [auth](auth/) | 2 | 7 | 0 | 4 | 3 |
+| [roles](roles/) | 1 | 7 | 0 | 5 | 2 |
+| [billing-invoices](billing-invoices/) | 1 | 6 | 0 | 4 | 2 |
+| [billing-subscriptions](billing-subscriptions/) | 1 | 6 | 0 | 5 | 1 |
+| [wallets](wallets/) | 1 | 6 | 0 | 6 | 0 |
+| [mcp-governance](mcp-governance/) | 1 | 5 | 0 | 4 | 1 |
+| [analytics](analytics/) | 1 | 4 | 0 | 3 | 1 |
+| [license](license/) | 1 | 4 | 0 | 2 | 2 |
+| [dashboard](dashboard/) | 1 | 2 | 0 | 2 | 0 |
+| [errors](errors/) | 2 | 2 | 0 | 2 | 0 |
+| [finance-report](finance-report/) | 1 | 2 | 0 | 2 | 0 |
+| [system-health](system-health/) | 1 | 2 | 0 | 2 | 0 |
+| [pricing](pricing/) | 1 | 1 | 0 | 1 | 0 |
+| [reports](reports/) | 1 | 1 | 0 | 1 | 0 |
 
 ## 页面清单
 
