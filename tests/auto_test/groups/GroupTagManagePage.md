@@ -12,5 +12,5 @@
 | 无待办 | - | `src/pages/groups/GroupTagManagePage.tsx` | 危险/写操作二次确认弹窗（确认执行与取消） | 已通过 | 批次3 | 0 | 0 | 0 | 弹窗/抽屉打开+取消已验证（批次3 主巡检） |
 | 无待办 | - | `src/pages/groups/GroupTagManagePage.tsx` | 导出 CSV（字段完整性与大数据量分页导出） | 已通过 | 批次3 | 0 | 0 | 0 | 七阶段数据整备后复测通过（p24-p27） |
 | 阻塞 | 需人工验证 | `src/pages/groups/GroupTagManagePage.tsx` | 「标签已删除」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 行内操作含不可逆动作（删除/解散/踢出），按规程人工执行 |
-| 阻塞 | 需 >10 条数据 | `src/pages/groups/GroupTagManagePage.tsx` | 「导出当前页 N 条数据」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 列表为空导出按钮禁用/无数据可导 |
+| 无待办 | - | `src/pages/groups/GroupTagManagePage.tsx` | 「导出当前页 N 条数据」操作提交成功并刷新列表数据 | 已通过 | 批次5 | 0 | 0 | 0 | 下载 group_tags_2026-08-14.csv+toast「已导出当前页 17 条数据」 |
 | 无待办 | - | `src/pages/groups/GroupTagManagePage.tsx` | 跳转 `/groups/:id` | 已通过 | 批次3 | 0 | 0 | 0 | 返回按钮导航验证（p17） |

@@ -8,7 +8,7 @@
 | 无待办 | - | `src/pages/payment-transactions/PaymentTransactionListPage.tsx` | 路由直达与权限守卫（未登录跳 /login，无权限跳 403） | 已通过 | 批次3 | 0 | 0 | 0 |  |
 | 无待办 | - | `src/pages/payment-transactions/PaymentTransactionListPage.tsx` | 加载中 / 空态 / 错误态展示（LoadingState / ErrorState） | 已通过 | 批次3 | 0 | 0 | 0 | 500注入后错误态已渲染(p7) |
 | 无待办 | - | `src/pages/payment-transactions/PaymentTransactionListPage.tsx` | 列表数据加载渲染与字段格式化 | 已通过 | 批次3 | 0 | 0 | 0 |  |
-| 阻塞 | 需 >10 条数据 | `src/pages/payment-transactions/PaymentTransactionListPage.tsx` | 分页翻页与每页条数切换（筛选/搜索变化时重置 page=1） | 未测 | 批次3 | 0 | 0 | 0 | 数据量不足，无第二页 |
+| 无待办 | - | `src/pages/payment-transactions/PaymentTransactionListPage.tsx` | 分页翻页与每页条数切换（筛选/搜索变化时重置 page=1） | 已通过 | 批次5 | 0 | 0 | 0 | 造数15条实测：page=2 GET 200 |
 | 无待办 | - | `src/pages/payment-transactions/PaymentTransactionListPage.tsx` | 筛选 / 搜索条件生效与清空重置 | 已通过 | 批次3 | 0 | 0 | 0 |  |
 | 阻塞 | 需人工验证 | `src/pages/payment-transactions/PaymentTransactionListPage.tsx` | 抽屉（详情/编辑）打开、提交与关闭 | 未测 | 批次3 | 0 | 0 | 0 | 弹窗交互深度超出自动化边界 |
 | 阻塞 | 需人工验证 | `src/pages/payment-transactions/PaymentTransactionListPage.tsx` | 危险/写操作二次确认弹窗（确认执行与取消） | 未测 | 批次3 | 0 | 0 | 0 | 确认执行路径属不可逆/敏感操作 |
