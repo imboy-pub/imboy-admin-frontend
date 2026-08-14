@@ -14,9 +14,9 @@
 | 阻塞 | 需人工验证 | `src/pages/users/UserListPage.tsx` | 抽屉（详情/编辑）打开、提交与关闭 | 未测 | 批次3 | 0 | 0 | 0 | 弹窗交互深度超出自动化边界 |
 | 阻塞 | 需人工验证 | `src/pages/users/UserListPage.tsx` | 危险/写操作二次确认弹窗（确认执行与取消） | 未测 | 批次3 | 0 | 0 | 0 | 确认执行路径属不可逆/敏感操作 |
 | 无待办 | - | `src/pages/users/UserListPage.tsx` | 导出 CSV（字段完整性与大数据量分页导出） | 已通过 | 批次3 | 0 | 0 | 0 |  |
-| 阻塞 | 需人工验证 | `src/pages/users/UserListPage.tsx` | 「用户已封禁」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 行内操作含不可逆动作（删除/解散/踢出），按规程人工执行 |
-| 阻塞 | 需人工验证 | `src/pages/users/UserListPage.tsx` | 「用户已解封」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 行内操作含不可逆动作（删除/解散/踢出），按规程人工执行 |
-| 阻塞 | 需人工验证 | `src/pages/users/UserListPage.tsx` | 「批量封禁」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 行内操作含不可逆动作（删除/解散/踢出），按规程人工执行 |
-| 阻塞 | 需本地存在被封禁测试用户（status=0 共 0 条；造数须人工指定可牺牲账号再封禁，现有账号可能有并发真机会话登录） | `src/pages/users/UserListPage.tsx` | 「批量解封」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 检查过条件仍缺：DB status 分布 1×1896/-1×90/2×3，封禁态 0 条（后端 ban→0/unban→1 已核实）；解封可自动化，删除/解散/踢出仍人工 |
+| 无待办 | - | `src/pages/users/UserListPage.tsx` | 「用户已封禁」操作提交成功并刷新列表数据 | 已通过 | 批次3 | 0 | 0 | 0 | 单条封禁 e2e_688453_13（指定牺牲账号）实测 POST 200+徽章禁用+GET 刷新 |
+| 无待办 | - | `src/pages/users/UserListPage.tsx` | 「用户已解封」操作提交成功并刷新列表数据 | 已通过 | 批次3 | 0 | 0 | 0 | 单条解封实测 POST 200+徽章回正常 |
+| 无待办 | - | `src/pages/users/UserListPage.tsx` | 「批量封禁」操作提交成功并刷新列表数据 | 已通过 | 批次3 | 0 | 0 | 0 | 批量封禁实测（中风险原因门禁生效）POST 200+勾选清空 |
+| 无待办 | - | `src/pages/users/UserListPage.tsx` | 「批量解封」操作提交成功并刷新列表数据 | 已通过 | 批次3 | 0 | 0 | 0 | 批量解封实测（低风险免原因）POST 200；终态 DB status=1 |
 | 无待办 | - | `src/pages/users/UserListPage.tsx` | 「导出 N 条用户数据」操作提交成功并刷新列表数据 | 已通过 | 批次3 | 0 | 0 | 0 |  |
 | 无待办 | - | `src/pages/users/UserListPage.tsx` | 跳转 `/users/:id` | 已通过 | 批次3 | 0 | 0 | 0 | eye(title=查看详情)导航验证（p17c） |
