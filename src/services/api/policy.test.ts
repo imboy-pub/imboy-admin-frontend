@@ -109,16 +109,29 @@ describe('DEFAULT_CAPABILITIES', () => {
 // getPolicyEffective
 // ---------------------------------------------------------------------------
 describe('getPolicyEffective', () => {
-  it('returns policy response from /admin/config/policy', async () => {
+  it('wraps the flat effective policy from /admin/config/policy', async () => {
+    // 后端该端点返回扁平 effective 策略（非 {saved, effective} 包装）
+    const flatEffective: PolicyConfig = {
+      profile: 'community',
+      capabilities: {
+        storage_mode: 'archived',
+        e2ee_mode: 'disabled',
+        message_search: false,
+        message_export: false,
+        audit_mode: 'metadata',
+        retention_policy: { mode: 'rolling_days', days: 365 },
+      },
+      features: { channel: true, moment: false },
+    }
     mutableClient.get = async (url: string) => {
       expect(url).toBe('/admin/config/policy')
-      return { data: { code: 0, msg: 'ok', payload: policyResponseFixture } }
+      return { data: { code: 0, msg: 'ok', payload: flatEffective } }
     }
 
     const result = await getPolicyEffective()
-    expect(result.effective.profile).toBe('community')
-    expect(result.effective.features?.channel).toBe(true)
-    expect(result.effective.features?.moment).toBe(false)
+    expect(result.effective?.profile).toBe('community')
+    expect(result.effective?.features?.channel).toBe(true)
+    expect(result.effective?.features?.moment).toBe(false)
   })
 
   it('throws when payload is absent (undefined)', async () => {

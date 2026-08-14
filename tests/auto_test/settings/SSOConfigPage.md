@@ -7,7 +7,7 @@
 |---|---|---|---|---|---|---|---|---|---|---|
 | 无待办 | - | `src/pages/settings/SSOConfigPage.tsx` | 路由直达与权限守卫（未登录跳 /login，无权限跳 403） | 已通过 | 批次3 | 0 | 0 | 0 |  |
 | 无待办 | - | `src/pages/settings/SSOConfigPage.tsx` | 加载中 / 空态 / 错误态展示（LoadingState / ErrorState） | 已通过 | 批次3 | 0 | 0 | 0 |  |
-| 阻塞 | 需人工验证 | `src/pages/settings/SSOConfigPage.tsx` | 「LDAP 配置已保存」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 资金/审批/配置类敏感操作，自动化跳过 |
-| 阻塞 | 需人工验证 | `src/pages/settings/SSOConfigPage.tsx` | 「SAML 配置已保存」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 资金/审批/配置类敏感操作，自动化跳过 |
-| 阻塞 | 需人工验证 | `src/pages/settings/SSOConfigPage.tsx` | 「OAuth2 配置已保存」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 资金/审批/配置类敏感操作，自动化跳过 |
-| 阻塞 | 需人工验证 | `src/pages/settings/SSOConfigPage.tsx` | 「回调地址已复制」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 资金/审批/配置类敏感操作，自动化跳过 |
+| 阻塞 | 永久人工道（§1.4 资金/审批/敏感配置写操作） | `src/pages/settings/SSOConfigPage.tsx` | 「LDAP 配置已保存」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 资金/审批/配置类敏感操作，自动化跳过 |
+| 阻塞 | 永久人工道（§1.4 资金/审批/敏感配置写操作） | `src/pages/settings/SSOConfigPage.tsx` | 「SAML 配置已保存」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 资金/审批/配置类敏感操作，自动化跳过 |
+| 阻塞 | 永久人工道（§1.4 资金/审批/敏感配置写操作） | `src/pages/settings/SSOConfigPage.tsx` | 「OAuth2 配置已保存」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 资金/审批/配置类敏感操作，自动化跳过 |
+| 无待办 | - | `src/pages/settings/SSOConfigPage.tsx` | 「回调地址已复制」操作提交成功并刷新列表数据 | 已通过 | 批次6 | 0 | 0 | 0 | 实测 OAuth2 页「复制」：toast「回调地址已复制」，剪贴板读回与输入框值一致（http://127.0.0.1:8082/api/v1/auth/oidc/callback） |

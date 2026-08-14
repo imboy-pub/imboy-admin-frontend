@@ -142,7 +142,12 @@ export async function getBootstrapConfig(): Promise<PolicyResponse> {
 
 export async function getPolicyEffective(): Promise<PolicyResponse> {
   const response = await client.get('/admin/config/policy')
-  return requireApiPayload<PolicyResponse>(response.data, '/admin/config/policy')
+  // 该端点返回扁平的 effective 策略 {profile, capabilities, features, plugins}
+  // （与 /api/v1/app/policy 共享同一视图）；而 bootstrap/preview/save 返回
+  // {saved, effective, adjustments, origins} 包装视图。统一包一层以匹配
+  // PolicyResponse，否则页面读 effective.* 恒为 undefined（开关全显示关闭）。
+  const effective = requireApiPayload<PolicyConfig>(response.data, '/admin/config/policy')
+  return { effective }
 }
 
 export async function previewPolicyChange(payload: PolicyConfig): Promise<PolicyResponse> {

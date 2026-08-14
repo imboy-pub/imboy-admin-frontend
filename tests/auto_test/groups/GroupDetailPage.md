@@ -7,7 +7,7 @@
 |---|---|---|---|---|---|---|---|---|---|---|
 | 无待办 | - | `src/pages/groups/GroupDetailPage.tsx` | 路由直达与权限守卫（未登录跳 /login，无权限跳 403） | 已通过 | 批次3 | 0 | 0 | 0 |  |
 | 无待办 | - | `src/pages/groups/GroupDetailPage.tsx` | 加载中 / 空态 / 错误态展示（LoadingState / ErrorState） | 已通过 | 批次3 | 0 | 0 | 0 | 错误态注入待补测 |
-| 阻塞 | 需人工验证 | `src/pages/groups/GroupDetailPage.tsx` | 危险/写操作二次确认弹窗（确认执行与取消） | 未测 | 批次3 | 0 | 0 | 0 | 确认执行路径属不可逆/敏感操作 |
+| 阻塞 | 永久人工道（§1.4 不可逆/敏感写操作） | `src/pages/groups/GroupDetailPage.tsx` | 危险/写操作二次确认弹窗（确认执行与取消） | 未测 | 批次3 | 0 | 0 | 0 | 确认执行路径属不可逆/敏感操作 |
 | 阻塞 | 需人工验证 | `src/pages/groups/GroupDetailPage.tsx` | 「群组信息已更新」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 写操作交互深度超出自动化边界（icon 行内按钮/编辑弹窗） |
 | 阻塞 | 需人工验证 | `src/pages/groups/GroupDetailPage.tsx` | 「群组已解散」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 写操作交互深度超出自动化边界（icon 行内按钮/编辑弹窗） |
 | 无待办 | - | `src/pages/groups/GroupDetailPage.tsx` | 跳转 `/groups` | 已通过 | 批次3 | 0 | 0 | 0 | tab「返回群列表」点击导航已验证（p14） |
