@@ -185,11 +185,13 @@ export type PluginAction = 'install' | 'enable' | 'disable' | 'upgrade' | 'unins
 export interface PluginLogEntry {
   id: string
   plugin_name: string
-  action: PluginAction
+  /** 真实操作（来自 metadata.action）；缺失时为原始 event（如 state_transition）。 */
+  action: string
   operator: string
   result: 'success' | 'failure'
   detail: string
-  created_at: string
+  /** 后端序列化为毫秒数字；保留 number 以便 formatDate 走 new Date(ms)。 */
+  created_at: string | number
 }
 
 export interface PluginLogListParams {
@@ -225,16 +227,41 @@ export async function getPluginLogList(params?: PluginLogListParams): Promise<{
     '/plugin/logs'
   )
 
-  const rawItems = Array.isArray(payload.items) ? payload.items : []
-  const items = rawItems.map((item) => ({
-    id: String(item.id ?? ''),
-    plugin_name: String(item.plugin_name ?? ''),
-    action: (item.action as PluginAction) ?? 'enable',
-    operator: String(item.operator ?? ''),
-    result: (item.result as 'success' | 'failure') ?? 'success',
-    detail: String(item.detail ?? ''),
-    created_at: String(item.created_at ?? ''),
-  }))
+  const rawItems = Array.isArray(payload.items)
+    ? payload.items
+    : Array.isArray((payload as Record<string, unknown>).list)
+      ? ((payload as Record<string, unknown>).list as Record<string, unknown>[])
+      : []
+  const items = rawItems.map((item) => {
+    // 后端审计行真实字段为 event/result/error_detail/metadata(jsonb)，
+    // 无顶层 action/detail；操作类型藏在 metadata.action（可能缺失）。
+    // metadata 经 jsonb→binary→JSON 后可能是字符串，需容错解析。
+    let metadata: Record<string, unknown> = {}
+    if (item.metadata && typeof item.metadata === 'object') {
+      metadata = item.metadata as Record<string, unknown>
+    } else if (typeof item.metadata === 'string' && item.metadata.length > 0) {
+      try {
+        metadata = JSON.parse(item.metadata) as Record<string, unknown>
+      } catch {
+        metadata = {}
+      }
+    }
+    const metaAction = typeof metadata.action === 'string' ? metadata.action : ''
+    return {
+      id: String(item.id ?? ''),
+      plugin_name: String(item.plugin_name ?? ''),
+      action: metaAction || String(item.event ?? ''),
+      operator: String(item.operator ?? ''),
+      result: (String(item.result ?? '') === 'ok' ? 'success' : 'failure') as
+        | 'success'
+        | 'failure',
+      detail: String(item.error_detail ?? ''),
+      created_at:
+        typeof item.created_at === 'number'
+          ? item.created_at
+          : String(item.created_at ?? ''),
+    }
+  })
 
   return {
     items,

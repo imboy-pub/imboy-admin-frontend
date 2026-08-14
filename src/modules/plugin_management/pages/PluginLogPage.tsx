@@ -24,7 +24,7 @@ import {
 } from '../api/plugins'
 import { Select } from '@/components/ui/select'
 
-const ACTION_LABELS: Record<PluginAction, string> = {
+const ACTION_LABELS: Record<string, string> = {
   install: '安装',
   enable: '启用',
   disable: '禁用',
@@ -34,7 +34,7 @@ const ACTION_LABELS: Record<PluginAction, string> = {
   force_uninstall: '强制卸载',
 }
 
-const ACTION_VARIANTS: Record<PluginAction, 'info' | 'success' | 'warning' | 'error' | 'secondary'> = {
+const ACTION_VARIANTS: Record<string, 'info' | 'success' | 'warning' | 'error' | 'secondary'> = {
   install: 'info',
   enable: 'success',
   disable: 'warning',
