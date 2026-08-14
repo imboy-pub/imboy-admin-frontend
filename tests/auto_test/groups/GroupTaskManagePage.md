@@ -9,7 +9,7 @@
 | 无待办 | - | `src/pages/groups/GroupTaskManagePage.tsx` | 加载中 / 空态 / 错误态展示（LoadingState / ErrorState） | 已通过 | 批次3 | 0 | 0 | 0 | 错误态注入待补测 |
 | 无待办 | - | `src/pages/groups/GroupTaskManagePage.tsx` | 列表数据加载渲染与字段格式化 | 已通过 | 批次3 | 0 | 0 | 0 |  |
 | 无待办 | - | `src/pages/groups/GroupTaskManagePage.tsx` | 分页翻页与每页条数切换（筛选/搜索变化时重置 page=1） | 已通过 | 批次3 | 0 | 0 | 0 | 渲染+交互验证通过；数据单页，多页翻页待数据扩充 |
-| 阻塞 | 需人工验证 | `src/pages/groups/GroupTaskManagePage.tsx` | 危险/写操作二次确认弹窗（确认执行与取消） | 未测 | 批次3 | 0 | 0 | 0 | 确认执行路径属不可逆/敏感操作 |
+| 阻塞 | 永久人工道（§1.4 不可逆/敏感写操作） | `src/pages/groups/GroupTaskManagePage.tsx` | 危险/写操作二次确认弹窗（确认执行与取消） | 未测 | 批次3 | 0 | 0 | 0 | 确认执行路径属不可逆/敏感操作 |
 | 无待办 | - | `src/pages/groups/GroupTaskManagePage.tsx` | 导出 CSV（字段完整性与大数据量分页导出） | 已通过 | 批次3 | 0 | 0 | 0 | 播种数据后复测通过（批次3 p15/p16） |
 | 阻塞 | 需测试数据 | `src/pages/groups/GroupTaskManagePage.tsx` | 「任务已强制结束」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 本地库无该类数据，写操作无法真实执行 |
 | 阻塞 | 需测试数据 | `src/pages/groups/GroupTaskManagePage.tsx` | 「任务批改已提交」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 本地库无该类数据，写操作无法真实执行 |

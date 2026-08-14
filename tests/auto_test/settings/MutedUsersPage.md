@@ -9,6 +9,6 @@
 | 无待办 | - | `src/pages/settings/MutedUsersPage.tsx` | 加载中 / 空态 / 错误态展示（LoadingState / ErrorState） | 已通过 | 批次3 | 0 | 0 | 0 |  |
 | 无待办 | - | `src/pages/settings/MutedUsersPage.tsx` | 列表数据加载渲染与字段格式化 | 已通过 | 批次3 | 0 | 0 | 0 |  |
 | 无待办 | - | `src/pages/settings/MutedUsersPage.tsx` | 分页翻页与每页条数切换（筛选/搜索变化时重置 page=1） | 已通过 | 批次3 | 0 | 0 | 0 | 七阶段数据整备后复测通过（p24-p27） |
-| 阻塞 | 需人工验证 | `src/pages/settings/MutedUsersPage.tsx` | 危险/写操作二次确认弹窗（确认执行与取消） | 未测 | 批次3 | 0 | 0 | 0 | 确认执行路径属不可逆/敏感操作 |
+| 阻塞 | 永久人工道（§1.4 不可逆/敏感写操作） | `src/pages/settings/MutedUsersPage.tsx` | 危险/写操作二次确认弹窗（确认执行与取消） | 未测 | 批次3 | 0 | 0 | 0 | 确认执行路径属不可逆/敏感操作 |
 | 阻塞 | 需测试数据 | `src/pages/settings/MutedUsersPage.tsx` | 「解禁」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 本地库无该类数据，写操作无法真实执行 |
 | 阻塞 | 需测试数据 | `src/pages/settings/MutedUsersPage.tsx` | 「解禁 N 个用户」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 本地库无该类数据，写操作无法真实执行 |

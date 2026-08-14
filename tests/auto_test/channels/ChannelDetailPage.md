@@ -7,10 +7,10 @@
 |---|---|---|---|---|---|---|---|---|---|---|
 | 无待办 | - | `src/pages/channels/ChannelDetailPage.tsx` | 路由直达与权限守卫（未登录跳 /login，无权限跳 403） | 已通过 | 批次3 | 0 | 0 | 0 |  |
 | 无待办 | - | `src/pages/channels/ChannelDetailPage.tsx` | 加载中 / 空态 / 错误态展示（LoadingState / ErrorState） | 已通过 | 批次3 | 0 | 0 | 0 | 错误态注入待补测 |
-| 阻塞 | 需人工验证 | `src/pages/channels/ChannelDetailPage.tsx` | 危险/写操作二次确认弹窗（确认执行与取消） | 未测 | 批次3 | 0 | 0 | 0 | 确认执行路径属不可逆/敏感操作 |
-| 阻塞 | 需人工验证 | `src/pages/channels/ChannelDetailPage.tsx` | 「频道已删除」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 行内操作含不可逆动作（删除/解散/踢出），按规程人工执行 |
-| 阻塞 | 需人工验证 | `src/pages/channels/ChannelDetailPage.tsx` | 「频道已更新」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 行内操作含不可逆动作（删除/解散/踢出），按规程人工执行 |
-| 阻塞 | 需人工验证 | `src/pages/channels/ChannelDetailPage.tsx` | 「频道价格已更新」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 行内操作含不可逆动作（删除/解散/踢出），按规程人工执行 |
+| 阻塞 | 永久人工道（§1.4 不可逆/敏感写操作） | `src/pages/channels/ChannelDetailPage.tsx` | 危险/写操作二次确认弹窗（确认执行与取消） | 未测 | 批次3 | 0 | 0 | 0 | 确认执行路径属不可逆/敏感操作 |
+| 阻塞 | 永久人工道（§1.4 不可逆写操作） | `src/pages/channels/ChannelDetailPage.tsx` | 「频道已删除」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 行内操作含不可逆动作（删除/解散/踢出），按规程人工执行 |
+| 阻塞 | 永久人工道（§1.4 不可逆写操作） | `src/pages/channels/ChannelDetailPage.tsx` | 「频道已更新」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 行内操作含不可逆动作（删除/解散/踢出），按规程人工执行 |
+| 阻塞 | 永久人工道（§1.4 不可逆写操作） | `src/pages/channels/ChannelDetailPage.tsx` | 「频道价格已更新」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 行内操作含不可逆动作（删除/解散/踢出），按规程人工执行 |
 | 无待办 | - | `src/pages/channels/ChannelDetailPage.tsx` | 跳转 `/channels` | 已通过 | 批次3 | 0 | 0 | 0 | 返回按钮验证（p17） |
 | 无待办 | - | `src/pages/channels/ChannelDetailPage.tsx` | 跳转 `/channels/:id/messages` | 已通过 | 批次3 | 0 | 0 | 0 | tab「消息」点击导航已验证（p14） |
 | 无待办 | - | `src/pages/channels/ChannelDetailPage.tsx` | 跳转 `/channels/:id/subscribers` | 已通过 | 批次3 | 0 | 0 | 0 | tab「订阅」点击导航已验证（p14） |

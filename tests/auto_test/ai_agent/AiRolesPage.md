@@ -14,4 +14,4 @@
 | 无待办 | - | `src/modules/ai_agent/pages/AiRolesPage.tsx` | 「草稿已保存」操作提交成功并刷新列表数据 | 已通过 | 批次3 | 0 | 0 | 0 | 自动填表提交 2xx |
 | 无待办 | - | `src/modules/ai_agent/pages/AiRolesPage.tsx` | 「角色已发布」操作提交成功并刷新列表数据 | 已通过 | 批次3 | 0 | 0 | 0 | 自动填表提交 2xx |
 | 无待办 | - | `src/modules/ai_agent/pages/AiRolesPage.tsx` | 「角色状态已更新」操作提交成功并刷新列表数据 | 已通过 | 批次3 | 0 | 0 | 0 | 自动填表提交 2xx（批次3 p5） |
-| 阻塞 | 需人工验证 | `src/modules/ai_agent/pages/AiRolesPage.tsx` | 「角色已删除」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 写操作交互深度超出自动化边界（icon 行内按钮/编辑弹窗） |
+| 无待办 | - | `src/modules/ai_agent/pages/AiRolesPage.tsx` | 「角色已删除」操作提交成功并刷新列表数据 | 已通过 | 批次6 | 0 | 0 | 0 | 删除按钮仅 legacy 兼容模式渲染（新版 /ai_agent/role/list 失败时回退旧 KV）。实测：save 造 KV 角色 e2e_legacy_del→route 拦截 role/list 返 500 触发兼容模式→行内「删除」→ConfirmDialog「删除角色」→确认：POST action=delete code:0+toast「角色已删除」+列表刷新为空，KV 已移除核实；测试后清 config 残留键（净零） |

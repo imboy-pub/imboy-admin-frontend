@@ -1,6 +1,6 @@
 # `src/pages/announcements/AnnouncementListPage.tsx`
 
-> 功能点 10 个 | bug 发现 1 / 解决 1 / 待处理 0
+> 功能点 10 个 | bug 发现 3 / 解决 3 / 待处理 0
 > 索引：[../README.md](../README.md)
 
 | 计划变化 | 计划时间 | 页面path | 功能介绍 | 测试状态 | 测试轮次 | 发现bug | 解决bug | 待处理bug | 备注 |
@@ -11,7 +11,7 @@
 | 无待办 | - | `src/pages/announcements/AnnouncementListPage.tsx` | 分页翻页与每页条数切换（筛选/搜索变化时重置 page=1） | 已通过 | 批次5 | 0 | 0 | 0 | 造数15条实测：page=2 GET 200 |
 | 无待办 | - | `src/pages/announcements/AnnouncementListPage.tsx` | 危险/写操作二次确认弹窗（确认执行与取消） | 已通过 | 批次3 | 0 | 0 | 0 | 弹窗/抽屉打开+取消已验证（批次3 主巡检） |
 | 无待办 | - | `src/pages/announcements/AnnouncementListPage.tsx` | 导出 CSV（字段完整性与大数据量分页导出） | 已通过 | 批次3 | 0 | 0 | 0 | 播种数据后导出按钮点击验证通过（p20） |
-| 阻塞 | 需人工验证 | `src/pages/announcements/AnnouncementListPage.tsx` | 「公告已删除」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 写操作交互深度超出自动化边界（icon 行内按钮/编辑弹窗） |
+| 无待办 | - | `src/pages/announcements/AnnouncementListPage.tsx` | 「公告已删除」操作提交成功并刷新列表数据 | 已通过 | 批次6 | 1 | 1 | 0 | 实测对已撤回卡（…10014）Trash2 红钮→「确认删除公告」→确认：POST 200+toast「公告已删除」，DB status=-1 核实。发现并修复：adm_announcement_handler 四写分支要求 is_integer(id) 拒收字符串 TSID（17 位超 JS 安全整数，前端 safeParseBigIntJson 发 string）→必「参数错误」；加 normalize_id/1 归一化（对齐 adm_moment_handler:safe_to_integer）+热加载复验。另 role_acl(1) 缺权限键 bug 计入撤回行 |
 | 无待办 | - | `src/pages/announcements/AnnouncementListPage.tsx` | 「公告已发布」操作提交成功并刷新列表数据 | 已通过 | 批次3 | 0 | 0 | 0 | 自动填表提交 2xx |
-| 阻塞 | 需人工验证 | `src/pages/announcements/AnnouncementListPage.tsx` | 「公告已撤回」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 写操作交互深度超出自动化边界（icon 行内按钮/编辑弹窗） |
+| 无待办 | - | `src/pages/announcements/AnnouncementListPage.tsx` | 「公告已撤回」操作提交成功并刷新列表数据 | 已通过 | 批次6 | 1 | 1 | 0 | 实测已发布卡「撤回」→ConfirmDialog（confirmText=「撤回」）→确认：POST /announcement/unpublish 200+code:0「撤回成功」+toast「公告已撤回」，DB status 1→2 核实；发现并修复 role_acl(1) 缺 announcements:publish 权限键（详情见删除行备注） |
 | 无待办 | - | `src/pages/announcements/AnnouncementListPage.tsx` | 「导出 N 条公告数据」操作提交成功并刷新列表数据 | 已通过 | 批次3 | 0 | 0 | 0 | 播种数据后导出按钮点击验证通过（p20） |

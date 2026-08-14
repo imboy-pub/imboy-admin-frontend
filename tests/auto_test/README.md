@@ -48,11 +48,11 @@
 
 | 计划变化 | 条数 | 占比 |
 |---|---|---|
-| 无待办 | 409 | 75.3% |
-| 阻塞 | 134 | 24.7% |
+| 无待办 | 432 | 79.6% |
+| 阻塞 | 111 | 20.4% |
 | **合计** | **543** | 100% |
 
-bug 累计：**发现 17 / 解决 17 / 待处理 0**
+bug 累计：**发现 21 / 解决 21 / 待处理 0**
 
 > 恒等式 `发现 − 解决 = 待处理` 成立
 
@@ -62,16 +62,16 @@ bug 累计：**发现 17 / 解决 17 / 待处理 0**
 |---|---|---|---|---|---|
 | [groups](groups/) | 14 | 129 | 0 | 104 | 25 |
 | [channels](channels/) | 8 | 80 | 0 | 62 | 18 |
-| [settings](settings/) | 10 | 51 | 0 | 35 | 16 |
+| [settings](settings/) | 10 | 51 | 0 | 41 | 10 |
 | [users](users/) | 4 | 41 | 0 | 36 | 5 |
-| [moments](moments/) | 3 | 26 | 0 | 14 | 12 |
-| [ai_agent](ai_agent/) | 4 | 25 | 0 | 21 | 4 |
+| [moments](moments/) | 3 | 26 | 0 | 26 | 0 |
+| [ai_agent](ai_agent/) | 4 | 25 | 0 | 24 | 1 |
 | [plugin_management](plugin_management/) | 2 | 18 | 0 | 9 | 9 |
 | [admins](admins/) | 1 | 14 | 0 | 14 | 0 |
 | [content-moderation](content-moderation/) | 2 | 14 | 0 | 8 | 6 |
 | [feedback](feedback/) | 1 | 11 | 0 | 7 | 4 |
 | [logs](logs/) | 1 | 11 | 0 | 9 | 2 |
-| [announcements](announcements/) | 1 | 10 | 0 | 8 | 2 |
+| [announcements](announcements/) | 1 | 10 | 0 | 10 | 0 |
 | [logout-applications](logout-applications/) | 1 | 9 | 0 | 6 | 3 |
 | [storage](storage/) | 1 | 9 | 0 | 4 | 5 |
 | [billing-plans](billing-plans/) | 1 | 8 | 0 | 5 | 3 |
