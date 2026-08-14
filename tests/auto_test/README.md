@@ -48,11 +48,11 @@
 
 | 计划变化 | 条数 | 占比 |
 |---|---|---|
-| 无待办 | 370 | 68.1% |
-| 阻塞 | 173 | 31.9% |
+| 无待办 | 373 | 68.7% |
+| 阻塞 | 170 | 31.3% |
 | **合计** | **543** | 100% |
 
-bug 累计：**发现 14 / 解决 14 / 待处理 0**
+bug 累计：**发现 15 / 解决 15 / 待处理 0**
 
 > 恒等式 `发现 − 解决 = 待处理` 成立
 
@@ -60,7 +60,7 @@ bug 累计：**发现 14 / 解决 14 / 待处理 0**
 
 | 模块 | 页面 | 功能点 | 待处理bug | 无待办 | 阻塞 |
 |---|---|---|---|---|---|
-| [groups](groups/) | 14 | 129 | 0 | 95 | 34 |
+| [groups](groups/) | 14 | 129 | 0 | 96 | 33 |
 | [channels](channels/) | 8 | 80 | 0 | 59 | 21 |
 | [settings](settings/) | 10 | 51 | 0 | 34 | 17 |
 | [users](users/) | 4 | 41 | 0 | 24 | 17 |
@@ -72,7 +72,7 @@ bug 累计：**发现 14 / 解决 14 / 待处理 0**
 | [feedback](feedback/) | 1 | 11 | 0 | 7 | 4 |
 | [logs](logs/) | 1 | 11 | 0 | 9 | 2 |
 | [announcements](announcements/) | 1 | 10 | 0 | 7 | 3 |
-| [logout-applications](logout-applications/) | 1 | 9 | 0 | 4 | 5 |
+| [logout-applications](logout-applications/) | 1 | 9 | 0 | 6 | 3 |
 | [storage](storage/) | 1 | 9 | 0 | 4 | 5 |
 | [billing-plans](billing-plans/) | 1 | 8 | 0 | 4 | 4 |
 | [messages](messages/) | 1 | 8 | 0 | 7 | 1 |

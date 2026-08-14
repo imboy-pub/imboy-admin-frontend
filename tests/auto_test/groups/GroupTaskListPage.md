@@ -8,7 +8,7 @@
 | 无待办 | - | `src/pages/groups/GroupTaskListPage.tsx` | 路由直达与权限守卫（未登录跳 /login，无权限跳 403） | 已通过 | 批次3 | 0 | 0 | 0 |  |
 | 无待办 | - | `src/pages/groups/GroupTaskListPage.tsx` | 加载中 / 空态 / 错误态展示（LoadingState / ErrorState） | 已通过 | 批次3 | 0 | 0 | 0 | 需先选群组才加载列表，ErrorState 已实现；features 失败走 fail-open 缓存设计 |
 | 无待办 | - | `src/pages/groups/GroupTaskListPage.tsx` | 列表数据加载渲染与字段格式化 | 已通过 | 批次3 | 0 | 0 | 0 |  |
-| 阻塞 | 需 >10 条数据 | `src/pages/groups/GroupTaskListPage.tsx` | 分页翻页与每页条数切换（筛选/搜索变化时重置 page=1） | 未测 | 批次3 | 0 | 0 | 0 | 数据量不足，无第二页 |
+| 无待办 | - | `src/pages/groups/GroupTaskListPage.tsx` | 分页翻页与每页条数切换（筛选/搜索变化时重置 page=1） | 已通过 | 批次3 | 0 | 0 | 0 | 六阶段播种/修复后复测通过（logout type=102 / grouptask 带参查询） |
 | 阻塞 | 需人工验证 | `src/pages/groups/GroupTaskListPage.tsx` | 危险/写操作二次确认弹窗（确认执行与取消） | 未测 | 批次3 | 0 | 0 | 0 | 确认执行路径属不可逆/敏感操作 |
 | 阻塞 | 需测试数据 | `src/pages/groups/GroupTaskListPage.tsx` | 「任务已强制关闭」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 本地库无该类数据，写操作无法真实执行 |
 | 无待办 | - | `src/pages/groups/GroupTaskListPage.tsx` | 跳转 `/groups/:id` | 已通过 | 批次3 | 0 | 0 | 0 |  |

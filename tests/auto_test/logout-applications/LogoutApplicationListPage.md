@@ -8,9 +8,9 @@
 | 无待办 | - | `src/pages/logout-applications/LogoutApplicationListPage.tsx` | 路由直达与权限守卫（未登录跳 /login，无权限跳 403） | 已通过 | 批次3 | 0 | 0 | 0 |  |
 | 无待办 | - | `src/pages/logout-applications/LogoutApplicationListPage.tsx` | 加载中 / 空态 / 错误态展示（LoadingState / ErrorState） | 已通过 | 批次3 | 0 | 0 | 0 | p8 精确注入复测：ErrorState 已渲染 |
 | 无待办 | - | `src/pages/logout-applications/LogoutApplicationListPage.tsx` | 列表数据加载渲染与字段格式化 | 已通过 | 批次3 | 0 | 0 | 0 |  |
-| 阻塞 | 需 >10 条数据 | `src/pages/logout-applications/LogoutApplicationListPage.tsx` | 分页翻页与每页条数切换（筛选/搜索变化时重置 page=1） | 未测 | 批次3 | 0 | 0 | 0 | 数据量不足，无第二页 |
+| 无待办 | - | `src/pages/logout-applications/LogoutApplicationListPage.tsx` | 分页翻页与每页条数切换（筛选/搜索变化时重置 page=1） | 已通过 | 批次3 | 0 | 0 | 0 | 六阶段播种/修复后复测通过（logout type=102 / grouptask 带参查询） |
 | 阻塞 | 需人工验证 | `src/pages/logout-applications/LogoutApplicationListPage.tsx` | 危险/写操作二次确认弹窗（确认执行与取消） | 未测 | 批次3 | 0 | 0 | 0 | 敏感/不可逆操作 |
-| 阻塞 | 需 >10 条数据 | `src/pages/logout-applications/LogoutApplicationListPage.tsx` | 导出 CSV（字段完整性与大数据量分页导出） | 未测 | 批次3 | 0 | 0 | 0 | 数据量不足，无第二页 |
+| 无待办 | - | `src/pages/logout-applications/LogoutApplicationListPage.tsx` | 导出 CSV（字段完整性与大数据量分页导出） | 已通过 | 批次3 | 0 | 0 | 0 | 六阶段播种/修复后复测通过（logout type=102 / grouptask 带参查询） |
 | 阻塞 | 需人工验证 | `src/pages/logout-applications/LogoutApplicationListPage.tsx` | 「驳回注销申请」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 资金/审批/配置类敏感操作，自动化跳过 |
 | 阻塞 | 需人工验证 | `src/pages/logout-applications/LogoutApplicationListPage.tsx` | 「注销申请已审批通过」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 资金/审批/配置类敏感操作，自动化跳过 |
 | 无待办 | - | `src/pages/logout-applications/LogoutApplicationListPage.tsx` | 「开始下载导出文件」操作提交成功并刷新列表数据 | 已通过 | 批次3 | 0 | 0 | 0 |  |

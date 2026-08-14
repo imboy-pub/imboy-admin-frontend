@@ -29,3 +29,11 @@ BEGIN
     WHERE NOT EXISTS (SELECT 1 FROM app_version WHERE id = 92000000000025000 + i);
   END LOOP;
 END $$;
+
+-- 注销申请（user_log type=102，JOIN user 取 account/nickname）
+INSERT INTO user_log (ts, type, uid, body, remark, created_at)
+SELECT now() - (i || ' hours')::interval, 102, i,
+  jsonb_build_object('device_id', 'e2e_dev_' || i, 'app_version', '1.0.' || (i % 9), 'device_type', CASE WHEN i % 2 = 0 THEN 'android' ELSE 'ios' END, 'ip', '127.0.0.1', 'reason', 'e2e 播种注销'),
+  'e2e_logout_apply', now() - (i || ' hours')::interval
+FROM generate_series(1, 15) AS i
+WHERE NOT EXISTS (SELECT 1 FROM user_log WHERE type = 102 AND uid = i AND remark = 'e2e_logout_apply');
