@@ -10,4 +10,4 @@
 | 无待办 | - | `src/pages/wallets/WalletListPage.tsx` | 列表数据加载渲染与字段格式化 | 已通过 | 批次3 | 0 | 0 | 0 |  |
 | 无待办 | - | `src/pages/wallets/WalletListPage.tsx` | 分页翻页与每页条数切换（筛选/搜索变化时重置 page=1） | 已通过 | 批次3 | 0 | 0 | 0 | 第五阶段播种后复测通过（p22/p23） |
 | 无待办 | - | `src/pages/wallets/WalletListPage.tsx` | 筛选 / 搜索条件生效与清空重置 | 已通过 | 批次3 | 0 | 0 | 0 |  |
-| 阻塞 | 需人工验证 | `src/pages/wallets/WalletListPage.tsx` | 抽屉（详情/编辑）打开、提交与关闭 | 未测 | 批次3 | 0 | 0 | 0 | 弹窗交互深度超出自动化边界 |
+| 待复验 | - | `src/pages/wallets/WalletListPage.tsx` | 抽屉（详情/编辑）打开、提交与关闭 | 待重验 | 批次3 | 0 | 0 | 0 | 抽屉只读开关可浏览器实测；冻结提交属资金写入按§1.4跳过 |
