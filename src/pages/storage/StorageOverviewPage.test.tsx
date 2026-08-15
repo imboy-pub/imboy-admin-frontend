@@ -191,9 +191,14 @@ describe('StorageOverviewPage flow', () => {
     await act(async () => { view = renderPage() })
 
     await waitFor(() => {
-      // status=-1 shows 已删除 badge but no 禁用/删 buttons
+      // status=-1 shows 已删除 badge but no 禁用/删 buttons。
+      // 注意不能断言全页不含「禁用」子串——状态筛选 Select 的「已禁用」选项
+      // 也含该子串；精确匹配文本恰为「禁用」的按钮。
       expect(view.container.textContent).toContain('已删除')
-      expect(view.container.textContent).not.toContain('禁用')
+      const disableBtn = [...view.container.querySelectorAll('button')].find(
+        (b) => b.textContent?.trim() === '禁用'
+      )
+      expect(disableBtn).toBeUndefined()
     })
   })
 
