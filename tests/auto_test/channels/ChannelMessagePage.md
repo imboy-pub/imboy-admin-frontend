@@ -6,7 +6,7 @@
 | 计划变化 | 计划时间 | 页面path | 功能介绍 | 测试状态 | 测试轮次 | 发现bug | 解决bug | 待处理bug | 备注 |
 |---|---|---|---|---|---|---|---|---|---|---|
 | 无待办 | - | `src/pages/channels/ChannelMessagePage.tsx` | 路由直达与权限守卫（未登录跳 /login，无权限跳 403） | 已通过 | 批次3 | 0 | 0 | 0 |  |
-| 无待办 | - | `src/pages/channels/ChannelMessagePage.tsx` | 加载中 / 空态 / 错误态展示（LoadingState / ErrorState） | 已通过 | 批次3 | 0 | 0 | 0 | 错误态注入待补测 |
+| 无待办 | - | `src/pages/channels/ChannelMessagePage.tsx` | 加载中 / 空态 / 错误态展示（LoadingState / ErrorState） | 已通过 | 批次8 | 0 | 0 | 0 | 错误态经定向 XHR 劫持注入验证（API 404 → ErrorState 错误文案+重试按钮）：「加载频道消息失败」（tab 切换/刷新数据触发） |
 | 无待办 | - | `src/pages/channels/ChannelMessagePage.tsx` | 列表数据加载渲染与字段格式化 | 已通过 | 批次3 | 0 | 0 | 0 |  |
 | 无待办 | - | `src/pages/channels/ChannelMessagePage.tsx` | 分页翻页与每页条数切换（筛选/搜索变化时重置 page=1） | 已通过 | 批次7 | 0 | 0 | 0 | 造数 channel_message 9 条（共 11）后实测：下一页→page=2 URL 同步 |
 | 无待办 | - | `src/pages/channels/ChannelMessagePage.tsx` | 批量勾选与批量操作执行 | 已通过 | 批次3 | 0 | 0 | 0 | 勾选后批量操作反馈已验证（p13） |

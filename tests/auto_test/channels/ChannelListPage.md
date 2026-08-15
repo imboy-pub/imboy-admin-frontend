@@ -1,11 +1,11 @@
 # `src/pages/channels/ChannelListPage.tsx`
 
-> 功能点 15 个 | bug 发现 0 / 解决 0 / 待处理 0
+> 功能点 15 个 | bug 发现 1 / 解决 1 / 待处理 0
 > 索引：[../README.md](../README.md)
 
 | 计划变化 | 计划时间 | 页面path | 功能介绍 | 测试状态 | 测试轮次 | 发现bug | 解决bug | 待处理bug | 备注 |
 |---|---|---|---|---|---|---|---|---|---|---|
-| 无待办 | - | `src/pages/channels/ChannelListPage.tsx` | 路由直达与权限守卫（未登录跳 /login，无权限跳 403） | 已通过 | 批次3 | 0 | 0 | 0 |  |
+| 无待办 | - | `src/pages/channels/ChannelListPage.tsx` | 路由直达与权限守卫（未登录跳 /login，无权限跳 403） | 已通过 | 批次8 | 1 | 1 | 0 | bug 已修：/rbac/me 404 写入 sessionStorage 标记后 rbac 同步快速失败，sidebar 模板仍在加载时 waitingForPermissionResolution 因 !rbacError 条件误判 loading=false → allowed=false 永久跳 /forbidden（违反 fail-open 设计）；修为 configLoading 期间继续等待（useAdminPermission.ts），红测试→修复→单测绿→浏览器复验（标记存在时 /channels 可正常访问） |
 | 无待办 | - | `src/pages/channels/ChannelListPage.tsx` | 加载中 / 空态 / 错误态展示（LoadingState / ErrorState） | 已通过 | 批次3 | 0 | 0 | 0 |  |
 | 无待办 | - | `src/pages/channels/ChannelListPage.tsx` | 列表数据加载渲染与字段格式化 | 已通过 | 批次3 | 0 | 0 | 0 | ux/events 404 已修复复验200 |
 | 无待办 | - | `src/pages/channels/ChannelListPage.tsx` | 分页翻页与每页条数切换（筛选/搜索变化时重置 page=1） | 已通过 | 批次5 | 0 | 0 | 0 | 造数18条实测：page=2 GET 200 |

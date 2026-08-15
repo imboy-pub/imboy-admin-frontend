@@ -139,13 +139,16 @@ export function useAdminPermission(options: UseAdminPermissionOptions = {}) {
   // 时序修复：rbac profile（权威权限源）尚未返回且查询仍在途时，一律等待，
   // 不允许用先到的 sidebar 角色模板提前做否定判定——静态模板权限集不完整
   // （曾导致 sidebar 先到 + /rbac/me 后到的竞态被间歇性误跳 /forbidden）。
-  // 查询确定失败（rbacError）后不再等待，走角色级降级 / fail-closed 分支。
+  // rbac 确定失败（rbacError）后不再等待 rbac 本身，但 sidebar 模板仍在加载
+  // （configLoading）时必须继续等——模板是 fail-open 降级的兜底数据源，
+  // 模板未到就判死会把管理员锁在 /forbidden
+  // （实测：/rbac/me 404 写入 sessionStorage 标记后 rbac 同步快速失败，
+  // sidebar fallback 还在途，loading 被误判 false → 永久跳 /forbidden）。
   const waitingForPermissionResolution =
     hasPermissionConstraint &&
     !rbacProfile &&
     shouldResolvePermission &&
-    !rbacError &&
-    (rbacLoading || configLoading)
+    (configLoading || (rbacLoading && !rbacError))
 
   const loading =
     waitingForRoleResolution || waitingForPermissionResolution
