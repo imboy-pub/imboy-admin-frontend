@@ -10,4 +10,4 @@
 | 无待办 | - | `src/pages/billing-invoices/BillingInvoiceListPage.tsx` | 列表数据加载渲染与字段格式化 | 已通过 | 批次3 | 0 | 0 | 0 |  |
 | 无待办 | - | `src/pages/billing-invoices/BillingInvoiceListPage.tsx` | 分页翻页与每页条数切换（筛选/搜索变化时重置 page=1） | 已通过 | 批次5 | 0 | 0 | 0 | 造数16条实测：page=2 GET 200 |
 | 无待办 | - | `src/pages/billing-invoices/BillingInvoiceListPage.tsx` | 筛选 / 搜索条件生效与清空重置 | 已通过 | 批次3 | 0 | 0 | 0 |  |
-| 阻塞 | 需人工验证 | `src/pages/billing-invoices/BillingInvoiceListPage.tsx` | 抽屉（详情/编辑）打开、提交与关闭 | 未测 | 批次3 | 0 | 0 | 0 | 弹窗交互深度超出自动化边界 |
+| 无待办 | - | `src/pages/billing-invoices/BillingInvoiceListPage.tsx` | 抽屉（详情/编辑）打开、提交与关闭 | 已通过 | 批次7 | 0 | 0 | 0 | 行点击打开 EntityDrawer 只读详情（账单 BILL1785302801686_215536019A13D435 金额/状态/账期字段完整），ESC 关闭实测通过；抽屉无编辑提交项 |

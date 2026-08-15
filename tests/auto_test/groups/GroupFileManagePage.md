@@ -11,6 +11,6 @@
 | 无待办 | - | `src/pages/groups/GroupFileManagePage.tsx` | 分页翻页与每页条数切换（筛选/搜索变化时重置 page=1） | 已通过 | 批次3 | 0 | 0 | 0 | 渲染+交互验证通过；数据单页，多页翻页待数据扩充 |
 | 无待办 | - | `src/pages/groups/GroupFileManagePage.tsx` | 危险/写操作二次确认弹窗（确认执行与取消） | 已通过 | 批次3 | 0 | 0 | 0 | 弹窗/抽屉打开+取消已验证（批次3 主巡检） |
 | 无待办 | - | `src/pages/groups/GroupFileManagePage.tsx` | 导出 CSV（字段完整性与大数据量分页导出） | 已通过 | 批次3 | 0 | 0 | 0 | 播种数据后复测通过（批次3 p15/p16） |
-| 阻塞 | 需测试数据 | `src/pages/groups/GroupFileManagePage.tsx` | 「文件已删除」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 本地库无该类数据，写操作无法真实执行 |
+| 无待办| -| `src/pages/groups/GroupFileManagePage.tsx` | 「文件已删除」操作提交成功并刷新列表数据 | 已通过| 批次7| 0| 0| 0| 实测…05010 行内 trash icon→ConfirmDialog「删除」：删除成功+列表刷新，DB status 1→0 核实（e2e 播种行） |
 | 无待办 | - | `src/pages/groups/GroupFileManagePage.tsx` | 「导出当前页 N 条数据」操作提交成功并刷新列表数据 | 已通过 | 批次3 | 0 | 0 | 0 | 播种数据后复测通过（批次3 p15/p16） |
 | 无待办 | - | `src/pages/groups/GroupFileManagePage.tsx` | 跳转 `/groups/:id` | 已通过 | 批次3 | 0 | 0 | 0 | 返回按钮导航验证（p17） |

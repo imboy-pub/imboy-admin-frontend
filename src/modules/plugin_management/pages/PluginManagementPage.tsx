@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
+import { getErrorMessage } from '@/lib/errorUtils'
 import {
   Puzzle,
   RefreshCw,
@@ -378,7 +379,7 @@ function InstallPluginDialog({
       onSuccess()
     },
     onError: (err: unknown) => {
-      toast.error(`安装失败: ${err instanceof Error ? err.message : String(err)}`)
+      toast.error(`安装失败: ${getErrorMessage(err)}`)
     },
   })
 
@@ -469,7 +470,7 @@ export function PluginManagementPage() {
       invalidateList()
     },
     onError: (err: unknown) => {
-      toast.error(`启用失败: ${err instanceof Error ? err.message : String(err)}`)
+      toast.error(`启用失败: ${getErrorMessage(err)}`)
     },
   })
 
@@ -480,7 +481,7 @@ export function PluginManagementPage() {
       invalidateList()
     },
     onError: (err: unknown) => {
-      toast.error(`禁用失败: ${err instanceof Error ? err.message : String(err)}`)
+      toast.error(`禁用失败: ${getErrorMessage(err)}`)
     },
   })
 
@@ -491,7 +492,7 @@ export function PluginManagementPage() {
       invalidateList()
     },
     onError: (err: unknown) => {
-      toast.error(`卸载失败: ${err instanceof Error ? err.message : String(err)}`)
+      toast.error(`卸载失败: ${getErrorMessage(err)}`)
     },
   })
 
@@ -502,7 +503,7 @@ export function PluginManagementPage() {
       invalidateList()
     },
     onError: (err: unknown) => {
-      toast.error(`强制卸载失败: ${err instanceof Error ? err.message : String(err)}`)
+      toast.error(`强制卸载失败: ${getErrorMessage(err)}`)
     },
   })
 
@@ -513,7 +514,7 @@ export function PluginManagementPage() {
       invalidateList()
     },
     onError: (err: unknown) => {
-      toast.error(`重置失败: ${err instanceof Error ? err.message : String(err)}`)
+      toast.error(`重置失败: ${getErrorMessage(err)}`)
     },
   })
 
@@ -525,7 +526,7 @@ export function PluginManagementPage() {
       invalidateList()
     },
     onError: (err: unknown) => {
-      toast.error(`升级失败: ${err instanceof Error ? err.message : String(err)}`)
+      toast.error(`升级失败: ${getErrorMessage(err)}`)
     },
   })
 

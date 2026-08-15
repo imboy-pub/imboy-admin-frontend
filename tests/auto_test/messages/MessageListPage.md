@@ -12,4 +12,4 @@
 | 无待办 | - | `src/pages/messages/MessageListPage.tsx` | 抽屉（详情/编辑）打开、提交与关闭 | 已通过 | 批次3 | 0 | 0 | 0 | 打开+取消已验证 |
 | 无待办 | - | `src/pages/messages/MessageListPage.tsx` | 导出 CSV（字段完整性与大数据量分页导出） | 已通过 | 批次3 | 0 | 0 | 0 |  |
 | 无待办 | - | `src/pages/messages/MessageListPage.tsx` | 「开始下载导出文件」操作提交成功并刷新列表数据 | 已通过 | 批次3 | 0 | 0 | 0 |  |
-| 阻塞 | 需人工验证 | `src/pages/messages/MessageListPage.tsx` | 「N已复制」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 写操作交互深度超出自动化边界（icon 行内按钮/编辑弹窗） |
+| 无待办 | - | `src/pages/messages/MessageListPage.tsx` | 「N已复制」操作提交成功并刷新列表数据 | 已通过 | 批次7 | 0 | 0 | 0 | 实测：行内「查看详情」开抽屉→「复制消息ID」→toast「消息ID已复制」（navigator.clipboard.readText 挂起系权限提示，以 toast 为准）；handleCopy 模板 `${label}已复制` 同源覆盖整行JSON/Payload 变体（detailData 未加载时按钮不渲染，属正常懒加载） |

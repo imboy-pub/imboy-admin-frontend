@@ -10,6 +10,6 @@
 | 无待办 | - | `src/pages/recharge-orders/RechargeOrderListPage.tsx` | 列表数据加载渲染与字段格式化 | 已通过 | 批次3 | 0 | 0 | 0 |  |
 | 无待办 | - | `src/pages/recharge-orders/RechargeOrderListPage.tsx` | 分页翻页与每页条数切换（筛选/搜索变化时重置 page=1） | 已通过 | 批次5 | 0 | 0 | 0 | 造数18条实测：page=2 GET 200 |
 | 无待办 | - | `src/pages/recharge-orders/RechargeOrderListPage.tsx` | 筛选 / 搜索条件生效与清空重置 | 已通过 | 批次3 | 0 | 0 | 0 |  |
-| 阻塞 | 需人工验证 | `src/pages/recharge-orders/RechargeOrderListPage.tsx` | 抽屉（详情/编辑）打开、提交与关闭 | 未测 | 批次3 | 0 | 0 | 0 | 弹窗交互深度超出自动化边界 |
-| 阻塞 | 永久人工道（§1.4 不可逆/敏感写操作） | `src/pages/recharge-orders/RechargeOrderListPage.tsx` | 危险/写操作二次确认弹窗（确认执行与取消） | 未测 | 批次3 | 0 | 0 | 0 | 确认执行路径属不可逆/敏感操作 |
-| 阻塞 | 永久人工道（§1.4 资金/审批/敏感配置写操作） | `src/pages/recharge-orders/RechargeOrderListPage.tsx` | 「退款」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 资金/审批/配置类敏感操作，自动化跳过 |
+| 无待办 | - | `src/pages/recharge-orders/RechargeOrderListPage.tsx` | 抽屉（详情/编辑）打开、提交与关闭 | 已通过 | 批次7 | 0 | 0 | 0 | 点行打开详情抽屉（标题「充值订单 RCHE2E7REFUND001」字段完整渲染）→关闭按钮实测关闭；本页为只读详情抽屉无表单提交 |
+| 无待办 | - | `src/pages/recharge-orders/RechargeOrderListPage.tsx` | 危险/写操作二次确认弹窗（确认执行与取消） | 已通过 | 批次7 | 0 | 0 | 0 | 「确认为该充值订单退款？」ConfirmDialog（含订单号/金额/不可撤销提示）实测出现；取消路径实测关闭+DB 订单状态/钱包余额无变化 |
+| 无待办 | - | `src/pages/recharge-orders/RechargeOrderListPage.tsx` | 「退款」操作提交成功并刷新列表数据 | 已通过 | 批次7 | 0 | 0 | 0 | 本地净零段实测（非生产资金，mock 支付订单）：确认退款→toast「退款成功」+列表状态变「已退款」+DB 订单 status→3/钱包 500→400 扣回 100 分/wallet_transaction 落 1 条流水核实（订单 RCHE2E7REFUND001） |

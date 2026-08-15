@@ -10,6 +10,6 @@
 | 无待办 | - | `src/pages/billing-plans/BillingPlanListPage.tsx` | 列表数据加载渲染与字段格式化 | 已通过 | 批次3 | 0 | 0 | 0 |  |
 | 无待办 | - | `src/pages/billing-plans/BillingPlanListPage.tsx` | 分页翻页与每页条数切换（筛选/搜索变化时重置 page=1） | 已通过 | 批次5 | 0 | 0 | 0 | 造数16条实测：page=2 GET 200 |
 | 无待办 | - | `src/pages/billing-plans/BillingPlanListPage.tsx` | 筛选 / 搜索条件生效与清空重置 | 已通过 | 批次3 | 0 | 0 | 0 |  |
-| 阻塞 | 需人工验证 | `src/pages/billing-plans/BillingPlanListPage.tsx` | 抽屉（详情/编辑）打开、提交与关闭 | 未测 | 批次3 | 0 | 0 | 0 | 弹窗交互深度超出自动化边界 |
-| 阻塞 | 永久人工道（§1.4 资金/审批/敏感配置写操作） | `src/pages/billing-plans/BillingPlanListPage.tsx` | 「套餐已创建」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 资金/审批/配置类敏感操作，自动化跳过 |
-| 阻塞 | 永久人工道（§1.4 资金/审批/敏感配置写操作） | `src/pages/billing-plans/BillingPlanListPage.tsx` | 「套餐已更新」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 资金/审批/配置类敏感操作，自动化跳过 |
+| 无待办 | - | `src/pages/billing-plans/BillingPlanListPage.tsx` | 抽屉（详情/编辑）打开、提交与关闭 | 已通过 | 批次7 | 0 | 0 | 0 | 编辑抽屉打开（标题「编辑套餐 e2e_batch7_plan」）→改名称→保存提交→toast+抽屉关闭+列表刷新，全程实测 |
+| 无待办 | - | `src/pages/billing-plans/BillingPlanListPage.tsx` | 「套餐已创建」操作提交成功并刷新列表数据 | 已通过 | 批次7 | 0 | 0 | 0 | 本地净零段实测（非生产资金）：新建抽屉填编码/名称/价格9.9→保存→toast「套餐已创建」+列表出现新行+DB price=990 分/billing_period=month 落库核实（code=e2e_batch7_plan） |
+| 无待办 | - | `src/pages/billing-plans/BillingPlanListPage.tsx` | 「套餐已更新」操作提交成功并刷新列表数据 | 已通过 | 批次7 | 0 | 0 | 0 | 编辑抽屉改名称→保存→toast「套餐已更新」+列表行刷新+DB name 落库核实 |

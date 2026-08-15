@@ -129,7 +129,7 @@ export function GroupListPage() {
       { header: '群主 ID', accessor: 'owner_uid' },
       { header: '成员数', accessor: (row) => row.member_count || 0 },
       { header: '类型', accessor: (row) => ({ 1: '普通群', 2: '私有群' }[String(row.type)] || String(row.type)) },
-      { header: '状态', accessor: (row) => ({ 1: '正常', '0': '已解散' }[String(row.status)] || String(row.status)) },
+      { header: '状态', accessor: (row) => ({ 1: '正常', '0': '已解散', '-1': '已解散' }[String(row.status)] || String(row.status)) },
       { header: '创建时间', accessor: (row) => formatDate(row.created_at) },
     ]
     exportCsv(csvColumns, groups, 'groups_export')
@@ -241,8 +241,8 @@ export function GroupListPage() {
       cell: ({ row }) => (
         <StatusBadge
           status={row.original.status}
-          labels={{ 1: '正常', 0: '已解散' }}
-          variants={{ 1: 'success', 0: 'error' }}
+          labels={{ 1: '正常', 0: '已解散', [-1]: '已解散' }}
+          variants={{ 1: 'success', 0: 'error', [-1]: 'error' }}
         />
       ),
     },

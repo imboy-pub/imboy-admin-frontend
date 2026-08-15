@@ -3,9 +3,26 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
 
+// macOS 大小写不敏感 FS 下，SPA 路由 /license 会被 dev server 解析到根目录
+// LICENSE 静态文件（curl 实测 500 + import-analysis 报错），页面被劫持成许可证
+// 文本。rewrite 回 index.html 让 SPA 路由接管（生产 nginx try_files 不受影响）。
+function spaRouteClashFix() {
+  return {
+    name: 'spa-route-clash-fix',
+    configureServer(server: import('vite').ViteDevServer) {
+      server.middlewares.use((req, _res, next) => {
+        if (req.url && /^\/license\/?$/.test(req.url.split('?')[0])) {
+          req.url = '/index.html'
+        }
+        next()
+      })
+    },
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [spaRouteClashFix(), react(), tailwindcss()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

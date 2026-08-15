@@ -1,6 +1,6 @@
 # `src/pages/channels/ChannelOrderPage.tsx`
 
-> 功能点 9 个 | bug 发现 0 / 解决 0 / 待处理 0
+> 功能点 9 个 | bug 发现 1 / 解决 1 / 待处理 0
 > 索引：[../README.md](../README.md)
 
 | 计划变化 | 计划时间 | 页面path | 功能介绍 | 测试状态 | 测试轮次 | 发现bug | 解决bug | 待处理bug | 备注 |
@@ -11,6 +11,6 @@
 | 无待办 | - | `src/pages/channels/ChannelOrderPage.tsx` | 分页翻页与每页条数切换（筛选/搜索变化时重置 page=1） | 已通过 | 批次3 | 0 | 0 | 0 | 渲染+交互验证通过；数据单页，多页翻页待数据扩充 |
 | 无待办 | - | `src/pages/channels/ChannelOrderPage.tsx` | 筛选 / 搜索条件生效与清空重置 | 已通过 | 批次3 | 0 | 0 | 0 |  |
 | 无待办 | - | `src/pages/channels/ChannelOrderPage.tsx` | 导出 CSV（字段完整性与大数据量分页导出） | 已通过 | 批次3 | 0 | 0 | 0 | 播种数据后复测通过（批次3 p15/p16） |
-| 阻塞 | 需测试数据 | `src/pages/channels/ChannelOrderPage.tsx` | 「退款」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 本地库无该类数据，写操作无法真实执行 |
+| 无待办| -| `src/pages/channels/ChannelOrderPage.tsx` | 「退款」操作提交成功并刷新列表数据 | 已通过| 批次7| 1| 1| 0| e2e_order_12 实测退款：弹窗填原因→确认退款，订单 status 1→2、refund_reason 落库、钱包退款流水 R_WPY_ +2190 分、列表「已支付」→「已退款」；bug=payment_no 为 DB NULL 时 epgsql 返 null atom 致 <<"R_",null/binary>> 崩溃 HTTP 500 空响应，已修 refund_fen 守卫+热加载复验（本地 mock 钱包网关，e2e 播种订单） |
 | 无待办 | - | `src/pages/channels/ChannelOrderPage.tsx` | 「导出 N 条订单记录」操作提交成功并刷新列表数据 | 已通过 | 批次3 | 0 | 0 | 0 | 播种数据后复测通过（批次3 p15/p16） |
 | 无待办 | - | `src/pages/channels/ChannelOrderPage.tsx` | 跳转 `/channels/:id` | 已通过 | 批次3 | 0 | 0 | 0 | 返回按钮导航验证（p17） |
