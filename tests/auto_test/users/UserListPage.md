@@ -11,8 +11,8 @@
 | 无待办 | - | `src/pages/users/UserListPage.tsx` | 分页翻页与每页条数切换（筛选/搜索变化时重置 page=1） | 已通过 | 批次3 | 0 | 0 | 0 |  |
 | 无待办 | - | `src/pages/users/UserListPage.tsx` | 筛选 / 搜索条件生效与清空重置 | 已通过 | 批次3 | 0 | 0 | 0 |  |
 | 无待办 | - | `src/pages/users/UserListPage.tsx` | 批量勾选与批量操作执行 | 已通过 | 批次3 | 0 | 0 | 0 | 勾选后批量操作反馈已验证（p13） |
-| 阻塞 | 需人工验证 | `src/pages/users/UserListPage.tsx` | 抽屉（详情/编辑）打开、提交与关闭 | 未测 | 批次3 | 0 | 0 | 0 | 弹窗交互深度超出自动化边界 |
-| 阻塞 | 永久人工道（§1.4 不可逆/敏感写操作） | `src/pages/users/UserListPage.tsx` | 危险/写操作二次确认弹窗（确认执行与取消） | 未测 | 批次3 | 0 | 0 | 0 | 确认执行路径属不可逆/敏感操作 |
+| 无待办 | - | `src/pages/users/UserListPage.tsx` | 抽屉（详情/编辑）打开、提交与关闭 | 已通过 | 批次7 | 0 | 0 | 0 | 「快速查看」EntityDrawer 打开渲染用户详情（ID/账号/昵称/状态/邮箱/手机+设备/好友/群组运营统计），Escape 关闭正常（e2e 用户 92000000000050001） |
+| 无待办 | - | `src/pages/users/UserListPage.tsx` | 危险/写操作二次确认弹窗（确认执行与取消） | 已通过 | 批次7 | 0 | 0 | 0 | 「确认封禁」alertdialog 实测出现；取消路径弹窗关闭且 DB status 保持 1；确认路径 toast「用户已封禁」+行状态→禁用，复测「确认解封」对称通过（toast+行回正常+DB 终态 status=1） |
 | 无待办 | - | `src/pages/users/UserListPage.tsx` | 导出 CSV（字段完整性与大数据量分页导出） | 已通过 | 批次3 | 0 | 0 | 0 |  |
 | 无待办 | - | `src/pages/users/UserListPage.tsx` | 「用户已封禁」操作提交成功并刷新列表数据 | 已通过 | 批次3 | 0 | 0 | 0 | 单条封禁 e2e_688453_13（指定牺牲账号）实测 POST 200+徽章禁用+GET 刷新 |
 | 无待办 | - | `src/pages/users/UserListPage.tsx` | 「用户已解封」操作提交成功并刷新列表数据 | 已通过 | 批次3 | 0 | 0 | 0 | 单条解封实测 POST 200+徽章回正常 |

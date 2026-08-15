@@ -36,6 +36,7 @@ export async function getStorageList(params: {
   size?: number
   mime_type?: string
   keyword?: string
+  status?: string
 }): Promise<PaginatedResponse<StorageItem>> {
   const response = await client.get('/storage/index', { params })
   const payload = requireApiPayload<Record<string, unknown>>(response.data, '/storage/index')

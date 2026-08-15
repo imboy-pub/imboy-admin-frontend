@@ -9,6 +9,6 @@
 | 无待办 | - | `src/pages/settings/MutedUsersPage.tsx` | 加载中 / 空态 / 错误态展示（LoadingState / ErrorState） | 已通过 | 批次3 | 0 | 0 | 0 |  |
 | 无待办 | - | `src/pages/settings/MutedUsersPage.tsx` | 列表数据加载渲染与字段格式化 | 已通过 | 批次3 | 0 | 0 | 0 |  |
 | 无待办 | - | `src/pages/settings/MutedUsersPage.tsx` | 分页翻页与每页条数切换（筛选/搜索变化时重置 page=1） | 已通过 | 批次3 | 0 | 0 | 0 | 七阶段数据整备后复测通过（p24-p27） |
-| 阻塞 | 永久人工道（§1.4 不可逆/敏感写操作） | `src/pages/settings/MutedUsersPage.tsx` | 危险/写操作二次确认弹窗（确认执行与取消） | 未测 | 批次3 | 0 | 0 | 0 | 确认执行路径属不可逆/敏感操作 |
-| 阻塞 | 需测试数据 | `src/pages/settings/MutedUsersPage.tsx` | 「解禁」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 本地库无该类数据，写操作无法真实执行 |
-| 阻塞 | 需测试数据 | `src/pages/settings/MutedUsersPage.tsx` | 「解禁 N 个用户」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 本地库无该类数据，写操作无法真实执行 |
+| 无待办| -| `src/pages/settings/MutedUsersPage.tsx` | 危险/写操作二次确认弹窗（确认执行与取消） | 已通过| 批次7| 0| 0| 0| e2e 播种 uid …1001/…1002 造禁言数据后实测：单个解禁与批量解禁均有 ConfirmDialog，确认执行成功（路径由行13/14 覆盖） |
+| 无待办| -| `src/pages/settings/MutedUsersPage.tsx` | 「解禁」操作提交成功并刷新列表数据 | 已通过| 批次7| 0| 0| 0| 造数：ETS msg_rate_muted 插入 {…1001, 未来1h}；实测行内「解禁」→ConfirmDialog 确认：列表刷新行消失，rpc 核实 ETS 键已删（e2e 播种 uid，非真实用户） |
+| 无待办| -| `src/pages/settings/MutedUsersPage.tsx` | 「解禁 N 个用户」操作提交成功并刷新列表数据 | 已通过| 批次7| 0| 0| 0| 实测勾选 …1002→批量解禁→ConfirmDialog 确认：列表回空态「当前无禁言用户」，rpc 核实 ETS 全清（与造数构成净零） |

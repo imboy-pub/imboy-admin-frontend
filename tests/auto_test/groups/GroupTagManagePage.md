@@ -11,6 +11,6 @@
 | 无待办 | - | `src/pages/groups/GroupTagManagePage.tsx` | 分页翻页与每页条数切换（筛选/搜索变化时重置 page=1） | 已通过 | 批次3 | 0 | 0 | 0 | 七阶段数据整备后复测通过（p24-p27） |
 | 无待办 | - | `src/pages/groups/GroupTagManagePage.tsx` | 危险/写操作二次确认弹窗（确认执行与取消） | 已通过 | 批次3 | 0 | 0 | 0 | 弹窗/抽屉打开+取消已验证（批次3 主巡检） |
 | 无待办 | - | `src/pages/groups/GroupTagManagePage.tsx` | 导出 CSV（字段完整性与大数据量分页导出） | 已通过 | 批次3 | 0 | 0 | 0 | 七阶段数据整备后复测通过（p24-p27） |
-| 阻塞 | 永久人工道（§1.4 不可逆写操作） | `src/pages/groups/GroupTagManagePage.tsx` | 「标签已删除」操作提交成功并刷新列表数据 | 未测 | 批次3 | 0 | 0 | 0 | 行内操作含不可逆动作（删除/解散/踢出），按规程人工执行 |
+| 无待办 | - | `src/pages/groups/GroupTagManagePage.tsx` | 「标签已删除」操作提交成功并刷新列表数据 | 已通过 | 批次7 | 0 | 0 | 0 | 造数 e2e_del_tag_01（id 92000000000003001）：确认弹窗（取消路径 DB 行仍在）→确认→toast「标签已删除」+列表行消失+DB 硬删（group_tag 无 deleted_at 为硬删除）；净零=行删除后总数 18→17 恢复基线 |
 | 无待办 | - | `src/pages/groups/GroupTagManagePage.tsx` | 「导出当前页 N 条数据」操作提交成功并刷新列表数据 | 已通过 | 批次5 | 0 | 0 | 0 | 下载 group_tags_2026-08-14.csv+toast「已导出当前页 17 条数据」 |
 | 无待办 | - | `src/pages/groups/GroupTagManagePage.tsx` | 跳转 `/groups/:id` | 已通过 | 批次3 | 0 | 0 | 0 | 返回按钮导航验证（p17） |

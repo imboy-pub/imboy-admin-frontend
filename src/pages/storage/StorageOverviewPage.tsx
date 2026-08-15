@@ -23,6 +23,7 @@ type StorageOverviewQuery = {
   pageSize: number
   keyword: string
   mimeFilter: string
+  statusFilter: string
 }
 
 function mimeGroup(mimeType: string): string {
@@ -41,6 +42,7 @@ export function StorageOverviewPage() {
     pageSize: 10,
     keyword: '',
     mimeFilter: '',
+    statusFilter: '1',
   })
   const [localKeyword, setLocalKeyword] = useState(params.keyword || '')
 
@@ -56,12 +58,13 @@ export function StorageOverviewPage() {
   })
 
   const { data: listData, isLoading: listLoading, isError: listError, refetch: refetchList, dataUpdatedAt: listDataUpdatedAt } = useQuery({
-    queryKey: ['storage', 'list', { page: params.page, pageSize: params.pageSize, mimeFilter: params.mimeFilter, keyword: params.keyword }],
+    queryKey: ['storage', 'list', { page: params.page, pageSize: params.pageSize, mimeFilter: params.mimeFilter, keyword: params.keyword, statusFilter: params.statusFilter }],
     queryFn: () => getStorageList({
       page: params.page,
       size: params.pageSize,
       mime_type: params.mimeFilter || undefined,
       keyword: params.keyword.trim() || undefined,
+      status: params.statusFilter || undefined,
     }),
   })
 
@@ -244,6 +247,16 @@ export function StorageOverviewPage() {
               <option value="image/">图片</option>
               <option value="video/">视频</option>
               <option value="application/pdf">PDF</option>
+            </Select>
+            <Select
+              className="h-10 min-w-28 rounded-md border border-input bg-background px-3 text-sm"
+              value={params.statusFilter}
+              onChange={(e) => setParams({ statusFilter: e.target.value, page: 1 })}
+            >
+              <option value="1">正常</option>
+              <option value="0">已禁用</option>
+              <option value="-1">已删除</option>
+              <option value="all">全部状态</option>
             </Select>
           </div>
 

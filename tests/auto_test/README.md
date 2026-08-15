@@ -48,11 +48,11 @@
 
 | 计划变化 | 条数 | 占比 |
 |---|---|---|
-| 无待办 | 432 | 79.6% |
-| 阻塞 | 111 | 20.4% |
+| 无待办 | 535 | 98.5% |
+| 阻塞 | 8 | 1.5% |
 | **合计** | **543** | 100% |
 
-bug 累计：**发现 21 / 解决 21 / 待处理 0**
+bug 累计：**发现 39 / 解决 39 / 待处理 0**
 
 > 恒等式 `发现 − 解决 = 待处理` 成立
 
@@ -60,33 +60,33 @@ bug 累计：**发现 21 / 解决 21 / 待处理 0**
 
 | 模块 | 页面 | 功能点 | 待处理bug | 无待办 | 阻塞 |
 |---|---|---|---|---|---|
-| [groups](groups/) | 14 | 129 | 0 | 104 | 25 |
-| [channels](channels/) | 8 | 80 | 0 | 62 | 18 |
-| [settings](settings/) | 10 | 51 | 0 | 41 | 10 |
-| [users](users/) | 4 | 41 | 0 | 36 | 5 |
+| [groups](groups/) | 14 | 129 | 0 | 129 | 0 |
+| [channels](channels/) | 8 | 80 | 0 | 80 | 0 |
+| [settings](settings/) | 10 | 51 | 0 | 51 | 0 |
+| [users](users/) | 4 | 41 | 0 | 41 | 0 |
 | [moments](moments/) | 3 | 26 | 0 | 26 | 0 |
 | [ai_agent](ai_agent/) | 4 | 25 | 0 | 24 | 1 |
-| [plugin_management](plugin_management/) | 2 | 18 | 0 | 9 | 9 |
+| [plugin_management](plugin_management/) | 2 | 18 | 0 | 11 | 7 |
 | [admins](admins/) | 1 | 14 | 0 | 14 | 0 |
-| [content-moderation](content-moderation/) | 2 | 14 | 0 | 8 | 6 |
-| [feedback](feedback/) | 1 | 11 | 0 | 7 | 4 |
-| [logs](logs/) | 1 | 11 | 0 | 9 | 2 |
+| [content-moderation](content-moderation/) | 2 | 14 | 0 | 14 | 0 |
+| [feedback](feedback/) | 1 | 11 | 0 | 11 | 0 |
+| [logs](logs/) | 1 | 11 | 0 | 11 | 0 |
 | [announcements](announcements/) | 1 | 10 | 0 | 10 | 0 |
-| [logout-applications](logout-applications/) | 1 | 9 | 0 | 6 | 3 |
-| [storage](storage/) | 1 | 9 | 0 | 4 | 5 |
-| [billing-plans](billing-plans/) | 1 | 8 | 0 | 5 | 3 |
-| [messages](messages/) | 1 | 8 | 0 | 7 | 1 |
-| [payment-transactions](payment-transactions/) | 1 | 8 | 0 | 5 | 3 |
-| [recharge-orders](recharge-orders/) | 1 | 8 | 0 | 5 | 3 |
-| [withdrawals](withdrawals/) | 1 | 8 | 0 | 5 | 3 |
-| [auth](auth/) | 2 | 7 | 0 | 4 | 3 |
-| [roles](roles/) | 1 | 7 | 0 | 5 | 2 |
-| [billing-invoices](billing-invoices/) | 1 | 6 | 0 | 5 | 1 |
-| [billing-subscriptions](billing-subscriptions/) | 1 | 6 | 0 | 5 | 1 |
+| [logout-applications](logout-applications/) | 1 | 9 | 0 | 9 | 0 |
+| [storage](storage/) | 1 | 9 | 0 | 9 | 0 |
+| [billing-plans](billing-plans/) | 1 | 8 | 0 | 8 | 0 |
+| [messages](messages/) | 1 | 8 | 0 | 8 | 0 |
+| [payment-transactions](payment-transactions/) | 1 | 8 | 0 | 8 | 0 |
+| [recharge-orders](recharge-orders/) | 1 | 8 | 0 | 8 | 0 |
+| [withdrawals](withdrawals/) | 1 | 8 | 0 | 8 | 0 |
+| [auth](auth/) | 2 | 7 | 0 | 7 | 0 |
+| [roles](roles/) | 1 | 7 | 0 | 7 | 0 |
+| [billing-invoices](billing-invoices/) | 1 | 6 | 0 | 6 | 0 |
+| [billing-subscriptions](billing-subscriptions/) | 1 | 6 | 0 | 6 | 0 |
 | [wallets](wallets/) | 1 | 6 | 0 | 6 | 0 |
-| [mcp-governance](mcp-governance/) | 1 | 5 | 0 | 4 | 1 |
+| [mcp-governance](mcp-governance/) | 1 | 5 | 0 | 5 | 0 |
 | [analytics](analytics/) | 1 | 4 | 0 | 4 | 0 |
-| [license](license/) | 1 | 4 | 0 | 2 | 2 |
+| [license](license/) | 1 | 4 | 0 | 4 | 0 |
 | [dashboard](dashboard/) | 1 | 2 | 0 | 2 | 0 |
 | [errors](errors/) | 2 | 2 | 0 | 2 | 0 |
 | [finance-report](finance-report/) | 1 | 2 | 0 | 2 | 0 |

@@ -12,7 +12,7 @@
 | 无待办 | - | `src/modules/ai_agent/pages/AiAgentListPage.tsx` | 筛选 / 搜索条件生效与清空重置 | 已通过 | 批次2 | 0 | 0 | 0 | 分类筛选 250ms 防抖已验证；重置清空筛选条件（staleTime 内走缓存，按 UI 状态断言） |
 | 无待办 | - | `src/modules/ai_agent/pages/AiAgentListPage.tsx` | 危险/写操作二次确认弹窗（确认执行与取消） | 已通过 | 批次2 | 0 | 0 | 0 | 停用二次确认弹窗已验证 |
 | 无待办 | - | `src/modules/ai_agent/pages/AiAgentListPage.tsx` | 「状态已更新」操作提交成功并刷新列表数据 | 已通过 | 批次2 | 0 | 0 | 0 | 停用→启用已恢复，set_status 均 2xx 且列表刷新 |
-| 阻塞 | 需本地 Garage S3 服务 | `src/modules/ai_agent/pages/AiAgentListPage.tsx` | 「头像已上传」操作提交成功并刷新列表数据 | 未测 | 批次2 | 0 | 0 | 0 | 上传走 `/ai_agent/upload_avatar` → Garage S3，本地未部署 Garage，待部署后补测 |
+| 阻塞 | 需本地 Garage S3 服务 | `src/modules/ai_agent/pages/AiAgentListPage.tsx` | 「头像已上传」操作提交成功并刷新列表数据 | 未测 | 批次7 | 0 | 0 | 0 | 批次7实测复核：POST /api/adm/ai_agent/upload_avatar（multipart PNG）返回 code 950「文件上传失败」=elib_oss:upload 无 S3 后端；本机无 docker 命令、3900/3901 端口无响应，Garage 确未部署，维持环境阻塞 |
 | 无待办 | - | `src/modules/ai_agent/pages/AiAgentListPage.tsx` | 「UID 已复制」操作提交成功并刷新列表数据 | 已通过 | 批次2 | 0 | 0 | 0 | uid-copy-toast.png |
 
 ## 批次2 发现的 bug（已修复并复验通过）
