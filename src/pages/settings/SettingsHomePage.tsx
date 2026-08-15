@@ -18,6 +18,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { PageHeader, ErrorState, LoadingState, StatsCard } from '@/components/shared'
 import { getOverviewStatsPayload } from '@/services/api/stats'
+import type { EntityId } from '@/types/common'
 import { getCurrentAdminPayload } from '@/modules/identity'
 
 type SettingsModule = {
@@ -96,17 +97,17 @@ const modules: SettingsModule[] = [
   },
 ]
 
-function roleLabel(roleId?: number | number[]): string {
+function roleLabel(roleId?: EntityId | EntityId[]): string {
   const id = Array.isArray(roleId) ? roleId[0] : roleId
   switch (id) {
-    case 1:
+    case '1':
       return '超级管理员'
-    case 2:
+    case '2':
       return '运营管理员'
-    case 3:
+    case '3':
       return '审计管理员'
     default:
-      return `角色 #${id ?? 0}`
+      return `角色 #${id ?? ''}`
   }
 }
 

@@ -67,7 +67,7 @@ describe('useAdminPermission — rbac 404 会话标记后的 fail-open 承诺', 
     )
 
     const { result } = renderHook(
-      () => useAdminPermission({ permission: 'channels:read', roles: [1, 2] }),
+      () => useAdminPermission({ permission: 'channels:read', roles: ['1', '2'] }),
       { wrapper }
     )
 
@@ -96,7 +96,7 @@ describe('useAdminPermission — rbac 404 会话标记后的 fail-open 承诺', 
     )
 
     const { result } = renderHook(
-      () => useAdminPermission({ permission: 'channels:read', roles: [1, 2] }),
+      () => useAdminPermission({ permission: 'channels:read', roles: ['1', '2'] }),
       { wrapper }
     )
 

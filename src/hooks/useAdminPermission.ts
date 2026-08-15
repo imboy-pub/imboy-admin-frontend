@@ -3,10 +3,12 @@ import { useQuery } from '@tanstack/react-query'
 import { fetchSidebarMenuConfig } from '@/services/api/adminConfig'
 import { getMyRbacProfilePayload } from '@/services/api/rbac'
 import { useAuthStore } from '@/stores/authStore'
+import { coerceEntityId } from '@/lib/entityId'
+import type { EntityId } from '@/types/common'
 
 type UseAdminPermissionOptions = {
   permission?: string | string[]
-  roles?: number[]
+  roles?: EntityId[]
   enabled?: boolean
   /**
    * 敏感写操作（删除、封禁、批量处置、授权变更等）。
@@ -18,13 +20,14 @@ type UseAdminPermissionOptions = {
   sensitive?: boolean
 }
 
-function normalizeRoleIds(value: unknown): number[] {
+// ⚠️ TSID 严禁 Number() 回转（>2^53 丢精度），统一走 coerceEntityId
+function normalizeRoleIds(value: unknown): EntityId[] {
   const values = Array.isArray(value) ? value : [value]
   return Array.from(
     new Set(
       values
-        .map((item) => Number(item))
-        .filter((item) => Number.isFinite(item) && item > 0)
+        .map((item) => coerceEntityId(item))
+        .filter((item) => item.length > 0)
     )
   )
 }

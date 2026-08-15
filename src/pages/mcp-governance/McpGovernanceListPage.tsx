@@ -60,7 +60,7 @@ export function McpGovernanceListPage() {
   // 占位权限码：需后端 adm_acl 新增 mcp_clients:approve；roles 暂沿用超管/运营。
   const { allowed: canApprove } = useAdminPermission({
     permission: 'mcp_clients:approve',
-    roles: [1, 2],
+    roles: ['1', '2'],
   })
 
   const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({

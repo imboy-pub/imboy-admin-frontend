@@ -345,7 +345,7 @@ export function MomentListPage() {
                 label: '批量删除',
                 variant: 'destructive',
                 permission: 'moments:delete',
-                roles: [1, 2],
+                roles: ['1', '2'],
                 riskLevel: 'high',
                 confirmKeyword: 'DELETE',
                 description: `将删除 ${selectedMomentIds.length} 条动态，删除后不可恢复。`,

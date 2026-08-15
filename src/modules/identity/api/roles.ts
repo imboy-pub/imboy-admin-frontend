@@ -1,13 +1,16 @@
 import client from '@/services/api/client'
 import { requireApiPayload } from '@/services/api/responseAdapter'
 import { ApiResponse, PaginatedResponse } from '@/types/api'
+import type { EntityId } from '@/types/common'
+import { coerceEntityId } from '@/lib/entityId'
 import {
   resolveEndpoint,
 } from '@/lib/endpointCandidates'
 import { ROLE_PICKER_FETCH_SIZE } from '@/lib/pagination'
 
 export interface RoleItem {
-  id: number
+  /** TSID：后端以 JSON integer 返回，safeParseBigIntJson 已转 string；严禁 Number() 回转（>2^53 丢精度） */
+  id: EntityId
   name: string
   description: string
   permissions: string[]
@@ -97,7 +100,7 @@ function normalizeRole(raw: unknown): RoleItem {
   const createdAt = pickFirst(record, ['created_at', 'create_time'])
 
   return {
-    id: toPositiveInt(id, 0),
+    id: coerceEntityId(id),
     name: String(name || ''),
     description: String(description || ''),
     permissions: normalizeStringArray(permissions),
@@ -120,7 +123,7 @@ function normalizeRoleListPayload(payload: unknown): PaginatedResponse<RoleItem>
         ? record.list
         : []
 
-  const items = rawItems.map((item) => normalizeRole(item)).filter((item) => item.id > 0 && item.name.length > 0)
+  const items = rawItems.map((item) => normalizeRole(item)).filter((item) => item.id.length > 0 && item.id !== '0' && item.name.length > 0)
   const safePage = toPositiveInt(record.page ?? record.current_page, 1)
   const safeSize = toPositiveInt(record.size ?? record.page_size, Math.max(items.length, 1))
   const safeTotal = toPositiveInt(record.total, items.length)
@@ -193,7 +196,7 @@ export async function createRole(input: CreateRoleInput): Promise<ApiResponse<Re
 }
 
 export async function updateRolePermissions(
-  roleId: number,
+  roleId: EntityId,
   permissions: string[]
 ): Promise<ApiResponse<Record<string, never>>> {
   return putEndpoint(ROLE_PERMISSION_SAVE_ENDPOINT, {
@@ -203,7 +206,7 @@ export async function updateRolePermissions(
 }
 
 /** 停用角色（软停用，status→0）。内置角色（id<=3）由后端拒绝。 */
-export async function disableRole(roleId: number): Promise<ApiResponse<Record<string, never>>> {
+export async function disableRole(roleId: EntityId): Promise<ApiResponse<Record<string, never>>> {
   return postEndpoint(ROLE_DISABLE_ENDPOINT, { role_id: roleId })
 }
 
@@ -211,6 +214,6 @@ export async function disableRole(roleId: number): Promise<ApiResponse<Record<st
  * 删除角色（硬删除）。后端会校验该角色下无在用管理员，否则拒绝。
  * 内置角色（id<=3）由后端拒绝。
  */
-export async function deleteRole(roleId: number): Promise<ApiResponse<Record<string, never>>> {
+export async function deleteRole(roleId: EntityId): Promise<ApiResponse<Record<string, never>>> {
   return postEndpoint(ROLE_DELETE_ENDPOINT, { role_id: roleId })
 }

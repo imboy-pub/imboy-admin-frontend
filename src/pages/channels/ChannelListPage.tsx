@@ -447,7 +447,7 @@ export function ChannelListPage() {
                 label: '批量删除',
                 variant: 'destructive',
                 permission: 'channels:delete',
-                roles: [1],
+                roles: ['1'],
                 riskLevel: 'high',
                 description: `将删除 ${Object.keys(rowSelection).length} 个频道，此操作不可恢复。`,
                 disabled: Object.keys(rowSelection).length === 0,

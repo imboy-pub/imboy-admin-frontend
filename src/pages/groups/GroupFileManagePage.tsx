@@ -53,7 +53,7 @@ export function GroupFileManagePage() {
   const [confirmDeleteFileId, setConfirmDeleteFileId] = useState('')
   const { allowed: canDeleteFile } = useAdminPermission({
     permission: 'groups:file:delete',
-    roles: [1, 2],
+    roles: ['1', '2'],
   })
 
   // 逐字符输入的 keyword/category 防抖 300ms 再驱动查询

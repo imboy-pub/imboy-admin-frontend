@@ -5,7 +5,7 @@ import type { PermissionCatalogItem, RoleTemplateConfig } from '@/services/api/a
 interface PermissionMatrixProps {
   filteredPermissions: PermissionCatalogItem[]
   roleTemplates: RoleTemplateConfig[]
-  rolePermissionSets: Map<number, Set<string>>
+  rolePermissionSets: Map<string, Set<string>>
 }
 
 export function PermissionMatrix({ filteredPermissions, roleTemplates, rolePermissionSets }: PermissionMatrixProps) {

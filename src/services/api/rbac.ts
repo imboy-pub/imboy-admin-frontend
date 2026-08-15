@@ -2,10 +2,13 @@ import client, { SKIP_AUTH_EXPIRED_EVENT_FLAG } from './client'
 import { ApiResponse } from '@/types/api'
 import { requireApiPayload } from './responseAdapter'
 import { AxiosRequestConfig } from 'axios'
+import type { EntityId } from '@/types/common'
+import { coerceEntityId } from '@/lib/entityId'
 
 interface RbacProfile {
-  role_id: number
-  role_ids?: number[]
+  /** TSID 角色 ID；后端 JSON integer 经 safeParseBigIntJson 转为 string */
+  role_id: EntityId
+  role_ids?: EntityId[]
   role_name: string
   permissions: string[]
   menu_paths: string[]
@@ -22,20 +25,21 @@ function normalizeStringList(input: unknown): string[] {
     .filter((item) => item.length > 0)
 }
 
-function normalizeRoleIds(rawRoleId: unknown, rawRoleIds: unknown): number[] {
+// ⚠️ TSID 严禁 Number() 回转（>2^53 丢精度）
+function normalizeRoleIds(rawRoleId: unknown, rawRoleIds: unknown): EntityId[] {
   const values = Array.isArray(rawRoleIds) && rawRoleIds.length > 0 ? rawRoleIds : [rawRoleId]
   return Array.from(
     new Set(
       values
-        .map((item) => Number(item))
-        .filter((id) => Number.isFinite(id) && id > 0)
+        .map((item) => coerceEntityId(item))
+        .filter((id) => id.length > 0 && id !== '0')
     )
   )
 }
 
 function normalizeRbacProfile(raw: Partial<RbacProfile> | undefined): RbacProfile {
   const roleIds = normalizeRoleIds(raw?.role_id, raw?.role_ids)
-  const roleId = roleIds[0] || 0
+  const roleId = roleIds[0] || ''
   return {
     role_id: roleId,
     role_ids: roleIds,

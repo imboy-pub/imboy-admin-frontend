@@ -65,11 +65,11 @@ export function GroupScheduleManagePage() {
   const [confirmRestoreScheduleId, setConfirmRestoreScheduleId] = useState('')
   const { allowed: canCancelSchedule } = useAdminPermission({
     permission: 'groups:schedule:cancel',
-    roles: [1, 2],
+    roles: ['1', '2'],
   })
   const { allowed: canRestoreSchedule } = useAdminPermission({
     permission: 'groups:schedule:restore',
-    roles: [1, 2],
+    roles: ['1', '2'],
   })
 
   const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({

@@ -47,7 +47,7 @@ describe('getRoleListPayload', () => {
     const result = await getRoleListPayload()
     expect(result.source).toBe('list')
     expect(result.items).toHaveLength(2)
-    expect(result.items[0].id).toBe(1)
+    expect(result.items[0].id).toBe('1')
     expect(result.items[0].name).toBe('超级管理员')
     expect(result.items[0].permissions).toEqual(['admin:all'])
     expect(result.total).toBe(2)
@@ -74,7 +74,7 @@ describe('getRoleListPayload', () => {
     })
 
     const result = await getRoleListPayload()
-    expect(result.items[0].id).toBe(3)
+    expect(result.items[0].id).toBe('3')
     expect(result.items[0].name).toBe('编辑')
     expect(result.items[0].description).toBe('内容编辑')
     expect(result.items[0].permissions).toEqual(['content:write'])
@@ -112,7 +112,7 @@ describe('getRoleListPayload', () => {
 
     const result = await getRoleListPayload()
     expect(result.items).toHaveLength(1)
-    expect(result.items[0].id).toBe(3)
+    expect(result.items[0].id).toBe('3')
   })
 
   // 反转：探测/回退机制已移除。误判会重放写请求，而判据在结构上不可能正确

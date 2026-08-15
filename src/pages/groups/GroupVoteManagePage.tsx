@@ -47,7 +47,7 @@ export function GroupVoteManagePage() {
   const [confirmCloseVoteId, setConfirmCloseVoteId] = useState('')
   const { allowed: canCloseVote } = useAdminPermission({
     permission: 'groups:vote:close',
-    roles: [1, 2],
+    roles: ['1', '2'],
   })
 
   const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({

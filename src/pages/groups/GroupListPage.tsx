@@ -424,7 +424,7 @@ export function GroupListPage() {
                 label: '批量解散',
                 variant: 'destructive',
                 permission: 'groups:delete',
-                roles: [1, 2],
+                roles: ['1', '2'],
                 riskLevel: 'high',
                 confirmKeyword: 'DISSOLVE',
                 description: `将解散 ${selectedGroupIds.length} 个群组，此操作不可恢复。`,

@@ -82,7 +82,10 @@ test.describe('P0-5 首启初始化向导', () => {
       }
       expect(body.account).toBe('admin@example.com')
       expect(body.nickname).toBe('Ops')
-      expect(body.password).toBe('StrongPass123')
+      // SetupPage 提交前用 encryptLoginPassword 做 RSA 加密，密码不以明文出网
+      expect(typeof body.password).toBe('string')
+      expect(body.password.length).toBeGreaterThan(0)
+      expect(body.password).not.toBe('StrongPass123')
       await route.fulfill({
         status: 200,
         contentType: 'application/json',

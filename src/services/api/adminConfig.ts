@@ -1,3 +1,6 @@
+import { coerceEntityId } from '@/lib/entityId'
+import type { EntityId } from '@/types/common'
+
 export type MenuConfigItem = {
   path?: string
   label: string
@@ -16,8 +19,8 @@ export type PermissionCatalogItem = {
 }
 
 export type RoleTemplateConfig = {
-  // gitleaks:allow — client-side RBAC role template local id (e.g. 1=super, 2=ops); not a backend TSID
-  id: number
+  /** 本地模板是 '1'/'2'/'3'；远端 sidebar 配置下发的角色是 TSID，统一 string */
+  id: EntityId
   name: string
   description: string
   permissions: string[]
@@ -66,11 +69,11 @@ function normalizeRoleTemplates(input: unknown): RoleTemplateConfig[] {
     .map((item) => {
       if (!item || typeof item !== 'object') return null
       const raw = item as Record<string, unknown>
-      const id = Number(raw.id)
+      const id = coerceEntityId(raw.id)
       const name = typeof raw.name === 'string' ? raw.name.trim() : ''
       const description = typeof raw.description === 'string' ? raw.description.trim() : ''
       const permissions = normalizeStringArray(raw.permissions)
-      if (!Number.isFinite(id) || id <= 0 || !name) return null
+      if (id.length === 0 || id === '0' || !name) return null
       return { id, name, description, permissions }
     })
     .filter((item): item is RoleTemplateConfig => item !== null)

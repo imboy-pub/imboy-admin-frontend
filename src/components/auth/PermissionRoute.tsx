@@ -1,3 +1,4 @@
+import type { EntityId } from '@/types/common'
 import { ReactElement } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { LoadingState } from '@/components/shared'
@@ -6,7 +7,7 @@ import { useAdminPermission } from '@/hooks/useAdminPermission'
 type PermissionRouteProps = {
   children: ReactElement
   permission?: string | string[]
-  roles?: number[]
+  roles?: EntityId[]
 }
 
 export function PermissionRoute({ children, permission, roles }: PermissionRouteProps) {

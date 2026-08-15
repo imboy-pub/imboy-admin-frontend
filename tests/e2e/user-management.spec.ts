@@ -22,7 +22,7 @@ test.describe('用户管理 / User Management', () => {
   test('用户列表正常加载并显示表格 / user list renders table', async ({ page }) => {
     const rows = page.locator('table tbody tr')
     await expect(rows.first()).toBeVisible({ timeout: 10_000 })
-    await expect(page.getByRole('columnheader', { name: /用户|账号|UID/i })).toBeVisible()
+    await expect(page.getByRole('columnheader', { name: '账号', exact: true })).toBeVisible()
   })
 
   test('关键词搜索缩小结果 / keyword search filters results', async ({ page }) => {
@@ -73,17 +73,16 @@ test.describe('用户管理 / User Management', () => {
     const firstRow = page.locator('table tbody tr').first()
     await expect(firstRow).toBeVisible()
 
-    const detailBtn = firstRow.getByRole('button', { name: /详情|查看|View/i })
+    // 行内现在有「快速查看」「查看详情」两个按钮，正则会命中 2 个；取「查看详情」
+    const detailBtn = firstRow.getByRole('button', { name: '查看详情' })
     if (await detailBtn.isVisible()) {
       await detailBtn.click()
     } else {
       await firstRow.click()
     }
 
-    const detailPanel = page
-      .getByRole('dialog')
-      .or(page.getByText(/用户详情|User Detail/i))
-    await expect(detailPanel.first()).toBeVisible({ timeout: 5_000 })
+    // 「查看详情」走路由跳转到 /users/:id（UserDetailPage，header 为用户昵称）
+    await expect(page).toHaveURL(/\/users\/.+/, { timeout: 5_000 })
   })
 
   test('操作列包含冻结/解冻入口 / action column has freeze toggle', async ({ page }) => {

@@ -52,7 +52,7 @@ export function GroupCategoryManagePage() {
 
   const { allowed: canDeleteCategory } = useAdminPermission({
     permission: 'groups:category:delete',
-    roles: [1, 2],
+    roles: ['1', '2'],
   })
 
   const { data: groupDetail } = useQuery({

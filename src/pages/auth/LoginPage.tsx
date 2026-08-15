@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useAuthStore } from '@/stores/authStore'
+import { coerceEntityId } from '@/lib/entityId'
 import { getCaptchaUrl, getLoginPage, loginPayload } from '@/modules/identity/api'
 import { clearRbacUnavailable } from '@/services/api/rbac'
 import { encryptLoginPassword } from '@/lib/passwordCrypto'
@@ -180,7 +181,7 @@ export function LoginPage() {
         account: loginData.account,
         nickname: loginData.nickname,
         avatar: loginData.avatar,
-        role_id: loginData.role_id,
+        role_id: coerceEntityId(loginData.role_id),
         login_count: 0,
         last_login_ip: '',
         last_login_at: '',

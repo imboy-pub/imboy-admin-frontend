@@ -40,7 +40,7 @@ export function LogoutApplicationListPage() {
   const [approveConfirmUid, setApproveConfirmUid] = useState<string | null>(null)
   const { allowed: canApprove } = useAdminPermission({
     permission: 'logout_applications:approve',
-    roles: [1, 2],
+    roles: ['1', '2'],
   })
 
   const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
