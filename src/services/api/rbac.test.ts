@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'bun:test'
 import client from './client'
-import { getMyRbacProfilePayload } from './rbac'
+import { getMyRbacProfilePayload, clearRbacUnavailable } from './rbac'
 
 // Provide sessionStorage if not available (bun test environment)
 if (typeof globalThis.sessionStorage === 'undefined') {
@@ -24,7 +24,10 @@ const originalGet = mutableClient.get
 afterEach(() => {
   mutableClient.get = originalGet
   // Clear session-based unavailability flag between tests
-  try { sessionStorage.removeItem('imboy_admin_rbac_endpoint_unavailable') } catch { /* ignore */ }
+  try {
+    sessionStorage.removeItem('imboy_admin_rbac_endpoint_unavailable')
+    clearRbacUnavailable()
+  } catch { /* ignore */ }
 })
 
 describe('getMyRbacProfilePayload', () => {
@@ -46,7 +49,7 @@ describe('getMyRbacProfilePayload', () => {
     }
 
     const result = await getMyRbacProfilePayload()
-    expect(result.role_id).toBe(1)
+    expect(result.role_id).toBe('1')
     expect(result.role_name).toBe('超级管理员')
     expect(result.permissions).toEqual(['users:read', 'users:write', 'groups:read'])
     expect(result.menu_paths).toEqual(['/users', '/groups'])
@@ -66,8 +69,8 @@ describe('getMyRbacProfilePayload', () => {
     })
 
     const result = await getMyRbacProfilePayload()
-    expect(result.role_id).toBe(2)
-    expect(result.role_ids).toEqual([2])
+    expect(result.role_id).toBe('2')
+    expect(result.role_ids).toEqual(['2'])
   })
 
   it('normalizes role_ids from role_ids array', async () => {
@@ -85,8 +88,8 @@ describe('getMyRbacProfilePayload', () => {
     })
 
     const result = await getMyRbacProfilePayload()
-    expect(result.role_ids).toEqual([1, 2, 3])
-    expect(result.role_id).toBe(1)
+    expect(result.role_ids).toEqual(['1', '2', '3'])
+    expect(result.role_id).toBe('1')
   })
 
   it('deduplicates concurrent calls — only one request inflight', async () => {
@@ -111,9 +114,9 @@ describe('getMyRbacProfilePayload', () => {
     ])
 
     // All three resolve to the same result
-    expect(r1.role_id).toBe(1)
-    expect(r2.role_id).toBe(1)
-    expect(r3.role_id).toBe(1)
+    expect(r1.role_id).toBe('1')
+    expect(r2.role_id).toBe('1')
+    expect(r3.role_id).toBe('1')
     // Only one real HTTP request was made
     expect(callCount).toBe(1)
   })
