@@ -66,19 +66,19 @@ export function GroupTaskManagePage() {
   const [restoreTaskIdInput, setRestoreTaskIdInput] = useState('')
   const { allowed: canReviewTask } = useAdminPermission({
     permission: 'groups:task:review',
-    roles: [1, 2],
+    roles: ['1', '2'],
   })
   const { allowed: canCloseTask } = useAdminPermission({
     permission: 'groups:task:close',
-    roles: [1, 2],
+    roles: ['1', '2'],
   })
   const { allowed: canDeleteTask } = useAdminPermission({
     permission: 'groups:task:delete',
-    roles: [1, 2],
+    roles: ['1', '2'],
   })
   const { allowed: canRestoreTask } = useAdminPermission({
     permission: 'groups:task:restore',
-    roles: [1, 2],
+    roles: ['1', '2'],
   })
 
   const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({

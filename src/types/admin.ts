@@ -7,7 +7,8 @@ export interface Admin {
   avatar: string
   email?: string
   mobile?: string
-  role_id: number | number[]
+  /** TSID 角色 ID；后端 JSON integer 经 safeParseBigIntJson 转为 string */
+  role_id: EntityId | EntityId[]
   login_count: number
   last_login_ip: string
   last_login_at: string

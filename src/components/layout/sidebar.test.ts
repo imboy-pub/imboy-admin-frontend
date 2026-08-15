@@ -46,7 +46,7 @@ const iconMap: Record<string, string> = {
 }
 
 const defaultConfigItems: MenuConfigItem[] = [
-  { path: '/dashboard', icon: 'LayoutDashboard', label: '仪表盘', roles: [1, 2, 3] },
+  { path: '/dashboard', icon: 'LayoutDashboard', label: '仪表盘', roles: ['1', '2', '3'] },
 ]
 
 function normalizeRoleId(value: unknown): number | undefined {
@@ -467,12 +467,12 @@ describe('filterByRbac', () => {
   })
 
   it('filters out items not in allowed role list', () => {
-    const item: SidebarMenuItem = { key: 'k', path: '/admin', label: 'Admin', icon: 'X', roles: [1] }
+    const item: SidebarMenuItem = { key: 'k', path: '/admin', label: 'Admin', icon: 'X', roles: ['1'] }
     expect(filterByRbac([item], 2).some((i) => i.path === '/admin')).toBe(false)
   })
 
   it('allows items for matching role', () => {
-    const item: SidebarMenuItem = { key: 'k', path: '/users', label: 'Users', icon: 'X', roles: [1, 2] }
+    const item: SidebarMenuItem = { key: 'k', path: '/users', label: 'Users', icon: 'X', roles: ['1', '2'] }
     expect(filterByRbac([item], 2)).toHaveLength(1)
   })
 
@@ -482,8 +482,8 @@ describe('filterByRbac', () => {
   })
 
   it('falls back to dashboard when all items filtered out', () => {
-    const dashboard: SidebarMenuItem = { key: 'd', path: '/dashboard', label: 'Dash', icon: 'X', roles: [1] }
-    const other: SidebarMenuItem = { key: 'o', path: '/other', label: 'Other', icon: 'X', roles: [1] }
+    const dashboard: SidebarMenuItem = { key: 'd', path: '/dashboard', label: 'Dash', icon: 'X', roles: ['1'] }
+    const other: SidebarMenuItem = { key: 'o', path: '/other', label: 'Other', icon: 'X', roles: ['1'] }
     const result = filterByRbac([dashboard, other], 2)
     expect(result.some((i) => i.path === '/dashboard')).toBe(true)
   })

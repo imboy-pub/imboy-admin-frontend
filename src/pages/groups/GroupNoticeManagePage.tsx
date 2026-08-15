@@ -47,7 +47,7 @@ export function GroupNoticeManagePage() {
   const [confirmDeleteNoticeId, setConfirmDeleteNoticeId] = useState('')
   const { allowed: canDeleteNotice } = useAdminPermission({
     permission: 'groups:notice:delete',
-    roles: [1, 2],
+    roles: ['1', '2'],
   })
 
   const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({

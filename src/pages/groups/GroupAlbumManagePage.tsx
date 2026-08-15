@@ -46,7 +46,7 @@ export function GroupAlbumManagePage() {
   const [confirmDeleteAlbumId, setConfirmDeleteAlbumId] = useState('')
   const { allowed: canDeleteAlbum } = useAdminPermission({
     permission: 'groups:album:delete',
-    roles: [1, 2],
+    roles: ['1', '2'],
   })
 
   const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({

@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { ConfirmDialog, ErrorState, LoadingState, PageHeader } from '@/components/shared'
 import { cn } from '@/lib/utils'
 import { getErrorMessage } from '@/lib/errorUtils'
+import { coerceEntityId } from '@/lib/entityId'
 import { getCurrentAdminPayload } from '@/modules/identity/api'
 import { getMyRbacProfilePayload } from '@/services/api/rbac'
 import { fetchSidebarMenuConfig, type PermissionCatalogItem, type RoleTemplateConfig } from '@/services/api/adminConfig'
@@ -84,15 +85,18 @@ const defaultPermissions: PermissionItem[] = [
   { key: 'license:write', name: '写入/更新 License 授权', module: '系统设置', path: '/settings' },
 ]
 
+/** 内置系统角色（后端拒绝 id<=3 的停用/删除/权限覆盖） */
+const SYSTEM_ROLE_IDS = new Set<RoleItem['id']>(['1', '2', '3'])
+
 const defaultRoleTemplates: RoleTemplate[] = [
   {
-    id: 1,
+    id: '1',
     name: '超级管理员',
     description: '拥有全部管理能力，负责策略制定与安全管控。',
     permissions: defaultPermissions.map((item) => item.key),
   },
   {
-    id: 2,
+    id: '2',
     name: '运营管理员',
     description: '负责用户、群组、频道和反馈等业务运营事务。',
     permissions: [
@@ -112,7 +116,7 @@ const defaultRoleTemplates: RoleTemplate[] = [
     ],
   },
   {
-    id: 3,
+    id: '3',
     name: '审计管理员',
     description: '聚焦日志审计、消息检查和数据留痕，不执行配置变更。',
     permissions: [
@@ -136,13 +140,13 @@ function parsePermissionKeys(raw: string): string[] {
   )
 }
 
-function normalizeRoleIds(value: unknown): number[] {
+function normalizeRoleIds(value: unknown): RoleItem['id'][] {
   const values = Array.isArray(value) ? value : [value]
   return Array.from(
     new Set(
       values
-        .map((item) => Number(item))
-        .filter((item) => Number.isFinite(item) && item > 0)
+        .map((item) => coerceEntityId(item))
+        .filter((item) => item.length > 0)
     )
   )
 }
@@ -150,8 +154,8 @@ function normalizeRoleIds(value: unknown): number[] {
 export function RolePermissionPage() {
   const queryClient = useQueryClient()
   const [keyword, setKeyword] = useState('')
-  const [editingRoleId, setEditingRoleId] = useState<number | null>(null)
-  const [draftPermissionsByRole, setDraftPermissionsByRole] = useState<Record<number, string[]>>({})
+  const [editingRoleId, setEditingRoleId] = useState<RoleItem['id'] | null>(null)
+  const [draftPermissionsByRole, setDraftPermissionsByRole] = useState<Record<RoleItem['id'], string[]>>({})
   const [createDrawerOpen, setCreateDrawerOpen] = useState(false)
   const [createRoleName, setCreateRoleName] = useState('')
   const [createRoleDescription, setCreateRoleDescription] = useState('')
@@ -200,7 +204,7 @@ export function RolePermissionPage() {
   })
 
   const updatePermissionMutation = useMutation({
-    mutationFn: ({ roleId, permissions }: { roleId: number; permissions: string[] }) =>
+    mutationFn: ({ roleId, permissions }: { roleId: RoleItem['id']; permissions: string[] }) =>
       updateRolePermissions(roleId, permissions),
     onSuccess: (_data, variables) => {
       toast.success('角色权限已保存')
@@ -219,7 +223,7 @@ export function RolePermissionPage() {
   })
 
   const disableRoleMutation = useMutation({
-    mutationFn: (roleId: number) => disableRole(roleId),
+    mutationFn: (roleId: RoleItem['id']) => disableRole(roleId),
     onSuccess: () => {
       toast.success('角色已停用')
       setRoleActionTarget(null)
@@ -232,7 +236,7 @@ export function RolePermissionPage() {
   })
 
   const deleteRoleMutation = useMutation({
-    mutationFn: (roleId: number) => deleteRole(roleId),
+    mutationFn: (roleId: RoleItem['id']) => deleteRole(roleId),
     onSuccess: () => {
       toast.success('角色已删除')
       setRoleActionTarget(null)
@@ -253,8 +257,9 @@ export function RolePermissionPage() {
   }, [sidebarConfig?.rbac?.permissions])
 
   const roleTemplates = useMemo<RoleTemplate[]>(() => {
+    // TSID 同长时字典序即数值序；内置角色（'1'~'3'）天然靠后
     const sortByNewest = (items: RoleTemplate[]) =>
-      [...items].sort((a, b) => Number(b.id || 0) - Number(a.id || 0))
+      [...items].sort((a, b) => String(b.id).localeCompare(String(a.id)))
 
     const fromApi = roleListData?.items
     if (Array.isArray(fromApi) && fromApi.length > 0) {
@@ -274,7 +279,7 @@ export function RolePermissionPage() {
     return sortByNewest(defaultRoleTemplates)
   }, [roleListData?.items, sidebarConfig?.rbac?.roles])
 
-  const effectiveEditingRoleId = useMemo<number | null>(() => {
+  const effectiveEditingRoleId = useMemo<RoleItem['id'] | null>(() => {
     if (editingRoleId !== null && roleTemplates.some((item) => item.id === editingRoleId)) {
       return editingRoleId
     }
@@ -370,7 +375,7 @@ export function RolePermissionPage() {
       })
   }, [filteredPermissions, draftPermissionSet])
   const rolePermissionSets = useMemo(() => {
-    const map = new Map<number, Set<string>>()
+    const map = new Map<RoleItem['id'], Set<string>>()
     for (const role of roleTemplates) {
       const draftPermissionsForRole = draftPermissionsByRole[role.id]
       const source = Array.isArray(draftPermissionsForRole) ? draftPermissionsForRole : (role.permissions || [])
@@ -435,7 +440,7 @@ export function RolePermissionPage() {
     setKeyword('')
   }
 
-  const handleToggleRoleEditor = (roleId: number) => {
+  const handleToggleRoleEditor = (roleId: RoleItem['id']) => {
     setEditingRoleId((prev) => {
       if (prev === roleId) {
         return null
@@ -471,7 +476,7 @@ export function RolePermissionPage() {
     })
   }
 
-  const isSystemSelectedRole = selectedRole ? selectedRole.id <= 3 : false
+  const isSystemSelectedRole = selectedRole ? SYSTEM_ROLE_IDS.has(selectedRole.id) : false
   const saveConfirmDescription = isSystemSelectedRole
     ? '这是系统角色，变更影响范围更大。权限矩阵变更将影响该角色下所有管理员的后台授权，确认保存？'
     : '权限矩阵变更将影响该角色下所有管理员的后台授权，确认保存？'
@@ -543,7 +548,7 @@ export function RolePermissionPage() {
         {roleTemplates.map((role) => {
           const isCurrent = effectiveCurrentRoleIds.includes(role.id)
           const isEditing = effectiveEditingRoleId === role.id
-          const isSystemRole = role.id <= 3
+          const isSystemRole = SYSTEM_ROLE_IDS.has(role.id)
           const rolePermissionSet = rolePermissionSets.get(role.id) || new Set<string>()
           const grantedCount = permissions.filter((item) => rolePermissionSet.has(item.key)).length
           const hasDraftPermissions = Array.isArray(draftPermissionsByRole[role.id])
@@ -631,8 +636,8 @@ export function RolePermissionPage() {
                 <Select
                   value={String(effectiveEditingRoleId || '')}
                   onChange={(event) => {
-                    const nextRoleId = Number(event.target.value)
-                    setEditingRoleId(Number.isFinite(nextRoleId) && nextRoleId > 0 ? nextRoleId : null)
+                    const nextRoleId = event.target.value
+                    setEditingRoleId(nextRoleId.length > 0 ? nextRoleId : null)
                   }}
                   className="h-9 rounded-md border border-input bg-background px-3 text-sm"
                 >

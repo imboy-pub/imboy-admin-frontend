@@ -3,6 +3,7 @@ import { ApiResponse, PaginatedResponse } from '@/types/api'
 import { Admin } from '@/types/admin'
 import { requireApiPayload } from './responseAdapter'
 import type { EntityId } from '@/types/common'
+import { coerceEntityId } from '@/lib/entityId'
 import {
   resolveEndpoint,
 } from '@/lib/endpointCandidates'
@@ -11,7 +12,7 @@ export interface AdminListParams {
   page?: number
   size?: number
   status?: number
-  role_id?: number
+  role_id?: EntityId
   keyword?: string
 }
 
@@ -21,13 +22,13 @@ export interface CreateAdminInput {
   nickname?: string
   email?: string
   mobile?: string
-  role_id: number
+  role_id: EntityId
   status?: number
 }
 
 interface AssignAdminRoleInput {
   admin_id: EntityId
-  role_id: number
+  role_id: EntityId
 }
 
 interface AdminListPayload extends PaginatedResponse<Admin> {
@@ -94,7 +95,7 @@ function normalizeAdmin(raw: unknown): Admin {
     avatar: String(record.avatar || ''),
     email: typeof record.email === 'string' ? record.email : undefined,
     mobile: typeof record.mobile === 'string' ? record.mobile : undefined,
-    role_id: toStatusInt(roleId, 0),
+    role_id: coerceEntityId(roleId),
     login_count: toStatusInt(loginCount, 0),
     last_login_ip: String(lastLoginIp || ''),
     last_login_at: String(lastLoginAt || ''),

@@ -41,6 +41,8 @@ import { useAuthStore } from '@/stores/authStore'
 import { formatDate } from '@/lib/utils'
 import { exportCsv } from '@/lib/csvExport'
 import { getErrorMessage } from '@/lib/errorUtils'
+import { coerceEntityId } from '@/lib/entityId'
+import type { EntityId } from '@/types/common'
 import { getLoginPage } from '@/modules/identity'
 import { encryptLoginPassword } from '@/lib/passwordCrypto'
 import type { Admin } from '@/types/admin'
@@ -50,12 +52,13 @@ type AdminListPageQuery = {
   page: number
   size: number
   status: number
-  role_id: number
+  /** TSID 角色 ID；'-1' 表示不过滤 */
+  role_id: EntityId
   keyword: string
 }
 
 type RoleOption = {
-  id: number
+  id: EntityId
   name: string
 }
 
@@ -65,14 +68,14 @@ type CreateAdminForm = {
   nickname: string
   email: string
   mobile: string
-  role_id: number
+  role_id: EntityId
   status: number
 }
 
 const DEFAULT_ROLE_OPTIONS: RoleOption[] = [
-  { id: 1, name: '超级管理员' },
-  { id: 2, name: '运营管理员' },
-  { id: 3, name: '审计管理员' },
+  { id: '1', name: '超级管理员' },
+  { id: '2', name: '运营管理员' },
+  { id: '3', name: '审计管理员' },
 ]
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -85,7 +88,7 @@ function buildInitialCreateForm(roleOptions: RoleOption[]): CreateAdminForm {
     nickname: '',
     email: '',
     mobile: '',
-    role_id: roleOptions[0]?.id || 2,
+    role_id: roleOptions[0]?.id || '2',
     status: 1,
   }
 }
@@ -99,18 +102,18 @@ export function AdminListPage() {
     page: 1,
     size: 10,
     status: -1,
-    role_id: -1,
+    role_id: '-1',
     keyword: '',
   })
 
   const [searchKeyword, setSearchKeyword] = useState(params.keyword || '')
   const [statusFilter, setStatusFilter] = useState(String(params.status))
-  const [roleFilter, setRoleFilter] = useState(String(params.role_id))
+  const [roleFilter, setRoleFilter] = useState<EntityId>(params.role_id)
   const [createDrawerOpen, setCreateDrawerOpen] = useState(false)
   const [disableConfirmId, setDisableConfirmId] = useState<string | null>(null)
   const [pendingRoleChange, setPendingRoleChange] = useState<{
     adminId: string
-    roleId: number
+    roleId: EntityId
     adminLabel: string
     roleLabel: string
   } | null>(null)
@@ -122,9 +125,10 @@ export function AdminListPage() {
   })
 
   const roleOptions = useMemo<RoleOption[]>(() => {
+    // ⚠️ TSID 严禁 Number() 回转（>2^53 丢精度，保存/过滤会指向不存在的角色）
     const fromApi = roleData?.items
-      ?.map((item) => ({ id: Number(item.id), name: item.name }))
-      .filter((item) => Number.isFinite(item.id) && item.id > 0 && item.name.length > 0) || []
+      ?.map((item) => ({ id: coerceEntityId(item.id), name: item.name }))
+      .filter((item) => item.id.length > 0 && item.name.length > 0) || []
     if (fromApi.length > 0) return fromApi
     return DEFAULT_ROLE_OPTIONS
   }, [roleData?.items])
@@ -136,7 +140,7 @@ export function AdminListPage() {
     size: params.size,
     status: params.status,
     keyword: params.keyword.trim() || undefined,
-    role_id: params.role_id > 0 ? params.role_id : undefined,
+    role_id: params.role_id !== '-1' && params.role_id.length > 0 ? params.role_id : undefined,
   }
 
   const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
@@ -170,7 +174,7 @@ export function AdminListPage() {
   })
 
   const assignRoleMutation = useMutation({
-    mutationFn: ({ adminId, roleId }: { adminId: string; roleId: number }) =>
+    mutationFn: ({ adminId, roleId }: { adminId: string; roleId: EntityId }) =>
       assignAdminRole({ admin_id: adminId, role_id: roleId }),
     onSuccess: () => {
       toast.success('管理员角色已更新')
@@ -184,16 +188,16 @@ export function AdminListPage() {
   })
 
   const roleLabelMap = useMemo(() => {
-    const map = new Map<number, string>()
+    const map = new Map<EntityId, string>()
     roleOptions.forEach((item) => map.set(item.id, item.name))
     return map
   }, [roleOptions])
 
   const effectiveCreateRoleId = roleOptions.some((item) => item.id === createForm.role_id)
     ? createForm.role_id
-    : (roleOptions[0]?.id || 2)
+    : (roleOptions[0]?.id || '2')
 
-  const resolveRoleLabel = (roleId: number | number[]): string => {
+  const resolveRoleLabel = (roleId: EntityId | EntityId[]): string => {
     const id = Array.isArray(roleId) ? roleId[0] : roleId
     const matched = roleLabelMap.get(id)
     if (matched) return matched
@@ -208,7 +212,7 @@ export function AdminListPage() {
       page: 1,
       keyword: searchKeyword.trim(),
       status: Number(statusFilter),
-      role_id: Number(roleFilter),
+      role_id: roleFilter,
     })
   }
 
@@ -222,7 +226,7 @@ export function AdminListPage() {
       page: 1,
       size: 10,
       status: -1,
-      role_id: -1,
+      role_id: '-1',
       keyword: '',
     })
   }
@@ -236,8 +240,8 @@ export function AdminListPage() {
   }
 
   const handleRoleChange = (admin: Admin, nextRoleRaw: string) => {
-    const nextRole = Number(nextRoleRaw)
-    if (!Number.isFinite(nextRole) || nextRole <= 0) return
+    const nextRole = nextRoleRaw
+    if (nextRole.length === 0) return
     if (nextRole === admin.role_id) return
 
     if (String(admin.id) === currentAdminId) {
@@ -245,12 +249,11 @@ export function AdminListPage() {
       return
     }
 
-    const targetRoleId = Math.floor(nextRole)
     setPendingRoleChange({
       adminId: String(admin.id),
-      roleId: targetRoleId,
+      roleId: nextRole,
       adminLabel: admin.nickname || admin.account,
-      roleLabel: resolveRoleLabel(targetRoleId),
+      roleLabel: resolveRoleLabel(nextRole),
     })
   }
 
@@ -276,7 +279,7 @@ export function AdminListPage() {
       toast.error('密码长度至少 6 位')
       return
     }
-    if (!Number.isFinite(effectiveCreateRoleId) || effectiveCreateRoleId <= 0) {
+    if (effectiveCreateRoleId.length === 0) {
       toast.error('请选择角色')
       return
     }
@@ -363,7 +366,7 @@ export function AdminListPage() {
         return (
           <div className="flex min-w-44 items-center gap-2">
             <Select
-              value={String(admin.role_id)}
+              value={admin.role_id}
               onChange={(event) => handleRoleChange(admin, event.target.value)}
               className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm"
               disabled={assignRoleMutation.isPending || isCurrent}
@@ -494,7 +497,7 @@ export function AdminListPage() {
         />
         <StatsCard
           title="筛选角色"
-          value={params.role_id > 0 ? resolveRoleLabel(params.role_id) : '全部角色'}
+          value={params.role_id !== '-1' && params.role_id.length > 0 ? resolveRoleLabel(params.role_id) : '全部角色'}
           description={data?.source === 'current' ? '当前为接口降级视图' : '已连接管理员列表接口'}
           icon={Activity}
         />
@@ -671,7 +674,7 @@ export function AdminListPage() {
               <label className="text-sm font-medium">角色 *</label>
               <Select
                 value={String(effectiveCreateRoleId)}
-                onChange={(event) => setCreateForm((prev) => ({ ...prev, role_id: Number(event.target.value) }))}
+                onChange={(event) => setCreateForm((prev) => ({ ...prev, role_id: event.target.value }))}
                 className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
               >
                 {roleOptions.map((option) => (

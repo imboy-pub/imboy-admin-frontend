@@ -1,3 +1,5 @@
+import { coerceEntityId } from '@/lib/entityId'
+import type { EntityId } from '@/types/common'
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -29,7 +31,7 @@ type BatchActionItem = {
   description?: string
   variant?: ButtonProps['variant']
   permission?: string
-  roles?: number[]
+  roles?: EntityId[]
   hideWhenUnauthorized?: boolean
   riskLevel?: BatchActionRiskLevel
   requireReason?: boolean
@@ -88,7 +90,7 @@ function BatchActionBarContent({
   const [reason, setReason] = useState('')
   const [keyword, setKeyword] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const currentRoleId = useAuthStore((state) => Number(state.admin?.role_id || 0))
+  const currentRoleId = useAuthStore((state) => coerceEntityId(state.admin?.role_id))
 
   const hasPermissionConstraints = useMemo(
     () =>
@@ -112,10 +114,10 @@ function BatchActionBarContent({
     const roleIds = Array.isArray(profile?.role_ids) ? profile.role_ids : []
     if (roleIds.length > 0) return roleIds
 
-    const roleId = Number(profile?.role_id || 0)
-    if (Number.isFinite(roleId) && roleId > 0) return [roleId]
+    const roleId = coerceEntityId(profile?.role_id)
+    if (roleId.length > 0) return [roleId]
 
-    if (Number.isFinite(currentRoleId) && currentRoleId > 0) return [currentRoleId]
+    if (currentRoleId.length > 0) return [currentRoleId]
     return []
   })()
 

@@ -132,7 +132,7 @@ async function exerciseRowAction(page: Page, module: string, slug: string): Prom
     shotFile = await shot(page, module, `${slug}-confirm`)
     const proceed = page.getByRole('button', { name: /^(确[认定]|继续|执行)/ }).first()
     if (await proceed.isVisible({ timeout: 800 }).catch(() => false)) {
-      await proceed.click()
+      await proceed.click({ timeout: 3_000 }).catch(() => {})
       await page.waitForTimeout(1_600)
       page.off('response', handler)
       return { outcome: 'confirmed', detail: `确认弹窗已确认执行（可逆操作）：${apis.join('; ') || '无写请求'}`, apis, shot: shotFile }
@@ -154,12 +154,19 @@ async function exerciseRowAction(page: Page, module: string, slug: string): Prom
       if (/搜索|筛选|查询/.test(ph)) continue
       const im = await el.getAttribute('inputmode').catch(() => null)
       const step = await el.getAttribute('step').catch(() => null)
-      if (type === 'number' || im === 'numeric' || step) await el.fill('1').catch(() => {})
-      else await el.fill(`e2e_${Date.now() % 100000}`).catch(() => {})
+      // disabled 字段（如已完结反馈的回复框）不给 fill 超时会挂满整个 test timeout
+      if (type === 'number' || im === 'numeric' || step) await el.fill('1', { timeout: 2_000 }).catch(() => {})
+      else await el.fill(`e2e_${Date.now() % 100000}`, { timeout: 2_000 }).catch(() => {})
     }
     const submit = form.locator('button').filter({ hasText: /^(确[认定]|保存|创建|提交|添加|发布)/ }).last()
     if (await submit.isVisible({ timeout: 1_000 }).catch(() => false)) {
-      await submit.click()
+      // 已完结等状态下提交按钮 disabled：click 不带超时会挂满整个 test timeout
+      if (!(await submit.isEnabled().catch(() => false))) {
+        await page.keyboard.press('Escape').catch(() => {})
+        page.off('response', handler)
+        return { outcome: 'form-opened', detail: `表单弹窗打开（${cnt} 字段）但提交控件禁用（当前状态不可写）`, apis, shot: shotFile }
+      }
+      await submit.click({ timeout: 3_000 }).catch(() => {})
       await page.waitForTimeout(1_800)
       page.off('response', handler)
       return { outcome: 'form-submitted', detail: `表单弹窗提交：${apis.join('; ') || '无写请求'}`, apis, shot: shotFile }

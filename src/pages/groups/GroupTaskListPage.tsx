@@ -67,7 +67,7 @@ export function GroupTaskListPage() {
 
   const { allowed: canCloseTask } = useAdminPermission({
     permission: 'groups:task:close',
-    roles: [1, 2],
+    roles: ['1', '2'],
   })
 
   const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({

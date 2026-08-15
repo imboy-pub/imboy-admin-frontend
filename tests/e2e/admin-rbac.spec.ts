@@ -64,8 +64,26 @@ test('超级管理员可创建管理员并重新分配角色', async ({ page }) 
 
   await adminDrawer.getByPlaceholder('请输入管理员账号').fill(account)
   await adminDrawer.getByPlaceholder('至少 6 位').fill(password)
-  await adminDrawer.locator('select').filter({ has: page.getByRole('option', { name: initialRoleName }) }).first()
-    .selectOption({ label: initialRoleName })
+  // 「运营管理员」等是前端 fallback 模板角色；后端 rbac 端点可用时下拉只含 DB 实际角色，
+  // 运行时取第一个非 super_admin 选项，不再依赖预置数据
+  const drawerRoleSelect = adminDrawer.locator('select').first()
+  await expect.poll(async () => {
+    const optionLabels = await drawerRoleSelect.locator('option').evaluateAll((nodes) =>
+      nodes
+        .map((node) => node.textContent?.trim() || '')
+        .filter((label) => label.length > 0 && label !== 'super_admin'),
+    )
+    return optionLabels[0] || ''
+  }, {
+    message: '等待可分配的非 super_admin 角色出现',
+  }).not.toBe('')
+  const initialOption = await drawerRoleSelect.locator('option').evaluateAll((nodes) => {
+    const label = nodes
+      .map((node) => node.textContent?.trim() || '')
+      .find((text) => text.length > 0 && text !== 'super_admin')
+    return label || initialRoleName
+  })
+  await drawerRoleSelect.selectOption({ label: initialOption })
   await adminDrawer.getByRole('button', { name: '确认创建' }).click()
 
   await expect(page.getByText('管理员创建成功')).toBeVisible()
@@ -83,6 +101,12 @@ test('超级管理员可创建管理员并重新分配角色', async ({ page }) 
   const resolvedTargetRoleName = await resolveAssignableRoleName(roleSelect, currentRoleName, targetRoleName)
 
   await roleSelect.selectOption({ label: resolvedTargetRoleName })
+
+  // 角色变更会弹「确认变更管理员角色」二次确认框（alertdialog），确认后才提交
+  const roleConfirmDialog = page.getByRole('alertdialog')
+  await expect(roleConfirmDialog).toBeVisible()
+  await roleConfirmDialog.getByRole('button', { name: '确认变更' }).click()
+
   await expect(page.getByText('管理员角色已更新')).toBeVisible()
   await expect
     .poll(async () => roleSelect.evaluate((node) => {
@@ -126,6 +150,11 @@ test('超级管理员可创建角色并保存权限', async ({ page }) => {
   await permissionCheckbox.check()
   await expect(page.getByText('有未保存变更')).toBeVisible()
   await page.getByRole('button', { name: '保存权限' }).click()
+
+  // 保存会弹「确认保存角色权限」二次确认框（alertdialog），需确认后才真正提交
+  const saveConfirmDialog = page.getByRole('alertdialog')
+  await expect(saveConfirmDialog).toBeVisible()
+  await saveConfirmDialog.getByRole('button', { name: '确认保存' }).click()
 
   await expect(page.getByText('角色权限已保存')).toBeVisible()
   await expect(permissionCheckbox).toBeChecked()

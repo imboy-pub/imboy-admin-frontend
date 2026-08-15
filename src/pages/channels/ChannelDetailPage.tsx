@@ -83,11 +83,11 @@ export function ChannelDetailPage() {
   const channelEntryEnabled = useAdminEntryEnabled('channel')
   const { allowed: canUpdateChannel } = useAdminPermission({
     permission: 'channels:update',
-    roles: [1, 2],
+    roles: ['1', '2'],
   })
   const { allowed: canDeleteChannel } = useAdminPermission({
     permission: 'channels:delete',
-    roles: [1, 2],
+    roles: ['1', '2'],
   })
 
   const { data, isLoading, error, refetch } = useQuery({

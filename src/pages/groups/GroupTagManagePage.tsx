@@ -44,7 +44,7 @@ export function GroupTagManagePage() {
   const [confirmDeleteTagName, setConfirmDeleteTagName] = useState('')
   const { allowed: canDeleteTag } = useAdminPermission({
     permission: 'groups:tag:delete',
-    roles: [1, 2],
+    roles: ['1', '2'],
   })
 
   const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({

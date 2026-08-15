@@ -234,14 +234,14 @@ test.describe('群任务治理页 —— 列表渲染 / Task list rendering', ()
     await setupGroupTaskMocks(page)
     await gotoGroupTaskPage(page)
 
-    await expect(page.getByText('第一章练习题')).toBeVisible()
-    await expect(page.getByText('期中综合作业')).toBeVisible()
-    await expect(page.getByText('已完成的旧任务')).toBeVisible()
+    await expect(page.getByRole('table').getByText('第一章练习题')).toBeVisible()
+    await expect(page.getByRole('table').getByText('期中综合作业')).toBeVisible()
+    await expect(page.getByRole('table').getByText('已完成的旧任务')).toBeVisible()
 
     // 状态标签对齐 GroupTaskManagePage: 1=进行中 2=待审核 3=已完成
-    await expect(page.getByText('进行中').first()).toBeVisible()
-    await expect(page.getByText('待审核').first()).toBeVisible()
-    await expect(page.getByText('已完成').first()).toBeVisible()
+    await expect(page.getByRole('table').getByText('进行中', { exact: true })).toBeVisible()
+    await expect(page.getByRole('table').getByText('待审核', { exact: true })).toBeVisible()
+    await expect(page.getByRole('table').getByText('已完成', { exact: true })).toBeVisible()
   })
 
   test('列表为空时显示「暂无数据」空态 / shows empty state when no tasks', async ({ page }) => {
@@ -265,9 +265,9 @@ test.describe('群任务治理页 —— 状态过滤 / Status filter', () => {
 
     await page.getByTestId('group-task-status-filter').selectOption('1')
 
-    await expect(page.getByText('第一章练习题')).toBeVisible()
-    await expect(page.getByText('期中综合作业')).toBeHidden()
-    await expect(page.getByText('已完成的旧任务')).toBeHidden()
+    await expect(page.getByRole('table').getByText('第一章练习题')).toBeVisible()
+    await expect(page.getByRole('table').getByText('期中综合作业')).toBeHidden()
+    await expect(page.getByRole('table').getByText('已完成的旧任务')).toBeHidden()
   })
 
   test('重置为「全部」恢复全量列表 / reset filter restores full list', async ({ page }) => {
@@ -278,11 +278,11 @@ test.describe('群任务治理页 —— 状态过滤 / Status filter', () => {
 
     const filter = page.getByTestId('group-task-status-filter')
     await filter.selectOption('1')
-    await expect(page.getByText('期中综合作业')).toBeHidden()
+    await expect(page.getByRole('table').getByText('期中综合作业')).toBeHidden()
 
     await filter.selectOption('-1')
-    await expect(page.getByText('第一章练习题')).toBeVisible()
-    await expect(page.getByText('期中综合作业')).toBeVisible()
+    await expect(page.getByRole('table').getByText('第一章练习题')).toBeVisible()
+    await expect(page.getByRole('table').getByText('期中综合作业')).toBeVisible()
   })
 })
 
@@ -341,9 +341,9 @@ test.describe('群任务治理页 —— 操作按钮 / Action buttons', () => {
     const firstRow = page.getByRole('row', { name: /第一章练习题/ })
     await firstRow.getByRole('button', { name: '强制结束任务' }).click()
 
-    const dialog = page.getByRole('dialog')
+    const dialog = page.getByRole('alertdialog')
     await expect(dialog).toBeVisible()
-    await expect(dialog.getByText(/强制结束任务/)).toBeVisible()
+    await expect(dialog.getByText('确认强制结束任务')).toBeVisible()
 
     await dialog.getByRole('button', { name: '取消' }).click()
     await expect(dialog).toBeHidden()
@@ -361,7 +361,7 @@ test.describe('群任务治理页 —— CSV 导出 / CSV export', () => {
 
     const [download] = await Promise.all([
       page.waitForEvent('download', { timeout: 5000 }),
-      page.getByRole('button', { name: /导出 CSV/ }).click(),
+      page.getByRole('button', { name: /导出.*CSV/ }).click(),
     ])
 
     expect(download.suggestedFilename()).toMatch(/\.csv$/)

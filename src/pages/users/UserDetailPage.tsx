@@ -56,7 +56,7 @@ export function UserDetailPage() {
   const [confirmAction, setConfirmAction] = useState<'ban' | 'unban' | null>(null)
   const { allowed: canManageUser } = useAdminPermission({
     permission: 'users:update',
-    roles: [1, 2],
+    roles: ['1', '2'],
   })
 
   const { data, isLoading, error, refetch } = useQuery({

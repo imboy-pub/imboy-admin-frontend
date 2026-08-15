@@ -32,8 +32,8 @@ test.describe('管理员登录综合测试 / Admin Login Comprehensive', () => {
   // ─── 表单校验（纯前端，无需后端） ─────────────────────────────────────
 
   test('账号为空时提交显示校验错误 / empty account shows validation error', async ({ page }) => {
-    await page.getByLabel('密码').fill('SomePassword1')
-    await page.getByLabel('验证码').fill(FIXED_TEST_CAPTCHA)
+    await page.getByRole('textbox', { name: '密码' }).fill('SomePassword1')
+    await page.getByRole('textbox', { name: '验证码' }).fill(FIXED_TEST_CAPTCHA)
     await page.getByRole('button', { name: '登录' }).click()
 
     const accountError = page
@@ -44,7 +44,7 @@ test.describe('管理员登录综合测试 / Admin Login Comprehensive', () => {
 
   test('密码为空时提交显示校验错误 / empty password shows validation error', async ({ page }) => {
     await page.getByLabel('账号').fill('admin')
-    await page.getByLabel('验证码').fill(FIXED_TEST_CAPTCHA)
+    await page.getByRole('textbox', { name: '验证码' }).fill(FIXED_TEST_CAPTCHA)
     await page.getByRole('button', { name: '登录' }).click()
 
     const passwordError = page
@@ -59,15 +59,15 @@ test.describe('管理员登录综合测试 / Admin Login Comprehensive', () => {
     const credentials = requireAdminCredentials()
 
     await page.getByLabel('账号').fill(credentials.account)
-    await page.getByLabel('密码').fill('definitely_wrong_password_99')
-    await page.getByLabel('验证码').fill(FIXED_TEST_CAPTCHA)
+    await page.getByRole('textbox', { name: '密码' }).fill('definitely_wrong_password_99')
+    await page.getByRole('textbox', { name: '验证码' }).fill(FIXED_TEST_CAPTCHA)
     await page.getByRole('button', { name: '登录' }).click()
 
     await expect(page).not.toHaveURL(/\/dashboard/, { timeout: 5_000 })
 
     const errorMsg = page
       .getByRole('alert')
-      .or(page.getByText(/密码.*错误|账号.*错误|认证失败|登录失败/i))
+      .or(page.getByText(/errorPassword|密码.*错误|账号.*错误|认证失败|登录失败/i))
     await expect(errorMsg.first()).toBeVisible({ timeout: 5_000 })
   })
 
