@@ -82,7 +82,7 @@ describe('useAdminPermission — rbac 404 会话标记后的 fail-open 承诺', 
     // 而 sidebar 模板（remote 404 → fallback 静态文件）仍在途。此时
     // permissionAllowed 走「加载中 return false」，若 loading 同时被误判为 false，
     // PermissionRoute 直接 Navigate 到 /forbidden 且不再恢复。
-    let resolveSidebar: (value: unknown) => void = () => {}
+    let resolveSidebar: (_value: unknown) => void = () => {}
     sidebarFetcher = () =>
       new Promise((resolve) => {
         resolveSidebar = resolve
