@@ -111,6 +111,33 @@
       "detail": "提交调用: 无写请求",
       "apiCalls": [],
       "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/groups/writeops-20976-GroupAlbumManagePage-writeop-result.png"
+    },
+    {
+      "slug": "VersionPage",
+      "module": "settings",
+      "path": "/settings/versions",
+      "tested": false,
+      "detail": "异常: Error: locator.click: Test timeout of 2400000ms exceeded.",
+      "apiCalls": [],
+      "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/settings/writeops-20976-VersionPage-writeop-filled.png"
+    },
+    {
+      "slug": "AiRolesPage",
+      "module": "ai_agent",
+      "path": "/ai-agents/roles",
+      "tested": false,
+      "detail": "异常: Error: page.goto: Target page, context or browser has been closed",
+      "apiCalls": [],
+      "screenshot": ""
+    },
+    {
+      "slug": "AiAgentListPage",
+      "module": "ai_agent",
+      "path": "/ai-agents",
+      "tested": false,
+      "detail": "异常: Error: page.goto: Target page, context or browser has been closed",
+      "apiCalls": [],
+      "screenshot": ""
     }
   ]
 }
