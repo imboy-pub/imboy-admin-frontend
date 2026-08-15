@@ -6,9 +6,9 @@
 | 计划变化 | 计划时间 | 页面path | 功能介绍 | 测试状态 | 测试轮次 | 发现bug | 解决bug | 待处理bug | 备注 |
 |---|---|---|---|---|---|---|---|---|---|---|
 | 无待办 | - | `src/pages/groups/GroupTaskManagePage.tsx` | 路由直达与权限守卫（未登录跳 /login，无权限跳 403） | 已通过 | 批次3 | 0 | 0 | 0 |  |
-| 无待办 | - | `src/pages/groups/GroupTaskManagePage.tsx` | 加载中 / 空态 / 错误态展示（LoadingState / ErrorState） | 已通过 | 批次3 | 0 | 0 | 0 | 错误态注入待补测 |
+| 无待办 | - | `src/pages/groups/GroupTaskManagePage.tsx` | 加载中 / 空态 / 错误态展示（LoadingState / ErrorState） | 已通过 | 批次8 | 0 | 0 | 0 | 错误态经定向 XHR 劫持注入验证（API 404 → ErrorState 错误文案+重试按钮）：「加载群任务数据失败」 |
 | 无待办 | - | `src/pages/groups/GroupTaskManagePage.tsx` | 列表数据加载渲染与字段格式化 | 已通过 | 批次3 | 0 | 0 | 0 |  |
-| 无待办 | - | `src/pages/groups/GroupTaskManagePage.tsx` | 分页翻页与每页条数切换（筛选/搜索变化时重置 page=1） | 已通过 | 批次3 | 0 | 0 | 0 | 渲染+交互验证通过；数据单页，多页翻页待数据扩充 |
+| 无待办 | - | `src/pages/groups/GroupTaskManagePage.tsx` | 分页翻页与每页条数切换（筛选/搜索变化时重置 page=1） | 已通过 | 批次8 | 0 | 0 | 0 | 多页翻页实测（群 106571324669036544 共 15 条）：第1页 10 行→第2页 5 行，末页禁用下一页 |
 | 无待办| -| `src/pages/groups/GroupTaskManagePage.tsx` | 危险/写操作二次确认弹窗（确认执行与取消） | 已通过| 批次7| 0| 0| 0| 实测三个 ConfirmDialog（强制结束/删除/恢复）打开+取消+确认执行全链路；取消路径点「取消」弹窗关闭无请求发出 |
 | 无待办 | - | `src/pages/groups/GroupTaskManagePage.tsx` | 导出 CSV（字段完整性与大数据量分页导出） | 已通过 | 批次3 | 0 | 0 | 0 | 播种数据后复测通过（批次3 p15/p16） |
 | 无待办| -| `src/pages/groups/GroupTaskManagePage.tsx` | 「任务已强制结束」操作提交成功并刷新列表数据 | 已通过| 批次7| 0| 0| 0| 实测…3014「强制结束任务」→ConfirmDialog「确认强制结束任务」→确认：POST /group/task/close 200+列表刷新，DB status 0→3 核实 |
