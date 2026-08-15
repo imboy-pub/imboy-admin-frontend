@@ -1,0 +1,143 @@
+{
+  "round": "writeops-26327",
+  "pages": [
+    {
+      "slug": "AnnouncementListPage",
+      "module": "announcements",
+      "path": "/announcements",
+      "tested": true,
+      "detail": "提交返回 2xx",
+      "apiCalls": [
+        {
+          "method": "POST",
+          "status": 200,
+          "url": "/api/adm/announcement/create"
+        }
+      ],
+      "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/announcements/writeops-26327-AnnouncementListPage-writeop-result.png"
+    },
+    {
+      "slug": "RolePermissionPage",
+      "module": "roles",
+      "path": "/roles",
+      "tested": true,
+      "detail": "提交返回 2xx",
+      "apiCalls": [
+        {
+          "method": "POST",
+          "status": 200,
+          "url": "/api/adm/role/create"
+        }
+      ],
+      "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/roles/writeops-26327-RolePermissionPage-writeop-result.png"
+    },
+    {
+      "slug": "SensitiveWordPage",
+      "module": "content-moderation",
+      "path": "/moderation/sensitive-words",
+      "tested": true,
+      "detail": "提交调用: 无写请求",
+      "apiCalls": [],
+      "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/content-moderation/writeops-26327-SensitiveWordPage-writeop-result.png"
+    },
+    {
+      "slug": "UserTagManagePage",
+      "module": "users",
+      "path": "/users/{id}/tags",
+      "tested": true,
+      "detail": "提交调用: 无写请求",
+      "apiCalls": [],
+      "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/users/writeops-26327-UserTagManagePage-writeop-result.png"
+    },
+    {
+      "slug": "GroupCategoryManagePage",
+      "module": "groups",
+      "path": "/groups/{id}/categories",
+      "tested": false,
+      "detail": "未找到新建类按钮",
+      "apiCalls": [],
+      "screenshot": ""
+    },
+    {
+      "slug": "GroupTagManagePage",
+      "module": "groups",
+      "path": "/groups/{id}/tags",
+      "tested": true,
+      "detail": "提交调用: 无写请求",
+      "apiCalls": [],
+      "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/groups/writeops-26327-GroupTagManagePage-writeop-result.png"
+    },
+    {
+      "slug": "GroupNoticeManagePage",
+      "module": "groups",
+      "path": "/groups/{id}/notices",
+      "tested": true,
+      "detail": "提交调用: 无写请求",
+      "apiCalls": [],
+      "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/groups/writeops-26327-GroupNoticeManagePage-writeop-result.png"
+    },
+    {
+      "slug": "GroupVoteManagePage",
+      "module": "groups",
+      "path": "/groups/{id}/votes",
+      "tested": true,
+      "detail": "提交调用: 无写请求",
+      "apiCalls": [],
+      "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/groups/writeops-26327-GroupVoteManagePage-writeop-result.png"
+    },
+    {
+      "slug": "GroupScheduleManagePage",
+      "module": "groups",
+      "path": "/groups/{id}/schedules",
+      "tested": false,
+      "detail": "未找到新建类按钮",
+      "apiCalls": [],
+      "screenshot": ""
+    },
+    {
+      "slug": "GroupTaskManagePage",
+      "module": "groups",
+      "path": "/groups/{id}/tasks",
+      "tested": false,
+      "detail": "未找到新建类按钮",
+      "apiCalls": [],
+      "screenshot": ""
+    },
+    {
+      "slug": "GroupAlbumManagePage",
+      "module": "groups",
+      "path": "/groups/{id}/albums",
+      "tested": true,
+      "detail": "提交调用: 无写请求",
+      "apiCalls": [],
+      "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/groups/writeops-26327-GroupAlbumManagePage-writeop-result.png"
+    },
+    {
+      "slug": "VersionPage",
+      "module": "settings",
+      "path": "/settings/versions",
+      "tested": false,
+      "detail": "异常: Error: locator.click: Test timeout of 2400000ms exceeded.",
+      "apiCalls": [],
+      "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/settings/writeops-26327-VersionPage-writeop-filled.png"
+    },
+    {
+      "slug": "AiRolesPage",
+      "module": "ai_agent",
+      "path": "/ai-agents/roles",
+      "tested": false,
+      "detail": "异常: Error: page.goto: Target page, context or browser has been closed",
+      "apiCalls": [],
+      "screenshot": ""
+    },
+    {
+      "slug": "AiAgentListPage",
+      "module": "ai_agent",
+      "path": "/ai-agents",
+      "tested": false,
+      "detail": "异常: Error: page.goto: Target page, context or browser has been closed",
+      "apiCalls": [],
+      "screenshot": ""
+    }
+  ]
+}

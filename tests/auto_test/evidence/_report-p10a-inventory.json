@@ -1,22 +1,37 @@
 {
  "ids": {
-  "uid": "106808244793772032",
-  "gid": "",
-  "cid": ""
+  "uid": "92000000000050001",
+  "gid": "92000000000020014",
+  "cid": "103209560378181632"
  },
  "inventory": {
   "SensitiveWordPage": {
    "buttons": [
-    "重试"
+    "导入 CSV",
+    "添加关键词",
+    "关键词",
+    "分类",
+    "风险等级",
+    "添加时间",
+    "上一页",
+    "1",
+    "2",
+    "下一页"
    ],
    "rowButtons": [],
-   "inputs": [],
-   "hasTable": false,
-   "rows": 0
+   "inputs": [
+    "input#[搜索关键词]"
+   ],
+   "hasTable": true,
+   "rows": 10
   },
   "VersionPage": {
    "buttons": [
-    "重试"
+    "新建版本",
+    "上一页",
+    "1",
+    "2",
+    "下一页"
    ],
    "rowButtons": [],
    "inputs": [],
@@ -25,93 +40,261 @@
   },
   "UserTagManagePage": {
    "buttons": [
-    "重试"
+    "导出 CSV",
+    "返回用户详情",
+    "好友标签",
+    "收藏标签",
+    "搜索",
+    "ID",
+    "标签名",
+    "副标题",
+    "场景",
+    "创建时间",
+    "更新时间",
+    "上一页",
+    "1",
+    "下一页"
    ],
    "rowButtons": [],
-   "inputs": [],
-   "hasTable": false,
-   "rows": 0
+   "inputs": [
+    "input#[搜索标签名/副标题...]"
+   ],
+   "hasTable": true,
+   "rows": 1
   },
   "UserCollectManagePage": {
    "buttons": [
-    "重试"
+    "导出 CSV",
+    "返回用户详情",
+    "搜索",
+    "类型",
+    "对象ID",
+    "来源",
+    "标签串",
+    "扩展信息",
+    "创建时间",
+    "更新时间",
+    "上一页",
+    "1",
+    "下一页"
+   ],
+   "rowButtons": [],
+   "inputs": [
+    "input#[搜索 source/re]",
+    "input#[标签筛选（可选）]"
+   ],
+   "hasTable": true,
+   "rows": 1
+  },
+  "GroupTagManagePage": {
+   "buttons": [
+    "导出当前页 CSV",
+    "返回群详情",
+    "ID",
+    "标签名",
+    "创建者",
+    "创建时间",
+    "上一页",
+    "1",
+    "下一页"
    ],
    "rowButtons": [],
    "inputs": [],
-   "hasTable": false,
-   "rows": 0
-  },
-  "GroupTagManagePage": {
-   "buttons": [],
-   "rowButtons": [],
-   "inputs": [],
-   "hasTable": false,
-   "rows": 0
+   "hasTable": true,
+   "rows": 1
   },
   "GroupCategoryManagePage": {
-   "buttons": [],
+   "buttons": [
+    "返回群详情",
+    "分类ID",
+    "分类名称",
+    "排序",
+    "上一页",
+    "1",
+    "下一页"
+   ],
    "rowButtons": [],
-   "inputs": [],
-   "hasTable": false,
-   "rows": 0
+   "inputs": [
+    "input#[输入用户 UID]",
+    "input#[分类名称关键词（可选）]"
+   ],
+   "hasTable": true,
+   "rows": 1
   },
   "GroupNoticeManagePage": {
-   "buttons": [],
+   "buttons": [
+    "导出当前页 CSV",
+    "返回群详情",
+    "ID",
+    "标题",
+    "置顶",
+    "状态",
+    "已读数",
+    "创建时间",
+    "上一页",
+    "1",
+    "下一页"
+   ],
    "rowButtons": [],
    "inputs": [],
-   "hasTable": false,
-   "rows": 0
+   "hasTable": true,
+   "rows": 1
   },
   "GroupVoteManagePage": {
-   "buttons": [],
+   "buttons": [
+    "导出当前页 CSV",
+    "返回群详情",
+    "投票ID",
+    "标题",
+    "状态",
+    "创建者",
+    "创建时间",
+    "上一页",
+    "1",
+    "下一页"
+   ],
    "rowButtons": [],
    "inputs": [],
-   "hasTable": false,
-   "rows": 0
+   "hasTable": true,
+   "rows": 1
   },
   "GroupScheduleManagePage": {
-   "buttons": [],
+   "buttons": [
+    "导出当前页 CSV",
+    "返回群详情",
+    "日程ID",
+    "标题",
+    "状态",
+    "开始时间",
+    "结束时间",
+    "上一页",
+    "1",
+    "下一页"
+   ],
    "rowButtons": [],
    "inputs": [],
-   "hasTable": false,
-   "rows": 0
+   "hasTable": true,
+   "rows": 1
   },
   "GroupTaskManagePage": {
-   "buttons": [],
+   "buttons": [
+    "导出当前页 CSV",
+    "返回群详情",
+    "恢复",
+    "ID",
+    "任务ID",
+    "标题",
+    "状态",
+    "截止时间",
+    "删除时间",
+    "上一页",
+    "1",
+    "下一页"
+   ],
    "rowButtons": [],
-   "inputs": [],
-   "hasTable": false,
-   "rows": 0
+   "inputs": [
+    "input#[请输入待恢复任务ID]"
+   ],
+   "hasTable": true,
+   "rows": 1
   },
   "GroupAlbumManagePage": {
-   "buttons": [],
+   "buttons": [
+    "导出当前页 CSV",
+    "返回群详情",
+    "ID",
+    "相册ID",
+    "相册名",
+    "图片数",
+    "创建者",
+    "创建时间",
+    "上一页",
+    "1",
+    "下一页"
+   ],
    "rowButtons": [],
    "inputs": [],
-   "hasTable": false,
-   "rows": 0
+   "hasTable": true,
+   "rows": 1
   },
   "GroupFileManagePage": {
-   "buttons": [],
+   "buttons": [
+    "导出当前页 CSV",
+    "返回群详情",
+    "ID",
+    "文件ID",
+    "文件名",
+    "分类",
+    "大小(Byte)",
+    "下载数",
+    "创建时间",
+    "上一页",
+    "1",
+    "下一页"
+   ],
    "rowButtons": [],
-   "inputs": [],
-   "hasTable": false,
-   "rows": 0
+   "inputs": [
+    "input#[关键词（文件名）]",
+    "input#[分类（可选）]"
+   ],
+   "hasTable": true,
+   "rows": 1
   },
   "GroupMemberManagePage": {
-   "buttons": [],
+   "buttons": [
+    "导出当前页 CSV",
+    "返回群组详情",
+    "用户 ID",
+    "昵称",
+    "角色",
+    "加入时间",
+    "上一页",
+    "1",
+    "下一页"
+   ],
    "rowButtons": [],
    "inputs": [],
-   "hasTable": false,
-   "rows": 0
+   "hasTable": true,
+   "rows": 1
   },
   "UserListPage": {
    "buttons": [
-    "返回上页"
+    "导出 CSV",
+    "列显示",
+    "重置",
+    "搜索",
+    "ID",
+    "账号",
+    "昵称",
+    "邮箱",
+    "手机",
+    "状态",
+    "注册时间",
+    "上一页",
+    "1",
+    "2",
+    "3",
+    "4",
+    "200",
+    "下一页"
    ],
    "rowButtons": [],
-   "inputs": [],
-   "hasTable": false,
-   "rows": 0
+   "inputs": [
+    "input#[搜索账号/昵称/邮箱..]",
+    "input#[]",
+    "input#[]",
+    "input#[]",
+    "input#[]",
+    "input#[]",
+    "input#[]",
+    "input#[]",
+    "input#[]",
+    "input#[]",
+    "input#[]",
+    "input#[]"
+   ],
+   "hasTable": true,
+   "rows": 10
   },
   "GroupListPage": {
    "buttons": [
@@ -131,7 +314,7 @@
     "2",
     "3",
     "4",
-    "25",
+    "26",
     "下一页"
    ],
    "rowButtons": [],
@@ -166,6 +349,7 @@
     "创建时间",
     "上一页",
     "1",
+    "2",
     "下一页"
    ],
    "rowButtons": [],
@@ -174,22 +358,43 @@
     "input#[]",
     "input#[]",
     "input#[]",
+    "input#[]",
+    "input#[]",
+    "input#[]",
+    "input#[]",
+    "input#[]",
+    "input#[]",
+    "input#[]",
     "input#[]"
    ],
    "hasTable": true,
-   "rows": 3
+   "rows": 10
   },
   "ChannelDetailPage": {
    "buttons": [
+    "返回列表",
+    "消息治理",
+    "订阅者",
+    "管理员",
+    "邀请",
+    "订单",
+    "编辑频道"
+   ],
+   "rowButtons": [],
+   "inputs": [],
+   "hasTable": false,
+   "rows": 0
+  },
+  "ChannelMessagePage": {
+   "buttons": [
     "导出 CSV",
-    "重置",
-    "搜索",
-    "ID",
-    "频道名称",
-    "创建者 ID",
+    "返回频道详情",
+    "消息 ID",
+    "作者",
     "类型",
-    "订阅数",
-    "状态",
+    "内容",
+    "置顶",
+    "阅读量",
     "创建时间",
     "上一页",
     "1",
@@ -197,49 +402,102 @@
    ],
    "rowButtons": [],
    "inputs": [
-    "input#[搜索频道名称...]",
+    "input#[]",
     "input#[]",
     "input#[]",
     "input#[]",
     "input#[]"
    ],
    "hasTable": true,
-   "rows": 3
-  },
-  "ChannelMessagePage": {
-   "buttons": [],
-   "rowButtons": [],
-   "inputs": [],
-   "hasTable": false,
-   "rows": 0
+   "rows": 4
   },
   "ChannelSubscriberPage": {
-   "buttons": [],
+   "buttons": [
+    "导出 CSV",
+    "返回频道详情",
+    "记录 ID",
+    "用户",
+    "未读数",
+    "置顶会话",
+    "最近已读",
+    "订阅时间",
+    "上一页",
+    "1",
+    "2",
+    "下一页"
+   ],
    "rowButtons": [],
    "inputs": [],
-   "hasTable": false,
-   "rows": 0
+   "hasTable": true,
+   "rows": 10
   },
   "ChannelAdminPage": {
-   "buttons": [],
+   "buttons": [
+    "导出 CSV",
+    "返回频道详情",
+    "记录 ID",
+    "用户",
+    "角色",
+    "加入时间",
+    "上一页",
+    "1",
+    "下一页"
+   ],
    "rowButtons": [],
    "inputs": [],
-   "hasTable": false,
-   "rows": 0
+   "hasTable": true,
+   "rows": 10
   },
   "ChannelInvitationPage": {
-   "buttons": [],
+   "buttons": [
+    "导出 CSV",
+    "返回频道详情",
+    "重置",
+    "查询",
+    "邀请 ID",
+    "邀请人",
+    "被邀请人",
+    "状态",
+    "邀请码",
+    "过期时间",
+    "接受时间",
+    "创建时间",
+    "上一页",
+    "1",
+    "2",
+    "下一页"
+   ],
    "rowButtons": [],
    "inputs": [],
-   "hasTable": false,
-   "rows": 0
+   "hasTable": true,
+   "rows": 10
   },
   "ChannelOrderPage": {
-   "buttons": [],
-   "rowButtons": [],
+   "buttons": [
+    "导出 CSV",
+    "返回频道详情",
+    "重置",
+    "查询",
+    "订单 ID",
+    "订单号",
+    "下单用户",
+    "状态",
+    "支付方式",
+    "支付时间",
+    "订阅到期",
+    "创建时间",
+    "退款",
+    "上一页",
+    "1",
+    "2",
+    "下一页"
+   ],
+   "rowButtons": [
+    "退款"
+   ],
    "inputs": [],
-   "hasTable": false,
-   "rows": 0
+   "hasTable": true,
+   "rows": 10
   },
   "MutedUsersPage": {
    "buttons": [],
@@ -262,7 +520,7 @@
     "input#ldap-port[389 / 636 (S]",
     "input#ldap-base-dn[dc=example,d]",
     "input#ldap-bind-dn[cn=admin,dc=]",
-    "input#ldap-bind-password[尚未配置]",
+    "input#ldap-bind-password[已配置，留空则保持不变]",
     "input#ldap-user-filter[(uid={{usern]",
     "input#ldap-uid-attr[uid]",
     "input#ldap-mail-attr[mail]",
@@ -294,25 +552,50 @@
     "创建时间",
     "上一页",
     "1",
+    "2",
     "下一页"
    ],
    "rowButtons": [],
    "inputs": [],
    "hasTable": true,
-   "rows": 1
+   "rows": 10
   },
   "FeedbackListPage": {
    "buttons": [
-    "重试"
+    "导出 CSV",
+    "模板与 SLA",
+    "重置",
+    "搜索",
+    "ID",
+    "用户 ID",
+    "反馈内容",
+    "状态",
+    "提交时间",
+    "回复",
+    "查看",
+    "标记完结",
+    "上一页",
+    "1",
+    "2",
+    "下一页"
    ],
-   "rowButtons": [],
+   "rowButtons": [
+    "回复",
+    "查看",
+    "标记完结"
+   ],
    "inputs": [],
-   "hasTable": false,
-   "rows": 0
+   "hasTable": true,
+   "rows": 10
   },
   "PluginManagementPage": {
    "buttons": [
-    "重试"
+    "安装插件",
+    "操作日志",
+    "刷新",
+    "详情",
+    "升级",
+    "卸载"
    ],
    "rowButtons": [],
    "inputs": [],
@@ -321,19 +604,55 @@
   },
   "MomentListPage": {
    "buttons": [
-    "重试"
+    "搜索",
+    "导出 CSV",
+    "进入举报处理",
+    "动态ID",
+    "作者UID",
+    "内容",
+    "可见性",
+    "状态",
+    "发布时间",
+    "上一页",
+    "1",
+    "2",
+    "3",
+    "下一页"
    ],
    "rowButtons": [],
-   "inputs": [],
-   "hasTable": false,
-   "rows": 0
+   "inputs": [
+    "input#[搜索动态内容...]",
+    "input#[作者 UID（可选）]",
+    "input#[]",
+    "input#[]",
+    "input#[]",
+    "input#[]",
+    "input#[]",
+    "input#[]",
+    "input#[]",
+    "input#[]",
+    "input#[]",
+    "input#[]",
+    "input#[]"
+   ],
+   "hasTable": true,
+   "rows": 10
   },
   "AnnouncementListPage": {
    "buttons": [
-    "返回上页"
+    "搜索",
+    "导出 CSV",
+    "创建公告",
+    "撤回",
+    "上一页",
+    "1",
+    "2",
+    "下一页"
    ],
    "rowButtons": [],
-   "inputs": [],
+   "inputs": [
+    "input#[搜索公告标题]"
+   ],
    "hasTable": false,
    "rows": 0
   }

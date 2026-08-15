@@ -51,8 +51,8 @@
       "forbidden": false
     },
     "LicensePage": {
-      "detected": false,
-      "detail": "                     æœ¨å…°å®½æ¾è®¸å¯è¯, ç¬¬2ç‰ˆ     æœ¨å…°å®½æ¾è®¸å¯è¯ï¼Œ",
+      "detected": true,
+      "detail": "错误态文案已渲染",
       "forbidden": false
     },
     "LogoutApplicationListPage": {
@@ -71,8 +71,8 @@
       "forbidden": false
     },
     "StorageOverviewPage": {
-      "detected": false,
-      "detail": "Imboy Admin 仪表盘 运营中心 用户管理 群组管理 频道管理 朋友圈管理 治理中心 举报中心 反馈处理 审计中心 群上下文入口 消息管理 注销申请 日",
+      "detected": true,
+      "detail": "错误态文案已渲染",
       "forbidden": false
     },
     "GroupTaskListPage": {

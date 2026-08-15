@@ -1,0 +1,409 @@
+{
+  "MomentReportPage": {
+    "redirect": "302 → http://127.0.0.1:8082/reports?target_type=moment",
+    "guard": "ok",
+    "render": "ok",
+    "search": false,
+    "errorState": true,
+    "apis": [
+      "GET 200 /src/services/api/adminConfig.ts",
+      "GET 401 /api/adm/setup/status",
+      "GET 200 /api/adm/passport/meta",
+      "GET 401 /api/adm/setup/status",
+      "GET 200 /api/adm/passport/meta",
+      "GET 503 /api/adm/passport/captcha"
+    ],
+    "consoleErrors": [
+      "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+      "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+      "Failed to load resource: the server responded with a status of 503 (Service Unavailable)"
+    ]
+  },
+  "batch:UserListPage": {
+    "tested": true,
+    "toolbarSeen": true,
+    "detail": "勾选后出现批量操作反馈"
+  },
+  "batch:GroupListPage": {
+    "tested": true,
+    "toolbarSeen": true,
+    "detail": "勾选后出现批量操作反馈"
+  },
+  "batch:ChannelListPage": {
+    "tested": true,
+    "toolbarSeen": true,
+    "detail": "勾选后出现批量操作反馈"
+  },
+  "batch:ChannelMessagePage": {
+    "tested": true,
+    "toolbarSeen": true,
+    "detail": "勾选后出现批量操作反馈"
+  },
+  "batch:MomentListPage": {
+    "tested": true,
+    "toolbarSeen": false,
+    "detail": "勾选后未见批量工具条"
+  },
+  "batch:GroupGovernanceLogPage": {
+    "tested": false,
+    "detail": "无 checkbox（或无数据）"
+  },
+  "links:GroupDetailPage": [
+    {
+      "href": "/dashboard",
+      "text": "仪表盘"
+    },
+    {
+      "href": "/users",
+      "text": "用户管理"
+    },
+    {
+      "href": "/groups",
+      "text": "群组管理"
+    },
+    {
+      "href": "/channels",
+      "text": "频道管理"
+    },
+    {
+      "href": "/moments",
+      "text": "朋友圈管理"
+    },
+    {
+      "href": "/reports",
+      "text": "举报中心4"
+    },
+    {
+      "href": "/feedback",
+      "text": "反馈处理15"
+    },
+    {
+      "href": "/groups/context",
+      "text": "群上下文入口"
+    },
+    {
+      "href": "/messages",
+      "text": "消息管理"
+    },
+    {
+      "href": "/logout-applications",
+      "text": "注销申请"
+    },
+    {
+      "href": "/logs",
+      "text": "日志审计"
+    },
+    {
+      "href": "/settings",
+      "text": "系统设置"
+    },
+    {
+      "href": "/admins",
+      "text": "管理员"
+    },
+    {
+      "href": "/roles",
+      "text": "角色权限"
+    },
+    {
+      "href": "/plugins",
+      "text": "插件管理"
+    },
+    {
+      "href": "/dashboard",
+      "text": "首页"
+    },
+    {
+      "href": "/groups",
+      "text": "群组管理"
+    }
+  ],
+  "links:ChannelDetailPage": [
+    {
+      "href": "/dashboard",
+      "text": "仪表盘"
+    },
+    {
+      "href": "/users",
+      "text": "用户管理"
+    },
+    {
+      "href": "/groups",
+      "text": "群组管理"
+    },
+    {
+      "href": "/channels",
+      "text": "频道管理"
+    },
+    {
+      "href": "/moments",
+      "text": "朋友圈管理"
+    },
+    {
+      "href": "/reports",
+      "text": "举报中心4"
+    },
+    {
+      "href": "/feedback",
+      "text": "反馈处理15"
+    },
+    {
+      "href": "/groups/context",
+      "text": "群上下文入口"
+    },
+    {
+      "href": "/messages",
+      "text": "消息管理"
+    },
+    {
+      "href": "/logout-applications",
+      "text": "注销申请"
+    },
+    {
+      "href": "/logs",
+      "text": "日志审计"
+    },
+    {
+      "href": "/settings",
+      "text": "系统设置"
+    },
+    {
+      "href": "/admins",
+      "text": "管理员"
+    },
+    {
+      "href": "/roles",
+      "text": "角色权限"
+    },
+    {
+      "href": "/plugins",
+      "text": "插件管理"
+    },
+    {
+      "href": "/dashboard",
+      "text": "首页"
+    },
+    {
+      "href": "/channels",
+      "text": "频道管理"
+    }
+  ],
+  "links:UserDetailPage": [
+    {
+      "href": "/dashboard",
+      "text": "仪表盘"
+    },
+    {
+      "href": "/users",
+      "text": "用户管理"
+    },
+    {
+      "href": "/groups",
+      "text": "群组管理"
+    },
+    {
+      "href": "/channels",
+      "text": "频道管理"
+    },
+    {
+      "href": "/moments",
+      "text": "朋友圈管理"
+    },
+    {
+      "href": "/reports",
+      "text": "举报中心4"
+    },
+    {
+      "href": "/feedback",
+      "text": "反馈处理15"
+    },
+    {
+      "href": "/groups/context",
+      "text": "群上下文入口"
+    },
+    {
+      "href": "/messages",
+      "text": "消息管理"
+    },
+    {
+      "href": "/logout-applications",
+      "text": "注销申请"
+    },
+    {
+      "href": "/logs",
+      "text": "日志审计"
+    },
+    {
+      "href": "/settings",
+      "text": "系统设置"
+    },
+    {
+      "href": "/admins",
+      "text": "管理员"
+    },
+    {
+      "href": "/roles",
+      "text": "角色权限"
+    },
+    {
+      "href": "/plugins",
+      "text": "插件管理"
+    },
+    {
+      "href": "/dashboard",
+      "text": "首页"
+    },
+    {
+      "href": "/users",
+      "text": "用户管理"
+    }
+  ],
+  "links:UserTagManagePage": [
+    {
+      "href": "/dashboard",
+      "text": "仪表盘"
+    },
+    {
+      "href": "/users",
+      "text": "用户管理"
+    },
+    {
+      "href": "/groups",
+      "text": "群组管理"
+    },
+    {
+      "href": "/channels",
+      "text": "频道管理"
+    },
+    {
+      "href": "/moments",
+      "text": "朋友圈管理"
+    },
+    {
+      "href": "/reports",
+      "text": "举报中心4"
+    },
+    {
+      "href": "/feedback",
+      "text": "反馈处理15"
+    },
+    {
+      "href": "/groups/context",
+      "text": "群上下文入口"
+    },
+    {
+      "href": "/messages",
+      "text": "消息管理"
+    },
+    {
+      "href": "/logout-applications",
+      "text": "注销申请"
+    },
+    {
+      "href": "/logs",
+      "text": "日志审计"
+    },
+    {
+      "href": "/settings",
+      "text": "系统设置"
+    },
+    {
+      "href": "/admins",
+      "text": "管理员"
+    },
+    {
+      "href": "/roles",
+      "text": "角色权限"
+    },
+    {
+      "href": "/plugins",
+      "text": "插件管理"
+    },
+    {
+      "href": "/dashboard",
+      "text": "首页"
+    },
+    {
+      "href": "/users",
+      "text": "用户管理"
+    },
+    {
+      "href": "/users/106808244793772032",
+      "text": "1068082447937720"
+    }
+  ],
+  "links:UserCollectManagePage": [
+    {
+      "href": "/dashboard",
+      "text": "仪表盘"
+    },
+    {
+      "href": "/users",
+      "text": "用户管理"
+    },
+    {
+      "href": "/groups",
+      "text": "群组管理"
+    },
+    {
+      "href": "/channels",
+      "text": "频道管理"
+    },
+    {
+      "href": "/moments",
+      "text": "朋友圈管理"
+    },
+    {
+      "href": "/reports",
+      "text": "举报中心4"
+    },
+    {
+      "href": "/feedback",
+      "text": "反馈处理15"
+    },
+    {
+      "href": "/groups/context",
+      "text": "群上下文入口"
+    },
+    {
+      "href": "/messages",
+      "text": "消息管理"
+    },
+    {
+      "href": "/logout-applications",
+      "text": "注销申请"
+    },
+    {
+      "href": "/logs",
+      "text": "日志审计"
+    },
+    {
+      "href": "/settings",
+      "text": "系统设置"
+    },
+    {
+      "href": "/admins",
+      "text": "管理员"
+    },
+    {
+      "href": "/roles",
+      "text": "角色权限"
+    },
+    {
+      "href": "/plugins",
+      "text": "插件管理"
+    },
+    {
+      "href": "/dashboard",
+      "text": "首页"
+    },
+    {
+      "href": "/users",
+      "text": "用户管理"
+    },
+    {
+      "href": "/users/106808244793772032",
+      "text": "1068082447937720"
+    }
+  ]
+}

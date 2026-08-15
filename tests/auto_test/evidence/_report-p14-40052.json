@@ -1,0 +1,192 @@
+{
+  "GroupDetailPage": {
+    "返回群列表": {
+      "found": true,
+      "navigated": true,
+      "detail": "已导航至 undefined"
+    },
+    "成员": {
+      "found": true,
+      "navigated": true,
+      "detail": "已导航至 undefined"
+    },
+    "投票": {
+      "found": true,
+      "navigated": true,
+      "detail": "已导航至 undefined"
+    },
+    "公告": {
+      "found": true,
+      "navigated": true,
+      "detail": "已导航至 undefined"
+    },
+    "标签": {
+      "found": true,
+      "navigated": true,
+      "detail": "已导航至 undefined"
+    },
+    "分类": {
+      "found": true,
+      "navigated": true,
+      "detail": "已导航至 undefined"
+    },
+    "文件": {
+      "found": true,
+      "navigated": true,
+      "detail": "已导航至 undefined"
+    },
+    "相册": {
+      "found": true,
+      "navigated": true,
+      "detail": "已导航至 undefined"
+    },
+    "日程": {
+      "found": true,
+      "navigated": true,
+      "detail": "已导航至 undefined"
+    },
+    "任务": {
+      "found": true,
+      "navigated": true,
+      "detail": "已导航至 undefined"
+    },
+    "治理": {
+      "found": true,
+      "navigated": false,
+      "detail": "未导航（当前 undefined）"
+    }
+  },
+  "ChannelDetailPage": {
+    "返回频道列表": {
+      "found": false,
+      "navigated": false,
+      "detail": "未找到「/返回频道列表|^返回$/」按钮"
+    },
+    "消息": {
+      "found": true,
+      "navigated": true,
+      "detail": "已导航至 undefined"
+    },
+    "订阅": {
+      "found": true,
+      "navigated": true,
+      "detail": "已导航至 undefined"
+    },
+    "管理员": {
+      "found": true,
+      "navigated": false,
+      "detail": "未导航（当前 undefined）"
+    },
+    "邀请": {
+      "found": true,
+      "navigated": true,
+      "detail": "已导航至 undefined"
+    },
+    "订单": {
+      "found": true,
+      "navigated": true,
+      "detail": "已导航至 undefined"
+    }
+  },
+  "misc-jumps": {
+    "用户标签": {
+      "found": false,
+      "navigated": false,
+      "detail": "未找到「/标签/」按钮"
+    },
+    "用户收藏": {
+      "found": true,
+      "navigated": false,
+      "detail": "未导航（当前 undefined）"
+    },
+    "TagManage→用户详情": {
+      "found": true,
+      "navigated": true,
+      "detail": "用户 ID 链接存在"
+    },
+    "CollectManage→用户详情": {
+      "found": true,
+      "navigated": true,
+      "detail": "用户 ID 链接存在"
+    },
+    "群管理返回:members": {
+      "found": false,
+      "navigated": false,
+      "detail": "未找到「/返回群详情|返回$/」按钮"
+    },
+    "群管理返回:votes": {
+      "found": true,
+      "navigated": true,
+      "detail": "已导航至 undefined"
+    },
+    "群管理返回:notices": {
+      "found": true,
+      "navigated": true,
+      "detail": "已导航至 undefined"
+    },
+    "群管理返回:tags": {
+      "found": true,
+      "navigated": true,
+      "detail": "已导航至 undefined"
+    },
+    "群管理返回:categories": {
+      "found": true,
+      "navigated": true,
+      "detail": "已导航至 undefined"
+    },
+    "群管理返回:files": {
+      "found": true,
+      "navigated": true,
+      "detail": "已导航至 undefined"
+    },
+    "群管理返回:albums": {
+      "found": true,
+      "navigated": true,
+      "detail": "已导航至 undefined"
+    },
+    "群管理返回:schedules": {
+      "found": true,
+      "navigated": true,
+      "detail": "已导航至 undefined"
+    },
+    "群管理返回:tasks": {
+      "found": true,
+      "navigated": true,
+      "detail": "已导航至 undefined"
+    },
+    "群管理返回:governance-logs": {
+      "found": false,
+      "navigated": false,
+      "detail": "未找到「/返回群详情|返回$/」按钮"
+    },
+    "频道子页返回:messages": {
+      "found": true,
+      "navigated": true,
+      "detail": "已导航至 undefined"
+    },
+    "频道子页返回:subscribers": {
+      "found": true,
+      "navigated": true,
+      "detail": "已导航至 undefined"
+    },
+    "频道子页返回:admins": {
+      "found": true,
+      "navigated": true,
+      "detail": "已导航至 undefined"
+    },
+    "频道子页返回:invitations": {
+      "found": true,
+      "navigated": true,
+      "detail": "已导航至 undefined"
+    },
+    "频道子页返回:orders": {
+      "found": true,
+      "navigated": true,
+      "detail": "已导航至 undefined"
+    },
+    "举报→动态详情": {
+      "found": false,
+      "detail": "未找到动态链接（可能无举报数据）"
+    }
+  }
+}
