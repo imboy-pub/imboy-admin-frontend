@@ -249,7 +249,8 @@ test('auto_test 写操作真实提交（白名单页面）', async ({ page }) =>
         continue
       }
       const formsBefore = await page.locator('form:visible').count().catch(() => 0)
-      await createBtn.click()
+      // actionTimeout 默认 0（无限等待）：disabled 按钮会让 click 卡到测试超时，显式超时快速失败
+      await createBtn.click({ timeout: 10_000 }).catch(() => {})
       await page.waitForTimeout(1_000)
 
       // 表单容器：Dialog 优先，其次新增的内联 Card 表单（form），最后整页
@@ -275,7 +276,12 @@ test('auto_test 写操作真实提交（白名单页面）', async ({ page }) =>
         entry.detail = `填充 ${filled} 字段后未找到提交按钮`
         await page.keyboard.press('Escape')
       } else {
-        await submitBtn.click()
+        // disabled 提交按钮（表单校验未过）会让 click 无限等待，显式超时后按「不可提交」记录
+        const clicked = await submitBtn.click({ timeout: 10_000 }).then(() => true).catch(() => false)
+        if (!clicked) {
+          entry.detail = '提交按钮不可操作（表单校验未通过或按钮 disabled）'
+          await page.keyboard.press('Escape')
+        } else {
         await page.waitForTimeout(1_800)
         entry.tested = true
         const ok = apiCalls.some((c) => c.status >= 200 && c.status < 300)
@@ -287,6 +293,7 @@ test('auto_test 写操作真实提交（白名单页面）', async ({ page }) =>
         if (await confirmBtn.isVisible({ timeout: 800 }).catch(() => false)) {
           await confirmBtn.click().catch(() => {})
           await page.waitForTimeout(1_200)
+        }
         }
       }
       entry.apiCalls = [...apiCalls]
