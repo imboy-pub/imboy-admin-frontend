@@ -5,7 +5,7 @@
 
 | 计划变化 | 计划时间 | 页面path | 功能介绍 | 测试状态 | 测试轮次 | 发现bug | 解决bug | 待处理bug | 备注 |
 |---|---|---|---|---|---|---|---|---|---|---|
-| 无待办 | - | `src/pages/moments/MomentReportPage.tsx` | 路由直达与权限守卫（未登录跳 /login，无权限跳 403） | 已通过 | 批次3 | 0 | 0 | 0 | 302 → /reports?target_type=moment（p13） |
+| 无待办 | - | `src/pages/moments/MomentReportPage.tsx` | 路由直达与权限守卫（未登录跳 /login，无权限跳 403） | 已通过 | 批次9 | 0 | 0 | 0 | 302 → /reports?target_type=moment（p13） |
 | 无待办 | - | `src/pages/moments/MomentReportPage.tsx` | 加载中 / 空态 / 错误态展示（LoadingState / ErrorState） | 已通过 | 批次3 | 0 | 0 | 0 | 500 注入错误态已渲染（p13） |
 | 无待办 | - | `src/pages/moments/MomentReportPage.tsx` | 列表数据加载渲染与字段格式化 | 已通过 | 批次3 | 0 | 0 | 0 | 举报列表 API 200（p13） |
 | 无待办 | - | `src/pages/moments/MomentReportPage.tsx` | 分页翻页与每页条数切换（筛选/搜索变化时重置 page=1） | 已通过 | 批次3 | 0 | 0 | 0 | 举报数据播种后翻页验证通过（p21） |

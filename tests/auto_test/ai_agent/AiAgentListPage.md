@@ -5,10 +5,10 @@
 
 | 计划变化 | 计划时间 | 页面path | 功能介绍 | 测试状态 | 测试轮次 | 发现bug | 解决bug | 待处理bug | 备注 |
 |---|---|---|---|---|---|---|---|---|---|
-| 无待办 | - | `src/modules/ai_agent/pages/AiAgentListPage.tsx` | 路由直达与权限守卫（未登录跳 /login，无权限跳 403） | 已通过 | 批次2 | 0 | 0 | 0 | |
-| 无待办 | - | `src/modules/ai_agent/pages/AiAgentListPage.tsx` | 加载中 / 空态 / 错误态展示（LoadingState / ErrorState） | 已通过 | 批次2 | 0 | 0 | 0 | 错误态经 500 注入验证（error-state.png）；空态经无结果分类筛选验证 |
-| 无待办 | - | `src/modules/ai_agent/pages/AiAgentListPage.tsx` | 列表数据加载渲染与字段格式化 | 已通过 | 批次2 | 1 | 1 | 0 | |
-| 无待办 | - | `src/modules/ai_agent/pages/AiAgentListPage.tsx` | 分页翻页与每页条数切换（筛选/搜索变化时重置 page=1） | 已通过 | 批次3 | 0 | 0 | 0 |  |
+| 无待办 | - | `src/modules/ai_agent/pages/AiAgentListPage.tsx` | 路由直达与权限守卫（未登录跳 /login，无权限跳 403） | 已通过 | 批次9 | 0 | 0 | 0 |  |
+| 无待办 | - | `src/modules/ai_agent/pages/AiAgentListPage.tsx` | 加载中 / 空态 / 错误态展示（LoadingState / ErrorState） | 已通过 | 批次9 | 0 | 0 | 0 | 错误态经 500 注入验证（error-state.png）；空态经无结果分类筛选验证 |
+| 无待办 | - | `src/modules/ai_agent/pages/AiAgentListPage.tsx` | 列表数据加载渲染与字段格式化 | 已通过 | 批次9 | 1 | 1 | 0 |  |
+| 无待办 | - | `src/modules/ai_agent/pages/AiAgentListPage.tsx` | 分页翻页与每页条数切换（筛选/搜索变化时重置 page=1） | 已通过 | 批次9 | 0 | 0 | 0 |  |
 | 无待办 | - | `src/modules/ai_agent/pages/AiAgentListPage.tsx` | 筛选 / 搜索条件生效与清空重置 | 已通过 | 批次2 | 0 | 0 | 0 | 分类筛选 250ms 防抖已验证；重置清空筛选条件（staleTime 内走缓存，按 UI 状态断言） |
 | 无待办 | - | `src/modules/ai_agent/pages/AiAgentListPage.tsx` | 危险/写操作二次确认弹窗（确认执行与取消） | 已通过 | 批次2 | 0 | 0 | 0 | 停用二次确认弹窗已验证 |
 | 无待办 | - | `src/modules/ai_agent/pages/AiAgentListPage.tsx` | 「状态已更新」操作提交成功并刷新列表数据 | 已通过 | 批次2 | 0 | 0 | 0 | 停用→启用已恢复，set_status 均 2xx 且列表刷新 |
