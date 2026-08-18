@@ -15,6 +15,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { test, type Response } from '@playwright/test'
 import { loginAsAdmin, requireAdminCredentials } from './support/adminAuth'
+import { safeParseBigIntJson } from '../../src/lib/safeParseBigIntJson'
 
 type PageSpec = {
   slug: string
@@ -279,7 +280,11 @@ test('auto_test 一轮巡检：全部页面导航 + 安全交互', async ({ page
         const handler = async (res: Response) => {
           if (isApiUrl(res.url()) && res.request().method() === 'GET' && res.url().includes(keyword)) {
             try {
-              const body = await res.json()
+              // res.json() 用标准 JSON.parse 会把超 MAX_SAFE_INTEGER 的 TSID 解析成
+              // 丢精度 number，再被 deepFindIds 的 isSafeInteger 守卫滤掉（moment/list
+              // 的 id 是 number 序列化，users/groups/channels 是 string 故侥幸通过）。
+              // 改走原始文本 + safeParseBigIntJson，大整数变 string 精确入库。
+              const body = safeParseBigIntJson(await res.text())
               deepFindIds(body, plural, found)
             } catch {
               /* 非 JSON 忽略 */
