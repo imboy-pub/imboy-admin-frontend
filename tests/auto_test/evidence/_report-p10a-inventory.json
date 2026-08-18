@@ -1,8 +1,8 @@
 {
  "ids": {
-  "uid": "92000000000050001",
-  "gid": "92000000000020014",
-  "cid": "103209560378181632"
+  "uid": "107539489230161920",
+  "gid": "107668853378779136",
+  "cid": "107666556196227072"
  },
  "inventory": {
   "SensitiveWordPage": {
@@ -248,14 +248,21 @@
     "昵称",
     "角色",
     "加入时间",
+    "1000000056",
+    "查看用户",
+    "104250986822109184",
     "上一页",
     "1",
     "下一页"
    ],
-   "rowButtons": [],
+   "rowButtons": [
+    "1000000056",
+    "查看用户",
+    "104250986822109184"
+   ],
    "inputs": [],
    "hasTable": true,
-   "rows": 1
+   "rows": 2
   },
   "UserListPage": {
    "buttons": [
@@ -314,7 +321,7 @@
     "2",
     "3",
     "4",
-    "26",
+    "27",
     "下一页"
    ],
    "rowButtons": [],
@@ -350,6 +357,7 @@
     "上一页",
     "1",
     "2",
+    "3",
     "下一页"
    ],
    "rowButtons": [],
@@ -378,7 +386,9 @@
     "管理员",
     "邀请",
     "订单",
-    "编辑频道"
+    "编辑频道",
+    "删除频道",
+    "设置价格"
    ],
    "rowButtons": [],
    "inputs": [],
@@ -402,14 +412,10 @@
    ],
    "rowButtons": [],
    "inputs": [
-    "input#[]",
-    "input#[]",
-    "input#[]",
-    "input#[]",
     "input#[]"
    ],
    "hasTable": true,
-   "rows": 4
+   "rows": 1
   },
   "ChannelSubscriberPage": {
    "buttons": [
@@ -423,13 +429,12 @@
     "订阅时间",
     "上一页",
     "1",
-    "2",
     "下一页"
    ],
    "rowButtons": [],
    "inputs": [],
    "hasTable": true,
-   "rows": 10
+   "rows": 1
   },
   "ChannelAdminPage": {
    "buttons": [
@@ -446,7 +451,7 @@
    "rowButtons": [],
    "inputs": [],
    "hasTable": true,
-   "rows": 10
+   "rows": 1
   },
   "ChannelInvitationPage": {
    "buttons": [
@@ -464,13 +469,12 @@
     "创建时间",
     "上一页",
     "1",
-    "2",
     "下一页"
    ],
    "rowButtons": [],
    "inputs": [],
    "hasTable": true,
-   "rows": 10
+   "rows": 1
   },
   "ChannelOrderPage": {
    "buttons": [
@@ -486,18 +490,14 @@
     "支付时间",
     "订阅到期",
     "创建时间",
-    "退款",
     "上一页",
     "1",
-    "2",
     "下一页"
    ],
-   "rowButtons": [
-    "退款"
-   ],
+   "rowButtons": [],
    "inputs": [],
    "hasTable": true,
-   "rows": 10
+   "rows": 1
   },
   "MutedUsersPage": {
    "buttons": [],
