@@ -5,8 +5,8 @@
 
 | 计划变化 | 计划时间 | 页面path | 功能介绍 | 测试状态 | 测试轮次 | 发现bug | 解决bug | 待处理bug | 备注 |
 |---|---|---|---|---|---|---|---|---|---|---|
-| 无待办 | - | `src/pages/users/UserDetailPage.tsx` | 路由直达与权限守卫（未登录跳 /login，无权限跳 403） | 已通过 | 批次3 | 0 | 0 | 0 |  |
-| 无待办 | - | `src/pages/users/UserDetailPage.tsx` | 加载中 / 空态 / 错误态展示（LoadingState / ErrorState） | 已通过 | 批次3 | 1 | 1 | 0 | bug 已修：detail SQL 引用 user 表不存在的 updated_at 列致接口吞错返回「用户不存在」（修复复验 code 0） |
+| 无待办 | - | `src/pages/users/UserDetailPage.tsx` | 路由直达与权限守卫（未登录跳 /login，无权限跳 403） | 已通过 | 批次9 | 0 | 0 | 0 |  |
+| 无待办 | - | `src/pages/users/UserDetailPage.tsx` | 加载中 / 空态 / 错误态展示（LoadingState / ErrorState） | 已通过 | 批次9 | 1 | 1 | 0 | bug 已修：detail SQL 引用 user 表不存在的 updated_at 列致接口吞错返回「用户不存在」（修复复验 code 0） |
 | 无待办 | - | `src/pages/users/UserDetailPage.tsx` | 危险/写操作二次确认弹窗（确认执行与取消） | 已通过 | 批次7 | 0 | 0 | 0 | 「确认封禁」alertdialog 实测出现，取消路径关闭弹窗且 DB status 无变化，确认路径由行11/12 覆盖（e2e 用户 92000000000050001） |
 | 无待办 | - | `src/pages/users/UserDetailPage.tsx` | 「用户已封禁」操作提交成功并刷新列表数据 | 已通过 | 批次7 | 0 | 0 | 0 | 封禁→确认→toast「用户已封禁」+页面状态「已封禁」+DB user.status 1→0 落库核实 |
 | 无待办 | - | `src/pages/users/UserDetailPage.tsx` | 「用户已解封」操作提交成功并刷新列表数据 | 已通过 | 批次7 | 0 | 0 | 0 | 解封→确认→toast「用户已解封」+页面状态「正常」+DB user.status 0→1 落库核实 |
