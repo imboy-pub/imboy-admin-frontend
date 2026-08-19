@@ -12,7 +12,7 @@ import sys
 ROOT = os.path.dirname(os.path.abspath(__file__))
 EVID = os.path.join(ROOT, 'evidence')
 MD_ROOT = ROOT
-BATCH = '批次3'
+BATCH = '批次42'
 
 def main():
     dry = '--dry' in sys.argv
