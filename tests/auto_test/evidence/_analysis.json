@@ -4,7 +4,7 @@
   "line_no": 15,
   "slug": "AiAgentListPage",
   "cat": "writeop",
-  "plan": "阻塞",
+  "plan": "已通过",
   "desc": "「头像已上传」操作提交成功并刷新列表数据",
   "verdict": null
  },

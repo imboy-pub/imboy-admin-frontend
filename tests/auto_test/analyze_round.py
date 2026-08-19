@@ -16,8 +16,8 @@ ROOT = os.path.dirname(os.path.abspath(__file__))  # tests/auto_test
 EVID = os.path.join(ROOT, 'evidence')
 MD_ROOT = ROOT
 
-BATCH = '批次3'
-TODAY = '2026-08-13'
+BATCH = '批次42'
+TODAY = '2026-08-19'
 
 def load_reports():
     pages = {}

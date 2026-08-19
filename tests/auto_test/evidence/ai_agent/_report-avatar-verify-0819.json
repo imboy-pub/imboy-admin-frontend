@@ -1,0 +1,428 @@
+{
+  "round": "avatar-verify-0819",
+  "uploadOk": false,
+  "naturalWidth": 1,
+  "apiCalls": [
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/src/services/api/uxTelemetryReporter.ts"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/src/services/api/client.ts"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/src/services/api/features.ts"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/src/services/api/adminConfig.ts?t=1786770685015"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/src/services/api/rbac.ts?t=1786770724013"
+    },
+    {
+      "method": "GET",
+      "status": 304,
+      "url": "/src/services/api/uxTelemetryReporter.ts"
+    },
+    {
+      "method": "GET",
+      "status": 304,
+      "url": "/src/services/api/client.ts"
+    },
+    {
+      "method": "GET",
+      "status": 304,
+      "url": "/src/services/api/features.ts"
+    },
+    {
+      "method": "GET",
+      "status": 304,
+      "url": "/src/services/api/adminConfig.ts?t=1786770685015"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/src/services/api/responseAdapter.ts"
+    },
+    {
+      "method": "GET",
+      "status": 304,
+      "url": "/src/services/api/rbac.ts?t=1786770724013"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/src/services/api/stats.ts"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/src/modules/identity/api/index.ts?t=1786770704101"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/src/modules/ops_governance/api/reports.ts"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/src/modules/ops_governance/api/feedback.ts"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/src/modules/identity/api/public.ts?t=1786770704101"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/src/modules/moments/api/index.ts"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/src/modules/groups/api/index.ts"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/src/modules/identity/api/auth.ts"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/src/modules/identity/api/setup.ts"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/src/modules/identity/api/users.ts"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/src/modules/channels/api/index.ts"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/src/modules/identity/api/roles.ts?t=1786770704101"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/src/services/api/userDevices.ts"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/src/modules/moments/api/public.ts"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/src/modules/groups/api/enhancements.ts"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/src/modules/groups/api/public.ts"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/src/modules/channels/api/public.ts"
+    },
+    {
+      "method": "GET",
+      "status": 401,
+      "url": "/api/adm/setup/status"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/api/adm/passport/meta"
+    },
+    {
+      "method": "GET",
+      "status": 401,
+      "url": "/api/adm/setup/status"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/api/adm/passport/meta"
+    },
+    {
+      "method": "GET",
+      "status": 503,
+      "url": "/api/adm/passport/captcha?t=1787122000764"
+    },
+    {
+      "method": "POST",
+      "status": 200,
+      "url": "/api/adm/passport/do_login"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/api/adm/current"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/api/adm/current"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/api/adm/admin/config/features"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/api/adm/rbac/me"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/api/adm/stats/license"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/api/adm/feedback/index?page=1&size=1&status=1"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/api/adm/moment/report/list?page=1&size=1&status=0"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/src/services/api/systemHealth.ts"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/api/adm/stats/finance"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/api/adm/current"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/api/adm/stats/group?days=7"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/api/adm/stats/user?days=7"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/api/adm/stats/message?days=7"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/api/adm/stats/overview"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/src/services/api/uxTelemetryReporter.ts"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/src/services/api/client.ts"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/src/services/api/features.ts"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/src/services/api/adminConfig.ts?t=1786770685015"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/src/services/api/rbac.ts?t=1786770724013"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/src/services/api/responseAdapter.ts"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/src/modules/identity/api/index.ts?t=1786770704101"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/src/services/api/stats.ts"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/src/modules/identity/api/public.ts?t=1786770704101"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/src/modules/ops_governance/api/reports.ts"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/src/modules/ops_governance/api/feedback.ts"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/src/services/api/userDevices.ts"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/src/modules/identity/api/auth.ts"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/src/modules/identity/api/setup.ts"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/src/modules/identity/api/users.ts"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/src/modules/identity/api/roles.ts?t=1786770704101"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/src/modules/moments/api/index.ts"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/src/modules/groups/api/index.ts"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/src/modules/channels/api/index.ts"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/src/modules/groups/api/enhancements.ts"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/src/modules/moments/api/public.ts"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/src/modules/groups/api/public.ts"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/src/modules/channels/api/public.ts"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/api/adm/current"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/api/adm/current"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/api/adm/rbac/me"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/api/adm/stats/license"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/api/adm/feedback/index?page=1&size=1&status=1"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/api/adm/moment/report/list?page=1&size=1&status=0"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/src/modules/ai_agent/api/index.ts?t=1787102412950"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/src/modules/ai_agent/api/public.ts?t=1787102412950"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/api/adm/current"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/api/adm/ai_agent/role/list?page=1&size=100&status=1"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/api/adm/ai_agent/list?page=1&size=10"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/api/adm/ai_agent/detail?user_id=107852211786352640"
+    },
+    {
+      "method": "POST",
+      "status": 200,
+      "url": "/api/adm/ai_agent/upload_avatar"
+    }
+  ],
+  "avatarGets": []
+}

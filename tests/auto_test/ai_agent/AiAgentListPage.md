@@ -12,7 +12,7 @@
 | 无待办 | - | `src/modules/ai_agent/pages/AiAgentListPage.tsx` | 筛选 / 搜索条件生效与清空重置 | 已通过 | 批次2 | 0 | 0 | 0 | 分类筛选 250ms 防抖已验证；重置清空筛选条件（staleTime 内走缓存，按 UI 状态断言） |
 | 无待办 | - | `src/modules/ai_agent/pages/AiAgentListPage.tsx` | 危险/写操作二次确认弹窗（确认执行与取消） | 已通过 | 批次2 | 0 | 0 | 0 | 停用二次确认弹窗已验证 |
 | 无待办 | - | `src/modules/ai_agent/pages/AiAgentListPage.tsx` | 「状态已更新」操作提交成功并刷新列表数据 | 已通过 | 批次2 | 0 | 0 | 0 | 停用→启用已恢复，set_status 均 2xx 且列表刷新 |
-| 已通过 | 批次41 | `src/modules/ai_agent/pages/AiAgentListPage.tsx` | 「头像已上传」操作提交成功并刷新列表数据 | 已通过 | 批次7→41 | 2 | 1 | 1 | 解阻（2026-08-19）：本地 Garage 部署完成（v2.3.0 二进制，布局 version 1，bucket imboy，SigV4 PUT/GET 实测 200）；上传实测 POST 200 + toast「头像已上传，保存后生效」。本轮发现并修复 axios 实例级 Content-Type: application/json 污染 FormData → 后端 init_multipart badmatch 500（public.ts 清除默认头）；遗留：Dialog 头像预览 <img> 用裸 Garage URL 直读 403 裂图（无 presign 通道，待处理） |
+| 无待办 | - | `src/modules/ai_agent/pages/AiAgentListPage.tsx` | 「头像已上传」操作提交成功并刷新列表数据 | 已通过 | 批次7→42 | 2 | 2 | 0 | 解决（2026-08-19 批次42）：根因 CSP img-src 缺 blob:（叠加私桶 403 双拦）→ index.html img-src 加 blob:，组件 onError 回退本地 blob 预览、无 blob 降级「不可预览」+URL 文本；复验 spec auto_test_avatar_preview 通过（POST 2xx + blob naturalWidth>0 截图）；历史头像完整显示待后端 presign 通道 |
 | 无待办 | - | `src/modules/ai_agent/pages/AiAgentListPage.tsx` | 「UID 已复制」操作提交成功并刷新列表数据 | 已通过 | 批次2 | 0 | 0 | 0 | uid-copy-toast.png |
 
 ## 批次2 发现的 bug（已修复并复验通过）

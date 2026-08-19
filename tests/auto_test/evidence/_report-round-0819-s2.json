@@ -1,0 +1,3395 @@
+{
+  "round": "round-0819-s2",
+  "startedAt": "2026-08-19T05:23:07.892Z",
+  "pages": [
+    {
+      "slug": "SensitiveWordPage",
+      "module": "content-moderation",
+      "requestedPath": "/moderation/sensitive-words",
+      "finalUrl": "http://127.0.0.1:8082/moderation/sensitive-words",
+      "redirected": false,
+      "apis": [
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/uxTelemetryReporter.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/client.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/features.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/adminConfig.ts?t=1786770685015"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/rbac.ts?t=1786770724013"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/responseAdapter.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/stats.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/index.ts?t=1786770704101"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/ops_governance/api/reports.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/ops_governance/api/feedback.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/public.ts?t=1786770704101"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/moments/api/index.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/groups/api/index.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/channels/api/index.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/userDevices.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/auth.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/setup.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/users.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/roles.ts?t=1786770704101"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/moments/api/public.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/groups/api/enhancements.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/groups/api/public.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/channels/api/public.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/current"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/current"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/rbac/me"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/stats/license"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/feedback/index?page=1&size=1&status=1"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/moment/report/list?page=1&size=1&status=0"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/moderation.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/current"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/moderation/sensitive-words?page=1&size=10&keyword=&category="
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/moderation/sensitive-words?page=2&size=10&keyword=&category="
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "actions": [
+        {
+          "name": "search",
+          "ok": false,
+          "detail": "TimeoutError: locator.waitFor: Timeout 1500ms exceeded.",
+          "apiDelta": []
+        },
+        {
+          "name": "reset",
+          "ok": false,
+          "detail": "TimeoutError: locator.waitFor: Timeout 1000ms exceeded.",
+          "apiDelta": []
+        },
+        {
+          "name": "create-dialog",
+          "ok": false,
+          "detail": "TimeoutError: locator.waitFor: Timeout 1000ms exceeded.",
+          "apiDelta": []
+        },
+        {
+          "name": "export",
+          "ok": false,
+          "detail": "TimeoutError: locator.waitFor: Timeout 1000ms exceeded.",
+          "apiDelta": []
+        },
+        {
+          "name": "next-page",
+          "ok": true,
+          "detail": "已点击下一页",
+          "apiDelta": [
+            {
+              "method": "GET",
+              "status": 200,
+              "url": "/api/adm/moderation/sensitive-words?page=2&size=10&keyword=&category="
+            }
+          ]
+        }
+      ],
+      "screenshots": [
+        "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/content-moderation/round-0819-s2-SensitiveWordPage-initial.png"
+      ]
+    },
+    {
+      "slug": "ContentReviewQueuePage",
+      "module": "content-moderation",
+      "requestedPath": "/moderation/review-queue",
+      "finalUrl": "http://127.0.0.1:8082/moderation/review-queue",
+      "redirected": false,
+      "apis": [
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/uxTelemetryReporter.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/client.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/features.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/adminConfig.ts?t=1786770685015"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/rbac.ts?t=1786770724013"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/responseAdapter.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/index.ts?t=1786770704101"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/stats.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/public.ts?t=1786770704101"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/ops_governance/api/reports.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/ops_governance/api/feedback.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/userDevices.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/auth.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/setup.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/users.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/roles.ts?t=1786770704101"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/moments/api/index.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/groups/api/index.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/channels/api/index.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/moments/api/public.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/groups/api/enhancements.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/groups/api/public.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/channels/api/public.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/current"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/current"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/rbac/me"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/stats/license"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/moment/report/list?page=1&size=1&status=0"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/feedback/index?page=1&size=1&status=1"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/services/api/moderation.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/current"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/moderation/review-queue?page=1&size=10"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/moderation/review-queue?page=2&size=10"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "actions": [
+        {
+          "name": "search",
+          "ok": false,
+          "detail": "TimeoutError: locator.waitFor: Timeout 1500ms exceeded.",
+          "apiDelta": []
+        },
+        {
+          "name": "reset",
+          "ok": false,
+          "detail": "TimeoutError: locator.waitFor: Timeout 1000ms exceeded.",
+          "apiDelta": []
+        },
+        {
+          "name": "export",
+          "ok": false,
+          "detail": "TimeoutError: locator.waitFor: Timeout 1000ms exceeded.",
+          "apiDelta": []
+        },
+        {
+          "name": "next-page",
+          "ok": true,
+          "detail": "已点击下一页",
+          "apiDelta": [
+            {
+              "method": "GET",
+              "status": 200,
+              "url": "/api/adm/moderation/review-queue?page=2&size=10"
+            }
+          ]
+        }
+      ],
+      "screenshots": [
+        "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/content-moderation/round-0819-s2-ContentReviewQueuePage-initial.png"
+      ]
+    },
+    {
+      "slug": "DashboardPage",
+      "module": "dashboard",
+      "requestedPath": "/dashboard",
+      "finalUrl": "http://127.0.0.1:8082/dashboard",
+      "redirected": false,
+      "apis": [
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/uxTelemetryReporter.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/client.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/features.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/adminConfig.ts?t=1786770685015"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/rbac.ts?t=1786770724013"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/responseAdapter.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/stats.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/index.ts?t=1786770704101"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/ops_governance/api/reports.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/ops_governance/api/feedback.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/public.ts?t=1786770704101"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/moments/api/index.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/groups/api/index.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/channels/api/index.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/userDevices.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/auth.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/setup.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/users.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/roles.ts?t=1786770704101"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/moments/api/public.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/groups/api/enhancements.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/groups/api/public.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/channels/api/public.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/current"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/current"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/rbac/me"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/stats/license"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/feedback/index?page=1&size=1&status=1"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/moment/report/list?page=1&size=1&status=0"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/systemHealth.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/stats/finance"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/current"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/stats/user?days=7"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/stats/group?days=7"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/stats/message?days=7"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/stats/overview"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/stats/ranking?type=user&metric=message&limit=10"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "actions": [
+        {
+          "name": "search",
+          "ok": false,
+          "detail": "TimeoutError: locator.waitFor: Timeout 1500ms exceeded.",
+          "apiDelta": []
+        },
+        {
+          "name": "reset",
+          "ok": false,
+          "detail": "TimeoutError: locator.waitFor: Timeout 1000ms exceeded.",
+          "apiDelta": []
+        },
+        {
+          "name": "create-dialog",
+          "ok": false,
+          "detail": "TimeoutError: locator.waitFor: Timeout 1000ms exceeded.",
+          "apiDelta": []
+        },
+        {
+          "name": "export",
+          "ok": false,
+          "detail": "TimeoutError: locator.waitFor: Timeout 1000ms exceeded.",
+          "apiDelta": []
+        },
+        {
+          "name": "next-page",
+          "ok": false,
+          "detail": "TimeoutError: locator.waitFor: Timeout 1000ms exceeded.",
+          "apiDelta": []
+        }
+      ],
+      "screenshots": [
+        "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/dashboard/round-0819-s2-DashboardPage-initial.png"
+      ]
+    },
+    {
+      "slug": "ForbiddenPage",
+      "module": "errors",
+      "requestedPath": "/forbidden",
+      "finalUrl": "http://127.0.0.1:8082/forbidden",
+      "redirected": false,
+      "apis": [
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/uxTelemetryReporter.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/client.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/features.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/adminConfig.ts?t=1786770685015"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/rbac.ts?t=1786770724013"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/responseAdapter.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/stats.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/index.ts?t=1786770704101"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/ops_governance/api/reports.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/ops_governance/api/feedback.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/public.ts?t=1786770704101"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/moments/api/index.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/groups/api/index.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/channels/api/index.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/userDevices.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/auth.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/setup.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/users.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/roles.ts?t=1786770704101"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/moments/api/public.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/groups/api/enhancements.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/groups/api/public.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/channels/api/public.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/current"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/current"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/stats/license"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/moment/report/list?page=1&size=1&status=0"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/feedback/index?page=1&size=1&status=1"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "actions": [
+        {
+          "name": "search",
+          "ok": false,
+          "detail": "TimeoutError: locator.waitFor: Timeout 1500ms exceeded.",
+          "apiDelta": []
+        },
+        {
+          "name": "reset",
+          "ok": false,
+          "detail": "TimeoutError: locator.waitFor: Timeout 1000ms exceeded.",
+          "apiDelta": []
+        },
+        {
+          "name": "create-dialog",
+          "ok": false,
+          "detail": "TimeoutError: locator.waitFor: Timeout 1000ms exceeded.",
+          "apiDelta": []
+        },
+        {
+          "name": "export",
+          "ok": false,
+          "detail": "TimeoutError: locator.waitFor: Timeout 1000ms exceeded.",
+          "apiDelta": []
+        },
+        {
+          "name": "next-page",
+          "ok": false,
+          "detail": "TimeoutError: locator.waitFor: Timeout 1000ms exceeded.",
+          "apiDelta": []
+        }
+      ],
+      "screenshots": [
+        "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/errors/round-0819-s2-ForbiddenPage-initial.png"
+      ]
+    },
+    {
+      "slug": "NotFoundPage",
+      "module": "errors",
+      "requestedPath": "/nonexistent-xyz-404",
+      "finalUrl": "http://127.0.0.1:8082/nonexistent-xyz-404",
+      "redirected": false,
+      "apis": [
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/services/api/uxTelemetryReporter.ts"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/services/api/client.ts"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/services/api/features.ts"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/services/api/rbac.ts?t=1786770724013"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/services/api/adminConfig.ts?t=1786770685015"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/services/api/responseAdapter.ts"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/services/api/stats.ts"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/modules/identity/api/index.ts?t=1786770704101"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/modules/ops_governance/api/reports.ts"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/modules/ops_governance/api/feedback.ts"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/modules/identity/api/public.ts?t=1786770704101"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/modules/moments/api/index.ts"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/modules/groups/api/index.ts"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/modules/channels/api/index.ts"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/modules/identity/api/auth.ts"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/modules/identity/api/setup.ts"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/modules/identity/api/roles.ts?t=1786770704101"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/services/api/userDevices.ts"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/modules/moments/api/public.ts"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/modules/identity/api/users.ts"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/modules/groups/api/enhancements.ts"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/modules/groups/api/public.ts"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/modules/channels/api/public.ts"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "actions": [
+        {
+          "name": "search",
+          "ok": false,
+          "detail": "TimeoutError: locator.waitFor: Timeout 1500ms exceeded.",
+          "apiDelta": []
+        },
+        {
+          "name": "reset",
+          "ok": false,
+          "detail": "TimeoutError: locator.waitFor: Timeout 1000ms exceeded.",
+          "apiDelta": []
+        },
+        {
+          "name": "create-dialog",
+          "ok": false,
+          "detail": "TimeoutError: locator.waitFor: Timeout 1000ms exceeded.",
+          "apiDelta": []
+        },
+        {
+          "name": "export",
+          "ok": false,
+          "detail": "TimeoutError: locator.waitFor: Timeout 1000ms exceeded.",
+          "apiDelta": []
+        },
+        {
+          "name": "next-page",
+          "ok": false,
+          "detail": "TimeoutError: locator.waitFor: Timeout 1000ms exceeded.",
+          "apiDelta": []
+        }
+      ],
+      "screenshots": [
+        "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/errors/round-0819-s2-NotFoundPage-initial.png"
+      ]
+    },
+    {
+      "slug": "LicensePage",
+      "module": "license",
+      "requestedPath": "/license",
+      "finalUrl": "http://127.0.0.1:8082/license",
+      "redirected": false,
+      "apis": [
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/uxTelemetryReporter.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/client.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/features.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/adminConfig.ts?t=1786770685015"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/rbac.ts?t=1786770724013"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/responseAdapter.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/stats.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/index.ts?t=1786770704101"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/ops_governance/api/reports.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/ops_governance/api/feedback.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/public.ts?t=1786770704101"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/moments/api/index.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/groups/api/index.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/setup.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/channels/api/index.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/auth.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/userDevices.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/moments/api/public.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/groups/api/enhancements.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/users.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/roles.ts?t=1786770704101"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/groups/api/public.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/channels/api/public.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/current"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/current"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/rbac/me"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/stats/license"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/feedback/index?page=1&size=1&status=1"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/moment/report/list?page=1&size=1&status=0"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/current"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "actions": [
+        {
+          "name": "search",
+          "ok": false,
+          "detail": "TimeoutError: locator.waitFor: Timeout 1500ms exceeded.",
+          "apiDelta": []
+        },
+        {
+          "name": "reset",
+          "ok": false,
+          "detail": "TimeoutError: locator.waitFor: Timeout 1000ms exceeded.",
+          "apiDelta": []
+        },
+        {
+          "name": "export",
+          "ok": false,
+          "detail": "TimeoutError: locator.waitFor: Timeout 1000ms exceeded.",
+          "apiDelta": []
+        },
+        {
+          "name": "next-page",
+          "ok": false,
+          "detail": "TimeoutError: locator.waitFor: Timeout 1000ms exceeded.",
+          "apiDelta": []
+        }
+      ],
+      "screenshots": [
+        "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/license/round-0819-s2-LicensePage-initial.png"
+      ]
+    },
+    {
+      "slug": "LogoutApplicationListPage",
+      "module": "logout-applications",
+      "requestedPath": "/logout-applications",
+      "finalUrl": "http://127.0.0.1:8082/logout-applications",
+      "redirected": false,
+      "apis": [
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/uxTelemetryReporter.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/client.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/features.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/adminConfig.ts?t=1786770685015"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/rbac.ts?t=1786770724013"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/responseAdapter.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/index.ts?t=1786770704101"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/stats.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/public.ts?t=1786770704101"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/ops_governance/api/reports.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/ops_governance/api/feedback.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/auth.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/setup.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/users.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/roles.ts?t=1786770704101"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/userDevices.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/moments/api/index.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/groups/api/index.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/channels/api/index.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/groups/api/enhancements.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/moments/api/public.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/groups/api/public.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/channels/api/public.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/current"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/current"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/rbac/me"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/stats/license"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/moment/report/list?page=1&size=1&status=0"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/feedback/index?page=1&size=1&status=1"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/logoutApplications.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/current"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/user/logout_apply/list?page=1&size=10"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/user/logout_apply/export?page=1&size=10"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/user/logout_apply/list?page=2&size=10"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "actions": [
+        {
+          "name": "search",
+          "ok": true,
+          "detail": "已填入 zz_no_match_test 并点击搜索",
+          "apiDelta": []
+        },
+        {
+          "name": "reset",
+          "ok": false,
+          "detail": "TimeoutError: locator.waitFor: Timeout 1000ms exceeded.",
+          "apiDelta": []
+        },
+        {
+          "name": "export",
+          "ok": true,
+          "detail": "已点击导出",
+          "apiDelta": [
+            {
+              "method": "GET",
+              "status": 200,
+              "url": "/api/adm/user/logout_apply/export?page=1&size=10"
+            }
+          ]
+        },
+        {
+          "name": "next-page",
+          "ok": true,
+          "detail": "已点击下一页",
+          "apiDelta": [
+            {
+              "method": "GET",
+              "status": 200,
+              "url": "/api/adm/user/logout_apply/list?page=2&size=10"
+            }
+          ]
+        }
+      ],
+      "screenshots": [
+        "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/logout-applications/round-0819-s2-LogoutApplicationListPage-initial.png"
+      ]
+    },
+    {
+      "slug": "AuditLogPage",
+      "module": "logs",
+      "requestedPath": "/logs",
+      "finalUrl": "http://127.0.0.1:8082/logs",
+      "redirected": false,
+      "apis": [
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/uxTelemetryReporter.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/client.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/features.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/rbac.ts?t=1786770724013"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/adminConfig.ts?t=1786770685015"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/responseAdapter.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/stats.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/index.ts?t=1786770704101"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/ops_governance/api/reports.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/ops_governance/api/feedback.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/public.ts?t=1786770704101"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/moments/api/index.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/groups/api/index.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/channels/api/index.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/auth.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/setup.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/roles.ts?t=1786770704101"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/users.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/userDevices.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/moments/api/public.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/groups/api/enhancements.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/groups/api/public.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/channels/api/public.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/current"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/current"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/rbac/me"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/stats/license"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/moment/report/list?page=1&size=1&status=0"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/feedback/index?page=1&size=1&status=1"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/adminOperations.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/logoutApplications.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/messages/api/index.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/messages/api/public.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/current"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/user/logout_apply/list?page=1&size=100"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/message/list?page=1&size=100&msg_scope=all"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "actions": [
+        {
+          "name": "search",
+          "ok": false,
+          "detail": "TimeoutError: locator.waitFor: Timeout 1500ms exceeded.",
+          "apiDelta": []
+        },
+        {
+          "name": "reset",
+          "ok": false,
+          "detail": "TimeoutError: locator.waitFor: Timeout 1000ms exceeded.",
+          "apiDelta": []
+        },
+        {
+          "name": "create-dialog",
+          "ok": false,
+          "detail": "TimeoutError: locator.waitFor: Timeout 1000ms exceeded.",
+          "apiDelta": []
+        },
+        {
+          "name": "export",
+          "ok": true,
+          "detail": "已点击导出",
+          "apiDelta": []
+        },
+        {
+          "name": "next-page",
+          "ok": true,
+          "detail": "已点击下一页",
+          "apiDelta": []
+        }
+      ],
+      "screenshots": [
+        "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/logs/round-0819-s2-AuditLogPage-initial.png"
+      ]
+    },
+    {
+      "slug": "McpGovernanceListPage",
+      "module": "mcp-governance",
+      "requestedPath": "/mcp-governance",
+      "finalUrl": "http://127.0.0.1:8082/mcp-governance",
+      "redirected": false,
+      "apis": [
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/uxTelemetryReporter.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/client.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/features.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/adminConfig.ts?t=1786770685015"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/rbac.ts?t=1786770724013"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/responseAdapter.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/stats.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/index.ts?t=1786770704101"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/ops_governance/api/reports.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/ops_governance/api/feedback.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/public.ts?t=1786770704101"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/moments/api/index.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/groups/api/index.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/channels/api/index.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/userDevices.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/auth.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/setup.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/users.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/roles.ts?t=1786770704101"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/moments/api/public.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/groups/api/enhancements.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/groups/api/public.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/channels/api/public.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/current"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/current"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/rbac/me"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/stats/license"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/feedback/index?page=1&size=1&status=1"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/moment/report/list?page=1&size=1&status=0"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/mcpGovernance.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/current"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/mcp/clients?page=1&size=10"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/mcp/audit?page=1&size=10"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/mcp/clients?page=2&size=10"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "actions": [
+        {
+          "name": "search",
+          "ok": true,
+          "detail": "已填入 zz_no_match_test 并点击搜索",
+          "apiDelta": []
+        },
+        {
+          "name": "reset",
+          "ok": false,
+          "detail": "TimeoutError: locator.waitFor: Timeout 1000ms exceeded.",
+          "apiDelta": []
+        },
+        {
+          "name": "export",
+          "ok": false,
+          "detail": "TimeoutError: locator.waitFor: Timeout 1000ms exceeded.",
+          "apiDelta": []
+        },
+        {
+          "name": "next-page",
+          "ok": true,
+          "detail": "已点击下一页",
+          "apiDelta": [
+            {
+              "method": "GET",
+              "status": 200,
+              "url": "/api/adm/mcp/clients?page=2&size=10"
+            }
+          ]
+        }
+      ],
+      "screenshots": [
+        "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/mcp-governance/round-0819-s2-McpGovernanceListPage-initial.png"
+      ]
+    },
+    {
+      "slug": "MessageListPage",
+      "module": "messages",
+      "requestedPath": "/messages",
+      "finalUrl": "http://127.0.0.1:8082/messages",
+      "redirected": false,
+      "apis": [
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/uxTelemetryReporter.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/client.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/features.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/adminConfig.ts?t=1786770685015"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/rbac.ts?t=1786770724013"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/responseAdapter.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/stats.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/index.ts?t=1786770704101"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/ops_governance/api/feedback.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/ops_governance/api/reports.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/public.ts?t=1786770704101"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/groups/api/index.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/channels/api/index.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/moments/api/index.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/userDevices.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/auth.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/setup.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/users.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/roles.ts?t=1786770704101"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/groups/api/enhancements.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/groups/api/public.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/channels/api/public.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/moments/api/public.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/current"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/current"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/rbac/me"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/stats/license"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/moment/report/list?page=1&size=1&status=0"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/feedback/index?page=1&size=1&status=1"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/messages/api/index.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/messages/api/public.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/current"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/message/list?page=1&size=10&msg_scope=all"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/message/export?page=1&size=10&msg_scope=all"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/message/list?page=2&size=10&msg_scope=all"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "actions": [
+        {
+          "name": "search",
+          "ok": true,
+          "detail": "已填入 zz_no_match_test 并点击搜索",
+          "apiDelta": []
+        },
+        {
+          "name": "reset",
+          "ok": false,
+          "detail": "TimeoutError: locator.waitFor: Timeout 1000ms exceeded.",
+          "apiDelta": []
+        },
+        {
+          "name": "create-dialog",
+          "ok": true,
+          "detail": "未检测到 dialog（可能为 Drawer 或直接动作）",
+          "apiDelta": []
+        },
+        {
+          "name": "export",
+          "ok": true,
+          "detail": "已点击导出",
+          "apiDelta": [
+            {
+              "method": "GET",
+              "status": 200,
+              "url": "/api/adm/message/export?page=1&size=10&msg_scope=all"
+            }
+          ]
+        },
+        {
+          "name": "next-page",
+          "ok": true,
+          "detail": "已点击下一页",
+          "apiDelta": [
+            {
+              "method": "GET",
+              "status": 200,
+              "url": "/api/adm/message/list?page=2&size=10&msg_scope=all"
+            }
+          ]
+        }
+      ],
+      "screenshots": [
+        "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/messages/round-0819-s2-MessageListPage-initial.png",
+        "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/messages/round-0819-s2-MessageListPage-create-dialog.png"
+      ]
+    },
+    {
+      "slug": "ReportCenterPage",
+      "module": "reports",
+      "requestedPath": "/reports",
+      "finalUrl": "http://127.0.0.1:8082/reports",
+      "redirected": false,
+      "apis": [
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/uxTelemetryReporter.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/client.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/features.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/adminConfig.ts?t=1786770685015"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/rbac.ts?t=1786770724013"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/responseAdapter.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/stats.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/index.ts?t=1786770704101"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/ops_governance/api/reports.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/ops_governance/api/feedback.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/public.ts?t=1786770704101"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/moments/api/index.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/groups/api/index.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/channels/api/index.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/userDevices.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/auth.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/setup.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/users.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/roles.ts?t=1786770704101"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/moments/api/public.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/groups/api/enhancements.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/groups/api/public.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/channels/api/public.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/current"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/current"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/rbac/me"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/stats/license"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/feedback/index?page=1&size=1&status=1"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/moment/report/list?page=1&size=1&status=0"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/ops_governance/api/index.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/feedbackWorkflowConfig.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/ops_governance/api/public.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/ops_governance/api/versions.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/ops_governance/api/ddl.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/current"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/moment/report/list?page=1&size=10&status=-1"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/moment/report/list?page=2&size=10&status=-1"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "actions": [
+        {
+          "name": "search",
+          "ok": false,
+          "detail": "TimeoutError: locator.waitFor: Timeout 1500ms exceeded.",
+          "apiDelta": []
+        },
+        {
+          "name": "reset",
+          "ok": false,
+          "detail": "TimeoutError: locator.waitFor: Timeout 1000ms exceeded.",
+          "apiDelta": []
+        },
+        {
+          "name": "create-dialog",
+          "ok": false,
+          "detail": "TimeoutError: locator.waitFor: Timeout 1000ms exceeded.",
+          "apiDelta": []
+        },
+        {
+          "name": "export",
+          "ok": false,
+          "detail": "TimeoutError: locator.waitFor: Timeout 1000ms exceeded.",
+          "apiDelta": []
+        },
+        {
+          "name": "next-page",
+          "ok": true,
+          "detail": "已点击下一页",
+          "apiDelta": [
+            {
+              "method": "GET",
+              "status": 200,
+              "url": "/api/adm/moment/report/list?page=2&size=10&status=-1"
+            }
+          ]
+        }
+      ],
+      "screenshots": [
+        "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/reports/round-0819-s2-ReportCenterPage-initial.png"
+      ]
+    },
+    {
+      "slug": "RolePermissionPage",
+      "module": "roles",
+      "requestedPath": "/roles",
+      "finalUrl": "http://127.0.0.1:8082/roles",
+      "redirected": false,
+      "apis": [
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/services/api/uxTelemetryReporter.ts"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/services/api/client.ts"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/services/api/features.ts"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/services/api/rbac.ts?t=1786770724013"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/services/api/adminConfig.ts?t=1786770685015"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/services/api/responseAdapter.ts"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/services/api/stats.ts"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/modules/identity/api/index.ts?t=1786770704101"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/modules/ops_governance/api/reports.ts"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/modules/ops_governance/api/feedback.ts"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/modules/identity/api/public.ts?t=1786770704101"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/modules/moments/api/index.ts"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/modules/groups/api/index.ts"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/services/api/userDevices.ts"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/modules/identity/api/auth.ts"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/modules/identity/api/setup.ts"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/modules/channels/api/index.ts"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/modules/identity/api/roles.ts?t=1786770704101"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/modules/moments/api/public.ts"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/modules/groups/api/enhancements.ts"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/modules/groups/api/public.ts"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/modules/identity/api/users.ts"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/modules/channels/api/public.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/current"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/current"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/rbac/me"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/stats/license"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/moment/report/list?page=1&size=1&status=0"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/feedback/index?page=1&size=1&status=1"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/current"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/rbac/me"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/current"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/role/list?page=1&size=200&status=-1"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "actions": [
+        {
+          "name": "search",
+          "ok": false,
+          "detail": "TimeoutError: locator.waitFor: Timeout 1500ms exceeded.",
+          "apiDelta": []
+        },
+        {
+          "name": "reset",
+          "ok": false,
+          "detail": "TimeoutError: locator.waitFor: Timeout 1000ms exceeded.",
+          "apiDelta": []
+        },
+        {
+          "name": "create-dialog",
+          "ok": true,
+          "detail": "弹窗已打开并取消",
+          "apiDelta": []
+        },
+        {
+          "name": "export",
+          "ok": false,
+          "detail": "TimeoutError: locator.waitFor: Timeout 1000ms exceeded.",
+          "apiDelta": []
+        },
+        {
+          "name": "next-page",
+          "ok": false,
+          "detail": "TimeoutError: locator.waitFor: Timeout 1000ms exceeded.",
+          "apiDelta": []
+        }
+      ],
+      "screenshots": [
+        "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/roles/round-0819-s2-RolePermissionPage-initial.png",
+        "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/roles/round-0819-s2-RolePermissionPage-create-dialog.png"
+      ]
+    },
+    {
+      "slug": "StorageOverviewPage",
+      "module": "storage",
+      "requestedPath": "/storage",
+      "finalUrl": "http://127.0.0.1:8082/storage",
+      "redirected": false,
+      "apis": [
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/uxTelemetryReporter.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/client.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/features.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/rbac.ts?t=1786770724013"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/adminConfig.ts?t=1786770685015"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/responseAdapter.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/stats.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/index.ts?t=1786770704101"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/ops_governance/api/reports.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/ops_governance/api/feedback.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/public.ts?t=1786770704101"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/moments/api/index.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/groups/api/index.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/channels/api/index.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/userDevices.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/auth.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/setup.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/roles.ts?t=1786770704101"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/users.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/moments/api/public.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/groups/api/enhancements.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/groups/api/public.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/channels/api/public.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/current"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/current"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/rbac/me"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/stats/license"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/feedback/index?page=1&size=1&status=1"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/moment/report/list?page=1&size=1&status=0"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/storage.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/current"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/storage/stats"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/storage/index?page=1&size=10&status=1"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/storage/index?page=2&size=10&status=1"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "actions": [
+        {
+          "name": "search",
+          "ok": true,
+          "detail": "已填入 zz_no_match_test 并点击搜索",
+          "apiDelta": []
+        },
+        {
+          "name": "reset",
+          "ok": false,
+          "detail": "TimeoutError: locator.waitFor: Timeout 1000ms exceeded.",
+          "apiDelta": []
+        },
+        {
+          "name": "create-dialog",
+          "ok": false,
+          "detail": "TimeoutError: locator.waitFor: Timeout 1000ms exceeded.",
+          "apiDelta": []
+        },
+        {
+          "name": "export",
+          "ok": false,
+          "detail": "TimeoutError: locator.waitFor: Timeout 1000ms exceeded.",
+          "apiDelta": []
+        },
+        {
+          "name": "next-page",
+          "ok": true,
+          "detail": "已点击下一页",
+          "apiDelta": [
+            {
+              "method": "GET",
+              "status": 200,
+              "url": "/api/adm/storage/index?page=2&size=10&status=1"
+            }
+          ]
+        }
+      ],
+      "screenshots": [
+        "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/storage/round-0819-s2-StorageOverviewPage-initial.png"
+      ]
+    },
+    {
+      "slug": "SystemHealthPage",
+      "module": "system-health",
+      "requestedPath": "/system-health",
+      "finalUrl": "http://127.0.0.1:8082/system-health",
+      "redirected": false,
+      "apis": [
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/uxTelemetryReporter.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/client.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/features.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/adminConfig.ts?t=1786770685015"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/rbac.ts?t=1786770724013"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/responseAdapter.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/index.ts?t=1786770704101"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/stats.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/ops_governance/api/reports.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/ops_governance/api/feedback.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/public.ts?t=1786770704101"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/moments/api/index.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/userDevices.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/setup.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/auth.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/users.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/roles.ts?t=1786770704101"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/groups/api/index.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/moments/api/public.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/channels/api/index.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/groups/api/enhancements.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/groups/api/public.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/channels/api/public.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/current"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/current"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/rbac/me"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/stats/license"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/feedback/index?page=1&size=1&status=1"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/moment/report/list?page=1&size=1&status=0"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/systemHealth.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/current"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "actions": [
+        {
+          "name": "search",
+          "ok": false,
+          "detail": "TimeoutError: locator.waitFor: Timeout 1500ms exceeded.",
+          "apiDelta": []
+        },
+        {
+          "name": "reset",
+          "ok": false,
+          "detail": "TimeoutError: locator.waitFor: Timeout 1000ms exceeded.",
+          "apiDelta": []
+        },
+        {
+          "name": "create-dialog",
+          "ok": false,
+          "detail": "TimeoutError: locator.waitFor: Timeout 1000ms exceeded.",
+          "apiDelta": []
+        },
+        {
+          "name": "export",
+          "ok": false,
+          "detail": "TimeoutError: locator.waitFor: Timeout 1000ms exceeded.",
+          "apiDelta": []
+        },
+        {
+          "name": "next-page",
+          "ok": false,
+          "detail": "TimeoutError: locator.waitFor: Timeout 1000ms exceeded.",
+          "apiDelta": []
+        }
+      ],
+      "screenshots": [
+        "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/system-health/round-0819-s2-SystemHealthPage-initial.png"
+      ]
+    },
+    {
+      "slug": "PluginManagementPage",
+      "module": "plugin_management",
+      "requestedPath": "/plugins",
+      "finalUrl": "http://127.0.0.1:8082/plugins",
+      "redirected": false,
+      "apis": [
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/services/api/uxTelemetryReporter.ts"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/services/api/client.ts"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/services/api/features.ts"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/services/api/adminConfig.ts?t=1786770685015"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/services/api/rbac.ts?t=1786770724013"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/services/api/responseAdapter.ts"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/services/api/stats.ts"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/modules/identity/api/index.ts?t=1786770704101"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/modules/ops_governance/api/reports.ts"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/modules/ops_governance/api/feedback.ts"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/modules/identity/api/public.ts?t=1786770704101"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/modules/moments/api/index.ts"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/modules/groups/api/index.ts"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/modules/channels/api/index.ts"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/services/api/userDevices.ts"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/modules/identity/api/auth.ts"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/modules/identity/api/users.ts"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/modules/identity/api/roles.ts?t=1786770704101"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/modules/identity/api/setup.ts"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/modules/moments/api/public.ts"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/modules/groups/api/enhancements.ts"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/modules/groups/api/public.ts"
+        },
+        {
+          "method": "GET",
+          "status": 304,
+          "url": "/src/modules/channels/api/public.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/current"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/current"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/rbac/me"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/stats/license"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/feedback/index?page=1&size=1&status=1"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/moment/report/list?page=1&size=1&status=0"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/plugin_management/api/plugins.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/current"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/plugin/list"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "actions": [
+        {
+          "name": "search",
+          "ok": false,
+          "detail": "TimeoutError: locator.waitFor: Timeout 1500ms exceeded.",
+          "apiDelta": []
+        },
+        {
+          "name": "reset",
+          "ok": false,
+          "detail": "TimeoutError: locator.waitFor: Timeout 1000ms exceeded.",
+          "apiDelta": []
+        },
+        {
+          "name": "create-dialog",
+          "ok": false,
+          "detail": "TimeoutError: locator.waitFor: Timeout 1000ms exceeded.",
+          "apiDelta": []
+        },
+        {
+          "name": "export",
+          "ok": false,
+          "detail": "TimeoutError: locator.waitFor: Timeout 1000ms exceeded.",
+          "apiDelta": []
+        },
+        {
+          "name": "next-page",
+          "ok": false,
+          "detail": "TimeoutError: locator.waitFor: Timeout 1000ms exceeded.",
+          "apiDelta": []
+        }
+      ],
+      "screenshots": [
+        "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/plugin_management/round-0819-s2-PluginManagementPage-initial.png"
+      ]
+    },
+    {
+      "slug": "PluginLogPage",
+      "module": "plugin_management",
+      "requestedPath": "/plugins/logs",
+      "finalUrl": "http://127.0.0.1:8082/plugins/logs",
+      "redirected": false,
+      "apis": [
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/uxTelemetryReporter.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/client.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/features.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/adminConfig.ts?t=1786770685015"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/rbac.ts?t=1786770724013"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/responseAdapter.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/stats.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/index.ts?t=1786770704101"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/ops_governance/api/reports.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/ops_governance/api/feedback.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/public.ts?t=1786770704101"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/moments/api/index.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/groups/api/index.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/channels/api/index.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/services/api/userDevices.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/auth.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/setup.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/users.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/identity/api/roles.ts?t=1786770704101"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/moments/api/public.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/groups/api/enhancements.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/groups/api/public.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/channels/api/public.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/current"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/current"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/rbac/me"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/stats/license"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/moment/report/list?page=1&size=1&status=0"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/feedback/index?page=1&size=1&status=1"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/src/modules/plugin_management/api/plugins.ts"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/current"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/plugin/logs?page=1&size=10"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "url": "/api/adm/plugin/logs?page=2&size=10"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "actions": [
+        {
+          "name": "search",
+          "ok": false,
+          "detail": "TimeoutError: locator.waitFor: Timeout 1500ms exceeded.",
+          "apiDelta": []
+        },
+        {
+          "name": "reset",
+          "ok": false,
+          "detail": "TimeoutError: locator.waitFor: Timeout 1000ms exceeded.",
+          "apiDelta": []
+        },
+        {
+          "name": "create-dialog",
+          "ok": false,
+          "detail": "TimeoutError: locator.waitFor: Timeout 1000ms exceeded.",
+          "apiDelta": []
+        },
+        {
+          "name": "export",
+          "ok": true,
+          "detail": "已点击导出",
+          "apiDelta": []
+        },
+        {
+          "name": "next-page",
+          "ok": true,
+          "detail": "已点击下一页",
+          "apiDelta": [
+            {
+              "method": "GET",
+              "status": 200,
+              "url": "/api/adm/plugin/logs?page=2&size=10"
+            }
+          ]
+        }
+      ],
+      "screenshots": [
+        "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/plugin_management/round-0819-s2-PluginLogPage-initial.png"
+      ]
+    }
+  ]
+}
