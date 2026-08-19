@@ -277,5 +277,50 @@ describe('AiAgentListPage 编辑对话框扩展字段', () => {
         'new-avatar.png'
       )
     })
+
+    // 私桶 403 → onError 回退到本地 blob 预览（不裂图）
+    fireEvent.error(view.getByTestId('avatar-preview'))
+    await waitFor(() => {
+      const img = view.getByTestId('avatar-preview') as HTMLImageElement
+      expect(img.src.startsWith('blob:')).toBeTrue()
+    })
+  })
+
+  it('旧头像裸 URL 加载失败时降级占位并展示已存 URL', async () => {
+    // 编辑回显的 avatar 取自列表行 row.avatar（AiAgentDetail 无 avatar 字段）
+    const rowWithAvatar = { ...listRow, avatar: 'https://s3.example.com/old.png' }
+    mutableClient.get = async (url: string) => {
+      if (url === '/ai_agent/list') {
+        return envelope({ list: [rowWithAvatar], page: 1, size: 10, total: 1 })
+      }
+      if (url === '/ai_agent/detail') {
+        return envelope(detailFixture)
+      }
+      throw new Error(`unexpected GET: ${url}`)
+    }
+    mutableClient.post = async (url: string) => {
+      throw new Error(`unexpected POST: ${url}`)
+    }
+
+    let view: ReturnType<typeof renderPage>
+    await act(async () => {
+      view = renderPage()
+    })
+    await waitFor(() => expect(view.getAllByText('医生助手').length).toBeGreaterThan(0))
+
+    await act(async () => {
+      fireEvent.click(view.getAllByText('编辑')[0])
+    })
+    await waitFor(() => expect(view.getByTestId('avatar-input')).toBeTruthy())
+
+    // 编辑回显首选服务端 URL
+    const img = view.getByTestId('avatar-preview') as HTMLImageElement
+    expect(img.src).toContain('old.png')
+
+    // 403 失败且无本地 blob → 降级占位符，并以文本展示已保存 URL
+    fireEvent.error(img)
+    await waitFor(() => expect(view.getByTestId('avatar-preview-fallback').textContent).toBe('不可预览'))
+    expect(view.queryByTestId('avatar-preview')).toBeNull()
+    expect(view.getByTestId('avatar-url-fallback').textContent).toContain('old.png')
   })
 })

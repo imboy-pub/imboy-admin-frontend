@@ -91,7 +91,27 @@ export function AiAgentListPage() {
   const [form, setForm] = useState<AgentForm>(EMPTY_FORM)
   const [statusConfirm, setStatusConfirm] = useState<AiAgentListItem | null>(null)
   const [avatarUploading, setAvatarUploading] = useState(false)
+  // Garage 私桶裸 URL 直读 403：加载失败后回退本地 blob 预览，再失败降级占位符
+  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false)
+  const [avatarFallbackUrl, setAvatarFallbackUrl] = useState<string | null>(null)
+  const avatarObjectUrlRef = useRef<string | null>(null)
   const avatarInputRef = useRef<HTMLInputElement>(null)
+
+  const resetAvatarPreview = useCallback(() => {
+    if (avatarObjectUrlRef.current) {
+      URL.revokeObjectURL(avatarObjectUrlRef.current)
+      avatarObjectUrlRef.current = null
+    }
+    setAvatarFallbackUrl(null)
+    setAvatarLoadFailed(false)
+  }, [])
+
+  useEffect(
+    () => () => {
+      if (avatarObjectUrlRef.current) URL.revokeObjectURL(avatarObjectUrlRef.current)
+    },
+    []
+  )
   const { data: roleOptions = [] } = useQuery({
     queryKey: ['ai_agent_role_options'],
     queryFn: async (): Promise<AiRoleListItem[]> => {
@@ -155,11 +175,13 @@ export function AiAgentListPage() {
   const openCreate = useCallback(() => {
     setDialogMode('create')
     setForm(EMPTY_FORM)
+    resetAvatarPreview()
     setDialogOpen(true)
-  }, [])
+  }, [resetAvatarPreview])
 
   const openEdit = useCallback(async (row: AiAgentListItem) => {
     setDialogMode('edit')
+    resetAvatarPreview()
     // 列表无 system_prompt 长文本，编辑前拉详情
     try {
       const detail = await getAiAgentDetail(row.user_id)
@@ -182,13 +204,20 @@ export function AiAgentListPage() {
     } catch (err) {
       toast.error(`加载助手详情失败: ${getErrorMessage(err)}`)
     }
-  }, [])
+  }, [resetAvatarPreview])
 
   const handleAvatarChange = useCallback(async (file: File | undefined) => {
     if (!file) return
     setAvatarUploading(true)
     try {
       const { url } = await uploadAgentAvatar(file)
+      // 服务端返回 Garage 裸 URL（私桶直读 403）：保留本地 blob 作为
+      // <img> onError 后的回退预览源；表单仍提交服务端 URL，后端存 user.avatar
+      if (avatarObjectUrlRef.current) URL.revokeObjectURL(avatarObjectUrlRef.current)
+      const objectUrl = URL.createObjectURL(file)
+      avatarObjectUrlRef.current = objectUrl
+      setAvatarFallbackUrl(objectUrl)
+      setAvatarLoadFailed(false)
       setForm((prev) => ({ ...prev, avatar: url }))
       toast.success('头像已上传，保存后生效')
     } catch (err) {
@@ -311,6 +340,11 @@ export function AiAgentListPage() {
     columns,
     getCoreRowModel: getCoreRowModel(),
   })
+
+  // 首选服务端 URL（公网/公开桶时直读可用）；403 失败后回退本地 blob，再退占位符
+  const avatarImgSrc =
+    avatarLoadFailed && avatarFallbackUrl ? avatarFallbackUrl : form.avatar
+  const avatarUnavailable = avatarLoadFailed && !avatarFallbackUrl
 
   if (isLoading) return <LoadingState message="加载 AI 助手列表..." />
   if (error) return <ErrorState message="加载 AI 助手列表失败" onRetry={() => refetch()} />
@@ -440,21 +474,34 @@ export function AiAgentListPage() {
               />
             </div>
             <div className="flex items-center gap-4 rounded-lg border p-4">
-              {form.avatar ? (
+              {form.avatar && !avatarUnavailable ? (
                 <img
                   data-testid="avatar-preview"
-                  src={form.avatar}
+                  src={avatarImgSrc}
                   alt="头像"
                   className="h-14 w-14 rounded-full border object-cover"
+                  onError={() => setAvatarLoadFailed(true)}
                 />
               ) : (
-                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted text-xs text-muted-foreground">
-                  无头像
+                <div
+                  data-testid={form.avatar ? 'avatar-preview-fallback' : undefined}
+                  className="flex h-14 w-14 items-center justify-center rounded-full bg-muted px-1 text-center text-xs text-muted-foreground"
+                >
+                  {form.avatar ? '不可预览' : '无头像'}
                 </div>
               )}
               <div className="space-y-1">
                 <span className="font-medium">头像</span>
                 <p className="text-xs text-muted-foreground">上传后保存到 Garage，随用户资料展示</p>
+                {avatarUnavailable && form.avatar ? (
+                  <p
+                    data-testid="avatar-url-fallback"
+                    className="max-w-[260px] truncate font-mono text-xs text-muted-foreground"
+                    title={form.avatar}
+                  >
+                    {form.avatar}
+                  </p>
+                ) : null}
                 <Button
                   type="button"
                   variant="outline"
