@@ -1,0 +1,442 @@
+[
+  {
+    "url": "/current",
+    "status": 401,
+    "method": "GET"
+  },
+  {
+    "url": "/current",
+    "status": 401,
+    "method": "GET"
+  },
+  {
+    "url": "/setup/status",
+    "status": 401,
+    "method": "GET"
+  },
+  {
+    "url": "/passport/meta",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/setup/status",
+    "status": 401,
+    "method": "GET"
+  },
+  {
+    "url": "/passport/meta",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/passport/captcha?t=1787097893922",
+    "status": 503,
+    "method": "GET"
+  },
+  {
+    "url": "/passport/captcha?t=1787097893928",
+    "status": 503,
+    "method": "GET"
+  },
+  {
+    "url": "/setup/status",
+    "status": 401,
+    "method": "GET"
+  },
+  {
+    "url": "/passport/meta",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/setup/status",
+    "status": 401,
+    "method": "GET"
+  },
+  {
+    "url": "/passport/meta",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/passport/captcha?t=1787097894119",
+    "status": 503,
+    "method": "GET"
+  },
+  {
+    "url": "/passport/do_login",
+    "status": 200,
+    "method": "POST"
+  },
+  {
+    "url": "/current",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/current",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/rbac/me",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/admin/config/features",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/stats/license",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/moment/report/list?page=1&size=1&status=0",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/feedback/index?page=1&size=1&status=1",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/stats/group?days=7",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/stats/finance",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/stats/user?days=7",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/current",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/stats/message?days=7",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/stats/overview",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/current",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/current",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/rbac/me",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/stats/license",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/feedback/index?page=1&size=1&status=1",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/moment/report/list?page=1&size=1&status=0",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/current",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/role/list?page=1&size=200&status=-1",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/admin/list?page=1&size=10&status=-1",
+    "status": 200,
+    "method": "GET",
+    "body": "{\"code\":0,\"msg\":\"success\",\"payload\":{\"list\":[{\"account\":\"pw_e2e_admin_mstx967g\",\"avatar\":\"\",\"created_at\":1786770892052,\"email\":null,\"id\":107125233789700096,\"last_login_at\":1786770892051,\"last_login_ip\":\"\",\"login_count\":0,\"mobile\":null,\"nickname\":\"pw_e2e_admin_mstx967g\",\"role_id\":3,\"role_ids\":[3],\"status\":1},{\"account\":\"pw_e2e_admin_mstwk7ao\",\"avatar\":\"\",\"created_at\":1786769726888,\"email\":null,\"id\":107122790261590016,\"last_login_at\":1786769726886,\"last_login_ip\":\"\",\"login_count\":0,\"mobile\":null,\""
+  },
+  {
+    "url": "/admin/list?page=1&size=10&status=-1",
+    "status": 200,
+    "method": "GET",
+    "body": "{\"code\":0,\"msg\":\"success\",\"payload\":{\"list\":[{\"account\":\"pw_e2e_admin_mstx967g\",\"avatar\":\"\",\"created_at\":1786770892052,\"email\":null,\"id\":107125233789700096,\"last_login_at\":1786770892051,\"last_login_ip\":\"\",\"login_count\":0,\"mobile\":null,\"nickname\":\"pw_e2e_admin_mstx967g\",\"role_id\":3,\"role_ids\":[3],\"status\":1},{\"account\":\"pw_e2e_admin_mstwk7ao\",\"avatar\":\"\",\"created_at\":1786769726888,\"email\":null,\"id\":107122790261590016,\"last_login_at\":1786769726886,\"last_login_ip\":\"\",\"login_count\":0,\"mobile\":null,\""
+  },
+  {
+    "url": "/admin/list?page=1&size=10&status=-1&keyword=admin",
+    "status": 200,
+    "method": "GET",
+    "body": "{\"code\":0,\"msg\":\"success\",\"payload\":{\"list\":[{\"account\":\"pw_e2e_admin_mstx967g\",\"avatar\":\"\",\"created_at\":1786770892052,\"email\":null,\"id\":107125233789700096,\"last_login_at\":1786770892051,\"last_login_ip\":\"\",\"login_count\":0,\"mobile\":null,\"nickname\":\"pw_e2e_admin_mstx967g\",\"role_id\":3,\"role_ids\":[3],\"status\":1},{\"account\":\"pw_e2e_admin_mstwk7ao\",\"avatar\":\"\",\"created_at\":1786769726888,\"email\":null,\"id\":107122790261590016,\"last_login_at\":1786769726886,\"last_login_ip\":\"\",\"login_count\":0,\"mobile\":null,\""
+  },
+  {
+    "url": "/admin/list?page=1&size=10&status=-1&keyword=admin",
+    "status": 200,
+    "method": "GET",
+    "body": "{\"code\":0,\"msg\":\"success\",\"payload\":{\"list\":[{\"account\":\"pw_e2e_admin_mstx967g\",\"avatar\":\"\",\"created_at\":1786770892052,\"email\":null,\"id\":107125233789700096,\"last_login_at\":1786770892051,\"last_login_ip\":\"\",\"login_count\":0,\"mobile\":null,\"nickname\":\"pw_e2e_admin_mstx967g\",\"role_id\":3,\"role_ids\":[3],\"status\":1},{\"account\":\"pw_e2e_admin_mstwk7ao\",\"avatar\":\"\",\"created_at\":1786769726888,\"email\":null,\"id\":107122790261590016,\"last_login_at\":1786769726886,\"last_login_ip\":\"\",\"login_count\":0,\"mobile\":null,\""
+  },
+  {
+    "url": "/admin/list?page=1&size=10&status=-1",
+    "status": 200,
+    "method": "GET",
+    "body": "{\"code\":0,\"msg\":\"success\",\"payload\":{\"list\":[{\"account\":\"pw_e2e_admin_mstx967g\",\"avatar\":\"\",\"created_at\":1786770892052,\"email\":null,\"id\":107125233789700096,\"last_login_at\":1786770892051,\"last_login_ip\":\"\",\"login_count\":0,\"mobile\":null,\"nickname\":\"pw_e2e_admin_mstx967g\",\"role_id\":3,\"role_ids\":[3],\"status\":1},{\"account\":\"pw_e2e_admin_mstwk7ao\",\"avatar\":\"\",\"created_at\":1786769726888,\"email\":null,\"id\":107122790261590016,\"last_login_at\":1786769726886,\"last_login_ip\":\"\",\"login_count\":0,\"mobile\":null,\""
+  },
+  {
+    "url": "/admin/list?page=1&size=10&status=-1",
+    "status": 200,
+    "method": "GET",
+    "body": "{\"code\":0,\"msg\":\"success\",\"payload\":{\"list\":[{\"account\":\"pw_e2e_admin_mstx967g\",\"avatar\":\"\",\"created_at\":1786770892052,\"email\":null,\"id\":107125233789700096,\"last_login_at\":1786770892051,\"last_login_ip\":\"\",\"login_count\":0,\"mobile\":null,\"nickname\":\"pw_e2e_admin_mstx967g\",\"role_id\":3,\"role_ids\":[3],\"status\":1},{\"account\":\"pw_e2e_admin_mstwk7ao\",\"avatar\":\"\",\"created_at\":1786769726888,\"email\":null,\"id\":107122790261590016,\"last_login_at\":1786769726886,\"last_login_ip\":\"\",\"login_count\":0,\"mobile\":null,\""
+  },
+  {
+    "url": "/passport/meta",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/admin/create",
+    "status": 200,
+    "method": "POST"
+  },
+  {
+    "url": "/admin/list?page=1&size=10&status=-1",
+    "status": 200,
+    "method": "GET",
+    "body": "{\"code\":0,\"msg\":\"success\",\"payload\":{\"list\":[{\"account\":\"pw_e2e_b1_97896\",\"avatar\":\"\",\"created_at\":1787097896459,\"email\":null,\"id\":107811011735848960,\"last_login_at\":1787097896459,\"last_login_ip\":\"\",\"login_count\":0,\"mobile\":null,\"nickname\":\"pw_e2e_b1_97896\",\"role_id\":1,\"role_ids\":[1],\"status\":1},{\"account\":\"pw_e2e_admin_mstx967g\",\"avatar\":\"\",\"created_at\":1786770892052,\"email\":null,\"id\":107125233789700096,\"last_login_at\":1786770892051,\"last_login_ip\":\"\",\"login_count\":0,\"mobile\":null,\"nickname\":\"p"
+  },
+  {
+    "url": "/admin/list?page=1&size=10&status=-1",
+    "status": 200,
+    "method": "GET",
+    "body": "{\"code\":0,\"msg\":\"success\",\"payload\":{\"list\":[{\"account\":\"pw_e2e_b1_97896\",\"avatar\":\"\",\"created_at\":1787097896459,\"email\":null,\"id\":107811011735848960,\"last_login_at\":1787097896459,\"last_login_ip\":\"\",\"login_count\":0,\"mobile\":null,\"nickname\":\"pw_e2e_b1_97896\",\"role_id\":1,\"role_ids\":[1],\"status\":1},{\"account\":\"pw_e2e_admin_mstx967g\",\"avatar\":\"\",\"created_at\":1786770892052,\"email\":null,\"id\":107125233789700096,\"last_login_at\":1786770892051,\"last_login_ip\":\"\",\"login_count\":0,\"mobile\":null,\"nickname\":\"p"
+  },
+  {
+    "url": "/admin/list?page=1&size=10&status=-1&keyword=pw_e2e_b1_97896",
+    "status": 200,
+    "method": "GET",
+    "body": "{\"code\":0,\"msg\":\"success\",\"payload\":{\"list\":[{\"account\":\"pw_e2e_b1_97896\",\"avatar\":\"\",\"created_at\":1787097896459,\"email\":null,\"id\":107811011735848960,\"last_login_at\":1787097896459,\"last_login_ip\":\"\",\"login_count\":0,\"mobile\":null,\"nickname\":\"pw_e2e_b1_97896\",\"role_id\":1,\"role_ids\":[1],\"status\":1}],\"size\":10,\"total\":1,\"page\":1},\"sv_ts\":1787097896645}"
+  },
+  {
+    "url": "/admin/disable",
+    "status": 200,
+    "method": "POST"
+  },
+  {
+    "url": "/admin/list?page=1&size=10&status=-1&keyword=pw_e2e_b1_97896",
+    "status": 200,
+    "method": "GET",
+    "body": "{\"code\":0,\"msg\":\"success\",\"payload\":{\"list\":[{\"account\":\"pw_e2e_b1_97896\",\"avatar\":\"\",\"created_at\":1787097896459,\"email\":null,\"id\":107811011735848960,\"last_login_at\":1787097896459,\"last_login_ip\":\"\",\"login_count\":0,\"mobile\":null,\"nickname\":\"pw_e2e_b1_97896\",\"role_id\":1,\"role_ids\":[1],\"status\":0}],\"size\":10,\"total\":1,\"page\":1},\"sv_ts\":1787097896810}"
+  },
+  {
+    "url": "/admin/list?page=1&size=10&status=-1&keyword=pw_e2e_b1_97896",
+    "status": 200,
+    "method": "GET",
+    "body": "{\"code\":0,\"msg\":\"success\",\"payload\":{\"list\":[{\"account\":\"pw_e2e_b1_97896\",\"avatar\":\"\",\"created_at\":1787097896459,\"email\":null,\"id\":107811011735848960,\"last_login_at\":1787097896459,\"last_login_ip\":\"\",\"login_count\":0,\"mobile\":null,\"nickname\":\"pw_e2e_b1_97896\",\"role_id\":1,\"role_ids\":[1],\"status\":0}],\"size\":10,\"total\":1,\"page\":1},\"sv_ts\":1787097896888}"
+  },
+  {
+    "url": "/admin/list?page=1&size=10&status=-1",
+    "status": 200,
+    "method": "GET",
+    "body": "{\"code\":0,\"msg\":\"success\",\"payload\":{\"list\":[{\"account\":\"pw_e2e_b1_97896\",\"avatar\":\"\",\"created_at\":1787097896459,\"email\":null,\"id\":107811011735848960,\"last_login_at\":1787097896459,\"last_login_ip\":\"\",\"login_count\":0,\"mobile\":null,\"nickname\":\"pw_e2e_b1_97896\",\"role_id\":1,\"role_ids\":[1],\"status\":0},{\"account\":\"pw_e2e_admin_mstx967g\",\"avatar\":\"\",\"created_at\":1786770892052,\"email\":null,\"id\":107125233789700096,\"last_login_at\":1786770892051,\"last_login_ip\":\"\",\"login_count\":0,\"mobile\":null,\"nickname\":\"p"
+  },
+  {
+    "url": "/current",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/current",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/rbac/me",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/moment/report/list?page=1&size=1&status=0",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/stats/license",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/feedback/index?page=1&size=1&status=1",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/current",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/role/list?page=1&size=200&status=-1",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/admin/list?page=1&size=10&status=-1",
+    "status": 200,
+    "method": "GET",
+    "body": "{\"code\":0,\"msg\":\"success\",\"payload\":{\"list\":[{\"account\":\"pw_e2e_b1_97896\",\"avatar\":\"\",\"created_at\":1787097896459,\"email\":null,\"id\":107811011735848960,\"last_login_at\":1787097896459,\"last_login_ip\":\"\",\"login_count\":0,\"mobile\":null,\"nickname\":\"pw_e2e_b1_97896\",\"role_id\":1,\"role_ids\":[1],\"status\":0},{\"account\":\"pw_e2e_admin_mstx967g\",\"avatar\":\"\",\"created_at\":1786770892052,\"email\":null,\"id\":107125233789700096,\"last_login_at\":1786770892051,\"last_login_ip\":\"\",\"login_count\":0,\"mobile\":null,\"nickname\":\"p"
+  },
+  {
+    "url": "/current",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/current",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/rbac/me",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/stats/license",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/feedback/index?page=1&size=1&status=1",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/moment/report/list?page=1&size=1&status=0",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/current",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/role/list?page=1&size=200&status=-1",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/admin/list?page=1&size=10&status=-1",
+    "status": 200,
+    "method": "GET",
+    "body": "{\"code\":0,\"msg\":\"success\",\"payload\":{\"list\":[{\"account\":\"pw_e2e_b1_97896\",\"avatar\":\"\",\"created_at\":1787097896459,\"email\":null,\"id\":107811011735848960,\"last_login_at\":1787097896459,\"last_login_ip\":\"\",\"login_count\":0,\"mobile\":null,\"nickname\":\"pw_e2e_b1_97896\",\"role_id\":1,\"role_ids\":[1],\"status\":0},{\"account\":\"pw_e2e_admin_mstx967g\",\"avatar\":\"\",\"created_at\":1786770892052,\"email\":null,\"id\":107125233789700096,\"last_login_at\":1786770892051,\"last_login_ip\":\"\",\"login_count\":0,\"mobile\":null,\"nickname\":\"p"
+  },
+  {
+    "url": "/admin/list?page=1&size=10&status=-1",
+    "status": 200,
+    "method": "GET",
+    "body": "{\"code\":0,\"msg\":\"success\",\"payload\":{\"list\":[{\"account\":\"pw_e2e_b1_97896\",\"avatar\":\"\",\"created_at\":1787097896459,\"email\":null,\"id\":107811011735848960,\"last_login_at\":1787097896459,\"last_login_ip\":\"\",\"login_count\":0,\"mobile\":null,\"nickname\":\"pw_e2e_b1_97896\",\"role_id\":1,\"role_ids\":[1],\"status\":0},{\"account\":\"pw_e2e_admin_mstx967g\",\"avatar\":\"\",\"created_at\":1786770892052,\"email\":null,\"id\":107125233789700096,\"last_login_at\":1786770892051,\"last_login_ip\":\"\",\"login_count\":0,\"mobile\":null,\"nickname\":\"p"
+  },
+  {
+    "url": "/admin/list?page=1&size=10&status=-1&keyword=pw_e2e_b1_97896",
+    "status": 200,
+    "method": "GET",
+    "body": "{\"code\":0,\"msg\":\"success\",\"payload\":{\"list\":[{\"account\":\"pw_e2e_b1_97896\",\"avatar\":\"\",\"created_at\":1787097896459,\"email\":null,\"id\":107811011735848960,\"last_login_at\":1787097896459,\"last_login_ip\":\"\",\"login_count\":0,\"mobile\":null,\"nickname\":\"pw_e2e_b1_97896\",\"role_id\":1,\"role_ids\":[1],\"status\":0}],\"size\":10,\"total\":1,\"page\":1},\"sv_ts\":1787097898782}"
+  },
+  {
+    "url": "/admin/assign_role",
+    "status": 200,
+    "method": "PUT"
+  },
+  {
+    "url": "/rbac/me",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/admin/list?page=1&size=10&status=-1&keyword=pw_e2e_b1_97896",
+    "status": 200,
+    "method": "GET",
+    "body": "{\"code\":0,\"msg\":\"success\",\"payload\":{\"list\":[{\"account\":\"pw_e2e_b1_97896\",\"avatar\":\"\",\"created_at\":1787097896459,\"email\":null,\"id\":107811011735848960,\"last_login_at\":1787097896459,\"last_login_ip\":\"\",\"login_count\":0,\"mobile\":null,\"nickname\":\"pw_e2e_b1_97896\",\"role_id\":107808716713363456,\"role_ids\":[107808716713363456],\"status\":0}],\"size\":10,\"total\":1,\"page\":1},\"sv_ts\":1787097898923}"
+  },
+  {
+    "url": "/current",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/current",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/rbac/me",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/stats/license",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/moment/report/list?page=1&size=1&status=0",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/feedback/index?page=1&size=1&status=1",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/current",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/role/list?page=1&size=200&status=-1",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/admin/list?page=1&size=10&status=-1",
+    "status": 200,
+    "method": "GET",
+    "body": "{\"code\":0,\"msg\":\"success\",\"payload\":{\"list\":[{\"account\":\"pw_e2e_b1_97896\",\"avatar\":\"\",\"created_at\":1787097896459,\"email\":null,\"id\":107811011735848960,\"last_login_at\":1787097896459,\"last_login_ip\":\"\",\"login_count\":0,\"mobile\":null,\"nickname\":\"pw_e2e_b1_97896\",\"role_id\":107808716713363456,\"role_ids\":[107808716713363456],\"status\":0},{\"account\":\"pw_e2e_admin_mstx967g\",\"avatar\":\"\",\"created_at\":1786770892052,\"email\":null,\"id\":107125233789700096,\"last_login_at\":1786770892051,\"last_login_ip\":\"\",\"login_co"
+  },
+  {
+    "url": "/admin/list?page=1&size=10&status=-1",
+    "status": 500,
+    "method": "GET",
+    "body": "{\"code\":500,\"msg\":\"injected\"}"
+  },
+  {
+    "url": "/admin/list?page=1&size=10&status=-1",
+    "status": 500,
+    "method": "GET",
+    "body": "{\"code\":500,\"msg\":\"injected\"}"
+  }
+]
