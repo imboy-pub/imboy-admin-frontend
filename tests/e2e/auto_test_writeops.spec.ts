@@ -17,19 +17,16 @@ const EVIDENCE_ROOT = path.resolve(process.cwd(), 'tests/auto_test/evidence')
 
 type Target = { slug: string; module: string; path: string }
 
-/** 安全可自动提交的创建类页面（测试库数据，可接受测试数据累积） */
+/**
+ * 安全可自动提交的创建类页面（测试库数据，可接受测试数据累积）。
+ * 仅含真实「创建类」入口的页面：其余管理/治理页（GroupCategory/GroupSchedule/GroupTask/
+ * UserTag/GroupTag/GroupNotice/GroupVote/GroupAlbum）只有删除/取消/结束/筛选等操作，
+ * 无新建入口，不属于本 spec 范围（批次40 源码核实后移除）。
+ */
 const TARGETS: Target[] = [
   { slug: 'AnnouncementListPage', module: 'announcements', path: '/announcements' },
   { slug: 'RolePermissionPage', module: 'roles', path: '/roles' },
   { slug: 'SensitiveWordPage', module: 'content-moderation', path: '/moderation/sensitive-words' },
-  { slug: 'UserTagManagePage', module: 'users', path: '/users/{id}/tags' },
-  { slug: 'GroupCategoryManagePage', module: 'groups', path: '/groups/{id}/categories' },
-  { slug: 'GroupTagManagePage', module: 'groups', path: '/groups/{id}/tags' },
-  { slug: 'GroupNoticeManagePage', module: 'groups', path: '/groups/{id}/notices' },
-  { slug: 'GroupVoteManagePage', module: 'groups', path: '/groups/{id}/votes' },
-  { slug: 'GroupScheduleManagePage', module: 'groups', path: '/groups/{id}/schedules' },
-  { slug: 'GroupTaskManagePage', module: 'groups', path: '/groups/{id}/tasks' },
-  { slug: 'GroupAlbumManagePage', module: 'groups', path: '/groups/{id}/albums' },
   { slug: 'VersionPage', module: 'settings', path: '/settings/versions' },
   { slug: 'AiRolesPage', module: 'ai_agent', path: '/ai-agents/roles' },
   { slug: 'AiAgentListPage', module: 'ai_agent', path: '/ai-agents' },
@@ -266,9 +263,11 @@ test('auto_test 写操作真实提交（白名单页面）', async ({ page }) =>
             .last()
         : page.locator('form button[type="submit"]').first()
       if (!(await submitBtn.isVisible({ timeout: 800 }).catch(() => false))) {
-        // 无 form submit 时：整页找动作按钮（排除取消/关闭/导入/导出/搜索）
+        // 无 form submit 时：整页找动作按钮（排除取消/关闭/导入/导出/搜索）。
+        // 「时间/者」排除词防列头排序按钮：DataTable 可排序列头（「添加时间/创建时间/创建者ID」）
+        // 以 button 渲染且 .last() 会命中它们 → 点击变成排序而非提交（批次40实测 6 页「无写请求」根因）
         submitBtn = page.getByRole('button', { name: /^(确[认定]|保存|创建|提交|添加|发布)/ })
-          .filter({ hasNotText: /取消|关闭|导入|导出|搜索|重置/ })
+          .filter({ hasNotText: /取消|关闭|导入|导出|搜索|重置|时间|者/ })
           .last()
       }
       const submittable = await submitBtn.isVisible({ timeout: 1_500 }).catch(() => false)
