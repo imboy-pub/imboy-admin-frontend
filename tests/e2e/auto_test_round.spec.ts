@@ -113,6 +113,7 @@ const PAGES: PageSpec[] = [
 
   { slug: 'MomentListPage', module: 'moments', path: '/moments' },
   { slug: 'MomentDetailPage', module: 'moments', path: '/moments/{id}', idFrom: 'moments' },
+  { slug: 'MomentReportPage', module: 'moments', path: '/moments/reports' },
 
   { slug: 'ChannelListPage', module: 'channels', path: '/channels' },
   { slug: 'PaidChannelOpsPage', module: 'channels', path: '/channels/paid' },
