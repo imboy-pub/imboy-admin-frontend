@@ -297,8 +297,12 @@ export async function deleteAiRole(roleId: string): Promise<AiRolesMap> {
 export async function uploadAgentAvatar(file: File): Promise<{ url: string }> {
   const form = new FormData()
   form.append('file', file)
-  // axios 检测 FormData 自动设置 multipart boundary；body 不经 JSON transform
-  const response = await client.post('/ai_agent/upload_avatar', form)
+  // 必须清除实例级 Content-Type: application/json 默认头：axios 检测到 FormData 时
+  // 仅在未显式设置 Content-Type 时才自动生成 multipart boundary（否则后端
+  // cowboy_req:init_multipart 收到 application/json 直接 badmatch 崩溃 → HTTP 500）
+  const response = await client.post('/ai_agent/upload_avatar', form, {
+    headers: { 'Content-Type': undefined },
+  })
   return requireApiPayload<{ url: string }>(response.data, '/ai_agent/upload_avatar')
 }
 
