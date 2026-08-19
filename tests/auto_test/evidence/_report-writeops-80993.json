@@ -1,0 +1,14 @@
+{
+  "round": "writeops-80993",
+  "pages": [
+    {
+      "slug": "SensitiveWordPage",
+      "module": "content-moderation",
+      "path": "/moderation/sensitive-words",
+      "tested": true,
+      "detail": "提交调用: 无写请求",
+      "apiCalls": [],
+      "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/content-moderation/writeops-80993-SensitiveWordPage-writeop-result.png"
+    }
+  ]
+}
