@@ -60,7 +60,7 @@ function createMockMessageItem(suffix: string, scope: string = 'c2c') {
     action: 'send',
     payload: '{"content": "hello world"}',
     created_at: '2026-03-15 10:00:00',
-    server_ts: '2026-03-15 10:00:00',
+    server_ts: 1773540000000,
   }
 }
 
@@ -157,7 +157,7 @@ describe('MessageListPage flow', () => {
               action: 'send',
               payload: '{"content": "detail content here"}',
               created_at: '2026-03-15 10:00:00',
-              server_ts: '2026-03-15 10:00:00',
+              server_ts: 1773540000000,
             },
           },
         }
@@ -296,7 +296,7 @@ describe('MessageListPage flow', () => {
                 action: 'send',
                 payload: '{"url": "https://example.com/img.png"}',
                 created_at: '2026-03-15 11:00:00',
-                server_ts: '2026-03-15 11:00:00',
+                server_ts: 1773543600000,
               },
             ],
             page,
@@ -386,7 +386,7 @@ describe('MessageListPage flow', () => {
                 action: 'send',
                 payload: 'export test',
                 created_at: '2026-03-15 10:00:00',
-                server_ts: '2026-03-15 10:00:00',
+                server_ts: 1773540000000,
               },
             ],
             page,
