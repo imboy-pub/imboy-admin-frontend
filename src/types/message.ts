@@ -11,7 +11,8 @@ export interface ManagedMessage {
   action: string
   payload: string
   created_at: string
-  server_ts: string
+  /** 服务端时间戳，13 位毫秒 number（经 safeParseBigIntJson，16 位以上才转 string） */
+  server_ts: number
 }
 
 export interface MessageListParams {
