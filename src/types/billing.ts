@@ -75,7 +75,7 @@ export interface RechargeOrder {
   payment_method: string
   /**
    * 状态：
-   * 0=待支付 1=已支付 2=退款中 3=已退款 4=已过期
+   * 0=待支付 1=已支付 2=已取消 3=已退款 4=已过期
    */
   status: number
   created_at: string

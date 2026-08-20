@@ -41,7 +41,7 @@ type RechargeOrderListPageQuery = {
 const STATUS_LABELS: Record<string, string> = {
   '0': '待支付',
   '1': '已支付',
-  '2': '退款中',
+  '2': '已取消',
   '3': '已退款',
   '4': '已过期',
 }
@@ -49,7 +49,7 @@ const STATUS_LABELS: Record<string, string> = {
 const STATUS_VARIANTS: Record<string, 'success' | 'warning' | 'error' | 'info' | 'secondary'> = {
   '0': 'warning',
   '1': 'success',
-  '2': 'info',
+  '2': 'secondary',
   '3': 'secondary',
   '4': 'error',
 }
@@ -227,7 +227,7 @@ export function RechargeOrderListPage() {
               <option value="-1">全部状态</option>
               <option value="0">待支付</option>
               <option value="1">已支付</option>
-              <option value="2">退款中</option>
+              <option value="2">已取消</option>
               <option value="3">已退款</option>
               <option value="4">已过期</option>
             </Select>
