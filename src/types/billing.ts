@@ -33,9 +33,14 @@ export interface WalletTransaction {
   wallet_id: EntityId
   /** 所属用户 ID */
   user_id: EntityId
-  /** 变动金额，单位：分（正=入账，负=出账） */
+  /** 变动金额，单位：分（正=入账，负=出账，收支以符号为准） */
   amount: number
-  /** 类型：1=充值，2=消费，3=退款，4=冻结，5=解冻 */
+  /**
+   * 钱包流水类型（后端 wallet_transaction.chk_wallet_tx_type 值域）：
+   * 1=充值 2=充值退款 3=订单退款 5=转账转出 6=转账转入 7=发红包
+   * 8=领红包 9=红包/转账退回 10=提现 11=提现退款 20=agent支付借记
+   * 21=agent支付贷记
+   */
   type: number
   /** 关联业务单号 */
   biz_no?: string
