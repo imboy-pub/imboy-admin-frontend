@@ -48,11 +48,11 @@
 
 | 计划变化 | 条数 | 占比 |
 |---|---|---|
-| 无待办 | 535 | 98.5% |
-| 阻塞 | 8 | 1.5% |
+| 无待办 | 536 | 98.7% |
+| 阻塞 | 7 | 1.3% |
 | **合计** | **543** | 100% |
 
-bug 累计：**发现 45 / 解决 44 / 待处理 1**
+bug 累计：**发现 45 / 解决 45 / 待处理 0**
 
 > 恒等式 `发现 − 解决 = 待处理` 成立
 
@@ -65,7 +65,7 @@ bug 累计：**发现 45 / 解决 44 / 待处理 1**
 | [settings](settings/) | 10 | 51 | 0 | 51 | 0 |
 | [users](users/) | 4 | 41 | 0 | 41 | 0 |
 | [moments](moments/) | 3 | 26 | 0 | 26 | 0 |
-| [ai_agent](ai_agent/) | 4 | 25 | 1 | 24 | 1 |
+| [ai_agent](ai_agent/) | 4 | 25 | 0 | 25 | 0 |
 | [plugin_management](plugin_management/) | 2 | 18 | 0 | 11 | 7 |
 | [admins](admins/) | 1 | 14 | 0 | 14 | 0 |
 | [content-moderation](content-moderation/) | 2 | 14 | 0 | 14 | 0 |
@@ -104,7 +104,7 @@ bug 累计：**发现 45 / 解决 44 / 待处理 1**
 ### ai_agent
 
 - [AiAgentListPage](ai_agent/AiAgentListPage.md) — 9 功能点
-- [AiRolesPage](ai_agent/AiRolesPage.md) — 10 功能点 ⚠️ 1 待处理
+- [AiRolesPage](ai_agent/AiRolesPage.md) — 10 功能点
 - [KnowledgeConfigPage](ai_agent/KnowledgeConfigPage.md) — 3 功能点
 - [OnboardingConfigPage](ai_agent/OnboardingConfigPage.md) — 3 功能点
 
