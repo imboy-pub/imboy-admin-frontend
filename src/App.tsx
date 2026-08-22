@@ -28,6 +28,7 @@ const AiAgentListPage = lazy(() => import('@/modules/ai_agent').then((m) => ({ d
 const OnboardingConfigPage = lazy(() => import('@/modules/ai_agent').then((m) => ({ default: m.OnboardingConfigPage })))
 const KnowledgeConfigPage = lazy(() => import('@/modules/ai_agent').then((m) => ({ default: m.KnowledgeConfigPage })))
 const AiRolesPage = lazy(() => import('@/modules/ai_agent').then((m) => ({ default: m.AiRolesPage })))
+const BotListPage = lazy(() => import('@/modules/bots').then((m) => ({ default: m.BotListPage })))
 
 const GroupListPage = lazy(() => import('@/modules/groups').then((m) => ({ default: m.GroupListPage })))
 const GroupDetailPage = lazy(() => import('@/modules/groups').then((m) => ({ default: m.GroupDetailPage })))
@@ -172,6 +173,14 @@ function App() {
                   element={(
                     <PermissionRoute permission="users:read" roles={['1', '2']}>
                       <AiRolesPage />
+                    </PermissionRoute>
+                  )}
+                />
+                <Route
+                  path="/bots"
+                  element={(
+                    <PermissionRoute permission="bots:read" roles={['1', '2']}>
+                      <BotListPage />
                     </PermissionRoute>
                   )}
                 />

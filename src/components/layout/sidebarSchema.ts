@@ -92,6 +92,7 @@ export const defaultConfig: SidebarMenuConfig = {
         { path: '/ai-agents/onboarding', icon: 'Bot', label: '新手引导配置', roles: ['1', '2'], permission: 'users:read' },
         { path: '/ai-agents/knowledge', icon: 'Bot', label: 'AI 知识库', roles: ['1', '2'], permission: 'users:read' },
         { path: '/ai-agents/roles', icon: 'Bot', label: 'AI 角色管理', roles: ['1', '2'], permission: 'users:read' },
+        { path: '/bots', icon: 'Bot', label: 'Bot 管理', roles: ['1', '2'], permission: 'bots:read' },
         { path: '/analytics', icon: 'BarChart3', label: '运营分析', roles: ['1', '2'], permission: 'analytics:view' },
       ],
     },

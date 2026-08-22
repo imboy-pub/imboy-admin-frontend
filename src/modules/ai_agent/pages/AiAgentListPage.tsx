@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLegacyTable, getCoreRowModel, type LegacyColumnDef } from '@tanstack/react-table/legacy'
 import { toast } from 'sonner'
-import { Plus, Pencil, Power, Copy, Upload } from 'lucide-react'
+import { Plus, Pencil, Power, Copy, Upload, Wallet } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -35,11 +35,14 @@ import {
   updateAiAgent,
   setAiAgentStatus,
   uploadAgentAvatar,
+  createAgentMandate,
   getAiRolePage,
   type AiAgentListItem,
   type AiAgentUpsertInput,
   type AiRoleListItem,
 } from '../api/public'
+import { useAdminPermission } from '@/hooks/useAdminPermission'
+import { yuanToFen } from '@/lib/money'
 
 const LIST_KEY = 'ai_agent'
 
@@ -90,6 +93,13 @@ export function AiAgentListPage() {
   const [dialogMode, setDialogMode] = useState<'create' | 'edit'>('create')
   const [form, setForm] = useState<AgentForm>(EMPTY_FORM)
   const [statusConfirm, setStatusConfirm] = useState<AiAgentListItem | null>(null)
+  // 受控支付授权（admin 应急入口，RBAC finance:write；敏感写操作 fail-closed）
+  const { allowed: canMandate } = useAdminPermission({
+    permission: 'finance:write',
+    sensitive: true,
+  })
+  const [mandateAgent, setMandateAgent] = useState<AiAgentListItem | null>(null)
+  const [mandateForm, setMandateForm] = useState({ maxAmount: '', maxTotal: '', expiresInDays: '7' })
   const [avatarUploading, setAvatarUploading] = useState(false)
   // Garage 私桶裸 URL 直读 403：加载失败后回退本地 blob 预览，再失败降级占位符
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false)
@@ -171,6 +181,46 @@ export function AiAgentListPage() {
     },
     onError: (err: unknown) => toast.error(`操作失败: ${getErrorMessage(err)}`),
   })
+
+  const openMandate = useCallback((agent: AiAgentListItem) => {
+    setMandateForm({ maxAmount: '', maxTotal: '', expiresInDays: '7' })
+    setMandateAgent(agent)
+  }, [])
+
+  const mandateMutation = useMutation({
+    mutationFn: (agent: AiAgentListItem) =>
+      createAgentMandate({
+        agent_uid: agent.user_id,
+        max_amount_fen: yuanToFen(mandateForm.maxAmount),
+        max_total_fen: yuanToFen(mandateForm.maxTotal),
+        expires_in_secs: Math.round(Number(mandateForm.expiresInDays) * 86400),
+      }),
+    onSuccess: () => {
+      toast.success('支付授权已创建（替换旧授权）')
+      setMandateAgent(null)
+    },
+    onError: (err: unknown) => toast.error(`授权失败: ${getErrorMessage(err)}`),
+  })
+
+  const handleMandateSubmit = useCallback(() => {
+    if (!mandateAgent) return
+    const maxAmount = Number(mandateForm.maxAmount)
+    const maxTotal = Number(mandateForm.maxTotal)
+    if (!(maxAmount > 0) || !(maxTotal > 0)) {
+      toast.error('单笔上限与周期累计上限必须为正数（元）')
+      return
+    }
+    if (maxTotal < maxAmount) {
+      toast.error('周期累计上限不能小于单笔上限')
+      return
+    }
+    const days = Number(mandateForm.expiresInDays)
+    if (!(days > 0)) {
+      toast.error('有效期必须为正数（天）')
+      return
+    }
+    mandateMutation.mutate(mandateAgent)
+  }, [mandateAgent, mandateForm, mandateMutation])
 
   const openCreate = useCallback(() => {
     setDialogMode('create')
@@ -324,6 +374,12 @@ export function AiAgentListPage() {
               <Pencil className="mr-1 h-3.5 w-3.5" />
               编辑
             </Button>
+            {canMandate ? (
+              <Button variant="ghost" size="sm" onClick={() => openMandate(row.original)}>
+                <Wallet className="mr-1 h-3.5 w-3.5" />
+                支付授权
+              </Button>
+            ) : null}
             <Button variant="ghost" size="sm" onClick={() => setStatusConfirm(row.original)}>
               <Power className="mr-1 h-3.5 w-3.5" />
               {row.original.status === 1 ? '停用' : '启用'}
@@ -332,7 +388,7 @@ export function AiAgentListPage() {
         ),
       },
     ],
-    [openEdit]
+    [openEdit, openMandate, canMandate]
   )
 
   const table = useLegacyTable({
@@ -600,6 +656,70 @@ export function AiAgentListPage() {
             </Button>
             <Button onClick={handleSubmit} disabled={upsertMutation.isPending}>
               {upsertMutation.isPending ? '保存中...' : '保存'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 受控支付授权（admin 应急入口） */}
+      <Dialog open={Boolean(mandateAgent)} onOpenChange={(open) => !open && setMandateAgent(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>支付授权 — {mandateAgent?.nickname}</DialogTitle>
+            <DialogDescription>
+              为该 Agent 创建受控支付额度（付款人为 Agent 属主）。同一 Agent 仅保留一个有效授权，新授权将替换旧授权。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="mandate-max-amount" className="text-right">
+                单笔上限（元）
+              </Label>
+              <Input
+                id="mandate-max-amount"
+                type="number"
+                min="0.01"
+                step="0.01"
+                value={mandateForm.maxAmount}
+                onChange={(e) => setMandateForm((p) => ({ ...p, maxAmount: e.target.value }))}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="mandate-max-total" className="text-right">
+                周期累计上限（元）
+              </Label>
+              <Input
+                id="mandate-max-total"
+                type="number"
+                min="0.01"
+                step="0.01"
+                value={mandateForm.maxTotal}
+                onChange={(e) => setMandateForm((p) => ({ ...p, maxTotal: e.target.value }))}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="mandate-expires" className="text-right">
+                有效期（天）
+              </Label>
+              <Input
+                id="mandate-expires"
+                type="number"
+                min="1"
+                step="1"
+                value={mandateForm.expiresInDays}
+                onChange={(e) => setMandateForm((p) => ({ ...p, expiresInDays: e.target.value }))}
+                className="col-span-3"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMandateAgent(null)}>
+              取消
+            </Button>
+            <Button onClick={handleMandateSubmit} disabled={mandateMutation.isPending}>
+              {mandateMutation.isPending ? '提交中...' : '创建授权'}
             </Button>
           </DialogFooter>
         </DialogContent>
