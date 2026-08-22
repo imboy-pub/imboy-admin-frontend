@@ -36,7 +36,14 @@ const LIST_ROW_ACTIVE = {
   status: 1,
 }
 
-const LIST_ROW_DISABLED = { ...LIST_ROW_ACTIVE, user_id: '2002', name: '天气助手', username: 'weather_bot', status: 0 }
+const LIST_ROW_DISABLED = {
+  ...LIST_ROW_ACTIVE,
+  user_id: '2002',
+  name: '天气助手',
+  username: 'weather_bot',
+  nickname: '李四',
+  status: 0,
+}
 
 const DETAIL = {
   ...LIST_ROW_ACTIVE,
@@ -111,7 +118,8 @@ test.describe('Bot 管理页 / BotListPage', () => {
     // commands 解析为数组后的 Badge
     await expect(drawer.getByText('/pr')).toBeVisible()
     await expect(drawer.getByText('/issue')).toBeVisible()
-    await expect(drawer.getByText('message')).toBeVisible()
+    // 订阅事件 Badge（限定 Badge 内，避免 drawer 其他位置误匹配）
+    await expect(drawer.getByText('message', { exact: true })).toBeVisible()
   })
 
   test('停用：确认后 POST /bot/disable 载荷正确 + 状态刷新', async ({ page }) => {
