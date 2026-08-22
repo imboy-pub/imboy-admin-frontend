@@ -306,6 +306,29 @@ export async function uploadAgentAvatar(file: File): Promise<{ url: string }> {
   return requireApiPayload<{ url: string }>(response.data, '/ai_agent/upload_avatar')
 }
 
+/** 受控支付授权入参（agent_payment_mandate_logic:authorize/2，金额单位分） */
+export interface AgentMandateInput {
+  agent_uid: EntityId
+  /** 单笔上限（分） */
+  max_amount_fen: number
+  /** 周期累计上限（分） */
+  max_total_fen: number
+  /** 有效期（秒） */
+  expires_in_secs: number
+  /** 累计窗口（秒，默认 86400） */
+  period_secs?: number
+}
+
+/**
+ * 代运营为 Agent 创建受控支付授权（admin 应急入口）。
+ * RBAC: finance:write；后端自动解析 agent 绑定的 owner 作为付款人，
+ * 同一 agent 仅一个有效 mandate（新授权替换旧授权）。
+ */
+export async function createAgentMandate(input: AgentMandateInput): Promise<unknown> {
+  const response = await client.post('/ai_agent/mandate_create', input)
+  return requireApiPayload(response.data, '/ai_agent/mandate_create')
+}
+
 /** capabilities 后端为 JSON 编码字符串（jsone:encode），解析失败给空对象兜底 */
 function parseCapabilities(raw: unknown): AiAgentCapabilities {
   if (raw && typeof raw === 'object') return raw as AiAgentCapabilities

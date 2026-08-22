@@ -21,6 +21,7 @@ import {
   getKnowledgeConfig,
   putKnowledgeConfig,
   uploadAgentAvatar,
+  createAgentMandate,
   type AiRolesMap,
 } from './public'
 
@@ -321,5 +322,30 @@ describe('角色与配置 API 完整契约', () => {
       { url: '/ai_agent/onboarding_config', body: { enabled: false } },
       { url: '/ai_agent/knowledge_config', body: { enabled: false } },
     ])
+  })
+})
+
+describe('受控支付授权', () => {
+  it('posts mandate params to /ai_agent/mandate_create', async () => {
+    let capturedUrl = ''
+    let capturedBody: unknown
+    mutableClient.post = async (url: string, body: unknown) => {
+      capturedUrl = url
+      capturedBody = body
+      return { data: { code: 0, msg: 'ok', payload: { id: '1' } } }
+    }
+    await createAgentMandate({
+      agent_uid: '1001',
+      max_amount_fen: 1000,
+      max_total_fen: 5000,
+      expires_in_secs: 604800,
+    })
+    expect(capturedUrl).toBe('/ai_agent/mandate_create')
+    expect(capturedBody).toEqual({
+      agent_uid: '1001',
+      max_amount_fen: 1000,
+      max_total_fen: 5000,
+      expires_in_secs: 604800,
+    })
   })
 })
