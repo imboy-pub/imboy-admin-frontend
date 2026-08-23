@@ -4,12 +4,11 @@
 #
 # 构建 / Build（发布链由 imboy 仓 release.yml build-admin-candidate 推送
 # ghcr.io/imboy-pub/imboy-admin:<version>；本地手动构建示例）:
-#   docker build \
-#     --build-arg VITE_API_BASE_URL=https://api.yourdomain.com/adm \
-#     -t ghcr.io/imboy-pub/imboy-admin:<version> .
+#   docker build -t ghcr.io/imboy-pub/imboy-admin:<version> .
 #
-# 运行 / Run:
-#   docker run -p 80:80 ghcr.io/imboy-pub/imboy-admin:<version>
+# 运行 / Run（IMBOY_API_HOST 注入后端地址，未设置时回落同源 /api/adm）:
+#   docker run -p 80:80 -e IMBOY_API_HOST=https://api.example.com \
+#     ghcr.io/imboy-pub/imboy-admin:<version>
 
 # ─────────────────────────────────────────────────────────────
 # Stage 1: Builder
@@ -17,11 +16,6 @@
 FROM oven/bun:1-slim AS builder
 
 WORKDIR /build
-
-# 构建参数（运行时不可变，需在 build 时传入）
-# Build arg: cannot be changed at runtime — must be passed at build time
-ARG VITE_API_BASE_URL=https://api.example.com/adm
-ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
 
 # 安装依赖（利用层缓存）/ Install dependencies (layer cache)
 COPY package.json bun.lock* bunfig.toml* ./
@@ -66,9 +60,16 @@ RUN printf 'server {\n\
 # 复制构建产物 / Copy build artifacts
 COPY --from=builder /build/dist /usr/share/nginx/html
 
+# 运行时配置注入：构建时用占位符 __IMBOY_API_HOST__ 代替硬编码域名，
+# 容器启动时 sed 替换为 IMBOY_API_HOST 环境变量（compose 传入
+# https://${API_DOMAIN}）。未设置时回落到同源相对路径 /api/adm。
+# Vite 构建时 import.meta.env 已静态替换，运行时 env 无效——必须替换产物文件。
+# 替换 JS + HTML（含 CSP connect-src 的域名白名单）。
+RUN printf '#!/bin/sh\nset -eu\nHOST="${IMBOY_API_HOST:-}"\nif [ -n "$HOST" ]; then\n  find /usr/share/nginx/html \\( -name "*.js" -o -name "*.html" \\) -exec sed -i "s|__IMBOY_API_HOST__|'"'"'$HOST'"'"'|g" {} +\nfi\nexec nginx -g "daemon off;"\n' > /docker-entrypoint-imboy.sh && chmod +x /docker-entrypoint-imboy.sh
+
 EXPOSE 80
 
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
     CMD wget -qO- http://localhost/health || exit 1
 
-CMD ["nginx", "-g", "daemon off;"]
+ENTRYPOINT ["/docker-entrypoint-imboy.sh"]

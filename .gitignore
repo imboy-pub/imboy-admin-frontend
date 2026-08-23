@@ -34,7 +34,8 @@ tests/e2e/fixtures/*.local.json
 *.njsproj
 *.sln
 *.sw?
-.env.production
+# .env.production 入仓：仅含占位符 __IMBOY_API_HOST__，无真实凭证
+# （CI 构建需要此文件让 Vite 把占位符 bake 进产物，entrypoint 再运行时替换）
 # Local automation scripts with hardcoded prod credentials — never commit
 prod_login*.mjs
 .env.e2e
