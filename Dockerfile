@@ -2,13 +2,14 @@
 # 多阶段构建：Bun 构建 + Nginx 服务
 # Multi-stage build: Bun build + Nginx serve
 #
-# 构建 / Build:
+# 构建 / Build（发布链由 imboy 仓 release.yml build-admin-candidate 推送
+# ghcr.io/imboy-pub/imboy-admin:<version>；本地手动构建示例）:
 #   docker build \
 #     --build-arg VITE_API_BASE_URL=https://api.yourdomain.com/adm \
-#     -t imboy/imboy-admin:1.0.0-rc.1 .
+#     -t ghcr.io/imboy-pub/imboy-admin:<version> .
 #
 # 运行 / Run:
-#   docker run -p 80:80 imboy/imboy-admin:1.0.0-rc.1
+#   docker run -p 80:80 ghcr.io/imboy-pub/imboy-admin:<version>
 
 # ─────────────────────────────────────────────────────────────
 # Stage 1: Builder
