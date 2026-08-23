@@ -6,12 +6,19 @@
  * 实测（2026-08-15 浏览器）：标记存在时 /channels 持续跳 /forbidden —— 与设计意图相悖。
  */
 import '../test/setupDom'
-import { describe, it, expect, beforeEach, spyOn, mock } from 'bun:test'
+import { describe, it, expect, beforeEach, afterAll, spyOn, mock } from 'bun:test'
 import { renderHook, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ReactElement } from 'react'
 import { useAdminPermission } from './useAdminPermission'
 import { useAuthStore } from '@/stores/authStore'
+import * as realRbacModule from '@/services/api/rbac'
+import * as realAdminConfigModule from '@/services/api/adminConfig'
+
+// 在下方 mock.module 生效前快照真实导出：bun 会就地改写模块命名空间，
+// 直接保存命名空间引用拿到的是改写后的 mock；展开拷贝的是当时的函数引用。
+const realRbacExports = { ...realRbacModule }
+const realAdminConfigExports = { ...realAdminConfigModule }
 
 // 模拟 sessionStorage 标记后的行为：getMyRbacProfilePayload 永远 throw
 mock.module('@/services/api/rbac', () => ({
@@ -37,6 +44,15 @@ let sidebarFetcher: () => Promise<unknown> = async () => ({
 mock.module('@/services/api/adminConfig', () => ({
   fetchSidebarMenuConfig: () => sidebarFetcher(),
 }))
+
+// bun:test 的 mock.module 对整个测试进程永久生效（无内建 unmock）。bun 单进程
+// 连跑全部测试文件时，本文件的模块 mock 会污染后续文件（如 services/api 下
+// 对真实实现的单测，表现为 fetch 类用例批量 5s 超时）。afterAll 把模块注册表
+// 恢复为真实实现（本文件顶部 import 已在 mock 生效前捕获真实模块对象）。
+afterAll(() => {
+  mock.module('@/services/api/rbac', () => realRbacExports)
+  mock.module('@/services/api/adminConfig', () => realAdminConfigExports)
+})
 
 describe('useAdminPermission — rbac 404 会话标记后的 fail-open 承诺', () => {
   beforeEach(() => {

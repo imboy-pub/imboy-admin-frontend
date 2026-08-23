@@ -63,10 +63,18 @@ if (typeof elementProto.detachEvent !== 'function') {
 // Add global DOM cleanup between tests to prevent "Found multiple elements" errors
 // This is necessary because Bun runs test files in parallel and DOM state can leak
 import { beforeEach, afterEach } from 'bun:test'
+// bun 单进程连跑全部测试文件：重置 rbac 模块级会话态（unavailable 标记 + 去重
+// promise）。此前文件的 404 流程会写入 sessionStorage 标记并永久短路后续文件的
+// getMyRbacProfilePayload，导致权限门相关页面用例（如编辑按钮渲染）顺序依赖失败。
+import { clearRbacUnavailable } from '../services/api/rbac'
 
 beforeEach(() => {
   // Reset document body to a clean state before each test
   document.body.innerHTML = ''
+  try {
+    sessionStorage.removeItem('imboy_admin_rbac_endpoint_unavailable')
+  } catch { /* sessionStorage may be unavailable in some contexts */ }
+  clearRbacUnavailable()
 })
 
 afterEach(() => {

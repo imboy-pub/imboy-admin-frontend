@@ -66,6 +66,10 @@ function markRbacUnavailable() {
 
 export function clearRbacUnavailable() {
   rbacUnavailableInSession = false
+  // 同时清模块级去重 promise：bun 单进程连跑全部测试文件时，其他文件的组件测试
+  // 可能在 mock 还原后触发一次真实请求并永不 settle，遗留的 pendingProfileRequest
+  // 会让后续调用（含测试）死等。清态函数应清理全部会话级状态。
+  pendingProfileRequest = null
   if (typeof window !== 'undefined') {
     sessionStorage.removeItem(RBAC_UNAVAILABLE_KEY)
   }
