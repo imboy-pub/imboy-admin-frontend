@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'bun:test'
+import { afterEach, beforeAll, describe, expect, it } from 'bun:test'
 import client from './client'
 import { getMyRbacProfilePayload, clearRbacUnavailable } from './rbac'
 
@@ -20,6 +20,12 @@ type MutableClient = { get: AnyFn }
 
 const mutableClient = client as unknown as MutableClient
 const originalGet = mutableClient.get
+
+// bun 单进程连跑全部测试文件：清掉此前文件（如页面组件测试在 mock 还原后触发
+// 真实请求）可能遗留的模块级 pendingProfileRequest / 不可用标记，避免本文件死等。
+beforeAll(() => {
+  clearRbacUnavailable()
+})
 
 afterEach(() => {
   mutableClient.get = originalGet
