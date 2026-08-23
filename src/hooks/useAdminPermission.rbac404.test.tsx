@@ -27,7 +27,9 @@ mock.module('@/services/api/rbac', () => ({
   },
 }))
 
-// sidebar 模板正常返回（role 1 含 channels:read，与真实 /sidebar-menu.json 一致）。
+// sidebar 模板正常返回（role 1 的 channels 权限与真实 /sidebar-menu.json 一致：
+// read/update/delete 三项齐全——此前 fixture 漏了 channels:delete，与真实模板失真，
+// 并行窗口下会把依赖 sidebar 兜底的页面测试（如 ChannelDetailPage）误判为权限不足）。
 // 每个用例可覆盖 sidebarFetcher 控制时序（慢加载场景见第 2 个用例）。
 let sidebarFetcher: () => Promise<unknown> = async () => ({
   rbac: {
@@ -36,7 +38,7 @@ let sidebarFetcher: () => Promise<unknown> = async () => ({
         id: 1,
         name: 'super_admin',
         description: '',
-        permissions: ['dashboard:view', 'channels:read', 'channels:update'],
+        permissions: ['dashboard:view', 'channels:read', 'channels:update', 'channels:delete'],
       },
     ],
   },
