@@ -8,6 +8,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import userEvent from '@testing-library/user-event'
 import { ChannelDetailPage } from './ChannelDetailPage'
 import client from '../../services/api/client'
+import { useAuthStore } from '@/stores/authStore'
 
 type AnyFn = (..._args: unknown[]) => unknown
 
@@ -21,6 +22,37 @@ const mutableClient = client as unknown as MutableClient
 const originalGet = mutableClient.get
 const originalPut = mutableClient.put
 const originalDelete = mutableClient.delete
+const originalFetch = globalThis.fetch
+
+// sidebar 兜底 mock：bun 并行执行测试文件，其他文件（如 rbac404）的
+// mock.module('@/services/api/rbac') 窗口可能与本文件并发重叠，劫持 rbac
+// 主路径；useAdminPermission 随即走 sidebar 模板兜底——真实 fetchSidebarMenuConfig
+// 发全局 fetch 且本测试未 mock 时兜底必失败 → 权限拒绝 → 编辑按钮不渲染。
+// 页面其余请求走 axios client，全局 fetch 仅服务于 sidebar，可整体替换。
+function mockSidebarFetch() {
+  globalThis.fetch = async () =>
+    new Response(
+      JSON.stringify({
+        code: 0,
+        msg: 'ok',
+        payload: {
+          menus: [],
+          version: '1.0',
+          rbac: {
+            roles: [
+              {
+                id: 1,
+                name: 'super_admin',
+                description: '',
+                permissions: ['channels:read', 'channels:update', 'channels:delete'],
+              },
+            ],
+          },
+        },
+      }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    )
+}
 
 function renderChannelDetailPage() {
   const queryClient = new QueryClient({
@@ -46,12 +78,33 @@ function renderChannelDetailPage() {
 describe('ChannelDetailPage flow', () => {
   beforeEach(() => {
     document.body.innerHTML = ''
+    mockSidebarFetch()
+    // 自持 authStore：权限门 useAdminPermission({ roles: ['1','2'] }) 在 rbac 主路径
+    // 被并行文件的 mock.module 劫持（永远 throw）时，effectiveRoleIds 回落
+    // authStore.admin.role_id——空 store 会让 roleAllowed 恒 false、按钮不渲染。
+    useAuthStore.setState({
+      admin: {
+        id: '106791271148029952',
+        account: 'e2e_admin',
+        nickname: 'e2e_admin',
+        avatar: '',
+        role_id: [1],
+        status: 1,
+        created_at: 0,
+        last_login_at: 0,
+        last_login_ip: '',
+        login_count: 0,
+      },
+      isAuthenticated: true,
+    })
   })
 
   afterEach(() => {
     mutableClient.get = originalGet
     mutableClient.put = originalPut
     mutableClient.delete = originalDelete
+    globalThis.fetch = originalFetch
+    useAuthStore.getState().logout()
     cleanup()
   })
 
@@ -153,7 +206,9 @@ describe('ChannelDetailPage flow', () => {
     await view.findByText('频道详情')
     await view.findByText('channel-8')
 
-    await user.click(view.getByRole('button', { name: '编辑频道' }))
+    // 等待式查询：编辑按钮受权限门（useAdminPermission 异步判定）控制，套件
+    // 全量并行运行时判定可能晚于详情渲染完成——同步 getBy 在此竞态下偶发失败。
+    await user.click(await view.findByRole('button', { name: '编辑频道' }))
 
     const nameInput = view.getByLabelText('频道名称') as HTMLInputElement
     expect(nameInput.value).toBe('channel-8')
