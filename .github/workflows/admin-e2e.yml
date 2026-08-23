@@ -1,0 +1,74 @@
+# imboy-admin-frontend Playwright E2E workflow
+#
+# 关联：.claude/plans/golden-gates-plan-2026-08.md §2.3 P3-C5
+# 仓内 e2e：28 个 spec（tests/e2e/，110 tests），playwright.config.ts 自带
+# webServer（bun run dev → vite dev :8082，无构建产物依赖，CI 无需手动起服务/无需 build）。
+#
+# CI 边界（重要）：
+# 1. 28 个 spec 中 26 个经 support/adminAuth.ts 真实登录（需 imboy 后端 :9800 +
+#    IMBOY_ADMIN_E2E_ACCOUNT/PASSWORD 凭据）。GitHub-hosted runner 无后端、无凭据，
+#    这些 spec 按 requireAdminCredentials 的 test.skip 优雅跳过（不红）。
+#    setup-flow.spec.ts（6 tests）纯 page.route mock，无后端依赖，CI 可真实执行。
+# 2. prod-health-check.spec.ts（16 tests，标题 "01 "–"16 " 前缀）默认访问真实生产
+#    环境 https://prodadm.imboy.pub，且无 skip 开关 —— 禁止在 CI 触发外向生产流量，
+#    通过 --grep-invert 按标题前缀排除（lookbehind 防止误伤如 "403 降级" 类标题）。
+#    全量真实链路 e2e 仍由本地/自托管环境执行（.env.e2e 已 gitignore）。
+# 3. 未来若要在 CI 全量执行：自托管 runner 起 imboy 后端 + 注入
+#    IMBOY_ADMIN_E2E_* 环境变量，并移除 --grep-invert。
+
+name: admin Playwright E2E
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  BUN_VERSION: '1.3.6'
+
+jobs:
+  e2e:
+    name: Playwright e2e (chromium)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: bunx playwright install --with-deps chromium
+
+      - name: Run Playwright e2e
+        run: bunx playwright test --grep-invert "(?<![0-9])(0[1-9]|1[0-6]) "
+
+      - name: Upload Playwright HTML report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+          if-no-files-found: warn
+
+      - name: Upload test traces / videos / screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-test-results
+          path: test-results/
+          retention-days: 7
+          if-no-files-found: warn

@@ -12,3 +12,20 @@ pre-commit:
     gitleaks:
       run: gitleaks protect --staged --no-banner --redact
 
+# P3-C5（golden-gates-plan §2.3）：push 前质量门，与 CI（.github/workflows/ci.yml
+# lint-and-build job）口径一致：bun run lint + bun test。
+# 不放 e2e 的原因：28 个 spec 中 26 个需真实 imboy 后端(:9800)+管理员凭据（.env.e2e
+# 已 gitignore），本机后端未起时会长时间登录超时；全量含多个 10 分钟级长 spec，
+# push 一次等十几分钟不可接受。e2e 由 .github/workflows/admin-e2e.yml 在 CI 覆盖
+#（无后端/凭据的 spec 自动 skip，mock 型 spec 真实执行）。
+# 逃生门：若 lint/test 存量红阻塞 push，可 LEFTHOOK=0 git push 临时整体跳过（lefthook
+# 内建开关），或 git push --no-verify；也可 lefthook run pre-push 本地预演单条命令。
+# 存量红应尽快修复而非长期绕过。
+pre-push:
+  parallel: true
+  commands:
+    lint:
+      run: bun run lint
+    unit-test:
+      run: bun run test
+
