@@ -1,0 +1,968 @@
+{
+  "round": "extra-45093",
+  "pages": [
+    {
+      "slug": "AnalyticsPage",
+      "module": "analytics",
+      "errorState": {
+        "tested": true,
+        "detected": false,
+        "detail": "未见明确错误态文案",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/analytics/extra-45093-AnalyticsPage-error-state.png"
+      },
+      "jumpLinks": [],
+      "confirmDialog": {
+        "tested": false,
+        "dialogSeen": false,
+        "writeBlocked": false,
+        "detail": "页面上无危险操作按钮",
+        "screenshot": ""
+      }
+    },
+    {
+      "slug": "AnnouncementListPage",
+      "module": "announcements",
+      "errorState": {
+        "tested": true,
+        "detected": true,
+        "detail": "页面呈现错误态文案",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/announcements/extra-45093-AnnouncementListPage-error-state.png"
+      },
+      "jumpLinks": [],
+      "confirmDialog": {
+        "tested": false,
+        "dialogSeen": false,
+        "writeBlocked": false,
+        "detail": "页面上无危险操作按钮",
+        "screenshot": ""
+      }
+    },
+    {
+      "slug": "BillingInvoiceListPage",
+      "module": "billing-invoices",
+      "errorState": {
+        "tested": true,
+        "detected": true,
+        "detail": "页面呈现错误态文案",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/billing-invoices/extra-45093-BillingInvoiceListPage-error-state.png"
+      },
+      "jumpLinks": [],
+      "confirmDialog": {
+        "tested": false,
+        "dialogSeen": false,
+        "writeBlocked": false,
+        "detail": "敏感页面跳过（资金/审批/不可逆）",
+        "screenshot": ""
+      }
+    },
+    {
+      "slug": "BillingPlanListPage",
+      "module": "billing-plans",
+      "errorState": {
+        "tested": true,
+        "detected": false,
+        "detail": "未见明确错误态文案",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/billing-plans/extra-45093-BillingPlanListPage-error-state.png"
+      },
+      "jumpLinks": [],
+      "confirmDialog": {
+        "tested": false,
+        "dialogSeen": false,
+        "writeBlocked": false,
+        "detail": "页面上无危险操作按钮",
+        "screenshot": ""
+      }
+    },
+    {
+      "slug": "BillingSubscriptionListPage",
+      "module": "billing-subscriptions",
+      "errorState": {
+        "tested": true,
+        "detected": true,
+        "detail": "页面呈现错误态文案",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/billing-subscriptions/extra-45093-BillingSubscriptionListPage-error-state.png"
+      },
+      "jumpLinks": [],
+      "confirmDialog": {
+        "tested": false,
+        "dialogSeen": false,
+        "writeBlocked": false,
+        "detail": "页面上无危险操作按钮",
+        "screenshot": ""
+      }
+    },
+    {
+      "slug": "PaymentTransactionListPage",
+      "module": "payment-transactions",
+      "errorState": {
+        "tested": true,
+        "detected": true,
+        "detail": "页面呈现错误态文案",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/payment-transactions/extra-45093-PaymentTransactionListPage-error-state.png"
+      },
+      "jumpLinks": [],
+      "confirmDialog": {
+        "tested": false,
+        "dialogSeen": false,
+        "writeBlocked": false,
+        "detail": "页面上无危险操作按钮",
+        "screenshot": ""
+      }
+    },
+    {
+      "slug": "RechargeOrderListPage",
+      "module": "recharge-orders",
+      "errorState": {
+        "tested": true,
+        "detected": false,
+        "detail": "未见明确错误态文案",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/recharge-orders/extra-45093-RechargeOrderListPage-error-state.png"
+      },
+      "jumpLinks": [],
+      "confirmDialog": {
+        "tested": false,
+        "dialogSeen": false,
+        "writeBlocked": false,
+        "detail": "页面上无危险操作按钮",
+        "screenshot": ""
+      }
+    },
+    {
+      "slug": "WalletListPage",
+      "module": "wallets",
+      "errorState": {
+        "tested": true,
+        "detected": true,
+        "detail": "页面呈现错误态文案",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/wallets/extra-45093-WalletListPage-error-state.png"
+      },
+      "jumpLinks": [],
+      "confirmDialog": {
+        "tested": false,
+        "dialogSeen": false,
+        "writeBlocked": false,
+        "detail": "页面上无危险操作按钮",
+        "screenshot": ""
+      }
+    },
+    {
+      "slug": "WithdrawalsPage",
+      "module": "withdrawals",
+      "errorState": {
+        "tested": true,
+        "detected": true,
+        "detail": "页面呈现错误态文案",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/withdrawals/extra-45093-WithdrawalsPage-error-state.png"
+      },
+      "jumpLinks": [],
+      "confirmDialog": {
+        "tested": false,
+        "dialogSeen": false,
+        "writeBlocked": false,
+        "detail": "敏感页面跳过（资金/审批/不可逆）",
+        "screenshot": ""
+      }
+    },
+    {
+      "slug": "FinanceReportPage",
+      "module": "finance-report",
+      "errorState": {
+        "tested": true,
+        "detected": true,
+        "detail": "页面呈现错误态文案",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/finance-report/extra-45093-FinanceReportPage-error-state.png"
+      },
+      "jumpLinks": [],
+      "confirmDialog": {
+        "tested": false,
+        "dialogSeen": false,
+        "writeBlocked": false,
+        "detail": "页面上无危险操作按钮",
+        "screenshot": ""
+      }
+    },
+    {
+      "slug": "PricingPage",
+      "module": "pricing",
+      "errorState": {
+        "tested": true,
+        "detected": false,
+        "detail": "未见明确错误态文案",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/pricing/extra-45093-PricingPage-error-state.png"
+      },
+      "jumpLinks": [],
+      "confirmDialog": {
+        "tested": false,
+        "dialogSeen": false,
+        "writeBlocked": false,
+        "detail": "页面上无危险操作按钮",
+        "screenshot": ""
+      }
+    },
+    {
+      "slug": "SensitiveWordPage",
+      "module": "content-moderation",
+      "errorState": {
+        "tested": true,
+        "detected": true,
+        "detail": "页面呈现错误态文案",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/content-moderation/extra-45093-SensitiveWordPage-error-state.png"
+      },
+      "jumpLinks": [],
+      "confirmDialog": {
+        "tested": true,
+        "dialogSeen": true,
+        "writeBlocked": true,
+        "detail": "取消路径无写请求",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/content-moderation/extra-45093-SensitiveWordPage-confirm-dialog.png"
+      }
+    },
+    {
+      "slug": "ContentReviewQueuePage",
+      "module": "content-moderation",
+      "errorState": {
+        "tested": true,
+        "detected": true,
+        "detail": "页面呈现错误态文案",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/content-moderation/extra-45093-ContentReviewQueuePage-error-state.png"
+      },
+      "jumpLinks": [],
+      "confirmDialog": {
+        "tested": false,
+        "dialogSeen": false,
+        "writeBlocked": false,
+        "detail": "敏感页面跳过（资金/审批/不可逆）",
+        "screenshot": ""
+      }
+    },
+    {
+      "slug": "DashboardPage",
+      "module": "dashboard",
+      "errorState": {
+        "tested": true,
+        "detected": true,
+        "detail": "页面呈现错误态文案",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/dashboard/extra-45093-DashboardPage-error-state.png"
+      },
+      "jumpLinks": [],
+      "confirmDialog": {
+        "tested": false,
+        "dialogSeen": false,
+        "writeBlocked": false,
+        "detail": "页面上无危险操作按钮",
+        "screenshot": ""
+      }
+    },
+    {
+      "slug": "FeedbackListPage",
+      "module": "feedback",
+      "errorState": {
+        "tested": true,
+        "detected": true,
+        "detail": "页面呈现错误态文案",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/feedback/extra-45093-FeedbackListPage-error-state.png"
+      },
+      "jumpLinks": [],
+      "confirmDialog": {
+        "tested": true,
+        "dialogSeen": false,
+        "writeBlocked": false,
+        "detail": "点击后出现写请求: POST http://127.0.0.1:8082/api/adm/feedback/status",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/feedback/extra-45093-FeedbackListPage-no-confirm.png"
+      }
+    },
+    {
+      "slug": "LicensePage",
+      "module": "license",
+      "errorState": {
+        "tested": true,
+        "detected": true,
+        "detail": "页面呈现错误态文案",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/license/extra-45093-LicensePage-error-state.png"
+      },
+      "jumpLinks": [],
+      "confirmDialog": {
+        "tested": false,
+        "dialogSeen": false,
+        "writeBlocked": false,
+        "detail": "敏感页面跳过（资金/审批/不可逆）",
+        "screenshot": ""
+      }
+    },
+    {
+      "slug": "LogoutApplicationListPage",
+      "module": "logout-applications",
+      "errorState": {
+        "tested": true,
+        "detected": false,
+        "detail": "未见明确错误态文案",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/logout-applications/extra-45093-LogoutApplicationListPage-error-state.png"
+      },
+      "jumpLinks": [],
+      "confirmDialog": {
+        "tested": false,
+        "dialogSeen": false,
+        "writeBlocked": false,
+        "detail": "敏感页面跳过（资金/审批/不可逆）",
+        "screenshot": ""
+      }
+    },
+    {
+      "slug": "AuditLogPage",
+      "module": "logs",
+      "errorState": {
+        "tested": true,
+        "detected": true,
+        "detail": "页面呈现错误态文案",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/logs/extra-45093-AuditLogPage-error-state.png"
+      },
+      "jumpLinks": [
+        {
+          "target": "/messages",
+          "found": true
+        },
+        {
+          "target": "/logout-applications",
+          "found": true
+        }
+      ],
+      "confirmDialog": {
+        "tested": true,
+        "dialogSeen": false,
+        "writeBlocked": true,
+        "detail": "取消路径无写请求",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/logs/extra-45093-AuditLogPage-no-confirm.png"
+      }
+    },
+    {
+      "slug": "McpGovernanceListPage",
+      "module": "mcp-governance",
+      "errorState": {
+        "tested": true,
+        "detected": false,
+        "detail": "未见明确错误态文案",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/mcp-governance/extra-45093-McpGovernanceListPage-error-state.png"
+      },
+      "jumpLinks": [],
+      "confirmDialog": {
+        "tested": false,
+        "dialogSeen": false,
+        "writeBlocked": false,
+        "detail": "敏感页面跳过（资金/审批/不可逆）",
+        "screenshot": ""
+      }
+    },
+    {
+      "slug": "MessageListPage",
+      "module": "messages",
+      "errorState": {
+        "tested": true,
+        "detected": true,
+        "detail": "页面呈现错误态文案",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/messages/extra-45093-MessageListPage-error-state.png"
+      },
+      "jumpLinks": [],
+      "confirmDialog": {
+        "tested": false,
+        "dialogSeen": false,
+        "writeBlocked": false,
+        "detail": "页面上无危险操作按钮",
+        "screenshot": ""
+      }
+    },
+    {
+      "slug": "ReportCenterPage",
+      "module": "reports",
+      "errorState": {
+        "tested": true,
+        "detected": true,
+        "detail": "页面呈现错误态文案",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/reports/extra-45093-ReportCenterPage-error-state.png"
+      },
+      "jumpLinks": [],
+      "confirmDialog": {
+        "tested": true,
+        "dialogSeen": false,
+        "writeBlocked": true,
+        "detail": "取消路径无写请求",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/reports/extra-45093-ReportCenterPage-no-confirm.png"
+      }
+    },
+    {
+      "slug": "RolePermissionPage",
+      "module": "roles",
+      "errorState": {
+        "tested": true,
+        "detected": false,
+        "detail": "未见明确错误态文案",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/roles/extra-45093-RolePermissionPage-error-state.png"
+      },
+      "jumpLinks": [],
+      "confirmDialog": {
+        "tested": true,
+        "dialogSeen": true,
+        "writeBlocked": true,
+        "detail": "取消路径无写请求",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/roles/extra-45093-RolePermissionPage-confirm-dialog.png"
+      }
+    },
+    {
+      "slug": "StorageOverviewPage",
+      "module": "storage",
+      "errorState": {
+        "tested": true,
+        "detected": true,
+        "detail": "页面呈现错误态文案",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/storage/extra-45093-StorageOverviewPage-error-state.png"
+      },
+      "jumpLinks": [
+        {
+          "target": "/settings",
+          "found": true
+        }
+      ],
+      "confirmDialog": {
+        "tested": true,
+        "dialogSeen": true,
+        "writeBlocked": true,
+        "detail": "取消路径无写请求",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/storage/extra-45093-StorageOverviewPage-confirm-dialog.png"
+      }
+    },
+    {
+      "slug": "SystemHealthPage",
+      "module": "system-health",
+      "errorState": {
+        "tested": true,
+        "detected": true,
+        "detail": "页面呈现错误态文案",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/system-health/extra-45093-SystemHealthPage-error-state.png"
+      },
+      "jumpLinks": [],
+      "confirmDialog": {
+        "tested": false,
+        "dialogSeen": false,
+        "writeBlocked": false,
+        "detail": "页面上无危险操作按钮",
+        "screenshot": ""
+      }
+    },
+    {
+      "slug": "PluginManagementPage",
+      "module": "plugin_management",
+      "errorState": {
+        "tested": true,
+        "detected": true,
+        "detail": "页面呈现错误态文案",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/plugin_management/extra-45093-PluginManagementPage-error-state.png"
+      },
+      "jumpLinks": [
+        {
+          "target": "/plugins/logs",
+          "found": true
+        }
+      ],
+      "confirmDialog": {
+        "tested": false,
+        "dialogSeen": false,
+        "writeBlocked": false,
+        "detail": "页面上无危险操作按钮",
+        "screenshot": ""
+      }
+    },
+    {
+      "slug": "PluginLogPage",
+      "module": "plugin_management",
+      "errorState": {
+        "tested": true,
+        "detected": true,
+        "detail": "页面呈现错误态文案",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/plugin_management/extra-45093-PluginLogPage-error-state.png"
+      },
+      "jumpLinks": [],
+      "confirmDialog": {
+        "tested": false,
+        "dialogSeen": false,
+        "writeBlocked": false,
+        "detail": "页面上无危险操作按钮",
+        "screenshot": ""
+      }
+    },
+    {
+      "slug": "UserListPage",
+      "module": "users",
+      "errorState": {
+        "tested": true,
+        "detected": true,
+        "detail": "页面呈现错误态文案",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/users/extra-45093-UserListPage-error-state.png"
+      },
+      "jumpLinks": [
+        {
+          "target": "/users/:id",
+          "found": false
+        }
+      ],
+      "confirmDialog": {
+        "tested": true,
+        "dialogSeen": true,
+        "writeBlocked": true,
+        "detail": "取消路径无写请求",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/users/extra-45093-UserListPage-confirm-dialog.png"
+      }
+    },
+    {
+      "slug": "GroupListPage",
+      "module": "groups",
+      "errorState": {
+        "tested": true,
+        "detected": true,
+        "detail": "页面呈现错误态文案",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/groups/extra-45093-GroupListPage-error-state.png"
+      },
+      "jumpLinks": [
+        {
+          "target": "/groups/:id",
+          "found": true
+        }
+      ],
+      "confirmDialog": {
+        "tested": false,
+        "dialogSeen": false,
+        "writeBlocked": false,
+        "detail": "页面上无危险操作按钮",
+        "screenshot": ""
+      }
+    },
+    {
+      "slug": "GroupTaskListPage",
+      "module": "groups",
+      "errorState": {
+        "tested": true,
+        "detected": false,
+        "detail": "未见明确错误态文案",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/groups/extra-45093-GroupTaskListPage-error-state.png"
+      },
+      "jumpLinks": [
+        {
+          "target": "/groups/:id",
+          "found": true
+        },
+        {
+          "target": "/groups/:id/tasks",
+          "found": false
+        }
+      ],
+      "confirmDialog": {
+        "tested": false,
+        "dialogSeen": false,
+        "writeBlocked": false,
+        "detail": "页面上无危险操作按钮",
+        "screenshot": ""
+      }
+    },
+    {
+      "slug": "GroupContextGatewayPage",
+      "module": "groups",
+      "errorState": {
+        "tested": true,
+        "detected": false,
+        "detail": "未见明确错误态文案",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/groups/extra-45093-GroupContextGatewayPage-error-state.png"
+      },
+      "jumpLinks": [
+        {
+          "target": "/groups/:id:id?from=context",
+          "found": false
+        }
+      ],
+      "confirmDialog": {
+        "tested": false,
+        "dialogSeen": false,
+        "writeBlocked": false,
+        "detail": "页面上无危险操作按钮",
+        "screenshot": ""
+      }
+    },
+    {
+      "slug": "MomentListPage",
+      "module": "moments",
+      "errorState": {
+        "tested": true,
+        "detected": false,
+        "detail": "未见明确错误态文案",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/moments/extra-45093-MomentListPage-error-state.png"
+      },
+      "jumpLinks": [
+        {
+          "target": "/moments/:id",
+          "found": false
+        },
+        {
+          "target": "/moments/reports",
+          "found": true
+        }
+      ],
+      "confirmDialog": {
+        "tested": true,
+        "dialogSeen": true,
+        "writeBlocked": true,
+        "detail": "取消路径无写请求",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/moments/extra-45093-MomentListPage-confirm-dialog.png"
+      }
+    },
+    {
+      "slug": "ChannelListPage",
+      "module": "channels",
+      "errorState": {
+        "tested": true,
+        "detected": false,
+        "detail": "未见明确错误态文案",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/channels/extra-45093-ChannelListPage-error-state.png"
+      },
+      "jumpLinks": [
+        {
+          "target": "/channels/:id",
+          "found": false
+        },
+        {
+          "target": "/channels/:id?edit=1",
+          "found": false
+        },
+        {
+          "target": "/channels/:id/messages",
+          "found": true
+        }
+      ],
+      "confirmDialog": {
+        "tested": true,
+        "dialogSeen": true,
+        "writeBlocked": true,
+        "detail": "取消路径无写请求",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/channels/extra-45093-ChannelListPage-confirm-dialog.png"
+      }
+    },
+    {
+      "slug": "PaidChannelOpsPage",
+      "module": "channels",
+      "errorState": {
+        "tested": true,
+        "detected": true,
+        "detail": "页面呈现错误态文案",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/channels/extra-45093-PaidChannelOpsPage-error-state.png"
+      },
+      "jumpLinks": [],
+      "confirmDialog": {
+        "tested": false,
+        "dialogSeen": false,
+        "writeBlocked": false,
+        "detail": "页面上无危险操作按钮",
+        "screenshot": ""
+      }
+    },
+    {
+      "slug": "SettingsHomePage",
+      "module": "settings",
+      "errorState": {
+        "tested": true,
+        "detected": true,
+        "detail": "页面呈现错误态文案",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/settings/extra-45093-SettingsHomePage-error-state.png"
+      },
+      "jumpLinks": [],
+      "confirmDialog": {
+        "tested": false,
+        "dialogSeen": false,
+        "writeBlocked": false,
+        "detail": "页面上无危险操作按钮",
+        "screenshot": ""
+      }
+    },
+    {
+      "slug": "FeatureConfigPage",
+      "module": "settings",
+      "errorState": {
+        "tested": true,
+        "detected": true,
+        "detail": "页面呈现错误态文案",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/settings/extra-45093-FeatureConfigPage-error-state.png"
+      },
+      "jumpLinks": [
+        {
+          "target": "/settings",
+          "found": true
+        }
+      ],
+      "confirmDialog": {
+        "tested": false,
+        "dialogSeen": false,
+        "writeBlocked": false,
+        "detail": "页面上无危险操作按钮",
+        "screenshot": ""
+      }
+    },
+    {
+      "slug": "ProfileSwitchPage",
+      "module": "settings",
+      "errorState": {
+        "tested": true,
+        "detected": true,
+        "detail": "页面呈现错误态文案",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/settings/extra-45093-ProfileSwitchPage-error-state.png"
+      },
+      "jumpLinks": [
+        {
+          "target": "/settings",
+          "found": true
+        }
+      ],
+      "confirmDialog": {
+        "tested": false,
+        "dialogSeen": false,
+        "writeBlocked": false,
+        "detail": "页面上无危险操作按钮",
+        "screenshot": ""
+      }
+    },
+    {
+      "slug": "CapabilityConfigPage",
+      "module": "settings",
+      "errorState": {
+        "tested": true,
+        "detected": true,
+        "detail": "页面呈现错误态文案",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/settings/extra-45093-CapabilityConfigPage-error-state.png"
+      },
+      "jumpLinks": [
+        {
+          "target": "/settings",
+          "found": true
+        }
+      ],
+      "confirmDialog": {
+        "tested": true,
+        "dialogSeen": false,
+        "writeBlocked": true,
+        "detail": "取消路径无写请求",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/settings/extra-45093-CapabilityConfigPage-no-confirm.png"
+      }
+    },
+    {
+      "slug": "ComplianceKeyPage",
+      "module": "settings",
+      "errorState": {
+        "tested": true,
+        "detected": true,
+        "detail": "页面呈现错误态文案",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/settings/extra-45093-ComplianceKeyPage-error-state.png"
+      },
+      "jumpLinks": [
+        {
+          "target": "/settings",
+          "found": true
+        }
+      ],
+      "confirmDialog": {
+        "tested": false,
+        "dialogSeen": false,
+        "writeBlocked": false,
+        "detail": "页面上无危险操作按钮",
+        "screenshot": ""
+      }
+    },
+    {
+      "slug": "VersionPage",
+      "module": "settings",
+      "errorState": {
+        "tested": true,
+        "detected": true,
+        "detail": "页面呈现错误态文案",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/settings/extra-45093-VersionPage-error-state.png"
+      },
+      "jumpLinks": [],
+      "confirmDialog": {
+        "tested": false,
+        "dialogSeen": false,
+        "writeBlocked": false,
+        "detail": "页面上无危险操作按钮",
+        "screenshot": ""
+      }
+    },
+    {
+      "slug": "MutedUsersPage",
+      "module": "settings",
+      "errorState": {
+        "tested": true,
+        "detected": true,
+        "detail": "页面呈现错误态文案",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/settings/extra-45093-MutedUsersPage-error-state.png"
+      },
+      "jumpLinks": [],
+      "confirmDialog": {
+        "tested": false,
+        "dialogSeen": false,
+        "writeBlocked": false,
+        "detail": "页面上无危险操作按钮",
+        "screenshot": ""
+      }
+    },
+    {
+      "slug": "PushTokenListPage",
+      "module": "settings",
+      "errorState": {
+        "tested": true,
+        "detected": true,
+        "detail": "页面呈现错误态文案",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/settings/extra-45093-PushTokenListPage-error-state.png"
+      },
+      "jumpLinks": [
+        {
+          "target": "/settings",
+          "found": true
+        }
+      ],
+      "confirmDialog": {
+        "tested": false,
+        "dialogSeen": false,
+        "writeBlocked": false,
+        "detail": "页面上无危险操作按钮",
+        "screenshot": ""
+      }
+    },
+    {
+      "slug": "DDLPage",
+      "module": "settings",
+      "errorState": {
+        "tested": true,
+        "detected": true,
+        "detail": "页面呈现错误态文案",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/settings/extra-45093-DDLPage-error-state.png"
+      },
+      "jumpLinks": [],
+      "confirmDialog": {
+        "tested": false,
+        "dialogSeen": false,
+        "writeBlocked": false,
+        "detail": "页面上无危险操作按钮",
+        "screenshot": ""
+      }
+    },
+    {
+      "slug": "SSOConfigPage",
+      "module": "settings",
+      "errorState": {
+        "tested": true,
+        "detected": true,
+        "detail": "页面呈现错误态文案",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/settings/extra-45093-SSOConfigPage-error-state.png"
+      },
+      "jumpLinks": [],
+      "confirmDialog": {
+        "tested": false,
+        "dialogSeen": false,
+        "writeBlocked": false,
+        "detail": "页面上无危险操作按钮",
+        "screenshot": ""
+      }
+    },
+    {
+      "slug": "AiAgentListPage",
+      "module": "ai_agent",
+      "errorState": {
+        "tested": true,
+        "detected": true,
+        "detail": "页面呈现错误态文案",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/ai_agent/extra-45093-AiAgentListPage-error-state.png"
+      },
+      "jumpLinks": [],
+      "confirmDialog": {
+        "tested": false,
+        "dialogSeen": false,
+        "writeBlocked": false,
+        "detail": "页面上无危险操作按钮",
+        "screenshot": ""
+      }
+    },
+    {
+      "slug": "OnboardingConfigPage",
+      "module": "ai_agent",
+      "errorState": {
+        "tested": true,
+        "detected": true,
+        "detail": "页面呈现错误态文案",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/ai_agent/extra-45093-OnboardingConfigPage-error-state.png"
+      },
+      "jumpLinks": [],
+      "confirmDialog": {
+        "tested": false,
+        "dialogSeen": false,
+        "writeBlocked": false,
+        "detail": "页面上无危险操作按钮",
+        "screenshot": ""
+      }
+    },
+    {
+      "slug": "KnowledgeConfigPage",
+      "module": "ai_agent",
+      "errorState": {
+        "tested": true,
+        "detected": true,
+        "detail": "页面呈现错误态文案",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/ai_agent/extra-45093-KnowledgeConfigPage-error-state.png"
+      },
+      "jumpLinks": [],
+      "confirmDialog": {
+        "tested": false,
+        "dialogSeen": false,
+        "writeBlocked": false,
+        "detail": "页面上无危险操作按钮",
+        "screenshot": ""
+      }
+    },
+    {
+      "slug": "AiRolesPage",
+      "module": "ai_agent",
+      "errorState": {
+        "tested": true,
+        "detected": true,
+        "detail": "页面呈现错误态文案",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/ai_agent/extra-45093-AiRolesPage-error-state.png"
+      },
+      "jumpLinks": [],
+      "confirmDialog": {
+        "tested": false,
+        "dialogSeen": false,
+        "writeBlocked": false,
+        "detail": "页面上无危险操作按钮",
+        "screenshot": ""
+      }
+    },
+    {
+      "slug": "AdminListPage",
+      "module": "admins",
+      "errorState": {
+        "tested": true,
+        "detected": true,
+        "detail": "页面呈现错误态文案",
+        "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/admins/extra-45093-AdminListPage-error-state.png"
+      },
+      "jumpLinks": [
+        {
+          "target": "/roles",
+          "found": true
+        },
+        {
+          "target": "/logs",
+          "found": true
+        }
+      ],
+      "confirmDialog": {
+        "tested": false,
+        "dialogSeen": false,
+        "writeBlocked": false,
+        "detail": "敏感页面跳过（资金/审批/不可逆）",
+        "screenshot": ""
+      }
+    }
+  ]
+}

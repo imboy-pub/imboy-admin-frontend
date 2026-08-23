@@ -1,0 +1,62 @@
+[
+  {
+    "url": "/current",
+    "status": 426,
+    "method": "GET"
+  },
+  {
+    "url": "/current",
+    "status": 426,
+    "method": "GET"
+  },
+  {
+    "url": "/setup/status",
+    "status": 426,
+    "method": "GET"
+  },
+  {
+    "url": "/passport/meta",
+    "status": 426,
+    "method": "GET"
+  },
+  {
+    "url": "/setup/status",
+    "status": 426,
+    "method": "GET"
+  },
+  {
+    "url": "/passport/meta",
+    "status": 426,
+    "method": "GET"
+  },
+  {
+    "url": "/passport/captcha?t=1787470970342",
+    "status": 426,
+    "method": "GET"
+  },
+  {
+    "url": "/setup/status",
+    "status": 426,
+    "method": "GET"
+  },
+  {
+    "url": "/passport/meta",
+    "status": 426,
+    "method": "GET"
+  },
+  {
+    "url": "/setup/status",
+    "status": 426,
+    "method": "GET"
+  },
+  {
+    "url": "/passport/meta",
+    "status": 426,
+    "method": "GET"
+  },
+  {
+    "url": "/passport/captcha?t=1787470970841",
+    "status": 426,
+    "method": "GET"
+  }
+]

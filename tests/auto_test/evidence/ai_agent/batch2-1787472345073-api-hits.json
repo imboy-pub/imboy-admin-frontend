@@ -1,0 +1,314 @@
+[
+  {
+    "url": "/current",
+    "status": 401,
+    "method": "GET"
+  },
+  {
+    "url": "/current",
+    "status": 401,
+    "method": "GET"
+  },
+  {
+    "url": "/setup/status",
+    "status": 401,
+    "method": "GET"
+  },
+  {
+    "url": "/passport/meta",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/setup/status",
+    "status": 401,
+    "method": "GET"
+  },
+  {
+    "url": "/passport/meta",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/passport/captcha?t=1787472346210",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/setup/status",
+    "status": 401,
+    "method": "GET"
+  },
+  {
+    "url": "/passport/meta",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/setup/status",
+    "status": 401,
+    "method": "GET"
+  },
+  {
+    "url": "/passport/meta",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/passport/captcha?t=1787472346860",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/passport/captcha?t=1787472347026",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/passport/do_login",
+    "status": 200,
+    "method": "POST"
+  },
+  {
+    "url": "/current",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/current",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/admin/config/features",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/rbac/me",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/stats/license",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/feedback/index?page=1&size=1&status=1",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/stats/user?days=7",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/stats/group?days=7",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/current",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/stats/finance",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/moment/report/list?page=1&size=1&status=0",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/stats/overview",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/stats/message?days=7",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/stats/ranking?type=user&metric=message&limit=10",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/current",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/current",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/rbac/me",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/stats/license",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/feedback/index?page=1&size=1&status=1",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/moment/report/list?page=1&size=1&status=0",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/current",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/ai_agent/role/list?page=1&size=100&status=1",
+    "status": 200,
+    "method": "GET",
+    "body": "{\"code\":0,\"msg\":\"success\",\"payload\":{\"list\":[{\"active_version\":0,\"bound_agent_count\":0,\"code\":\"e2e_131900_4\",\"created_at\":1787361163128,\"created_by\":103119732858947584,\"description\":\"\",\"name\":\"e2e_131900_4\",\"status\":1,\"updated_at\":1787361163148},{\"active_version\":0,\"bound_agent_count\":0,\"code\":\"e2e_800230_4\",\"created_at\":1787360831855,\"created_by\":103119732858947584,\"description\":\"\",\"name\":\"e2e_80"
+  },
+  {
+    "url": "/ai_agent/list?page=1&size=10",
+    "status": 200,
+    "method": "GET",
+    "body": "{\"code\":0,\"msg\":\"success\",\"payload\":{\"list\":[{\"avatar\":\"\",\"category\":\"e2e_131900_5\",\"created_at\":1787361168446,\"description\":\"e2e_131900_5\",\"model\":\"e2e_131900_5\",\"nickname\":\"e2e_131900_5\",\"owner_uid\":0,\"provider\":\"e2e_131900_5\",\"role_id\":\"\",\"role_name\":null,\"role_version\":null,\"status\":1,\"user_id\":108363133086861312,\"visibility\":1},{\"avatar\":\"\",\"category\":\"\",\"created_at\":1787361058749,\"descriptio"
+  },
+  {
+    "url": "/ai_agent/list?page=1&size=10&category=%E4%B8%8D%E5%AD%98%E5%9C%A8%E7%9A%84%E5%88%86%E7%B1%BBxyz",
+    "status": 200,
+    "method": "GET",
+    "body": "{\"code\":0,\"msg\":\"success\",\"payload\":{\"list\":[],\"size\":10,\"total\":0,\"page\":1},\"sv_ts\":1787472352020}"
+  },
+  {
+    "url": "/ai_agent/list?page=1&size=10",
+    "status": 200,
+    "method": "GET",
+    "body": "{\"code\":0,\"msg\":\"success\",\"payload\":{\"list\":[{\"avatar\":\"\",\"category\":\"e2e_131900_5\",\"created_at\":1787361168446,\"description\":\"e2e_131900_5\",\"model\":\"e2e_131900_5\",\"nickname\":\"e2e_131900_5\",\"owner_uid\":0,\"provider\":\"e2e_131900_5\",\"role_id\":\"\",\"role_name\":null,\"role_version\":null,\"status\":1,\"user_id\":108363133086861312,\"visibility\":1},{\"avatar\":\"\",\"category\":\"\",\"created_at\":1787361058749,\"descriptio"
+  },
+  {
+    "url": "/ai_agent/create",
+    "status": 200,
+    "method": "POST",
+    "body": "{\"code\":0,\"msg\":\"创建成功\",\"payload\":{\"user_id\":108596304778889216},\"sv_ts\":1787472353384}"
+  },
+  {
+    "url": "/ai_agent/list?page=1&size=10",
+    "status": 200,
+    "method": "GET",
+    "body": "{\"code\":0,\"msg\":\"success\",\"payload\":{\"list\":[{\"avatar\":\"\",\"category\":\"\",\"created_at\":1787472353371,\"description\":\"\",\"model\":\"\",\"nickname\":\"pw_e2e_b2_72353\",\"owner_uid\":0,\"provider\":\"qianfan\",\"role_id\":\"\",\"role_name\":null,\"role_version\":null,\"status\":1,\"user_id\":108596304778889216,\"visibility\":1},{\"avatar\":\"\",\"category\":\"e2e_131900_5\",\"created_at\":1787361168446,\"description\":\"e2e_131900_5\",\"model\":"
+  },
+  {
+    "url": "/ai_agent/detail?user_id=108596304778889216",
+    "status": 200,
+    "method": "GET",
+    "body": "{\"code\":0,\"msg\":\"success\",\"payload\":{\"capabilities\":{},\"category\":\"\",\"description\":\"\",\"greeting\":\"\",\"model\":\"\",\"owner_uid\":0,\"policy_source\":\"legacy_fallback\",\"provider\":\"qianfan\",\"role_id\":\"\",\"status\":1,\"system_prompt\":\"\",\"temperature\":6.99999988079071044922e-01,\"trigger_policy\":{},\"user_id\":108596304778889216,\"visibility\":1,\"voice_id\":\"\"},\"sv_ts\":1787472353782}"
+  },
+  {
+    "url": "/ai_agent/update",
+    "status": 200,
+    "method": "POST",
+    "body": "{\"code\":0,\"msg\":\"更新成功\",\"payload\":{\"user_id\":108596304778889216},\"sv_ts\":1787472354047}"
+  },
+  {
+    "url": "/ai_agent/list?page=1&size=10",
+    "status": 200,
+    "method": "GET",
+    "body": "{\"code\":0,\"msg\":\"success\",\"payload\":{\"list\":[{\"avatar\":\"\",\"category\":\"\",\"created_at\":1787472353371,\"description\":\"\",\"model\":\"\",\"nickname\":\"pw_e2e_b2_72353e\",\"owner_uid\":0,\"provider\":\"qianfan\",\"role_id\":\"\",\"role_name\":null,\"role_version\":null,\"status\":1,\"user_id\":108596304778889216,\"visibility\":1},{\"avatar\":\"\",\"category\":\"e2e_131900_5\",\"created_at\":1787361168446,\"description\":\"e2e_131900_5\",\"model\""
+  },
+  {
+    "url": "/ai_agent/set_status",
+    "status": 200,
+    "method": "POST",
+    "body": "{\"code\":0,\"msg\":\"操作成功\",\"payload\":{},\"sv_ts\":1787472355447}"
+  },
+  {
+    "url": "/ai_agent/list?page=1&size=10",
+    "status": 200,
+    "method": "GET",
+    "body": "{\"code\":0,\"msg\":\"success\",\"payload\":{\"list\":[{\"avatar\":\"\",\"category\":\"\",\"created_at\":1787472353371,\"description\":\"\",\"model\":\"\",\"nickname\":\"pw_e2e_b2_72353e\",\"owner_uid\":0,\"provider\":\"qianfan\",\"role_id\":\"\",\"role_name\":null,\"role_version\":null,\"status\":0,\"user_id\":108596304778889216,\"visibility\":1},{\"avatar\":\"\",\"category\":\"e2e_131900_5\",\"created_at\":1787361168446,\"description\":\"e2e_131900_5\",\"model\""
+  },
+  {
+    "url": "/ai_agent/set_status",
+    "status": 200,
+    "method": "POST",
+    "body": "{\"code\":0,\"msg\":\"操作成功\",\"payload\":{},\"sv_ts\":1787472355735}"
+  },
+  {
+    "url": "/ai_agent/list?page=1&size=10",
+    "status": 200,
+    "method": "GET",
+    "body": "{\"code\":0,\"msg\":\"success\",\"payload\":{\"list\":[{\"avatar\":\"\",\"category\":\"\",\"created_at\":1787472353371,\"description\":\"\",\"model\":\"\",\"nickname\":\"pw_e2e_b2_72353e\",\"owner_uid\":0,\"provider\":\"qianfan\",\"role_id\":\"\",\"role_name\":null,\"role_version\":null,\"status\":1,\"user_id\":108596304778889216,\"visibility\":1},{\"avatar\":\"\",\"category\":\"e2e_131900_5\",\"created_at\":1787361168446,\"description\":\"e2e_131900_5\",\"model\""
+  },
+  {
+    "url": "/current",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/current",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/rbac/me",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/stats/license",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/moment/report/list?page=1&size=1&status=0",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/feedback/index?page=1&size=1&status=1",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/current",
+    "status": 200,
+    "method": "GET"
+  },
+  {
+    "url": "/ai_agent/role/list?page=1&size=100&status=1",
+    "status": 200,
+    "method": "GET",
+    "body": "{\"code\":0,\"msg\":\"success\",\"payload\":{\"list\":[{\"active_version\":0,\"bound_agent_count\":0,\"code\":\"e2e_131900_4\",\"created_at\":1787361163128,\"created_by\":103119732858947584,\"description\":\"\",\"name\":\"e2e_131900_4\",\"status\":1,\"updated_at\":1787361163148},{\"active_version\":0,\"bound_agent_count\":0,\"code\":\"e2e_800230_4\",\"created_at\":1787360831855,\"created_by\":103119732858947584,\"description\":\"\",\"name\":\"e2e_80"
+  },
+  {
+    "url": "/ai_agent/list?page=1&size=10",
+    "status": 200,
+    "method": "GET",
+    "body": "{\"code\":0,\"msg\":\"success\",\"payload\":{\"list\":[{\"avatar\":\"\",\"category\":\"\",\"created_at\":1787472353371,\"description\":\"\",\"model\":\"\",\"nickname\":\"pw_e2e_b2_72353e\",\"owner_uid\":0,\"provider\":\"qianfan\",\"role_id\":\"\",\"role_name\":null,\"role_version\":null,\"status\":1,\"user_id\":108596304778889216,\"visibility\":1},{\"avatar\":\"\",\"category\":\"e2e_131900_5\",\"created_at\":1787361168446,\"description\":\"e2e_131900_5\",\"model\""
+  },
+  {
+    "url": "/ai_agent/list?page=1&size=10",
+    "status": 500,
+    "method": "GET",
+    "body": "{\"code\":500,\"msg\":\"injected\"}"
+  },
+  {
+    "url": "/ai_agent/list?page=1&size=10",
+    "status": 500,
+    "method": "GET",
+    "body": "{\"code\":500,\"msg\":\"injected\"}"
+  }
+]

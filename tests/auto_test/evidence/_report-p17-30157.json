@@ -1,0 +1,110 @@
+{
+  "grp:members": {
+    "ok": true,
+    "method": "btn→http://127.0.0.1:8082/groups/106571324669036544"
+  },
+  "grp:votes": {
+    "ok": true,
+    "method": "btn→http://127.0.0.1:8082/groups/106571324669036544"
+  },
+  "grp:notices": {
+    "ok": true,
+    "method": "btn→http://127.0.0.1:8082/groups/106571324669036544"
+  },
+  "grp:tags": {
+    "ok": true,
+    "method": "btn→http://127.0.0.1:8082/groups/106571324669036544"
+  },
+  "grp:categories": {
+    "ok": true,
+    "method": "btn→http://127.0.0.1:8082/groups/106571324669036544"
+  },
+  "grp:files": {
+    "ok": true,
+    "method": "btn→http://127.0.0.1:8082/groups/106571324669036544"
+  },
+  "grp:albums": {
+    "ok": true,
+    "method": "btn→http://127.0.0.1:8082/groups/106571324669036544"
+  },
+  "grp:schedules": {
+    "ok": true,
+    "method": "btn→http://127.0.0.1:8082/groups/106571324669036544"
+  },
+  "grp:tasks": {
+    "ok": true,
+    "method": "btn→http://127.0.0.1:8082/groups/106571324669036544"
+  },
+  "grp:governance": {
+    "ok": false,
+    "method": "btn→http://127.0.0.1:8082/groups/106571324669036544"
+  },
+  "member:user": {
+    "ok": false,
+    "method": "no-match"
+  },
+  "govlog:context": {
+    "ok": true,
+    "method": "a[href=/groups/context]"
+  },
+  "ctx:group": {
+    "ok": true,
+    "method": "btn→http://127.0.0.1:8082/groups/106571324669036544/governance-logs?from=context"
+  },
+  "ch:detail-back": {
+    "ok": true,
+    "method": "btn→http://127.0.0.1:8082/channels"
+  },
+  "ch:admins": {
+    "ok": false,
+    "method": "btn→http://127.0.0.1:8082/channels/103209560378181632"
+  },
+  "ch:messages:back": {
+    "ok": true,
+    "method": "btn→http://127.0.0.1:8082/channels/103209560378181632"
+  },
+  "ch:subscribers:back": {
+    "ok": true,
+    "method": "btn→http://127.0.0.1:8082/channels/103209560378181632"
+  },
+  "ch:admins:back": {
+    "ok": true,
+    "method": "btn→http://127.0.0.1:8082/channels/103209560378181632"
+  },
+  "ch:invitations:back": {
+    "ok": true,
+    "method": "btn→http://127.0.0.1:8082/channels/103209560378181632"
+  },
+  "ch:orders:back": {
+    "ok": true,
+    "method": "btn→http://127.0.0.1:8082/channels/103209560378181632"
+  },
+  "chlist:detail": {
+    "ok": false,
+    "method": "eye-btn"
+  },
+  "udetail:back": {
+    "ok": true,
+    "method": "btn→http://127.0.0.1:8082/users"
+  },
+  "udetail:tags": {
+    "ok": false,
+    "method": "no-match"
+  },
+  "ulist:detail": {
+    "ok": false,
+    "method": "eye-btn"
+  },
+  "mlist:detail": {
+    "ok": true,
+    "method": "row-first"
+  },
+  "airoles:search": {
+    "ok": true,
+    "method": "enter"
+  },
+  "mreport:search": {
+    "ok": true,
+    "method": "search-clicked"
+  }
+}

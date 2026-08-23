@@ -1,0 +1,22 @@
+{
+  "chlist:detail": {
+    "ok": true,
+    "url": "/channels/107851076774135808"
+  },
+  "ulist:detail": {
+    "ok": true,
+    "url": "/users/108362200183474176"
+  },
+  "udetail:state": {
+    "url": "/users/106",
+    "bodyHead": "Imboy Admin|仪表盘|运营中心|用户管理|群组管理|频道管理|朋友圈管理|治理中心|举报中心|4|反馈处理|15|审计中心|群上下文入口|消息管理|注销申请|日志审计|系统配置|系统设置|管理员|角色权限|插件管理|Imboy 管理后台|Cmd/Ctrl + K|E|E2E管理员|用户数已"
+  },
+  "udetail:back": {
+    "ok": true,
+    "url": "/users"
+  },
+  "udetail:tags": {
+    "ok": false,
+    "method": "no-match"
+  }
+}

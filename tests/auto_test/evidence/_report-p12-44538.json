@@ -1,0 +1,8 @@
+{
+  "GroupNoticeManagePage": {
+    "outcome": "error",
+    "detail": "Error: locator.click: Test timeout of 120000ms exceeded.",
+    "apis": [],
+    "shot": ""
+  }
+}

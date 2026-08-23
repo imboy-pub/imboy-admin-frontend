@@ -1,0 +1,94 @@
+{
+  "round": "writeops-25013",
+  "pages": [
+    {
+      "slug": "AnnouncementListPage",
+      "module": "announcements",
+      "path": "/announcements",
+      "tested": true,
+      "detail": "提交返回 2xx",
+      "apiCalls": [
+        {
+          "method": "POST",
+          "status": 200,
+          "url": "/api/adm/announcement/create"
+        }
+      ],
+      "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/announcements/writeops-25013-AnnouncementListPage-writeop-result.png"
+    },
+    {
+      "slug": "RolePermissionPage",
+      "module": "roles",
+      "path": "/roles",
+      "tested": true,
+      "detail": "提交返回 2xx",
+      "apiCalls": [
+        {
+          "method": "POST",
+          "status": 200,
+          "url": "/api/adm/role/create"
+        }
+      ],
+      "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/roles/writeops-25013-RolePermissionPage-writeop-result.png"
+    },
+    {
+      "slug": "SensitiveWordPage",
+      "module": "content-moderation",
+      "path": "/moderation/sensitive-words",
+      "tested": true,
+      "detail": "提交返回 2xx",
+      "apiCalls": [
+        {
+          "method": "POST",
+          "status": 200,
+          "url": "/api/adm/moderation/sensitive-words"
+        }
+      ],
+      "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/content-moderation/writeops-25013-SensitiveWordPage-writeop-result.png"
+    },
+    {
+      "slug": "VersionPage",
+      "module": "settings",
+      "path": "/settings/versions",
+      "tested": false,
+      "detail": "提交按钮不可操作（表单校验未通过或按钮 disabled）",
+      "apiCalls": [],
+      "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/settings/writeops-25013-VersionPage-writeop-filled.png"
+    },
+    {
+      "slug": "AiRolesPage",
+      "module": "ai_agent",
+      "path": "/ai-agents/roles",
+      "tested": true,
+      "detail": "提交返回 2xx",
+      "apiCalls": [
+        {
+          "method": "POST",
+          "status": 200,
+          "url": "/api/adm/ai_agent/role/create"
+        },
+        {
+          "method": "POST",
+          "status": 200,
+          "url": "/api/adm/ai_agent/role/draft"
+        }
+      ],
+      "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/ai_agent/writeops-25013-AiRolesPage-writeop-result.png"
+    },
+    {
+      "slug": "AiAgentListPage",
+      "module": "ai_agent",
+      "path": "/ai-agents",
+      "tested": true,
+      "detail": "提交返回 2xx",
+      "apiCalls": [
+        {
+          "method": "POST",
+          "status": 200,
+          "url": "/api/adm/ai_agent/create"
+        }
+      ],
+      "screenshot": "/Users/leeyi/project/imboy.pub/imboyadmin/tests/auto_test/evidence/ai_agent/writeops-25013-AiAgentListPage-writeop-result.png"
+    }
+  ]
+}
