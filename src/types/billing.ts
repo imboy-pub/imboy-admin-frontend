@@ -20,7 +20,7 @@ export interface Wallet {
   balance_yuan?: number
   /** 冻结金额，单位：分 */
   frozen: number
-  /** 状态：1=正常，0=冻结 */
+  /** 状态（后端 wallet.chk_wallet_status 值域）：0=冻结（语义预留） 1=正常（默认；freeze/unfreeze 守卫要求 status=1） 2=保留（未使用） */
   status: number
   created_at: string
   updated_at?: string
@@ -37,9 +37,9 @@ export interface WalletTransaction {
   amount: number
   /**
    * 钱包流水类型（后端 wallet_transaction.chk_wallet_tx_type 值域）：
-   * 1=充值 2=充值退款 3=订单退款 5=转账转出 6=转账转入 7=发红包
-   * 8=领红包 9=红包/转账退回 10=提现 11=提现退款 20=agent支付借记
-   * 21=agent支付贷记
+   * 1=充值 2=频道订单支付（消费扣减，写负数出账） 3=订单退款 4=保留（未使用）
+   * 5=转账转出 6=转账转入 7=发红包 8=领红包 9=红包/转账退回 10=提现
+   * 11=提现退款 20=agent支付借记 21=agent支付贷记
    */
   type: number
   /** 关联业务单号 */
@@ -107,8 +107,8 @@ export interface PaymentTransaction {
   /** 交易金额，单位：分 */
   amount: number
   /**
-   * 状态：
-   * 0=待付 1=成功 2=失败 3=已退款 4=部分退款
+   * 状态（后端 payment_transaction.chk_payment_tx_status 值域，迁移 00000055 扩至 5）：
+   * 0=待付 1=成功 2=失败 3=已退款 4=部分退款 5=退款中（B-09 占位态）
    */
   status: number
   created_at: string
