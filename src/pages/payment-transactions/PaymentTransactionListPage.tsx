@@ -50,6 +50,7 @@ const TX_STATUS_LABELS: Record<string, string> = {
   '2': '失败',
   '3': '已退款',
   '4': '部分退款',
+  '5': '退款中',
 }
 
 const TX_STATUS_VARIANTS: Record<string, 'success' | 'warning' | 'error' | 'info' | 'secondary'> = {
@@ -58,6 +59,7 @@ const TX_STATUS_VARIANTS: Record<string, 'success' | 'warning' | 'error' | 'info
   '2': 'error',
   '3': 'secondary',
   '4': 'info',
+  '5': 'warning',
 }
 
 export function PaymentTransactionListPage() {
@@ -270,6 +272,7 @@ export function PaymentTransactionListPage() {
               <option value="2">失败</option>
               <option value="3">已退款</option>
               <option value="4">部分退款</option>
+              <option value="5">退款中</option>
             </Select>
           </FilterBar>
         </CardHeader>
