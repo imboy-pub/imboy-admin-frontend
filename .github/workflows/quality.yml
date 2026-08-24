@@ -41,7 +41,7 @@ jobs:
           set -euo pipefail
           bun run lint 2>&1 | tee lint.txt || true
           # bun run lint 末尾输出 "✖ N problems (X errors, Y warnings)"，N 即总数
-          issues=$(grep -oE "✖ [0-9]+ problems" lint.txt | head -1 | awk '{print $2}')
+          issues=$(grep -oE "✖ [0-9]+ problems" lint.txt | head -1 | awk '{print $2}' || true)
           issues=${issues:-0}
           echo "lint_issues=$issues"
           if [ "$issues" -gt 37 ]; then
