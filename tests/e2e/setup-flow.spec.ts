@@ -15,6 +15,14 @@ import { expect, test } from '@playwright/test'
  */
 const SETUP_STATUS_URL = '**/api/adm/setup/status'
 const SETUP_INIT_URL = '**/api/adm/setup/init'
+const PASSPORT_META_URL = '**/api/adm/passport/meta'
+const TEST_PUBLIC_KEY = `-----BEGIN PUBLIC KEY-----
+MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDARqnAEpvlAB/3zZFAkJZMdvgO
+7sfzCRcS9NggJtmwmOG9KTKhDL8NlNAmTzUXQvMQEtSmqt7rWjyhbt325ecCKrdp
+MPgMDXIvDceV0pAwSS99mie5gvACH1x/NsKBWTnBV5hFpyZ0CB0DQ670PwicwWDm
+4MUBJW/q8y2aiLIfHQIDAQAB
+-----END PUBLIC KEY-----`
+
 function mockStatus(initialized: boolean) {
   return async (route: import('@playwright/test').Route) => {
     await route.fulfill({
@@ -29,6 +37,24 @@ function mockStatus(initialized: boolean) {
   }
 }
 test.describe('P0-5 首启初始化向导', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.route(PASSPORT_META_URL, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          code: 0,
+          msg: 'ok',
+          payload: {
+            csrf_token: '',
+            public_key: TEST_PUBLIC_KEY,
+            system_name: 'Imboy',
+          },
+        }),
+      })
+    })
+  })
+
   test('未初始化时访问 /login 自动跳转 /setup', async ({ page }) => {
     await page.route(SETUP_STATUS_URL, mockStatus(false))
     await page.goto('/login')
