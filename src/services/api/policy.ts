@@ -103,6 +103,9 @@ export type PolicyResponse = {
 }
 
 // --- 默认值 ---
+// 注意：此仅为前端表单初始值。后端真实出厂默认（imboy_profile_preset）：
+// community = storage_mode archived + e2ee_mode optional（当前实现等价关闭）；
+// enterprise = archived + disabled。保存/展示一律以后端 effective 为准。
 
 export const DEFAULT_CAPABILITIES: Capabilities = {
   storage_mode: 'archived',

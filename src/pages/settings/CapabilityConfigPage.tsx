@@ -37,7 +37,7 @@ const STORAGE_MODE_OPTIONS: SelectOption<StorageMode>[] = [
 
 const E2EE_MODE_OPTIONS: SelectOption<E2eeMode>[] = [
   { value: 'disabled', label: '禁用', description: '不启用端到端加密' },
-  { value: 'optional', label: '可选', description: '用户可选择是否加密' },
+  { value: 'optional', label: '可选（弃用）', description: '预留项：当前实现等价于关闭，客户端不加密，勿选' },
   { value: 'compliance', label: '合规', description: '合规场景下的端到端加密' },
   { value: 'required', label: '强制', description: '所有会话强制加密' },
 ]
