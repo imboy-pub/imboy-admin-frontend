@@ -132,20 +132,32 @@ describe('ChannelDetailPage flow', () => {
         }
       }
 
+      if (url === '/admin/config/features') {
+        return {
+          data: {
+            code: 0,
+            msg: 'ok',
+            payload: { channel: true, channel_invitation: false, channel_order: false },
+          },
+        }
+      }
+
       if (url === '/channel/detail/8') {
         return {
           data: {
             code: 0,
             msg: 'ok',
-            payload: {
-              id: 8,
-              name: 'channel-8',
-              owner_id: 1001,
-              custom_id: 'tech_news',
-              description: 'tech channel',
-              avatar: null,
-              type: 0,
-              status: 1,
+payload: {
+	              id: 8,
+	              name: 'channel-8',
+	              owner_id: 1001,
+	              custom_id: 'tech_news',
+	              description: 'tech channel',
+	              avatar: null,
+	              visibility: 0,
+	              access_type: 0,
+	              join_policy: 0,
+	              status: 1,
               subscriber_count: 12,
               created_at: '2026-02-28 10:00:00',
               updated_at: '2026-02-28 10:00:00',
@@ -195,20 +207,25 @@ describe('ChannelDetailPage flow', () => {
       }
     }
 
-    const user = userEvent.setup()
-    const view = renderChannelDetailPage()
+const user = userEvent.setup()
+	    const view = renderChannelDetailPage()
 
-    await waitFor(() => {
-      expect(getCalls.includes('/channel/detail/8')).toBe(true)
-      expect(getCalls.includes('/channel/8/stats')).toBe(true)
-    })
+	    await waitFor(() => {
+	      expect(getCalls.includes('/channel/detail/8')).toBe(true)
+	      expect(getCalls.includes('/channel/8/stats')).toBe(true)
+	    })
 
-    await view.findByText('频道详情')
-    await view.findByText('channel-8')
+	    await waitFor(() => {
+	      expect(view.container.textContent).toContain('频道详情')
+	      expect(view.container.textContent).toContain('channel-8')
+	    })
 
-    // 等待式查询：编辑按钮受权限门（useAdminPermission 异步判定）控制，套件
-    // 全量并行运行时判定可能晚于详情渲染完成——同步 getBy 在此竞态下偶发失败。
-    await user.click(await view.findByRole('button', { name: '编辑频道' }))
+	    // 等待式查询：编辑按钮受权限门（useAdminPermission 异步判定）控制，套件
+	    // 全量并行运行时判定可能晚于详情渲染完成——同步 getBy 在此竞态下偶发失败。
+	    await waitFor(() => {
+	      expect(view.getByRole('button', { name: '编辑频道' })).toBeDefined()
+	    })
+	    await user.click(view.getByRole('button', { name: '编辑频道' }))
 
     const nameInput = view.getByLabelText('频道名称') as HTMLInputElement
     expect(nameInput.value).toBe('channel-8')
@@ -273,9 +290,17 @@ describe('ChannelDetailPage flow', () => {
             code: 0, msg: 'ok',
             payload: {
               id: 8, name: 'channel-8', owner_id: 1001, custom_id: 'tech_news',
-              description: 'tech channel', avatar: null, type: 0, status: 1,
+              description: 'tech channel', avatar: null, visibility: 0, access_type: 0, join_policy: 0, status: 1,
               subscriber_count: 12, created_at: '2026-02-28 10:00:00', updated_at: '2026-02-28 10:00:00',
             },
+          },
+        }
+      }
+      if (url === '/admin/config/features') {
+        return {
+          data: {
+            code: 0, msg: 'ok',
+            payload: { channel: true, channel_invitation: false, channel_order: false },
           },
         }
       }
@@ -293,11 +318,11 @@ describe('ChannelDetailPage flow', () => {
       throw new Error(`unexpected GET: ${url}`)
     }
 
-    const view = renderChannelDetailPage()
+const view = renderChannelDetailPage()
 
-    await waitFor(() => {
-      expect(view.container.textContent).toContain('频道详情')
-      expect(view.container.textContent).toContain('tech_news')
-    })
-  })
+	    await waitFor(() => {
+	      expect(view.container.textContent).toContain('频道详情')
+	      expect(view.container.textContent).toContain('频道消息')
+	    })
+	  })
 })

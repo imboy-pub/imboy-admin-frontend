@@ -94,9 +94,11 @@ describe('ChannelListPage flow', () => {
             items: [
               {
                 id: 8,
-                name: `channel-${keyword ?? 'default'}-${page}`,
-                type: 0,
-                owner_id: 1001,
+name: `channel-${keyword ?? 'default'}-${page}`,
+	                visibility: 0,
+	                access_type: 0,
+	                join_policy: 0,
+	                owner_id: 1001,
                 custom_id: 'tech_news',
                 description: 'desc',
                 avatar: 'https://s3.imboy.pub/channel/flutter_dev.png',

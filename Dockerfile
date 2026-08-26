@@ -38,6 +38,13 @@ RUN printf 'server {\n\
     listen 80;\n\
     root /usr/share/nginx/html;\n\
     index index.html;\n\
+    # 安全响应头 / Security headers\n\
+    add_header X-Content-Type-Options nosniff always;\n\
+    add_header X-Frame-Options DENY always;\n\
+    add_header X-XSS-Protection "1; mode=block" always;\n\
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;\n\
+    add_header Referrer-Policy strict-origin-when-cross-origin always;\n\
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()" always;\n\
     # gzip\n\
     gzip on;\n\
     gzip_types text/plain text/css application/json application/javascript text/xml application/xml image/svg+xml;\n\

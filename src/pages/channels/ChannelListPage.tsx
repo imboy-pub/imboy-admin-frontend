@@ -161,7 +161,11 @@ export function ChannelListPage() {
       { header: 'ID', accessor: 'id' },
       { header: '频道名称', accessor: 'name' },
       { header: '创建者 ID', accessor: 'owner_id' },
-      { header: '类型', accessor: (row) => ({ 0: '公开', 1: '私有', 2: '付费' }[String(row.type)] || String(row.type)) },
+      { header: '类型', accessor: (row) => {
+        const vis = row.visibility === 1 ? '私有' : '公开'
+        const acc = row.access_type === 1 ? '付费' : '免费'
+        return `${vis} ${acc}`
+      } },
       { header: '订阅数', accessor: (row) => row.subscriber_count || 0 },
       { header: '状态', accessor: (row) => ({ 1: '正常', 0: '禁用', '-1': '已删除' }[String(row.status)] || String(row.status)) },
       { header: '创建时间', accessor: (row) => formatDate(row.created_at) },
@@ -263,14 +267,23 @@ export function ChannelListPage() {
       cell: ({ row }) => <span className="font-mono">{row.original.owner_id}</span>,
     },
     {
-      accessorKey: 'type',
+      id: 'type',
       header: '类型',
       cell: ({ row }) => (
-        <StatusBadge
-          status={row.original.type}
-          labels={{ 0: '公开', 1: '私有', 2: '付费' }}
-          variants={{ 0: 'success', 1: 'warning', 2: 'info' }}
-        />
+        <div className="flex items-center gap-1">
+          <StatusBadge
+            status={row.original.visibility}
+            labels={{ 0: '公开', 1: '私有' }}
+            variants={{ 0: 'success', 1: 'warning' }}
+          />
+          {row.original.access_type === 1 && (
+            <StatusBadge
+              status={1}
+              labels={{ 1: '付费' }}
+              variants={{ 1: 'info' }}
+            />
+          )}
+        </div>
       ),
     },
     {
@@ -556,11 +569,20 @@ export function ChannelListPage() {
               </div>
               <div>
                 <p className="text-muted-foreground">类型</p>
-                <StatusBadge
-                  status={drawerChannelDetail?.type ?? '-'}
-                  labels={{ 0: '公开', 1: '私有', 2: '付费' }}
-                  variants={{ 0: 'success', 1: 'warning', 2: 'info' }}
-                />
+                <div className="flex items-center gap-1 mt-1">
+                  <StatusBadge
+                    status={drawerChannelDetail?.visibility ?? 0}
+                    labels={{ 0: '公开', 1: '私有' }}
+                    variants={{ 0: 'success', 1: 'warning' }}
+                  />
+                  {drawerChannelDetail?.access_type === 1 && (
+                    <StatusBadge
+                      status={1}
+                      labels={{ 1: '付费' }}
+                      variants={{ 1: 'info' }}
+                    />
+                  )}
+                </div>
               </div>
               <div>
                 <p className="text-muted-foreground">订阅数</p>

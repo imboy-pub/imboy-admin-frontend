@@ -6,7 +6,12 @@ import type { EntityId } from '@/types/common'
 export interface Channel {
   id: EntityId
   name: string
-  type: number
+  /** 可见性：0=public, 1=private（替代旧 type 字段） */
+  visibility: number
+  /** 付费属性：0=free, 1=paid */
+  access_type: number
+  /** 加入策略：0=open, 1=invite, 2=approval, 3=purchase */
+  join_policy: number
   owner_id: EntityId
   custom_id: string | null
   description: string | null
@@ -26,8 +31,8 @@ export interface ChannelListParams {
   size?: number
   status?: number
   keyword?: string
-  /** 频道类型过滤（0公开 1私密 2付费），由后端 /channel/list 服务端分页 */
-  type?: number
+  /** 付费属性过滤（0免费 1付费），由后端 /channel/list 服务端分页 */
+  access_type?: number
 }
 
 export interface ChannelSearchParams {
@@ -37,7 +42,6 @@ export interface ChannelSearchParams {
 
 export interface ChannelUpdateParams {
   name?: string
-  type?: number
   status?: number
   custom_id?: string
   description?: string

@@ -147,7 +147,7 @@ describe('isNonMomentTargetType', () => {
 type ChannelForm = {
   name: string
   custom_id: string
-  type: number
+  visibility: number
   status: number
   avatar: string
   description: string
@@ -156,7 +156,7 @@ type ChannelForm = {
 function toFormData(channel: {
   name: string
   custom_id: string | null
-  type: number
+  visibility: number
   status: number
   avatar: string | null
   description: string | null
@@ -164,7 +164,7 @@ function toFormData(channel: {
   return {
     name: channel.name || '',
     custom_id: channel.custom_id || '',
-    type: channel.type,
+    visibility: channel.visibility,
     status: channel.status,
     avatar: channel.avatar || '',
     description: channel.description || '',
@@ -176,7 +176,7 @@ describe('toFormData (ChannelDetailPage)', () => {
     const channel = {
       name: 'test channel',
       custom_id: 'ch001',
-      type: 1,
+      visibility: 1,
       status: 1,
       avatar: 'https://cdn.example.com/avatar.jpg',
       description: 'A test channel',
@@ -184,7 +184,7 @@ describe('toFormData (ChannelDetailPage)', () => {
     const result = toFormData(channel)
     expect(result.name).toBe('test channel')
     expect(result.custom_id).toBe('ch001')
-    expect(result.type).toBe(1)
+    expect(result.visibility).toBe(1)
     expect(result.status).toBe(1)
     expect(result.avatar).toBe('https://cdn.example.com/avatar.jpg')
     expect(result.description).toBe('A test channel')
@@ -194,7 +194,7 @@ describe('toFormData (ChannelDetailPage)', () => {
     const channel = {
       name: 'channel',
       custom_id: null,
-      type: 2,
+      visibility: 0,
       status: 0,
       avatar: null,
       description: null,
@@ -209,7 +209,7 @@ describe('toFormData (ChannelDetailPage)', () => {
     const channel = {
       name: '',
       custom_id: null,
-      type: 1,
+      visibility: 1,
       status: 1,
       avatar: null,
       description: null,
@@ -217,17 +217,17 @@ describe('toFormData (ChannelDetailPage)', () => {
     expect(toFormData(channel).name).toBe('')
   })
 
-  it('preserves numeric type and status', () => {
+  it('preserves numeric visibility and status', () => {
     const channel = {
       name: 'ch',
       custom_id: null,
-      type: 3,
+      visibility: 1,
       status: 2,
       avatar: null,
       description: null,
     }
     const result = toFormData(channel)
-    expect(result.type).toBe(3)
+    expect(result.visibility).toBe(1)
     expect(result.status).toBe(2)
   })
 })

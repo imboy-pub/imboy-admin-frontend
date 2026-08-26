@@ -34,7 +34,9 @@ describe('getChannelListPayload — normalizeChannel', () => {
     const raw = {
       id: '1',
       name: 'ch1',
-      type: 1,
+      visibility: 1,
+      access_type: 0,
+      join_policy: 1,
       owner_id: '100',
       custom_id: null,
       description: null,
@@ -55,7 +57,9 @@ describe('getChannelListPayload — normalizeChannel', () => {
     const raw = {
       id: '2',
       name: 'ch2',
-      type: 1,
+      visibility: 1,
+      access_type: 0,
+      join_policy: 1,
       owner_id: null,
       creator_uid: '999',
       custom_id: null,
@@ -105,7 +109,9 @@ describe('getChannelDetailPayload', () => {
           payload: {
             id: 'ch-001',
             name: 'Test',
-            type: 1,
+            visibility: 1,
+            access_type: 0,
+            join_policy: 1,
             owner_id: '10',
             custom_id: null,
             description: null,

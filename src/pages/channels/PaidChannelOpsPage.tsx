@@ -60,9 +60,9 @@ export function PaidChannelOpsPage() {
     size: params.size,
     status: params.status === -1 ? undefined : params.status,
     keyword: params.keyword.trim() || undefined,
-    // type 过滤已下沉到后端 /channel/list（adm_channel_handler），
-    // 由服务端按 type 分页，避免前端过滤导致 total/page 与可见行数不一致
-    type: PAID_CHANNEL_TYPE,
+    // 付费属性过滤已下沉到后端 /channel/list（adm_channel_handler），
+    // 由服务端按 access_type 分页，避免前端过滤导致 total/page 与可见行数不一致
+    access_type: PAID_CHANNEL_TYPE,
   }
 
   const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({

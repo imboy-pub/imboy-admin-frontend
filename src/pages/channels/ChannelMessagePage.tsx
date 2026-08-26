@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router-dom'
 import { LegacyColumnDef, getCoreRowModel, useLegacyTable } from '@tanstack/react-table/legacy'
 import { RowSelectionState } from '@tanstack/react-table'
-import { ArrowLeft, Pin, PinOff, Trash2, Download } from 'lucide-react'
+import { ArrowLeft, Pin, PinOff, Trash2, Download, MessageSquareText, Image, Video, Music, File, ChevronDown, ChevronUp } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -23,10 +23,101 @@ import {
   pinChannelMessage,
 } from '@/modules/channels/api'
 import type { EntityId } from '@/types/common'
-import { formatDate, truncate } from '@/lib/utils'
+import { formatDate, truncate, cn } from '@/lib/utils'
 import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 import { getErrorMessage } from '@/lib/errorUtils'
 import { useListQueryState } from '@/hooks/useListQueryState'
+
+/** 消息类型图标映射 */
+const MSG_TYPE_ICONS: Record<string, React.ReactNode> = {
+  channel_text: <MessageSquareText className="h-4 w-4" />,
+  channel_image: <Image className="h-4 w-4 text-blue-500" />,
+  channel_video: <Video className="h-4 w-4 text-purple-500" />,
+  channel_audio: <Music className="h-4 w-4 text-green-500" />,
+  channel_file: <File className="h-4 w-4 text-orange-500" />,
+  channel_imageText: <Image className="h-4 w-4 text-indigo-500" />,
+}
+
+/** 消息类型标签 */
+const MSG_TYPE_LABELS: Record<string, string> = {
+  channel_text: '文字',
+  channel_image: '图片',
+  channel_video: '视频',
+  channel_audio: '音频',
+  channel_file: '文件',
+  channel_imageText: '图文',
+  channel_link: '链接',
+  channel_location: '位置',
+}
+
+/** 检测内容中是否包含图片 URL，返回缩略图 URL */
+function detectImageUrl(content: string): string | null {
+  if (!content) return null
+  const match = content.match(/https?:\/\/[^\s]+\.(png|jpg|jpeg|webp|gif)(\?[^\s]*)?/i)
+  return match?.[0] ?? null
+}
+
+/** 检测内容中是否包含视频 URL */
+function detectVideoUrl(content: string): boolean {
+  if (!content) return false
+  return /https?:\/\/[^\s]+\.(mp4|mov|webm)(\?[^\s]*)?/i.test(content)
+}
+
+/** 消息类型图标组件 */
+function MsgTypeIcon({ msgType }: { msgType: string }) {
+  return MSG_TYPE_ICONS[msgType] ?? <MessageSquareText className="h-4 w-4" />
+}
+
+/** 消息内容单元格：支持展开/折叠 + 图片缩略图预览 */
+function ContentCell({ content }: { content: string }) {
+  const [expanded, setExpanded] = useState(false)
+  const imageUrl = detectImageUrl(content)
+  const hasVideo = detectVideoUrl(content)
+
+  const displayContent = expanded ? content : truncate(content || '-', 90)
+
+  return (
+    <div className="space-y-1">
+      {imageUrl && (
+        <div className="mb-1">
+          <img
+            src={imageUrl}
+            alt="消息图片"
+            className="h-10 w-10 rounded object-cover border"
+            loading="lazy"
+          />
+        </div>
+      )}
+      {hasVideo && (
+        <div className="mb-1 flex items-center gap-1 text-xs text-purple-600">
+          <Video className="h-3 w-3" />
+          <span>视频消息</span>
+        </div>
+      )}
+      <div className="flex items-start gap-1">
+        <span
+          className={cn(
+            'block max-w-[420px] text-xs font-mono text-muted-foreground',
+            !expanded && 'truncate',
+          )}
+          title={expanded ? undefined : content}
+        >
+          {displayContent}
+        </span>
+        {content && content.length > 90 && (
+          <button
+            type="button"
+            className="mt-0.5 shrink-0 text-muted-foreground hover:text-foreground"
+            onClick={() => setExpanded(!expanded)}
+            title={expanded ? '收起' : '展开'}
+          >
+            {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
 
 export function ChannelMessagePage() {
   const { id } = useParams<{ id: string }>()
@@ -184,6 +275,16 @@ export function ChannelMessagePage() {
       enableHiding: false,
     },
     {
+      id: 'msg_type',
+      header: '类型',
+      cell: ({ row }) => (
+        <div className="flex items-center gap-1" title={MSG_TYPE_LABELS[row.original.msg_type] || row.original.msg_type}>
+          <MsgTypeIcon msgType={row.original.msg_type} />
+          <span className="text-xs text-muted-foreground">{MSG_TYPE_LABELS[row.original.msg_type] || row.original.msg_type}</span>
+        </div>
+      ),
+    },
+    {
       accessorKey: 'id',
       header: '消息 ID',
       cell: ({ row }) => <span className="font-mono text-xs">{row.original.id}</span>,
@@ -199,26 +300,22 @@ export function ChannelMessagePage() {
       ),
     },
     {
-      accessorKey: 'msg_type',
-      header: '类型',
-      cell: ({ row }) => <span className="text-sm">{row.original.msg_type}</span>,
-    },
-    {
       accessorKey: 'content',
       header: '内容',
-      cell: ({ row }) => (
-        <span title={row.original.content} className="block max-w-[420px] truncate">
-          {truncate(row.original.content || '-', 90)}
-        </span>
-      ),
+      cell: ({ row }) => <ContentCell content={row.original.content} />,
     },
     {
       accessorKey: 'is_pinned',
       header: '置顶',
       cell: ({ row }) => (
-        <span className={row.original.is_pinned ? 'text-orange-600 font-medium' : 'text-muted-foreground'}>
-          {row.original.is_pinned ? '是' : '否'}
-        </span>
+        row.original.is_pinned
+          ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
+              <Pin className="h-3 w-3" />
+              已置顶
+            </span>
+          )
+          : <span className="text-muted-foreground text-xs">—</span>
       ),
     },
     {
