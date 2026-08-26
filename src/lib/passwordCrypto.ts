@@ -1,7 +1,7 @@
-import { createHash } from 'crypto'
-
-function sha256(input: string): Uint8Array {
-  return new Uint8Array(createHash('sha256').update(input).digest())
+async function sha256(input: string): Promise<ArrayBuffer> {
+  const encoder = new TextEncoder()
+  const data = encoder.encode(input)
+  return crypto.subtle.digest('SHA-256', data)
 }
 
 function chunkBy64(input: string): string {
@@ -86,7 +86,7 @@ export async function encryptLoginPassword(password: string, rawPublicKey: strin
     // 新协议：backend stores hmac_sha512(sha256(plaintext), salt)
     // 后端 passport_logic.erl:validate_compat_password 已支持新格式，
     // 旧 MD5 哈希密码在下次登录时自动升级。
-    const hashedPwd = sha256(password)
+    const hashedPwd = await sha256(password)
     const encrypted = await subtle.encrypt(
       { name: 'RSA-OAEP' },
       cryptoKey,
