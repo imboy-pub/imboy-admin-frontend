@@ -27,6 +27,9 @@ import {
   ListChecks,
   Link2,
   Bot,
+  Building2,
+  FolderKanban,
+  MonitorSmartphone,
   type LucideIcon,
 } from 'lucide-react'
 import type { SidebarMenuConfig } from '@/services/api/adminConfig'
@@ -72,6 +75,9 @@ export const iconMap: Record<string, LucideIcon> = {
   ListChecks,
   Link2,
   Bot,
+  Building2,
+  FolderKanban,
+  MonitorSmartphone,
 }
 
 export const defaultConfig: SidebarMenuConfig = {
@@ -83,6 +89,8 @@ export const defaultConfig: SidebarMenuConfig = {
       icon: 'Users',
       children: [
         { path: '/users', icon: 'Users', label: '用户管理', roles: ['1', '2'], permission: 'users:read' },
+        { path: '/workspaces', icon: 'Building2', label: '工作区管理', roles: ['1', '2'], permission: 'workspaces:read' },
+        { path: '/projects', icon: 'FolderKanban', label: '项目管理', roles: ['1', '2'], permission: 'workspaces:read' },
         { path: '/groups', icon: 'UsersRound', label: '群组管理', roles: ['1', '2'], permission: 'groups:read' },
         { path: '/groups/tasks', icon: 'FileText', label: '群作业管理', roles: ['1', '2'], permission: 'groups:task:read' },
         { path: '/channels', icon: 'Radio', label: '频道管理', roles: ['1', '2'], permission: 'channels:read' },
@@ -144,6 +152,7 @@ export const defaultConfig: SidebarMenuConfig = {
       icon: 'Settings',
       children: [
         { path: '/settings', icon: 'Settings', label: '系统设置', roles: ['1'], permission: 'settings:view' },
+        { path: '/settings/product-experience', icon: 'MonitorSmartphone', label: '产品体验', roles: ['1'], permission: 'settings:view' },
         { path: '/license', icon: 'BadgeCheck', label: '授权状态', roles: ['1'], permission: 'settings:view' },
         { path: '/system-health', icon: 'HeartPulse', label: '系统健康', roles: ['1'], permission: 'settings:view' },
         { path: '/plugins', icon: 'Puzzle', label: '插件管理', roles: ['1'], permission: 'settings:view' },

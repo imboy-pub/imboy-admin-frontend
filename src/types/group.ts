@@ -12,6 +12,10 @@ export interface Group {
   type: number
   join_limit?: number
   status: number
+  /** 归属维度（双体验 v2.5.2）：personal 个人群 | workspace 工作区群 */
+  scope?: 'personal' | 'workspace'
+  /** 所属工作区 ID（scope=personal 时为 null） */
+  workspace_id?: EntityId | null
   created_at: string
 }
 

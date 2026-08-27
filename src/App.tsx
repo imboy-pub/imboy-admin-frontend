@@ -61,6 +61,11 @@ const DDLPage = lazy(() => import('@/modules/ops_governance').then((m) => ({ def
 const AnnouncementListPage = lazy(() => import('@/pages/announcements/AnnouncementListPage').then((m) => ({ default: m.AnnouncementListPage })))
 const StorageOverviewPage = lazy(() => import('@/pages/storage/StorageOverviewPage').then((m) => ({ default: m.StorageOverviewPage })))
 const AnalyticsPage = lazy(() => import('@/pages/analytics/AnalyticsPage').then((m) => ({ default: m.AnalyticsPage })))
+// Workspace/Project 运营管理（双体验 v2.5.2 WP7/T11b）
+const WorkspaceListPage = lazy(() => import('@/pages/workspaces/WorkspaceListPage').then((m) => ({ default: m.WorkspaceListPage })))
+const WorkspaceDetailPage = lazy(() => import('@/pages/workspaces/WorkspaceDetailPage').then((m) => ({ default: m.WorkspaceDetailPage })))
+const ProjectListPage = lazy(() => import('@/pages/workspaces/ProjectListPage').then((m) => ({ default: m.ProjectListPage })))
+const ProjectDetailPage = lazy(() => import('@/pages/workspaces/ProjectDetailPage').then((m) => ({ default: m.ProjectDetailPage })))
 const UserTagManagePage = lazy(() => import('@/modules/social_graph').then((m) => ({ default: m.UserTagManagePage })))
 const UserCollectManagePage = lazy(() => import('@/modules/social_graph').then((m) => ({ default: m.UserCollectManagePage })))
 const SettingsHomePage = lazy(() => import('@/pages/settings/SettingsHomePage').then((m) => ({ default: m.SettingsHomePage })))
@@ -91,6 +96,8 @@ const SensitiveWordPage = lazy(() => import('@/pages/content-moderation/Sensitiv
 const ContentReviewQueuePage = lazy(() => import('@/pages/content-moderation/ContentReviewQueuePage').then((m) => ({ default: m.ContentReviewQueuePage })))
 const SSOConfigPage = lazy(() => import('@/pages/settings/SSOConfigPage').then((m) => ({ default: m.SSOConfigPage })))
 const McpGovernanceListPage = lazy(() => import('@/pages/mcp-governance/McpGovernanceListPage').then((m) => ({ default: m.McpGovernanceListPage })))
+// Product Experience 安装级配置只读页（双体验 v2.5.2 WP7/T11）
+const ProductExperiencePage = lazy(() => import('@/pages/settings/ProductExperiencePage').then((m) => ({ default: m.ProductExperiencePage })))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -467,6 +474,40 @@ function App() {
                   )}
                 />
 
+                {/* Workspace / Project 运营管理（双体验 v2.5.2 WP7/T11b） */}
+                <Route
+                  path="/workspaces"
+                  element={(
+                    <PermissionRoute permission="workspaces:read" roles={['1', '2']}>
+                      <WorkspaceListPage />
+                    </PermissionRoute>
+                  )}
+                />
+                <Route
+                  path="/workspaces/:id"
+                  element={(
+                    <PermissionRoute permission="workspaces:read" roles={['1', '2']}>
+                      <WorkspaceDetailPage />
+                    </PermissionRoute>
+                  )}
+                />
+                <Route
+                  path="/projects"
+                  element={(
+                    <PermissionRoute permission="workspaces:read" roles={['1', '2']}>
+                      <ProjectListPage />
+                    </PermissionRoute>
+                  )}
+                />
+                <Route
+                  path="/projects/:id"
+                  element={(
+                    <PermissionRoute permission="workspaces:read" roles={['1', '2']}>
+                      <ProjectDetailPage />
+                    </PermissionRoute>
+                  )}
+                />
+
                 {/* 反馈管理 */}
                 <Route
                   path="/feedback"
@@ -527,6 +568,14 @@ function App() {
                       <FeatureRoute feature="e2ee">
                         <ComplianceKeyPage />
                       </FeatureRoute>
+                    </PermissionRoute>
+                  )}
+                />
+                <Route
+                  path="/settings/product-experience"
+                  element={(
+                    <PermissionRoute permission="settings:view" roles={['1']}>
+                      <ProductExperiencePage />
                     </PermissionRoute>
                   )}
                 />

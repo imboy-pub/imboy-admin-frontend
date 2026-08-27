@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Search, Trash2, Eye, Pencil, MessageSquare, PanelRightOpen, Download } from 'lucide-react'
 import { toast } from 'sonner'
 import { useNavigate } from 'react-router-dom'
+import { Badge } from '@/components/ui/badge'
 import { PageHeader, LoadingState, ErrorState, StatusBadge, DataTable, DataTablePagination, ConfirmDialog, FilterBar, EntityDrawer, BatchActionBar } from '@/components/shared'
 import { getChannelListPayload, getChannelDetailPayload, deleteChannel, ChannelListParams, Channel } from '@/modules/channels/api'
 import type { EntityId } from '@/types/common'
@@ -166,6 +167,8 @@ export function ChannelListPage() {
         const acc = row.access_type === 1 ? '付费' : '免费'
         return `${vis} ${acc}`
       } },
+      // 归属维度（双体验 v2.5.2）：personal 个人频道 | workspace 工作区频道
+      { header: '归属', accessor: (row) => (row.scope === 'workspace' ? '工作区' : '个人') },
       { header: '订阅数', accessor: (row) => row.subscriber_count || 0 },
       { header: '状态', accessor: (row) => ({ 1: '正常', 0: '禁用', '-1': '已删除' }[String(row.status)] || String(row.status)) },
       { header: '创建时间', accessor: (row) => formatDate(row.created_at) },
@@ -284,6 +287,16 @@ export function ChannelListPage() {
             />
           )}
         </div>
+      ),
+    },
+    {
+      // 归属维度（双体验 v2.5.2）：personal | workspace
+      id: 'scope',
+      header: '归属',
+      cell: ({ row }) => (
+        <Badge variant={row.original.scope === 'workspace' ? 'default' : 'outline'}>
+          {row.original.scope === 'workspace' ? '工作区' : '个人'}
+        </Badge>
       ),
     },
     {

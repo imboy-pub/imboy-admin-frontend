@@ -18,6 +18,10 @@ export interface Channel {
   avatar: string | null
   subscriber_count: number
   status: number
+  /** 归属维度（双体验 v2.5.2）：personal 个人频道 | workspace 工作区频道 */
+  scope?: 'personal' | 'workspace'
+  /** 所属工作区 ID（scope=personal 时为 null） */
+  workspace_id?: EntityId | null
   created_at: string
   updated_at: string
   price?: number

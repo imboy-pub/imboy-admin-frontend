@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Search, Trash2, Eye, Download, SlidersHorizontal, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
+import { Badge } from '@/components/ui/badge'
 import { PageHeader, LoadingState, ErrorState, StatusBadge, DataTable, DataTablePagination, ConfirmDialog, FilterBar, BatchActionBar, EntityDrawer } from '@/components/shared'
 import { getGroupListPayload, dissolveGroup, updateGroup, GroupListParams } from '@/modules/groups/api'
 import { Group } from '@/types/group'
@@ -33,6 +34,7 @@ const columnLabels: Record<string, string> = {
   owner_uid: '群主 ID',
   member_count: '成员数',
   type: '类型',
+  scope: '归属',
   status: '状态',
   created_at: '创建时间',
   actions: '操作',
@@ -129,6 +131,8 @@ export function GroupListPage() {
       { header: '群主 ID', accessor: 'owner_uid' },
       { header: '成员数', accessor: (row) => row.member_count || 0 },
       { header: '类型', accessor: (row) => ({ 1: '普通群', 2: '私有群' }[String(row.type)] || String(row.type)) },
+      // 归属维度（双体验 v2.5.2）：personal 个人群 | workspace 工作区群
+      { header: '归属', accessor: (row) => (row.scope === 'workspace' ? '工作区' : '个人') },
       { header: '状态', accessor: (row) => ({ 1: '正常', '0': '已解散', '-1': '已解散' }[String(row.status)] || String(row.status)) },
       { header: '创建时间', accessor: (row) => formatDate(row.created_at) },
     ]
@@ -233,6 +237,16 @@ export function GroupListPage() {
           labels={{ 1: '普通群', 2: '私有群' }}
           variants={{ 1: 'info', 2: 'warning' }}
         />
+      ),
+    },
+    {
+      // 归属维度（双体验 v2.5.2）：personal | workspace
+      id: 'scope',
+      header: '归属',
+      cell: ({ row }) => (
+        <Badge variant={row.original.scope === 'workspace' ? 'default' : 'outline'}>
+          {row.original.scope === 'workspace' ? '工作区' : '个人'}
+        </Badge>
       ),
     },
     {

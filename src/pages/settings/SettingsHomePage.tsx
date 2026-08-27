@@ -42,6 +42,12 @@ const modules: SettingsModule[] = [
     icon: ToggleLeft,
   },
   {
+    title: '产品体验',
+    description: '查看安装级产品体验配置（chat / workspace）的当前有效值与受控变更指引。',
+    path: '/settings/product-experience',
+    icon: Building2,
+  },
+  {
     title: '能力配置',
     description: '配置存储策略、加密模式、审计级别、数据保留策略等。',
     path: '/settings/capabilities',
