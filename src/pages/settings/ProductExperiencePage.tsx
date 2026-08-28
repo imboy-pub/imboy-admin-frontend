@@ -28,8 +28,10 @@ export function ProductExperiencePage() {
     queryFn: getProductExperienceConfig,
   })
 
-  if (isLoading || !data) return <LoadingState message="加载产品体验配置..." />
+  // TanStack Query v5：出错时 isLoading=false 且 data=undefined，error 判断必须在前，
+  // 否则错误态被 Loading 分支（!data 恒真）吞掉，ErrorState 永不可达。
   if (error) return <ErrorState message="加载产品体验配置失败" onRetry={() => refetch()} />
+  if (isLoading || !data) return <LoadingState message="加载产品体验配置..." />
 
   const isWorkspace = data.effective_product_experience === 'workspace'
   const failSafeTriggered = data.configured_raw !== data.effective_product_experience

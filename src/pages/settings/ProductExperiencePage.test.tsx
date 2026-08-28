@@ -133,4 +133,20 @@ describe('ProductExperiencePage（T11 只读页）', () => {
     })
     expect(view.container.textContent).toContain('fail-safe')
   })
+
+  it('renders error state with retry button when query fails', async () => {
+    mutableClient.get = async () => {
+      throw new Error('network down')
+    }
+
+    let view: ReturnType<typeof renderPage>
+    await act(async () => {
+      view = renderPage()
+    })
+
+    await waitFor(() => {
+      expect(view.container.textContent).toContain('加载产品体验配置失败')
+    })
+    expect(view.getByRole('button', { name: '重试' })).toBeTruthy()
+  })
 })
