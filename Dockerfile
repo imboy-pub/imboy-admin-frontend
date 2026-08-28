@@ -52,6 +52,13 @@ RUN printf 'server {\n\
     location ~* \\.(js|css|woff2?|ttf|eot|svg|png|jpg|webp|ico)$ {\n\
         expires 1y;\n\
         add_header Cache-Control "public, immutable";\n\
+        # location 内出现任意 add_header 即不再继承 server 级安全头，须逐字重复声明\n\
+        add_header X-Content-Type-Options nosniff always;\n\
+        add_header X-Frame-Options DENY always;\n\
+        add_header X-XSS-Protection "1; mode=block" always;\n\
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;\n\
+        add_header Referrer-Policy strict-origin-when-cross-origin always;\n\
+        add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()" always;\n\
     }\n\
     # SPA 路由回退 / SPA history fallback\n\
     location / {\n\
@@ -61,6 +68,13 @@ RUN printf 'server {\n\
     location /health {\n\
         return 200 "ok";\n\
         add_header Content-Type text/plain;\n\
+        # 同上：location 内 add_header 切断继承，须逐字重复 server 级安全头\n\
+        add_header X-Content-Type-Options nosniff always;\n\
+        add_header X-Frame-Options DENY always;\n\
+        add_header X-XSS-Protection "1; mode=block" always;\n\
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;\n\
+        add_header Referrer-Policy strict-origin-when-cross-origin always;\n\
+        add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()" always;\n\
     }\n\
 }\n' > /etc/nginx/conf.d/imboy-admin.conf
 
