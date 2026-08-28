@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'bun:test'
+import { md5 } from 'js-md5'
 import { encryptLoginPassword, normalizePublicKey } from './passwordCrypto'
 
 const TEST_PUBLIC_KEY = `-----BEGIN PUBLIC KEY-----
@@ -43,5 +44,33 @@ describe('encryptLoginPassword', () => {
     expect(encrypted).not.toBeNull()
     expect(typeof encrypted).toBe('string')
     expect((encrypted as string).length).toBeGreaterThan(20)
+  })
+
+  // C-1 回归（2026-08-28 发布审查）：此前测试只断言"非空字符串"，
+  // 前端把 md5 换成 sha256 原始字节都没人发现，后端契约断裂导致管理员全锁死。
+  // 本用例解密密文验证内容，锁死后端契约：密文载荷必须是 md5(password) 的 hex 字符串。
+  it('契约：密文解密后必须是 md5(password) 的 hex 字符串（C-1 回归）', async () => {
+    const kp = await crypto.subtle.generateKey(
+      {
+        name: 'RSA-OAEP',
+        modulusLength: 2048,
+        publicExponent: new Uint8Array([1, 0, 1]),
+        hash: 'SHA-256',
+      },
+      true,
+      ['encrypt', 'decrypt'],
+    )
+    const spki = await crypto.subtle.exportKey('spki', kp.publicKey)
+    const spkiB64 = btoa(String.fromCharCode(...new Uint8Array(spki)))
+
+    const encrypted = await encryptLoginPassword('password123', spkiB64)
+    expect(encrypted).not.toBeNull()
+
+    const raw = await crypto.subtle.decrypt(
+      { name: 'RSA-OAEP' },
+      kp.privateKey,
+      Uint8Array.from(atob(encrypted as string), (c) => c.charCodeAt(0)),
+    )
+    expect(new TextDecoder().decode(raw)).toBe(md5('password123'))
   })
 })

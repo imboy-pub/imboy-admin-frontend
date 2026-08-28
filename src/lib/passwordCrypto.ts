@@ -1,8 +1,4 @@
-async function sha256(input: string): Promise<ArrayBuffer> {
-  const encoder = new TextEncoder()
-  const data = encoder.encode(input)
-  return crypto.subtle.digest('SHA-256', data)
-}
+import { md5 } from 'js-md5'
 
 function chunkBy64(input: string): string {
   return input.match(/.{1,64}/g)?.join('\n') || input
@@ -81,16 +77,16 @@ export async function encryptLoginPassword(password: string, rawPublicKey: strin
       ['encrypt'],
     )
 
-    // 2026-08-26: MD5 → SHA-256 迁移完成。
-    // 旧协议：backend stored hmac_sha512(md5(plaintext), salt)
-    // 新协议：backend stores hmac_sha512(sha256(plaintext), salt)
-    // 后端 passport_logic.erl:validate_compat_password 已支持新格式，
-    // 旧 MD5 哈希密码在下次登录时自动升级。
-    const hashedPwd = await sha256(password)
+    // 后端契约（2026-08-28 发布审查 C-1 回退恢复）：后端按
+    // hmac_sha512(md5(plaintext), salt) 与存量 md5(预哈希+salt) 行校验，
+    // 前端必须发送 md5(password) 的 hex 字符串。
+    // 切换 sha256 预哈希的前提：后端先落地 rehash-on-login 并完成存量升级，
+    // 禁止先切前端（sha256 单向，存量行从新值不可验证 → 管理员全员锁死）。
+    const hashedPwd = md5(password)
     const encrypted = await subtle.encrypt(
       { name: 'RSA-OAEP' },
       cryptoKey,
-      hashedPwd,
+      new TextEncoder().encode(hashedPwd),
     )
 
     return arrayBufferToBase64(encrypted)
