@@ -12,6 +12,9 @@ import { useAuthStore } from '@/stores/authStore'
 import { fetchSidebarMenuConfig } from '@/services/api/adminConfig'
 import { useAdminFeatures, useAdminEntries } from '@/hooks/useAdminFeatures'
 import { useSidebarBadges } from '@/hooks/useSidebarBadges'
+import { BrandLegalLinks } from '@/components/shared/BrandLegalLinks'
+import { useBrandStore } from '@/stores/brandStore'
+import { brandLegalLinks } from '@/lib/brandRuntime'
 import {
   defaultConfig,
   SIDEBAR_FAVORITES_KEY,
@@ -38,6 +41,8 @@ import {
 export function Sidebar() {
   const location = useLocation()
   const currentRoleId = useAuthStore((state) => state.admin?.role_id)
+  const brand = useBrandStore((state) => state.brand)
+  const hasBrandLegalLinks = brandLegalLinks(brand).length > 0
   const { data: featureFlags } = useAdminFeatures()
   const { data: adminEntries } = useAdminEntries()
   const { pendingReports, pendingFeedback } = useSidebarBadges()
@@ -317,6 +322,13 @@ export function Sidebar() {
           <div className="px-2 py-4 text-sm text-sidebar-foreground/60">未找到匹配菜单</div>
         )}
       </nav>
+
+      {/* 白标接线点④：部署方配置了隐私/客服链接才渲染（折叠态不显示） */}
+      {!collapsed && hasBrandLegalLinks && (
+        <div className="border-t border-sidebar-border p-3">
+          <BrandLegalLinks />
+        </div>
+      )}
     </aside>
   )
 }

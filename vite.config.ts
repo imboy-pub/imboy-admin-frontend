@@ -55,6 +55,12 @@ export default defineConfig({
     host: '127.0.0.1',
     port: 8082,
     proxy: {
+      // 白标品牌端点挂后端根路径（非 /api/adm），dev 下转发以便联调；
+      // 拉取失败时前端静默回退默认品牌（src/lib/brandRuntime.ts）
+      '^/brand$': {
+        target: process.env.VITE_PROXY_TARGET || 'http://127.0.0.1:9800',
+        changeOrigin: true,
+      },
       '^/api/adm(?=/|$)': {
         target: process.env.VITE_PROXY_TARGET || 'http://127.0.0.1:9800',
         changeOrigin: true,
