@@ -273,4 +273,58 @@ describe('ChannelMessagePage flow', () => {
       expect(getCalls.some((call) => call.page === 1 && call.size === 50)).toBe(true)
     })
   })
+
+  it('does not render remote images by default and loads them only on click', async () => {
+    const imageUrl = 'https://evil.example.com/pixel.png'
+
+    mutableClient.get = async (url: string, config?: { params?: Record<string, unknown> }) => {
+      if (url === '/rbac/me') {
+        return { data: { code: 0, msg: 'ok', payload: { role_id: 1, role_ids: [1], role_name: 'super_admin', permissions: [], menu_paths: [] } } }
+      }
+      if (url !== '/channel/8/messages') throw new Error(`unexpected GET url: ${url}`)
+      const page = Number(config?.params?.page ?? 1)
+      const size = Number(config?.params?.size ?? 10)
+      return {
+        data: {
+          code: 0,
+          msg: 'ok',
+          payload: {
+            items: [
+              {
+                ...makeMessage('301', 1),
+                content: `check this ${imageUrl} out`,
+                msg_type: 'channel_image',
+              },
+            ],
+            page,
+            size,
+            total: 1,
+            total_pages: 1,
+          },
+        },
+      }
+    }
+
+    let view: ReturnType<typeof renderChannelMessagePage>
+    await act(async () => {
+      view = renderChannelMessagePage()
+    })
+
+    await waitFor(() => {
+      expect(view.container.textContent).toContain(imageUrl)
+    })
+
+    // 默认不渲染 img（不向作者控制的服务器发请求），仅 URL 文本 + 加载按钮
+    expect(view.container.querySelector('img')).toBeNull()
+    const loadButtons = view.getAllByRole('button', { name: '加载图片' })
+    expect(loadButtons.length).toBeGreaterThan(0)
+
+    await act(async () => {
+      fireEvent.click(loadButtons[0])
+    })
+
+    const img = view.container.querySelector('img')
+    expect(img).not.toBeNull()
+    expect(img?.getAttribute('src')).toBe(imageUrl)
+  })
 })

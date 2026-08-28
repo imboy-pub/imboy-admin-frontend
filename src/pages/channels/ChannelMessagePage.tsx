@@ -68,9 +68,14 @@ function MsgTypeIcon({ msgType }: { msgType: string }) {
   return MSG_TYPE_ICONS[msgType] ?? <MessageSquareText className="h-4 w-4" />
 }
 
-/** 消息内容单元格：支持展开/折叠 + 图片缩略图预览 */
+/**
+ * 消息内容单元格：支持展开/折叠 + 图片点击加载。
+ * 图片 URL 由消息作者控制——默认仅渲染 URL 文本，不自动发请求（防追踪像素/IP 泄露）；
+ * 管理员显式点击「加载图片」后才渲染 <img>，每条消息独立状态。
+ */
 function ContentCell({ content }: { content: string }) {
   const [expanded, setExpanded] = useState(false)
+  const [imageVisible, setImageVisible] = useState(false)
   const imageUrl = detectImageUrl(content)
   const hasVideo = detectVideoUrl(content)
 
@@ -80,12 +85,23 @@ function ContentCell({ content }: { content: string }) {
     <div className="space-y-1">
       {imageUrl && (
         <div className="mb-1">
-          <img
-            src={imageUrl}
-            alt="消息图片"
-            className="h-10 w-10 rounded object-cover border"
-            loading="lazy"
-          />
+          {imageVisible ? (
+            <img
+              src={imageUrl}
+              alt="消息图片"
+              className="h-10 w-10 rounded object-cover border"
+              loading="lazy"
+            />
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 px-2 text-xs"
+              onClick={() => setImageVisible(true)}
+            >
+              加载图片
+            </Button>
+          )}
         </div>
       )}
       {hasVideo && (
