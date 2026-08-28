@@ -38,7 +38,7 @@ export default defineConfig({
           if (id.includes('@tanstack')) return 'vendor-tanstack'
           if (id.includes('recharts')) return 'vendor-charts'
           if (id.includes('lucide-react')) return 'vendor-icons'
-          if (id.includes('jsencrypt') || id.includes('js-md5')) return 'vendor-crypto'
+          if (id.includes('jsencrypt')) return 'vendor-crypto'
           if (id.includes('date-fns')) return 'vendor-date'
           if (id.includes('/zod/') || id.includes('react-hook-form') || id.includes('@hookform')) return 'vendor-form'
           if (id.includes('axios')) return 'vendor-http'
