@@ -181,6 +181,150 @@ export async function getProjectDetailPayload(id: EntityId): Promise<ProjectAdmi
   return requireApiPayload<ProjectAdminDetail>(res.data, 'project/detail')
 }
 
+// ---------------------------------------------------------------------------
+// W2 项目治理面（只读；Admin 契约 ZC-05 冻结，ACL=workspaces:read，403 fail-closed）
+// 后端：/api/adm/project/{members,milestones,channels,aggregations}
+// 分页响应统一 {list,page,size,total,total_page}，经 requireApiPayload 归一化为
+// PaginatedResponse（list→items、total_pages 补算）。TSID 一律 EntityId string。
+// ---------------------------------------------------------------------------
+
+export type ProjectMilestoneStatusFilter = 'all' | 'planned' | 'reached'
+
+export type ProjectAggregationType = 'pinned' | 'resources' | 'activity' | 'related_posts'
+
+export interface ProjectMemberRow {
+  project_id: EntityId
+  user_id: EntityId
+  nickname?: string | null
+  account?: string | null
+  avatar?: string | null
+  /** 项目成员角色（后端契约未细化，仅展示） */
+  role?: string | null
+  joined_at?: string | null
+}
+
+export interface ProjectMilestoneRow {
+  id: EntityId
+  project_id: EntityId
+  name?: string | null
+  title?: string | null
+  status: 'planned' | 'reached'
+  planned_at?: string | null
+  reached_at?: string | null
+  created_at?: string | null
+}
+
+export interface ProjectChannelRow {
+  id: EntityId
+  project_id?: EntityId
+  name?: string | null
+  subscriber_count?: number
+  status?: string | number
+  created_at?: string | null
+}
+
+export interface ProjectAggregationRow {
+  id: EntityId
+  project_id?: EntityId
+  type: ProjectAggregationType
+  title?: string | null
+  target_id?: EntityId | null
+  operator_id?: EntityId | null
+  created_at?: string | null
+  /** 各聚合类型差异字段兜底（后端契约未逐字段冻结） */
+  extra?: Record<string, unknown>
+}
+
+export interface ProjectMembersParams {
+  page?: number
+  size?: number
+}
+
+export interface ProjectMilestonesParams {
+  page?: number
+  size?: number
+  status?: ProjectMilestoneStatusFilter
+}
+
+export interface ProjectChannelsParams {
+  page?: number
+  size?: number
+}
+
+export interface ProjectAggregationsParams {
+  page?: number
+  size?: number
+  type?: ProjectAggregationType
+}
+
+export function projectMembersQueryKey(projectId: EntityId, params?: ProjectMembersParams) {
+  return params !== undefined
+    ? (['workspaces', 'projects', 'members', projectId, params] as const)
+    : (['workspaces', 'projects', 'members', projectId] as const)
+}
+
+export function projectMilestonesQueryKey(projectId: EntityId, params?: ProjectMilestonesParams) {
+  return params !== undefined
+    ? (['workspaces', 'projects', 'milestones', projectId, params] as const)
+    : (['workspaces', 'projects', 'milestones', projectId] as const)
+}
+
+export function projectChannelsQueryKey(projectId: EntityId, params?: ProjectChannelsParams) {
+  return params !== undefined
+    ? (['workspaces', 'projects', 'channels', projectId, params] as const)
+    : (['workspaces', 'projects', 'channels', projectId] as const)
+}
+
+export function projectAggregationsQueryKey(projectId: EntityId, params?: ProjectAggregationsParams) {
+  return params !== undefined
+    ? (['workspaces', 'projects', 'aggregations', projectId, params] as const)
+    : (['workspaces', 'projects', 'aggregations', projectId] as const)
+}
+
+/** 判定 client 响应拦截器 reject 的 ApiError 是否为 403（workspaces:read fail-closed） */
+export function isForbiddenError(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) return false
+  return (error as { code?: unknown }).code === 403
+}
+
+export async function getProjectMembersPayload(
+  projectId: EntityId,
+  params: ProjectMembersParams = {}
+): Promise<PaginatedResponse<ProjectMemberRow>> {
+  const res = await client.get('/project/members', { params: { project_id: projectId, ...params } })
+  return requireApiPayload<PaginatedResponse<ProjectMemberRow>>(res.data, 'project/members')
+}
+
+export async function getProjectMilestonesPayload(
+  projectId: EntityId,
+  params: ProjectMilestonesParams = {}
+): Promise<PaginatedResponse<ProjectMilestoneRow>> {
+  const res = await client.get('/project/milestones', {
+    params: { project_id: projectId, ...params },
+  })
+  return requireApiPayload<PaginatedResponse<ProjectMilestoneRow>>(res.data, 'project/milestones')
+}
+
+export async function getProjectChannelsPayload(
+  projectId: EntityId,
+  params: ProjectChannelsParams = {}
+): Promise<PaginatedResponse<ProjectChannelRow>> {
+  const res = await client.get('/project/channels', {
+    params: { project_id: projectId, ...params },
+  })
+  return requireApiPayload<PaginatedResponse<ProjectChannelRow>>(res.data, 'project/channels')
+}
+
+export async function getProjectAggregationsPayload(
+  projectId: EntityId,
+  params: ProjectAggregationsParams = {}
+): Promise<PaginatedResponse<ProjectAggregationRow>> {
+  const res = await client.get('/project/aggregations', {
+    params: { project_id: projectId, ...params },
+  })
+  return requireApiPayload<PaginatedResponse<ProjectAggregationRow>>(res.data, 'project/aggregations')
+}
+
 /**
  * Product Experience 安装级配置（只读；双体验 v2.5.2 WP7/T11）。
  * 无运行时写接口——变更 = 修改部署配置并受控重启。

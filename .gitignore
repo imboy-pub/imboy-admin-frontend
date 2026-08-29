@@ -48,3 +48,6 @@ _build
 
 # Erlang 编译产物（误入前端仓防护）
 *.beam
+
+# Playwright E2E 自动证据副产物（截图/JSON，不入库）
+tests/auto_test/evidence/
