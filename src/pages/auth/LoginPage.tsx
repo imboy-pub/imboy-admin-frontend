@@ -16,6 +16,9 @@ import { clearRbacUnavailable } from '@/services/api/rbac'
 import { encryptLoginPassword } from '@/lib/passwordCrypto'
 import { useSetupGuard } from '@/hooks/useSetupGuard'
 import { LoadingState } from '@/components/shared'
+import { BrandLegalLinks } from '@/components/shared/BrandLegalLinks'
+import { useBrandStore } from '@/stores/brandStore'
+import { adminTitle } from '@/lib/brandRuntime'
 
 const loginSchema = z.object({
   account: z.string().min(1, '请输入账号'),
@@ -116,7 +119,11 @@ export function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [captchaUrl, setCaptchaUrl] = useState(() => getCaptchaUrl())
-  const [systemName, setSystemName] = useState('Imboy 管理后台')
+  // 标题默认跟随白标品牌配置（store 异步加载后自动更新）；
+  // 后端 login page 端点若返回专属 system_name 则优先生效（override）。
+  const brand = useBrandStore((state) => state.brand)
+  const [systemNameOverride, setSystemNameOverride] = useState<string | null>(null)
+  const systemName = systemNameOverride ?? adminTitle(brand)
   const [csrfToken, setCsrfToken] = useState('')
   const [publicKey, setPublicKey] = useState('')
   const [initError, setInitError] = useState(false)
@@ -146,7 +153,7 @@ export function LoginPage() {
       setCsrfToken(pageData.csrf_token)
       setPublicKey(pageData.public_key)
       if (pageData.system_name) {
-        setSystemName(pageData.system_name)
+        setSystemNameOverride(pageData.system_name)
       }
       refreshCaptcha()
     } catch (error) {
@@ -300,6 +307,13 @@ export function LoginPage() {
             </Button>
           </form>
         </CardContent>
+
+        {/* 白标接线点④：部署方配置了隐私/客服链接才渲染 */}
+        {(brand.privacyUrl !== '' || brand.supportUrl !== '') && (
+          <div className="px-6 pb-4">
+            <BrandLegalLinks />
+          </div>
+        )}
       </Card>
     </div>
   )

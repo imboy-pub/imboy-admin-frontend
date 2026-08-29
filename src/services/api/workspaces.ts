@@ -11,7 +11,8 @@ import type { PaginatedResponse } from '@/types/api'
  * TSID 一律 EntityId（string），禁止 Number(id) 回转。
  */
 
-export type WorkspaceStatus = 'active' | 'archived'
+// 内部类型：仅本模块函数签名使用，外部消费者通过函数返回值推导
+type WorkspaceStatus = 'active' | 'archived'
 
 export interface WorkspaceAdminRow {
   id: EntityId
@@ -58,7 +59,7 @@ export interface WorkspaceResourceRow {
   created_at: string
 }
 
-export interface WorkspaceAdminDetail extends WorkspaceAdminRow {
+interface WorkspaceAdminDetail extends WorkspaceAdminRow {
   owner: { id: EntityId; nickname?: string | null; account?: string | null; avatar?: string | null } | Record<string, never>
   members: PaginatedResponse<WorkspaceMemberRow>
   projects: WorkspaceResourceRow[]
@@ -83,7 +84,7 @@ export interface ProjectAdminRow {
   task_done: number
 }
 
-export interface ProjectAssigneeRow {
+interface ProjectAssigneeRow {
   assignee_id: EntityId
   nickname?: string | null
   account?: string | null
@@ -92,14 +93,14 @@ export interface ProjectAssigneeRow {
   done: number
 }
 
-export interface ProjectAdminDetail extends ProjectAdminRow {
+interface ProjectAdminDetail extends ProjectAdminRow {
   workspace?: { id?: EntityId; name?: string | null; status?: WorkspaceStatus | null } | null
   owner?: { id?: EntityId; nickname?: string | null; account?: string | null } | null
   task_stats: Record<string, number>
   assignees: ProjectAssigneeRow[]
 }
 
-export interface ProductExperienceConfig {
+interface ProductExperienceConfig {
   effective_product_experience: 'chat' | 'workspace'
   config_version: string
   configured_value: 'chat' | 'workspace'
@@ -108,14 +109,14 @@ export interface ProductExperienceConfig {
   level: string
 }
 
-export interface WorkspaceListParams {
+interface WorkspaceListParams {
   page?: number
   size?: number
   status?: string
   keyword?: string
 }
 
-export interface ProjectListParams {
+interface ProjectListParams {
   page?: number
   size?: number
   status?: string
@@ -156,17 +157,6 @@ export async function getWorkspaceListPayload(
 export async function getWorkspaceDetailPayload(id: EntityId): Promise<WorkspaceAdminDetail> {
   const res = await client.get('/workspace/detail', { params: { workspace_id: id } })
   return requireApiPayload<WorkspaceAdminDetail>(res.data, 'workspace/detail')
-}
-
-export async function getWorkspaceMembersPayload(
-  id: EntityId,
-  page: number,
-  size: number
-): Promise<PaginatedResponse<WorkspaceMemberRow>> {
-  const res = await client.get('/workspace/members', {
-    params: { workspace_id: id, page, size },
-  })
-  return requireApiPayload<PaginatedResponse<WorkspaceMemberRow>>(res.data, 'workspace/members')
 }
 
 export async function archiveWorkspace(id: EntityId): Promise<void> {

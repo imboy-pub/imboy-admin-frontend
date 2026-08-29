@@ -38,7 +38,7 @@ export default defineConfig({
           if (id.includes('@tanstack')) return 'vendor-tanstack'
           if (id.includes('recharts')) return 'vendor-charts'
           if (id.includes('lucide-react')) return 'vendor-icons'
-          if (id.includes('jsencrypt') || id.includes('js-md5')) return 'vendor-crypto'
+          if (id.includes('jsencrypt')) return 'vendor-crypto'
           if (id.includes('date-fns')) return 'vendor-date'
           if (id.includes('/zod/') || id.includes('react-hook-form') || id.includes('@hookform')) return 'vendor-form'
           if (id.includes('axios')) return 'vendor-http'
@@ -55,6 +55,12 @@ export default defineConfig({
     host: '127.0.0.1',
     port: 8082,
     proxy: {
+      // 白标品牌端点挂后端根路径（非 /api/adm），dev 下转发以便联调；
+      // 拉取失败时前端静默回退默认品牌（src/lib/brandRuntime.ts）
+      '^/brand$': {
+        target: process.env.VITE_PROXY_TARGET || 'http://127.0.0.1:9800',
+        changeOrigin: true,
+      },
       '^/api/adm(?=/|$)': {
         target: process.env.VITE_PROXY_TARGET || 'http://127.0.0.1:9800',
         changeOrigin: true,

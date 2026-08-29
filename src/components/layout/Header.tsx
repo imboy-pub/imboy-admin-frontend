@@ -9,6 +9,7 @@ import { ThemeToggle } from '@/components/shared/ThemeToggle'
 import { NotificationPanel } from '@/components/shared/NotificationPanel'
 import { AdminProfilePanel } from '@/components/shared/AdminProfilePanel'
 import { useSidebarMobile } from './AdminLayout'
+import { BrandMark } from '@/components/shared/BrandMark'
 import { searchUsersPayload } from '@/modules/identity'
 import { searchGroupsPayload } from '@/modules/groups'
 import { searchChannelsPayload } from '@/modules/channels'
@@ -307,7 +308,7 @@ export function Header() {
           >
             <Menu className="h-5 w-5" />
           </Button>
-          <h1 className="text-lg font-semibold">Imboy 管理后台</h1>
+          <BrandMark />
         </div>
 
         <div className="flex items-center gap-4">
