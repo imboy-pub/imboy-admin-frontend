@@ -48,13 +48,13 @@
 
 | 计划变化 | 条数 | 占比 |
 |---|---|---|
-| 无待办 | 560 | 95.2% |
-| 待首测 | 15 | 2.6% |
-| 待修复 | 1 | 0.2% |
+| 无待办 | 564 | 95.9% |
+| 待首测 | 8 | 1.4% |
+| 待修复 | 4 | 0.7% |
 | 阻塞 | 12 | 2.0% |
 | **合计** | **588** | 100% |
 
-bug 累计：**发现 46 / 解决 45 / 待处理 1**
+bug 累计：**发现 49 / 解决 45 / 待处理 4**
 
 > 恒等式 `发现 − 解决 = 待处理` 成立
 
@@ -66,7 +66,7 @@ bug 累计：**发现 46 / 解决 45 / 待处理 1**
 | [channels](channels/) | 8 | 80 | 0 | 80 | 0 | 0 | 0 |
 | [settings](settings/) | 11 | 54 | 0 | 54 | 0 | 0 | 0 |
 | [users](users/) | 4 | 41 | 0 | 41 | 0 | 0 | 0 |
-| [workspaces](workspaces/) | 4 | 35 | 1 | 19 | 15 | 1 | 0 |
+| [workspaces](workspaces/) | 4 | 35 | 4 | 23 | 8 | 4 | 0 |
 | [moments](moments/) | 3 | 26 | 0 | 26 | 0 | 0 | 0 |
 | [ai_agent](ai_agent/) | 4 | 25 | 0 | 25 | 0 | 0 | 0 |
 | [plugin_management](plugin_management/) | 2 | 18 | 0 | 11 | 0 | 0 | 7 |
@@ -283,5 +283,5 @@ bug 累计：**发现 46 / 解决 45 / 待处理 1**
 
 - [ProjectDetailPage](workspaces/ProjectDetailPage.md) — 14 功能点 ⚠️ 1 待处理
 - [ProjectListPage](workspaces/ProjectListPage.md) — 6 功能点
-- [WorkspaceDetailPage](workspaces/WorkspaceDetailPage.md) — 7 功能点
+- [WorkspaceDetailPage](workspaces/WorkspaceDetailPage.md) — 7 功能点 ⚠️ 3 待处理
 - [WorkspaceListPage](workspaces/WorkspaceListPage.md) — 8 功能点
