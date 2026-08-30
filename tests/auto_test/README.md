@@ -48,9 +48,9 @@
 
 | 计划变化 | 条数 | 占比 |
 |---|---|---|
-| 无待办 | 536 | 91.2% |
-| 待首测 | 45 | 7.7% |
-| 阻塞 | 7 | 1.2% |
+| 无待办 | 538 | 91.5% |
+| 待首测 | 38 | 6.5% |
+| 阻塞 | 12 | 2.0% |
 | **合计** | **588** | 100% |
 
 bug 累计：**发现 45 / 解决 45 / 待处理 0**
@@ -82,7 +82,7 @@ bug 累计：**发现 45 / 解决 45 / 待处理 0**
 | [recharge-orders](recharge-orders/) | 1 | 8 | 0 | 8 | 0 | 0 |
 | [withdrawals](withdrawals/) | 1 | 8 | 0 | 8 | 0 | 0 |
 | [auth](auth/) | 2 | 7 | 0 | 7 | 0 | 0 |
-| [bots](bots/) | 1 | 7 | 0 | 0 | 7 | 0 |
+| [bots](bots/) | 1 | 7 | 0 | 2 | 0 | 5 |
 | [roles](roles/) | 1 | 7 | 0 | 7 | 0 | 0 |
 | [billing-invoices](billing-invoices/) | 1 | 6 | 0 | 6 | 0 | 0 |
 | [billing-subscriptions](billing-subscriptions/) | 1 | 6 | 0 | 6 | 0 | 0 |
