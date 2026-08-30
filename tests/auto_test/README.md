@@ -1,7 +1,7 @@
 # imboyadmin 自动化测试计划 —— 索引
 
 > **权威文档**。imboyadmin 现有全部功能点（已完成 / 未完成 / 阻塞 全部纳入）。
-> 覆盖 **74 个页面 / 543 个功能点**
+> 覆盖 **80 个页面 / 588 个功能点**
 > 数据源：`src/pages/**` 与 `src/modules/**/pages/**` 真实源码抽取 ＋ 浏览器实测记录
 
 > ⚠️ 本文件由 `regen_readme.py` 生成，**不要手改**。
@@ -48,9 +48,10 @@
 
 | 计划变化 | 条数 | 占比 |
 |---|---|---|
-| 无待办 | 536 | 98.7% |
-| 阻塞 | 7 | 1.3% |
-| **合计** | **543** | 100% |
+| 无待办 | 536 | 91.2% |
+| 待首测 | 45 | 7.7% |
+| 阻塞 | 7 | 1.2% |
+| **合计** | **588** | 100% |
 
 bug 累计：**发现 45 / 解决 45 / 待处理 0**
 
@@ -58,41 +59,43 @@ bug 累计：**发现 45 / 解决 45 / 待处理 0**
 
 ## 模块索引
 
-| 模块 | 页面 | 功能点 | 待处理bug | 无待办 | 阻塞 |
-|---|---|---|---|---|---|
-| [groups](groups/) | 14 | 129 | 0 | 129 | 0 |
-| [channels](channels/) | 8 | 80 | 0 | 80 | 0 |
-| [settings](settings/) | 10 | 51 | 0 | 51 | 0 |
-| [users](users/) | 4 | 41 | 0 | 41 | 0 |
-| [moments](moments/) | 3 | 26 | 0 | 26 | 0 |
-| [ai_agent](ai_agent/) | 4 | 25 | 0 | 25 | 0 |
-| [plugin_management](plugin_management/) | 2 | 18 | 0 | 11 | 7 |
-| [admins](admins/) | 1 | 14 | 0 | 14 | 0 |
-| [content-moderation](content-moderation/) | 2 | 14 | 0 | 14 | 0 |
-| [feedback](feedback/) | 1 | 11 | 0 | 11 | 0 |
-| [logs](logs/) | 1 | 11 | 0 | 11 | 0 |
-| [announcements](announcements/) | 1 | 10 | 0 | 10 | 0 |
-| [logout-applications](logout-applications/) | 1 | 9 | 0 | 9 | 0 |
-| [storage](storage/) | 1 | 9 | 0 | 9 | 0 |
-| [billing-plans](billing-plans/) | 1 | 8 | 0 | 8 | 0 |
-| [messages](messages/) | 1 | 8 | 0 | 8 | 0 |
-| [payment-transactions](payment-transactions/) | 1 | 8 | 0 | 8 | 0 |
-| [recharge-orders](recharge-orders/) | 1 | 8 | 0 | 8 | 0 |
-| [withdrawals](withdrawals/) | 1 | 8 | 0 | 8 | 0 |
-| [auth](auth/) | 2 | 7 | 0 | 7 | 0 |
-| [roles](roles/) | 1 | 7 | 0 | 7 | 0 |
-| [billing-invoices](billing-invoices/) | 1 | 6 | 0 | 6 | 0 |
-| [billing-subscriptions](billing-subscriptions/) | 1 | 6 | 0 | 6 | 0 |
-| [wallets](wallets/) | 1 | 6 | 0 | 6 | 0 |
-| [mcp-governance](mcp-governance/) | 1 | 5 | 0 | 5 | 0 |
-| [analytics](analytics/) | 1 | 4 | 0 | 4 | 0 |
-| [license](license/) | 1 | 4 | 0 | 4 | 0 |
-| [dashboard](dashboard/) | 1 | 2 | 0 | 2 | 0 |
-| [errors](errors/) | 2 | 2 | 0 | 2 | 0 |
-| [finance-report](finance-report/) | 1 | 2 | 0 | 2 | 0 |
-| [system-health](system-health/) | 1 | 2 | 0 | 2 | 0 |
-| [pricing](pricing/) | 1 | 1 | 0 | 1 | 0 |
-| [reports](reports/) | 1 | 1 | 0 | 1 | 0 |
+| 模块 | 页面 | 功能点 | 待处理bug | 无待办 | 待首测 | 阻塞 |
+|---|---|---|---|---|---|---|
+| [groups](groups/) | 14 | 129 | 0 | 129 | 0 | 0 |
+| [channels](channels/) | 8 | 80 | 0 | 80 | 0 | 0 |
+| [settings](settings/) | 11 | 54 | 0 | 51 | 3 | 0 |
+| [users](users/) | 4 | 41 | 0 | 41 | 0 | 0 |
+| [workspaces](workspaces/) | 4 | 35 | 0 | 0 | 35 | 0 |
+| [moments](moments/) | 3 | 26 | 0 | 26 | 0 | 0 |
+| [ai_agent](ai_agent/) | 4 | 25 | 0 | 25 | 0 | 0 |
+| [plugin_management](plugin_management/) | 2 | 18 | 0 | 11 | 0 | 7 |
+| [admins](admins/) | 1 | 14 | 0 | 14 | 0 | 0 |
+| [content-moderation](content-moderation/) | 2 | 14 | 0 | 14 | 0 | 0 |
+| [feedback](feedback/) | 1 | 11 | 0 | 11 | 0 | 0 |
+| [logs](logs/) | 1 | 11 | 0 | 11 | 0 | 0 |
+| [announcements](announcements/) | 1 | 10 | 0 | 10 | 0 | 0 |
+| [logout-applications](logout-applications/) | 1 | 9 | 0 | 9 | 0 | 0 |
+| [storage](storage/) | 1 | 9 | 0 | 9 | 0 | 0 |
+| [billing-plans](billing-plans/) | 1 | 8 | 0 | 8 | 0 | 0 |
+| [messages](messages/) | 1 | 8 | 0 | 8 | 0 | 0 |
+| [payment-transactions](payment-transactions/) | 1 | 8 | 0 | 8 | 0 | 0 |
+| [recharge-orders](recharge-orders/) | 1 | 8 | 0 | 8 | 0 | 0 |
+| [withdrawals](withdrawals/) | 1 | 8 | 0 | 8 | 0 | 0 |
+| [auth](auth/) | 2 | 7 | 0 | 7 | 0 | 0 |
+| [bots](bots/) | 1 | 7 | 0 | 0 | 7 | 0 |
+| [roles](roles/) | 1 | 7 | 0 | 7 | 0 | 0 |
+| [billing-invoices](billing-invoices/) | 1 | 6 | 0 | 6 | 0 | 0 |
+| [billing-subscriptions](billing-subscriptions/) | 1 | 6 | 0 | 6 | 0 | 0 |
+| [wallets](wallets/) | 1 | 6 | 0 | 6 | 0 | 0 |
+| [mcp-governance](mcp-governance/) | 1 | 5 | 0 | 5 | 0 | 0 |
+| [analytics](analytics/) | 1 | 4 | 0 | 4 | 0 | 0 |
+| [license](license/) | 1 | 4 | 0 | 4 | 0 | 0 |
+| [dashboard](dashboard/) | 1 | 2 | 0 | 2 | 0 | 0 |
+| [errors](errors/) | 2 | 2 | 0 | 2 | 0 | 0 |
+| [finance-report](finance-report/) | 1 | 2 | 0 | 2 | 0 | 0 |
+| [system-health](system-health/) | 1 | 2 | 0 | 2 | 0 | 0 |
+| [pricing](pricing/) | 1 | 1 | 0 | 1 | 0 | 0 |
+| [reports](reports/) | 1 | 1 | 0 | 1 | 0 | 0 |
 
 ## 页面清单
 
@@ -132,6 +135,10 @@ bug 累计：**发现 45 / 解决 45 / 待处理 0**
 ### billing-subscriptions
 
 - [BillingSubscriptionListPage](billing-subscriptions/BillingSubscriptionListPage.md) — 6 功能点
+
+### bots
+
+- [BotListPage](bots/BotListPage.md) — 7 功能点
 
 ### channels
 
@@ -241,6 +248,7 @@ bug 累计：**发现 45 / 解决 45 / 待处理 0**
 - [DDLPage](settings/DDLPage.md) — 6 功能点
 - [FeatureConfigPage](settings/FeatureConfigPage.md) — 4 功能点
 - [MutedUsersPage](settings/MutedUsersPage.md) — 7 功能点
+- [ProductExperiencePage](settings/ProductExperiencePage.md) — 3 功能点
 - [ProfileSwitchPage](settings/ProfileSwitchPage.md) — 5 功能点
 - [PushTokenListPage](settings/PushTokenListPage.md) — 5 功能点
 - [SSOConfigPage](settings/SSOConfigPage.md) — 6 功能点
@@ -269,3 +277,10 @@ bug 累计：**发现 45 / 解决 45 / 待处理 0**
 ### withdrawals
 
 - [WithdrawalsPage](withdrawals/WithdrawalsPage.md) — 8 功能点
+
+### workspaces
+
+- [ProjectDetailPage](workspaces/ProjectDetailPage.md) — 14 功能点
+- [ProjectListPage](workspaces/ProjectListPage.md) — 6 功能点
+- [WorkspaceDetailPage](workspaces/WorkspaceDetailPage.md) — 7 功能点
+- [WorkspaceListPage](workspaces/WorkspaceListPage.md) — 8 功能点
