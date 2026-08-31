@@ -8,6 +8,7 @@ import {
   getProjectMilestonesPayload,
   getProjectChannelsPayload,
   getProjectAggregationsPayload,
+  getWorkspaceDetailPayload,
   projectMembersQueryKey,
   projectMilestonesQueryKey,
   projectChannelsQueryKey,
@@ -116,21 +117,75 @@ describe('workspaces admin project governance API (W2)', () => {
     expect(result.items[0].id).toBe(BIG_TSID_STR)
   })
 
-  it('getProjectChannelsPayload requests /project/channels with EntityId project_id', async () => {
+  it('getProjectChannelsPayload requests /project/channels with EntityId project_id and real row contract', async () => {
     let capturedUrl = ''
     let capturedParams: Record<string, unknown> | undefined
 
     mutableClient.get = async (url: string, config?: { params?: Record<string, unknown> }) => {
       capturedUrl = url
       capturedParams = config?.params
-      return makePagedEnvelope([{ id: BIG_TSID_STR, name: 'chan-1', subscriber_count: 3 }])
+      // 后端行形状（实测 2026-08-31）：无 id/subscriber_count，时间键为 linked_at
+      return makePagedEnvelope([
+        {
+          channel_id: BIG_TSID_STR,
+          workspace_id: BIG_TSID_STR,
+          name: 'chan-1',
+          channel_status: 1,
+          linked_at: 1788096979827,
+        },
+      ])
     }
 
     const result = await getProjectChannelsPayload(BIG_TSID_STR, { page: 1, size: 10 })
 
     expect(capturedUrl).toBe('/project/channels')
     expect(capturedParams?.project_id).toBe(BIG_TSID_STR)
-    expect(result.items[0].id).toBe(BIG_TSID_STR)
+    expect(result.items[0].channel_id).toBe(BIG_TSID_STR)
+    expect((result.items[0] as { id?: unknown }).id).toBeUndefined()
+  })
+
+  it('getWorkspaceDetailPayload normalizes nested members {list,...} pagination into items', async () => {
+    mutableClient.get = async (url: string) => {
+      if (url !== '/workspace/detail') throw new Error(`unexpected GET url: ${url}`)
+      // 后端 detail 实测形状：嵌套 owner、无 *_count、members 为嵌套分页 {list,...}
+      return {
+        data: {
+          code: 0,
+          msg: 'ok',
+          payload: {
+            id: BIG_TSID_STR,
+            name: 'ws-detail',
+            owner_id: BIG_TSID_STR,
+            owner: { id: BIG_TSID_STR, nickname: '走查AT甲', account: 'at@imboy' },
+            status: 'active',
+            created_at: 1788094893463,
+            branding: {},
+            members: {
+              list: [
+                { workspace_id: BIG_TSID_STR, user_id: BIG_TSID_STR, nickname: '走查AT甲', role: 'owner', joined_at: 1788094893463, status: 'active' },
+              ],
+              page: 1,
+              size: 20,
+              total: 2,
+              total_page: 1,
+            },
+            projects: [],
+            groups: [],
+            channels: [],
+          },
+        },
+      }
+    }
+
+    const detail = await getWorkspaceDetailPayload(BIG_TSID_STR)
+
+    // members.list 兜底归一为 items，total 保留后端准确值
+    expect(detail.members.items).toHaveLength(1)
+    expect(detail.members.items[0].user_id).toBe(BIG_TSID_STR)
+    expect(detail.members.total).toBe(2)
+    expect(detail.members.total_pages).toBe(1)
+    // owner 保持嵌套对象原样（页面兼容读取）
+    expect(detail.owner?.nickname).toBe('走查AT甲')
   })
 
   it('getProjectAggregationsPayload forwards aggregation type param with EntityId project_id', async () => {

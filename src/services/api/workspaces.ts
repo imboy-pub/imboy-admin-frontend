@@ -33,6 +33,28 @@ export interface WorkspaceAdminRow {
   member_count: number
 }
 
+/**
+ * 工作区详情（/workspace/detail）。与列表行（WorkspaceAdminRow）不同，后端详情
+ * payload 为嵌套形状（实测 2026-08-31）：
+ * - owner 为嵌套对象 {id,nickname,account,avatar}，无扁平 owner_nickname/owner_account
+ * - 无 project_count/group_count/channel_count/member_count 数值字段；
+ *   projects/groups/channels 为有界数组（后端 admin_resource_list 截断前 20 条），
+ *   members 为嵌套分页 {list,page,size,total,total_page}（total 为准确总数）
+ * 计数类字段经 Omit 移除，防止页面误读不存在扁平字段恒取 0/undefined。
+ */
+export type WorkspaceAdminDetail = Omit<
+  WorkspaceAdminRow,
+  'project_count' | 'group_count' | 'channel_count' | 'member_count'
+> & {
+  owner?: { id: EntityId; nickname?: string | null; account?: string | null; avatar?: string | null } | null
+  /** 后端下发为嵌套分页 {list,...}；getWorkspaceDetailPayload 归一补 items */
+  members: PaginatedResponse<WorkspaceMemberRow>
+  /** 有界资源数组（后端截断前 20 条），计数只能作下限估计 */
+  projects: WorkspaceResourceRow[]
+  groups: WorkspaceResourceRow[]
+  channels: WorkspaceResourceRow[]
+}
+
 export interface WorkspaceMemberRow {
   workspace_id: EntityId
   user_id: EntityId
@@ -57,14 +79,6 @@ export interface WorkspaceResourceRow {
   member_count?: number
   subscriber_count?: number
   created_at: string
-}
-
-interface WorkspaceAdminDetail extends WorkspaceAdminRow {
-  owner: { id: EntityId; nickname?: string | null; account?: string | null; avatar?: string | null } | Record<string, never>
-  members: PaginatedResponse<WorkspaceMemberRow>
-  projects: WorkspaceResourceRow[]
-  groups: WorkspaceResourceRow[]
-  channels: WorkspaceResourceRow[]
 }
 
 export interface ProjectAdminRow {
@@ -154,9 +168,32 @@ export async function getWorkspaceListPayload(
   return requireApiPayload<PaginatedResponse<WorkspaceAdminRow>>(res.data, 'workspace/list')
 }
 
+/**
+ * 归一 detail 嵌套 members 分页：后端下发 {list,page,size,total,total_page}，
+ * responseAdapter 的 list→items 归一只处理 payload 根，嵌套对象不触及 → 此处补 items。
+ * 不可变：返回新对象，不改入参。
+ */
+function normalizeDetailMembers(
+  members: PaginatedResponse<WorkspaceMemberRow> | undefined,
+): PaginatedResponse<WorkspaceMemberRow> | undefined {
+  if (!members || Array.isArray(members.items)) return members
+  const raw = members as PaginatedResponse<WorkspaceMemberRow> & { list?: WorkspaceMemberRow[] }
+  const list = Array.isArray(raw.list) ? raw.list : []
+  const total = typeof raw.total === 'number' ? raw.total : list.length
+  const size = typeof raw.size === 'number' && raw.size > 0 ? raw.size : list.length || 1
+  return {
+    ...raw,
+    items: list,
+    total,
+    total_pages: Math.ceil(total / size),
+  }
+}
+
 export async function getWorkspaceDetailPayload(id: EntityId): Promise<WorkspaceAdminDetail> {
   const res = await client.get('/workspace/detail', { params: { workspace_id: id } })
-  return requireApiPayload<WorkspaceAdminDetail>(res.data, 'workspace/detail')
+  const detail = requireApiPayload<WorkspaceAdminDetail>(res.data, 'workspace/detail')
+  // 后端 members 为嵌套分页 {list,...}，兜底归一为 items（WorkspaceDetailPage 消费 items/total）
+  return { ...detail, members: normalizeDetailMembers(detail.members) as PaginatedResponse<WorkspaceMemberRow> }
 }
 
 export async function archiveWorkspace(id: EntityId): Promise<void> {
@@ -214,13 +251,20 @@ export interface ProjectMilestoneRow {
   created_at?: string | null
 }
 
+/**
+ * 项目关联频道行（/project/channels，后端 SQL JOIN project_channel_rel × channel，实测 2026-08-31）：
+ * {channel_id, workspace_id, linked_at, name, avatar, channel_status}——
+ * 无 id/subscriber_count/created_at 字段（关联时间键为 linked_at = rel.created_at）。
+ */
 export interface ProjectChannelRow {
-  id: EntityId
-  project_id?: EntityId
+  channel_id: EntityId
+  workspace_id?: EntityId
   name?: string | null
-  subscriber_count?: number
-  status?: string | number
-  created_at?: string | null
+  avatar?: string | null
+  /** 频道状态（channel.status，数字枚举） */
+  channel_status?: string | number
+  /** 关联时间（project_channel_rel.created_at，epoch ms） */
+  linked_at?: number | string | null
 }
 
 export interface ProjectAggregationRow {

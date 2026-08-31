@@ -74,8 +74,15 @@ const milestonesPageFixture = (page: number) => ({
   total_page: 3,
 })
 
+// 后端 /project/channels 行形状（实测 2026-08-31）：channel_id/workspace_id/linked_at/name/avatar/channel_status
 const channelsFixture = [
-  { id: '600001', project_id: BIG_TSID_STR, name: 'proj-channel', subscriber_count: 8 },
+  {
+    channel_id: '600001',
+    workspace_id: BIG_TSID_STR,
+    name: 'proj-channel',
+    channel_status: 1,
+    linked_at: 1788096979827,
+  },
 ]
 
 function renderProjectDetailPage() {
@@ -290,6 +297,8 @@ describe('ProjectDetailPage W2 governance', () => {
     await waitFor(() => {
       expect(view.container.textContent).toContain('proj-channel')
     })
+    // 行键与 ID 列对齐后端 channel_id（此前读 c.id undefined 触发 React key error）
+    expect(view.container.textContent).toContain('600001')
     expect(getCalls[0].params?.project_id).toBe(BIG_TSID_STR)
   })
 

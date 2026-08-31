@@ -1,6 +1,6 @@
 # `src/pages/workspaces/ProjectDetailPage.tsx`
 
-> 功能点 14 个 | bug 发现 1 / 解决 0 / 待处理 1
+> 功能点 14 个 | bug 发现 1 / 解决 1 / 待处理 0
 > 索引：[../README.md](../README.md)
 
 | 计划变化 | 计划时间 | 页面path | 功能介绍 | 测试状态 | 测试轮次 | 发现bug | 解决bug | 待处理bug | 备注 |
@@ -14,7 +14,7 @@
 | 无待办 | - | `src/pages/workspaces/ProjectDetailPage.tsx` | W2 治理 Tab 切换（成员/里程碑/频道/聚合四 Tab，默认成员，懒加载互不干扰） | 已通过 | 批次W2R1 | 0 | 0 | 0 |  |
 | 无待办 | - | `src/pages/workspaces/ProjectDetailPage.tsx` | 成员 Tab：只读表格（用户ID/昵称/账号/角色/加入时间）+ 服务端分页与刷新 | 已通过 | 批次W2R1 | 0 | 0 | 0 | 刷新2xx实测 |
 | 无待办 | - | `src/pages/workspaces/ProjectDetailPage.tsx` | 里程碑 Tab：状态筛选（全部/未达成/已达成，变化重置 page=1）+ 只读表格（ID/名称/状态徽标/计划时间/达成时间）+ 分页 | 已通过 | 批次W2R1 | 0 | 0 | 0 | status=planned 请求带 page=1 实测 |
-| 待修复 | 2026-08-30 | `src/pages/workspaces/ProjectDetailPage.tsx` | 频道 Tab：只读表格（频道ID/名称/订阅数/创建时间）+ 服务端分页 | 有BUG待修 | 批次W2R1 | 1 | 0 | 1 | 频道Tab字段错配：ID列空/订阅数恒0/时间恒—，console报React key错 |
+| 无待办 | - | `src/pages/workspaces/ProjectDetailPage.tsx` | 频道 Tab：只读表格（频道ID/名称/关联时间）+ 服务端分页 | 已通过 | 批次W2R2FIX | 1 | 1 | 0 | bug 已修：列改读后端真实行 channel_id/linked_at，订阅数列删除（后端无此字段） |
 | 无待办 | - | `src/pages/workspaces/ProjectDetailPage.tsx` | 聚合 Tab：类型筛选（置顶/资源/动态/关联帖子，变化重置 page=1）+ 只读表格（ID/类型/标题/关联对象/时间）+ 分页 | 已通过 | 批次W2R1 | 0 | 0 | 0 | type=activity 请求带 page=1 实测；置顶空态正确 |
 | 无待办 | - | `src/pages/workspaces/ProjectDetailPage.tsx` | 面板 403 fail-closed 态（无 workspaces:read 权限时显示明确文案 + 重试按钮，不白屏） | 已通过 | 批次W2R1 | 0 | 0 | 0 | 经403注入验证fail-closed文案+重试恢复；缺真实无权限账号 |
 | 无待办 | - | `src/pages/workspaces/ProjectDetailPage.tsx` | 面板空态（后端未返回记录时 EmptyState「后端未返回任何记录」） | 已通过 | 批次W2R1 | 0 | 0 | 0 | pinned自然空+related_posts空分页注入双重验证 |
@@ -28,3 +28,6 @@
    （`Each child in a list should have a unique "key" prop ... Check the render method of ProjectChannelsPanel`）。
    证据：evidence/workspaces/w2r1-*-pdetail-channels-panel.png（Announcements 行 ID 空/订阅数 0/时间 —）、
    evidence-misc/w2r1-*-console-errors.json。getProjectChannelsPayload 纯 cast 无行级映射（src/services/api/workspaces.ts）。
+   **已修复（批次W2R2FIX）**：ProjectChannelRow 类型与表格列对齐真实契约（ID=channel_id、时间=linked_at，
+   订阅数列删除不造假），key 改 channel_id；复验 /projects/109901866229565440 频道 Tab 实测
+   ID 109901866059696128 / Announcements / 2026/08/30 21:36，console 无 key error（w2r2fix-pdetail-channels-panel.png）。

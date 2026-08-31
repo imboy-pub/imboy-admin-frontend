@@ -118,10 +118,13 @@ export function WorkspaceDetailPage() {
       />
 
       <div className="grid gap-4 md:grid-cols-4">
-        <StatsCard title="项目数" value={data.project_count ?? 0} />
-        <StatsCard title="群组数" value={data.group_count ?? 0} />
-        <StatsCard title="频道数" value={data.channel_count ?? 0} />
-        <StatsCard title="工作区成员数" value={data.member_count ?? 0} />
+        {/* 后端 /workspace/detail 无 *_count 数值字段（实测 2026-08-31）：
+            projects/groups/channels 为有界数组（后端截断前 20 条，此处计数为下限估计），
+            工作区成员数取嵌套分页 members.total（准确总数）。 */}
+        <StatsCard title="项目数" value={data.projects?.length ?? 0} />
+        <StatsCard title="群组数" value={data.groups?.length ?? 0} />
+        <StatsCard title="频道数" value={data.channels?.length ?? 0} />
+        <StatsCard title="工作区成员数" value={data.members?.total ?? 0} />
       </div>
 
       {/* 基本信息 */}
@@ -147,7 +150,9 @@ export function WorkspaceDetailPage() {
             <div className="flex justify-between gap-4">
               <dt className="text-muted-foreground">主 Owner</dt>
               <dd>
-                {data.owner_nickname || data.owner_account || '—'}
+                {/* 后端 detail 返回嵌套 owner{nickname,account}（无扁平 owner_nickname），
+                    保留扁平字段兜底以兼容列表行形状（实测 2026-08-31） */}
+                {data.owner?.nickname || data.owner?.account || data.owner_nickname || data.owner_account || '—'}
                 <span className="ml-2 font-mono text-xs text-muted-foreground">{data.owner_id}</span>
               </dd>
             </div>

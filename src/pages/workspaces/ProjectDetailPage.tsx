@@ -352,17 +352,17 @@ function ProjectChannelsPanel({ projectId }: { projectId: string }) {
           <tr className="border-b text-left text-xs text-muted-foreground">
             <th className="pb-2 pr-4 font-medium">频道 ID</th>
             <th className="pb-2 pr-4 font-medium">名称</th>
-            <th className="pb-2 pr-4 font-medium">订阅数</th>
-            <th className="pb-2 font-medium">创建时间</th>
+            <th className="pb-2 font-medium">关联时间</th>
           </tr>
         </thead>
         <tbody>
+          {/* 后端 /project/channels 行为 {channel_id,name,linked_at,...}（无 id/订阅数），
+              订阅数后端无此数据，不渲染假列（实测 2026-08-31） */}
           {rows.map((c) => (
-            <tr key={c.id} className="border-b last:border-0">
-              <td className="py-2 pr-4 font-mono text-xs">{c.id}</td>
+            <tr key={c.channel_id} className="border-b last:border-0">
+              <td className="py-2 pr-4 font-mono text-xs">{c.channel_id}</td>
               <td className="py-2 pr-4">{c.name || '—'}</td>
-              <td className="py-2 pr-4 font-mono">{c.subscriber_count ?? 0}</td>
-              <td className="py-2 text-muted-foreground">{c.created_at ? formatDate(c.created_at) : '—'}</td>
+              <td className="py-2 text-muted-foreground">{c.linked_at ? formatDate(c.linked_at) : '—'}</td>
             </tr>
           ))}
         </tbody>
