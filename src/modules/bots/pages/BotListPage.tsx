@@ -17,6 +17,7 @@ import {
 } from '@/components/shared'
 import { useListQueryState } from '@/hooks/useListQueryState'
 import { getErrorMessage } from '@/lib/errorUtils'
+import { formatDate } from '@/lib/utils'
 import type { EntityId } from '@/types/common'
 import {
   getBotList,
@@ -239,7 +240,7 @@ function BotDetailBody({ detail }: { detail: BotDetail }) {
           {detail.created_at ? (
             <>
               <dt className="text-muted-foreground">注册时间</dt>
-              <dd>{detail.created_at}</dd>
+              <dd>{formatDate(detail.created_at)}</dd>
             </>
           ) : null}
         </dl>
