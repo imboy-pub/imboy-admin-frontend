@@ -10,7 +10,7 @@
 | 无待办 | - | `src/pages/workspaces/WorkspaceListPage.tsx` | 列表数据加载渲染与字段格式化（名称/状态徽标 正常·已归档/创建时间） | 已通过 | 批次W2R1 | 0 | 0 | 0 | total=24，种子工作区 AT-WS-* 行+正常徽标可见 |
 | 无待办 | - | `src/pages/workspaces/WorkspaceListPage.tsx` | 分页翻页与每页条数切换（默认 size:10，筛选/搜索变化时重置 page=1） | 已通过 | 批次W2R1 | 0 | 0 | 0 | total=24>10，page=2 请求2xx实测；回翻缓存命中按UI页码断言 |
 | 无待办 | - | `src/pages/workspaces/WorkspaceListPage.tsx` | 筛选 / 搜索条件生效与清空重置（名称关键字 + 状态 全部/正常/已归档） | 已通过 | 批次W2R1 | 0 | 0 | 0 | keyword+status=archived 请求带 page=1 实测；取消归档弹窗不发请求已断言 |
-| 待修复 | 2026-08-30 | `src/pages/workspaces/WorkspaceListPage.tsx` | 归档工作区：二次确认弹窗确认后提交成功，toast「工作区已归档（读保留，业务写被拒绝）」且列表失效重拉 | 有BUG待修 | 批次W2R1 | 1 | 0 | 1 | 后端bug：archive API业务500（FK违规）；弹窗/取消/错误toast前端正常 |
+| 无待办 | - | `src/pages/workspaces/WorkspaceListPage.tsx` | 归档工作区：二次确认弹窗确认后提交成功，toast「工作区已归档（读保留，业务写被拒绝）」且列表失效重拉 | 已通过 | 批次W2R2FIX | 1 | 1 | 0 | 后端 archived_by FK 23503 已修（admin 路径写 NULL+操作日志审计，imboy f019e2c6）；HTTP 实证归档/恢复 code=0（真实 adm uid 登录全链） |
 | 阻塞 | 待归档 bug 修复（制造已归档工作区） | `src/pages/workspaces/WorkspaceListPage.tsx` | 恢复已归档工作区：二次确认后提交成功，toast「工作区已恢复」且列表失效重拉；取消不发请求 | 未测 | 批次W2R1 | 0 | 0 | 0 | 无已归档工作区；归档接口500无法制造，恢复路径无法实测 |
 | 无待办 | - | `src/pages/workspaces/WorkspaceListPage.tsx` | 点击行进入工作区详情 /workspaces/:id | 已通过 | 批次W2R1 | 0 | 0 | 0 |  |
 
