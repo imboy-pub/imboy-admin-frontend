@@ -7,7 +7,7 @@
  */
 import '../test/setupDom'
 import { describe, it, expect, beforeEach, afterAll, spyOn, mock } from 'bun:test'
-import { renderHook, waitFor } from '@testing-library/react'
+import { act, renderHook, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ReactElement } from 'react'
 import { useAdminPermission } from './useAdminPermission'
@@ -20,18 +20,21 @@ import * as realAdminConfigModule from '@/services/api/adminConfig'
 const realRbacExports = { ...realRbacModule }
 const realAdminConfigExports = { ...realAdminConfigModule }
 
-// 模拟 sessionStorage 标记后的行为：getMyRbacProfilePayload 永远 throw
+const unavailableRbacFetcher = async () => {
+  throw new Error('RBAC endpoint unavailable')
+}
+let rbacFetcher: () => Promise<unknown> = unavailableRbacFetcher
+
+// 默认模拟 sessionStorage 标记后的行为；个别用例覆盖为成功 profile。
 mock.module('@/services/api/rbac', () => ({
-  getMyRbacProfilePayload: async () => {
-    throw new Error('RBAC endpoint unavailable')
-  },
+  getMyRbacProfilePayload: () => rbacFetcher(),
 }))
 
 // sidebar 模板正常返回（role 1 的 channels 权限与真实 /sidebar-menu.json 一致：
 // read/update/delete 三项齐全——此前 fixture 漏了 channels:delete，与真实模板失真，
 // 并行窗口下会把依赖 sidebar 兜底的页面测试（如 ChannelDetailPage）误判为权限不足）。
 // 每个用例可覆盖 sidebarFetcher 控制时序（慢加载场景见第 2 个用例）。
-let sidebarFetcher: () => Promise<unknown> = async () => ({
+const defaultSidebarFetcher = async () => ({
   rbac: {
     roles: [
       {
@@ -43,6 +46,7 @@ let sidebarFetcher: () => Promise<unknown> = async () => ({
     ],
   },
 })
+let sidebarFetcher: () => Promise<unknown> = defaultSidebarFetcher
 mock.module('@/services/api/adminConfig', () => ({
   fetchSidebarMenuConfig: () => sidebarFetcher(),
 }))
@@ -56,9 +60,11 @@ afterAll(() => {
   mock.module('@/services/api/adminConfig', () => realAdminConfigExports)
 })
 
-describe('useAdminPermission — rbac 404 会话标记后的 fail-open 承诺', () => {
+describe('useAdminPermission — rbac 404 后的权限证据判定', () => {
   beforeEach(() => {
     spyOn(console, 'warn').mockImplementation(() => {})
+    rbacFetcher = unavailableRbacFetcher
+    sidebarFetcher = defaultSidebarFetcher
     useAuthStore.setState({
       admin: {
         id: '106791271148029952',
@@ -95,6 +101,46 @@ describe('useAdminPermission — rbac 404 会话标记后的 fail-open 承诺', 
     expect(result.current.allowed).toBe(true)
   })
 
+  it('rbac profile 抛错 + sidebar 模板无目标权限 → fail-closed', async () => {
+    sidebarFetcher = async () => ({
+      rbac: {
+        roles: [{ id: 1, name: 'super_admin', description: '', permissions: [] }],
+      },
+    })
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    const wrapper = ({ children }: { children: ReactElement }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    )
+
+    const { result } = renderHook(
+      () => useAdminPermission({ permission: 'finance:write', roles: ['1', '2'] }),
+      { wrapper }
+    )
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.allowed).toBe(false)
+  })
+
+  it('rbac profile 明确返回空权限时不得回退 sidebar 模板', async () => {
+    rbacFetcher = async () => ({ role_id: '1', role_ids: ['1'], permissions: [] })
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    const wrapper = ({ children }: { children: ReactElement }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    )
+
+    const { result } = renderHook(
+      () => useAdminPermission({ permission: 'channels:delete', roles: ['1', '2'] }),
+      { wrapper }
+    )
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.allowed).toBe(false)
+  })
+
   it('中间态：rbac 已快速失败 + sidebar 模板仍在加载 → loading 必须为 true（不得用 false 锁门）', async () => {
     // 浏览器实测（2026-08-15）：sessionStorage 标记使 rbac query 几乎同步 error，
     // 而 sidebar 模板（remote 404 → fallback 静态文件）仍在途。此时
@@ -125,12 +171,14 @@ describe('useAdminPermission — rbac 404 会话标记后的 fail-open 承诺', 
     expect(result.current.allowed).toBe(false) // 判定未定，但不允许已判死
 
     // sidebar 模板到达后 → 放行
-    resolveSidebar({
-      rbac: {
-        roles: [
-          { id: 1, name: 'super_admin', description: '', permissions: ['channels:read'] },
-        ],
-      },
+    await act(async () => {
+      resolveSidebar({
+        rbac: {
+          roles: [
+            { id: 1, name: 'super_admin', description: '', permissions: ['channels:read'] },
+          ],
+        },
+      })
     })
     await waitFor(() => expect(result.current.loading).toBe(false))
     expect(result.current.allowed).toBe(true)

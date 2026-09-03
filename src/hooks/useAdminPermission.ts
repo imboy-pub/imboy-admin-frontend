@@ -11,11 +11,7 @@ type UseAdminPermissionOptions = {
   roles?: EntityId[]
   enabled?: boolean
   /**
-   * 敏感写操作（删除、封禁、批量处置、授权变更等）。
-   *
-   * 默认的角色级降级是 fail-open：/rbac/me 不可用时按角色放行，避免细粒度
-   * 权限服务抖动就把管理员全部锁在门外。但敏感写操作必须反过来——权限数据
-   * 拿不到就一律拒绝：宁可挡住合法操作，也不能在权限未知时放行破坏性动作。
+   * 兼容旧调用。所有带 permission 的门现在都统一 fail-closed。
    */
   sensitive?: boolean
 }
@@ -35,7 +31,6 @@ function normalizeRoleIds(value: unknown): EntityId[] {
 export function useAdminPermission(options: UseAdminPermissionOptions = {}) {
   const { permission, roles } = options
   const gateEnabled = options.enabled !== false
-  const isSensitive = options.sensitive === true
   const normalizedPermissions = (Array.isArray(permission) ? permission : [permission])
     .map((item) => (typeof item === 'string' ? item.trim() : ''))
     .filter((item) => item.length > 0)
@@ -78,7 +73,7 @@ export function useAdminPermission(options: UseAdminPermissionOptions = {}) {
     if (effectiveRoleIds.length === 0) return undefined
     const roleList = sidebarConfig?.rbac?.roles || []
     const permissions = roleList
-      .filter((item) => effectiveRoleIds.includes(item.id))
+      .filter((item) => effectiveRoleIds.includes(coerceEntityId(item.id)))
       .flatMap((item) => item.permissions || [])
     if (permissions.length === 0) return undefined
     return new Set(permissions)
@@ -88,7 +83,7 @@ export function useAdminPermission(options: UseAdminPermissionOptions = {}) {
     if (!hasPermissionConstraint) return true
 
     const rbacPermissions = rbacProfile?.permissions || []
-    if (rbacPermissions.length > 0) {
+    if (rbacProfile) {
       const permissionSet = new Set(rbacPermissions)
       return normalizedPermissions.some((item) => permissionSet.has(item))
     }
@@ -97,35 +92,20 @@ export function useAdminPermission(options: UseAdminPermissionOptions = {}) {
       return normalizedPermissions.some((item) => roleTemplatePermissions.has(item))
     }
 
-    // 安全设计说明：
-    // 仅当权限数据已完成加载（rbacLoading/configLoading 均为 false）但确实没有
-    // 细粒度权限配置时，才降级为角色级别放行（fail-open by design）。
-    // 加载中时（rbacLoading || configLoading 为 true）返回 false，
-    // 避免在数据到来之前意外开放访问。
+    // 权限尚未决时拒绝，路由通过 loading 保持等待态。
     if (rbacLoading || configLoading) return false
 
-    // 敏感写操作 fail-closed：权限数据不可用时一律拒绝，不降级到角色级放行。
-    if (isSensitive) {
-      console.warn(
-        '[SECURITY] RBAC endpoint unavailable; denying sensitive action. Ensure /rbac/me is reachable in production.'
-      )
-      return false
-    }
-
-    // 非敏感操作维持角色级降级（fail-open by design）：
-    // /rbac/me 抖动不应把管理员整个锁在门外。
-    console.warn('[SECURITY] RBAC endpoint unavailable, falling back to role-level access. Ensure /rbac/me is reachable in production.')
-    // 生产部署必须确保 /rbac/me 端点可用，否则细粒度权限形同虚设
-    return roleAllowed
+    // 声明 permission 就必须由 profile 或角色模板明确证明，不能在权限源
+    // 不可用时仅凭粗粒度角色放行。
+    console.warn('[SECURITY] RBAC permission unavailable; denying permission-gated access.')
+    return false
   }, [
     hasPermissionConstraint,
     normalizedPermissions,
-    rbacProfile?.permissions,
+    rbacProfile,
     roleTemplatePermissions,
     rbacLoading,
     configLoading,
-    roleAllowed,
-    isSensitive,
   ])
 
   // 时序修复：authStore persist rehydrate 尚未完成（currentRoleIds 为空）而
@@ -143,7 +123,7 @@ export function useAdminPermission(options: UseAdminPermissionOptions = {}) {
   // 不允许用先到的 sidebar 角色模板提前做否定判定——静态模板权限集不完整
   // （曾导致 sidebar 先到 + /rbac/me 后到的竞态被间歇性误跳 /forbidden）。
   // rbac 确定失败（rbacError）后不再等待 rbac 本身，但 sidebar 模板仍在加载
-  // （configLoading）时必须继续等——模板是 fail-open 降级的兜底数据源，
+  // （configLoading）时必须继续等——模板是权限判定的备用数据源，
   // 模板未到就判死会把管理员锁在 /forbidden
   // （实测：/rbac/me 404 写入 sessionStorage 标记后 rbac 同步快速失败，
   // sidebar fallback 还在途，loading 被误判 false → 永久跳 /forbidden）。
