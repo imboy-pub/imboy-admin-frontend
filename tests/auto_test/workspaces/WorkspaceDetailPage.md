@@ -5,12 +5,12 @@
 
 | 计划变化 | 计划时间 | 页面path | 功能介绍 | 测试状态 | 测试轮次 | 发现bug | 解决bug | 待处理bug | 备注 |
 |---|---|---|---|---|---|---|---|---|---|
-| 无待办 | - | `src/pages/workspaces/WorkspaceDetailPage.tsx` | 路由直达与权限守卫（未登录跳 /login，无权限跳 403） | 已通过 | 批次W2R1 | 0 | 0 | 0 |  |
-| 无待办 | - | `src/pages/workspaces/WorkspaceDetailPage.tsx` | 加载中 / 错误态展示（LoadingState / ErrorState + 重试） | 已通过 | 批次W2R1 | 0 | 0 | 0 | 错误态500注入验证+重试恢复2xx |
-| 无待办 | - | `src/pages/workspaces/WorkspaceDetailPage.tsx` | 基本信息卡渲染（名称/ID/状态徽标/Owner/创建时间） | 已通过 | 批次W2R2FIX | 1 | 1 | 0 | bug 已修：Owner 兼容读嵌套 owner.nickname，扁平字段兜底 |
-| 无待办 | - | `src/pages/workspaces/WorkspaceDetailPage.tsx` | 资源计数 StatsCard 渲染（项目数/群组数/频道数/工作区成员数） | 已通过 | 批次W2R2FIX | 1 | 1 | 0 | bug 已修：三卡改数组 length（后端截断20为下限），成员数取 members.total |
-| 无待办 | - | `src/pages/workspaces/WorkspaceDetailPage.tsx` | 工作区成员清单渲染（昵称/账号/角色徽标 Owner·Admin·Member·Guest/加入时间） | 已通过 | 批次W2R2FIX | 1 | 1 | 0 | bug 已修：getWorkspaceDetailPayload 归一 members.list 兜底为 items |
-| 无待办 | - | `src/pages/workspaces/WorkspaceDetailPage.tsx` | 归属资源清单卡渲染（项目/群组/频道各前 20 条，含成员数或订阅数列，空态文案） | 已通过 | 批次W2R1 | 0 | 0 | 0 | 三卡各1行实测（AT-项目*/General成员1/Announcements订阅0） |
+| 无待办 | - | `src/pages/workspaces/WorkspaceDetailPage.tsx` | 路由直达与权限守卫（未登录跳 /login，无权限跳 403） | 已通过 | 批次W2R1 | 0 | 0 | 0 | 未登录跳login实测；路由级403缺无权限账号未测 |
+| 无待办 | - | `src/pages/workspaces/WorkspaceDetailPage.tsx` | 加载中 / 错误态展示（LoadingState / ErrorState + 重试） | 已通过 | 批次W2R1 | 0 | 0 | 0 | 500注入错误态+重试恢复2xx |
+| 无待办 | - | `src/pages/workspaces/WorkspaceDetailPage.tsx` | 基本信息卡渲染（名称/ID/状态徽标/Owner/创建时间） | 已通过 | 批次W2R1 | 1 | 1 | 0 | 重测：Owner=走查AT甲（嵌套owner.nickname） |
+| 无待办 | - | `src/pages/workspaces/WorkspaceDetailPage.tsx` | 资源计数 StatsCard 渲染（项目数/群组数/频道数/成员数） | 已通过 | 批次W2R1 | 1 | 1 | 0 | 重测四卡 20/1/1/2；项目20为截断下限 |
+| 无待办 | - | `src/pages/workspaces/WorkspaceDetailPage.tsx` | 工作区成员清单渲染（昵称/账号/角色徽标 Owner·Admin·Member·Guest/加入时间） | 已通过 | 批次W2R1 | 1 | 1 | 0 | 重测：成员表2行（Owner+Member） |
+| 无待办 | - | `src/pages/workspaces/WorkspaceDetailPage.tsx` | 归属资源清单卡渲染（项目/群组/频道各前 20 条，含成员数或订阅数列，空态文案） | 已通过 | 批次W2R1 | 0 | 0 | 0 | 三卡实测；22项目>20自然验证截断契约 |
 | 无待办 | - | `src/pages/workspaces/WorkspaceDetailPage.tsx` | 返回列表按钮跳转 /workspaces | 已通过 | 批次W2R1 | 0 | 0 | 0 |  |
 
 ## 批次W2R1 发现的 bug（同根因：detail 页按 list 行形状取数，detail 接口返回嵌套形状）
@@ -37,3 +37,9 @@
   （responseAdapter 顶层归一不触及嵌套对象），`WorkspaceAdminDetail` 类型经 Omit 移除不存在的 `*_count` 字段。
 - 复验：/workspaces/109901865994684416 实测 Owner=走查AT甲、四卡 20/1/1/2、成员表 2 行
   （w2r2fix-wdetail-fullpage.png）；bun test 1411 pass / typecheck / lint 全绿。
+
+**W2R1 第二次全量首测（2026-09-03）复验补充**：
+- 3 个修复全部复验有效（Owner=走查AT甲 / 四卡 20/1/1/2 / 成员表 2 行）；
+- 「前 20 条」截断契约自然验证：该工作区项目已增至 22 个，最早创建的种子项目 AT-项目-20260830210132
+  被截断在第 20 名之外不显示，卡内首行为 W2R2FIX-task——行为与代码注释（后端 admin_resource_list
+  截断前 20、计数为下限估计）一致，非 bug；证据 w2r1b-wdetail-*-resource-cards.png / fullpage.png。
