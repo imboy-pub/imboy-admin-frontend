@@ -31,7 +31,25 @@ jobs:
         run: bun run lint
 
       - name: Test
-        run: bun run test
+        run: |
+          set -euo pipefail
+          bun test src --isolate --coverage 2>&1 | tee coverage.txt
+          read -r function_pct line_pct < <(
+            awk -F'|' '/^All files/ {
+              gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2)
+              gsub(/^[[:space:]]+|[[:space:]]+$/, "", $3)
+              print $2, $3
+            }' coverage.txt
+          )
+          test -n "$function_pct" && test -n "$line_pct"
+          awk -v actual="$function_pct" 'BEGIN { exit !(actual >= 74) }' || {
+            echo "::error::Function coverage ${function_pct}% is below 74%"
+            exit 1
+          }
+          awk -v actual="$line_pct" 'BEGIN { exit !(actual >= 87) }' || {
+            echo "::error::Line coverage ${line_pct}% is below 87%"
+            exit 1
+          }
 
       - name: Channel regression gate
         run: |
