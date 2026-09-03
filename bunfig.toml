@@ -1,3 +1,0 @@
-[test]
-# Only scan src/ for unit tests; Playwright specs live in tests/e2e/
-root = "./src"
