@@ -48,8 +48,8 @@
 
 | 计划变化 | 条数 | 占比 |
 |---|---|---|
-| 无待办 | 580 | 98.6% |
-| 阻塞 | 8 | 1.4% |
+| 无待办 | 581 | 98.8% |
+| 阻塞 | 7 | 1.2% |
 | **合计** | **588** | 100% |
 
 bug 累计：**发现 51 / 解决 51 / 待处理 0**
@@ -64,7 +64,7 @@ bug 累计：**发现 51 / 解决 51 / 待处理 0**
 | [channels](channels/) | 8 | 80 | 0 | 80 | 0 |
 | [settings](settings/) | 11 | 54 | 0 | 54 | 0 |
 | [users](users/) | 4 | 41 | 0 | 41 | 0 |
-| [workspaces](workspaces/) | 4 | 35 | 0 | 34 | 1 |
+| [workspaces](workspaces/) | 4 | 35 | 0 | 35 | 0 |
 | [moments](moments/) | 3 | 26 | 0 | 26 | 0 |
 | [ai_agent](ai_agent/) | 4 | 25 | 0 | 25 | 0 |
 | [plugin_management](plugin_management/) | 2 | 18 | 0 | 11 | 7 |
