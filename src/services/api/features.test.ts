@@ -3,8 +3,15 @@ import {
   isAdminFeatureEnabled,
   featureKeyForAdminPath,
   adminFeatureQueryKey,
+  assertAdminFeatureManifest,
+  FeatureManifestMismatchError,
   type FeatureFlags,
 } from './features'
+import {
+  compiledProductFeatures,
+  productFeatureManifestHash,
+  productFeatureSchemaVersion,
+} from '@/generated/productFeatures'
 
 // Clear localStorage between tests to prevent cache contamination
 afterEach(() => {
@@ -30,6 +37,11 @@ describe('isAdminFeatureEnabled', () => {
   it('returns true when feature is enabled', () => {
     const flags: FeatureFlags = { channel: true }
     expect(isAdminFeatureEnabled(flags, 'channel')).toBe(true)
+  })
+
+  it('returns false when server enables a feature absent from the build', () => {
+    const flags: FeatureFlags = { not_compiled: true }
+    expect(isAdminFeatureEnabled(flags, 'not_compiled')).toBe(false)
   })
 
   it('returns false when feature is explicitly disabled', () => {
@@ -67,6 +79,35 @@ describe('isAdminFeatureEnabled', () => {
       const flags: FeatureFlags = { channel: true, channel_discover: true }
       expect(isAdminFeatureEnabled(flags, 'channel_discover')).toBe(true)
     })
+  })
+})
+
+describe('assertAdminFeatureManifest', () => {
+  it('accepts a complete matching payload', () => {
+    expect(() => assertAdminFeatureManifest({
+      manifest_hash: productFeatureManifestHash,
+      manifest_schema_version: productFeatureSchemaVersion,
+      compiled_features: compiledProductFeatures,
+    })).not.toThrow()
+  })
+
+  it('fails visibly on missing or mismatched contract fields', () => {
+    expect(() => assertAdminFeatureManifest({})).toThrow(FeatureManifestMismatchError)
+    expect(() => assertAdminFeatureManifest({ manifest_hash: 'sha256:mismatch' }))
+      .toThrow(FeatureManifestMismatchError)
+    expect(() => assertAdminFeatureManifest({ manifest_schema_version: 999 }))
+      .toThrow(FeatureManifestMismatchError)
+  })
+
+  it('fails when server features exceed the compiled Admin capability', () => {
+    expect(() => assertAdminFeatureManifest({ compiled_features: ['not_compiled'] }))
+      .toThrow(FeatureManifestMismatchError)
+    expect(() => assertAdminFeatureManifest({ compiled_features: [123] }))
+      .toThrow(FeatureManifestMismatchError)
+    expect(() => assertAdminFeatureManifest({ compiled_features: [] }))
+      .toThrow(FeatureManifestMismatchError)
+    expect(() => assertAdminFeatureManifest({ compiled_features: 'not-an-array' }))
+      .toThrow(FeatureManifestMismatchError)
   })
 })
 

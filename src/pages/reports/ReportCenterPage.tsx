@@ -13,7 +13,7 @@ import {
   type ReportTargetType,
 } from '@/modules/reports/contracts/reportPanelExtension'
 import { reportPanelRegistry } from '@/modules/reports/registry/reportPanelRegistry'
-import { MomentReportPage } from '@/modules/moments'
+import { compiledMomentReportPanel } from '@/generated/generatedFeatureComposition'
 import { TargetReportPanel } from './TargetReportPanel'
 
 type ReportTargetConfig = {
@@ -86,7 +86,7 @@ function normalizeTargetType(raw: string | null): ReportTargetType {
 reportPanelRegistry.register({
   id: 'moment-panel',
   targetType: 'moment',
-  render: () => <MomentReportPage showPageHeader={false} />,
+  render: () => compiledMomentReportPanel(),
 })
 
 reportPanelRegistry.register({
@@ -94,7 +94,7 @@ reportPanelRegistry.register({
   targetType: 'default',
   render: (context) => {
     if (!isNonMomentTargetType(context.targetType)) {
-      return <MomentReportPage showPageHeader={false} />
+      return compiledMomentReportPanel()
     }
 
     return (

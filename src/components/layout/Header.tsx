@@ -12,7 +12,8 @@ import { useSidebarMobile } from './AdminLayout'
 import { BrandMark } from '@/components/shared/BrandMark'
 import { searchUsersPayload } from '@/modules/identity'
 import { searchGroupsPayload } from '@/modules/groups'
-import { searchChannelsPayload } from '@/modules/channels'
+import { compiledProductFeatures } from '@/generated/productFeatures'
+import { compiledSearchChannels } from '@/generated/generatedFeatureComposition'
 
 type CommandItem = {
   key: string
@@ -40,13 +41,21 @@ const COMMAND_ITEMS: CommandItem[] = [
   { key: 'messages', label: '前往 消息管理', path: '/messages', keywords: ['messages', '消息'] },
   { key: 'logout-applications', label: '前往 注销申请', path: '/logout-applications', keywords: ['logout', '注销'] },
   { key: 'logs', label: '前往 日志审计', path: '/logs', keywords: ['log', 'logs', '审计'] },
-]
+].filter((item) => {
+  const compiledFeatures = compiledProductFeatures as readonly string[]
+  if (item.path.startsWith('/channels')) return compiledFeatures.includes('channel')
+  if (item.path.startsWith('/moments')) return compiledFeatures.includes('moment')
+  return true
+})
 
 function parseQuickJump(keyword: string): CommandItem | null {
   const matched = keyword.trim().match(/^(user|group|channel|moment)\s+([a-zA-Z0-9_-]+)$/i)
   if (!matched) return null
 
   const entity = matched[1].toLowerCase()
+  const compiledFeatures = compiledProductFeatures as readonly string[]
+  if (entity === 'channel' && !compiledFeatures.includes('channel')) return null
+  if (entity === 'moment' && !compiledFeatures.includes('moment')) return null
   const entityId = matched[2]
 
   const mapping: Record<string, { label: string; pathPrefix: string }> = {
@@ -124,7 +133,7 @@ export function Header() {
       const [usersRes, groupsRes, channelsRes] = await Promise.allSettled([
         searchUsersPayload(keyword, 1, 5),
         searchGroupsPayload(keyword, 1, 5),
-        searchChannelsPayload({ keyword, limit: 5 }),
+        compiledSearchChannels(keyword),
       ])
 
       const results: EntitySearchResult[] = []

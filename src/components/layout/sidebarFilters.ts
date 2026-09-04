@@ -142,10 +142,6 @@ export function filterByRbac(items: SidebarMenuItem[], roleId?: number): Sidebar
 }
 
 export function filterByFeatures(items: SidebarMenuItem[], featureFlags?: FeatureFlags | null): SidebarMenuItem[] {
-  if (!featureFlags || Object.keys(featureFlags).length === 0) {
-    return items
-  }
-
   const walk = (nodes: SidebarMenuItem[]): SidebarMenuItem[] => {
     return nodes
       .map((item) => {

@@ -4,26 +4,18 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'sonner'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 import { PermissionRoute } from '@/components/auth/PermissionRoute'
-import { FeatureRoute } from '@/components/auth/FeatureRoute'
 import { AdminLayout } from '@/components/layout/AdminLayout'
 import { LoginPage, SetupPage } from '@/modules/identity'
 import { NotFoundPage } from '@/pages/errors/NotFoundPage'
 import { ForbiddenPage } from '@/pages/errors/ForbiddenPage'
 import { ErrorBoundary } from '@/components/shared'
 import { TopLoadingBar } from '@/components/shared/TopLoadingBar'
+import { compiledAdminFeatureRoutes } from '@/generated/generatedFeatureComposition'
 
 // Route-level code splitting — each page loads on demand
 const DashboardPage = lazy(() => import('@/pages/dashboard/DashboardPage').then((m) => ({ default: m.DashboardPage })))
 const LogoutApplicationListPage = lazy(() => import('@/pages/logout-applications/LogoutApplicationListPage').then((m) => ({ default: m.LogoutApplicationListPage })))
 
-const ChannelListPage = lazy(() => import('@/modules/channels').then((m) => ({ default: m.ChannelListPage })))
-const ChannelDetailPage = lazy(() => import('@/modules/channels').then((m) => ({ default: m.ChannelDetailPage })))
-const ChannelMessagePage = lazy(() => import('@/modules/channels').then((m) => ({ default: m.ChannelMessagePage })))
-const ChannelSubscriberPage = lazy(() => import('@/modules/channels').then((m) => ({ default: m.ChannelSubscriberPage })))
-const ChannelAdminPage = lazy(() => import('@/modules/channels').then((m) => ({ default: m.ChannelAdminPage })))
-const ChannelInvitationPage = lazy(() => import('@/modules/channels').then((m) => ({ default: m.ChannelInvitationPage })))
-const ChannelOrderPage = lazy(() => import('@/modules/channels').then((m) => ({ default: m.ChannelOrderPage })))
-const PaidChannelOpsPage = lazy(() => import('@/modules/channels').then((m) => ({ default: m.PaidChannelOpsPage })))
 const AiAgentListPage = lazy(() => import('@/modules/ai_agent').then((m) => ({ default: m.AiAgentListPage })))
 const OnboardingConfigPage = lazy(() => import('@/modules/ai_agent').then((m) => ({ default: m.OnboardingConfigPage })))
 const KnowledgeConfigPage = lazy(() => import('@/modules/ai_agent').then((m) => ({ default: m.KnowledgeConfigPage })))
@@ -33,22 +25,15 @@ const BotListPage = lazy(() => import('@/modules/bots').then((m) => ({ default: 
 const GroupListPage = lazy(() => import('@/modules/groups').then((m) => ({ default: m.GroupListPage })))
 const GroupDetailPage = lazy(() => import('@/modules/groups').then((m) => ({ default: m.GroupDetailPage })))
 const GroupMemberManagePage = lazy(() => import('@/modules/groups').then((m) => ({ default: m.GroupMemberManagePage })))
-const GroupVoteManagePage = lazy(() => import('@/modules/groups').then((m) => ({ default: m.GroupVoteManagePage })))
 const GroupNoticeManagePage = lazy(() => import('@/modules/groups').then((m) => ({ default: m.GroupNoticeManagePage })))
 const GroupCategoryManagePage = lazy(() => import('@/modules/groups').then((m) => ({ default: m.GroupCategoryManagePage })))
 const GroupTagManagePage = lazy(() => import('@/modules/groups').then((m) => ({ default: m.GroupTagManagePage })))
 const GroupFileManagePage = lazy(() => import('@/modules/groups').then((m) => ({ default: m.GroupFileManagePage })))
 const GroupAlbumManagePage = lazy(() => import('@/modules/groups').then((m) => ({ default: m.GroupAlbumManagePage })))
-const GroupScheduleManagePage = lazy(() => import('@/modules/groups').then((m) => ({ default: m.GroupScheduleManagePage })))
-const GroupTaskManagePage = lazy(() => import('@/modules/groups').then((m) => ({ default: m.GroupTaskManagePage })))
 const GroupGovernanceLogPage = lazy(() => import('@/modules/groups').then((m) => ({ default: m.GroupGovernanceLogPage })))
 const GroupContextGatewayPage = lazy(() => import('@/modules/groups').then((m) => ({ default: m.GroupContextGatewayPage })))
-const GroupTaskListPage = lazy(() => import('@/modules/groups').then((m) => ({ default: m.GroupTaskListPage })))
 
 const MessageListPage = lazy(() => import('@/modules/messages').then((m) => ({ default: m.MessageListPage })))
-const MomentListPage = lazy(() => import('@/modules/moments').then((m) => ({ default: m.MomentListPage })))
-const MomentDetailPage = lazy(() => import('@/modules/moments').then((m) => ({ default: m.MomentDetailPage })))
-
 const UserListPage = lazy(() => import('@/modules/identity').then((m) => ({ default: m.UserListPage })))
 const UserDetailPage = lazy(() => import('@/modules/identity').then((m) => ({ default: m.UserDetailPage })))
 const RolePermissionPage = lazy(() => import('@/modules/identity').then((m) => ({ default: m.RolePermissionPage })))
@@ -72,7 +57,6 @@ const SettingsHomePage = lazy(() => import('@/pages/settings/SettingsHomePage').
 const FeatureConfigPage = lazy(() => import('@/pages/settings/FeatureConfigPage').then((m) => ({ default: m.FeatureConfigPage })))
 const ProfileSwitchPage = lazy(() => import('@/pages/settings/ProfileSwitchPage').then((m) => ({ default: m.ProfileSwitchPage })))
 const CapabilityConfigPage = lazy(() => import('@/pages/settings/CapabilityConfigPage').then((m) => ({ default: m.CapabilityConfigPage })))
-const ComplianceKeyPage = lazy(() => import('@/pages/settings/ComplianceKeyPage').then((m) => ({ default: m.ComplianceKeyPage })))
 const AdminListPage = lazy(() => import('@/pages/admins/AdminListPage').then((m) => ({ default: m.AdminListPage })))
 const MutedUsersPage = lazy(() => import('@/pages/settings/MutedUsersPage').then((m) => ({ default: m.MutedUsersPage })))
 const PushTokenListPage = lazy(() => import('@/pages/settings/PushTokenListPage').then((m) => ({ default: m.PushTokenListPage })))
@@ -218,16 +202,6 @@ function App() {
 
                 {/* 群组管理 */}
                 <Route
-                  path="/groups/tasks"
-                  element={(
-                    <PermissionRoute permission="groups:task:read" roles={['1', '2']}>
-                      <FeatureRoute feature="group_task">
-                        <GroupTaskListPage />
-                      </FeatureRoute>
-                    </PermissionRoute>
-                  )}
-                />
-                <Route
                   path="/groups"
                   element={(
                     <PermissionRoute permission="groups:read" roles={['1', '2']}>
@@ -256,16 +230,6 @@ function App() {
                   element={(
                     <PermissionRoute permission="groups:read" roles={['1', '2']}>
                       <GroupMemberManagePage />
-                    </PermissionRoute>
-                  )}
-                />
-                <Route
-                  path="/groups/:id/votes"
-                  element={(
-                    <PermissionRoute permission="groups:vote:read" roles={['1', '2']}>
-                      <FeatureRoute feature="group_vote">
-                        <GroupVoteManagePage />
-                      </FeatureRoute>
                     </PermissionRoute>
                   )}
                 />
@@ -310,26 +274,6 @@ function App() {
                   )}
                 />
                 <Route
-                  path="/groups/:id/schedules"
-                  element={(
-                    <PermissionRoute permission="groups:schedule:read" roles={['1', '2']}>
-                      <FeatureRoute feature="group_schedule">
-                        <GroupScheduleManagePage />
-                      </FeatureRoute>
-                    </PermissionRoute>
-                  )}
-                />
-                <Route
-                  path="/groups/:id/tasks"
-                  element={(
-                    <PermissionRoute permission="groups:task:read" roles={['1', '2']}>
-                      <FeatureRoute feature="group_task">
-                        <GroupTaskManagePage />
-                      </FeatureRoute>
-                    </PermissionRoute>
-                  )}
-                />
-                <Route
                   path="/groups/:id/governance-logs"
                   element={(
                     <PermissionRoute roles={['1', '2', '3']}>
@@ -356,97 +300,7 @@ function App() {
                   )}
                 />
 
-                {/* 频道管理 */}
-                <Route
-                  path="/channels"
-                  element={(
-                    <PermissionRoute permission="channels:read" roles={['1', '2']}>
-                      <FeatureRoute feature="channel">
-                        <ChannelListPage />
-                      </FeatureRoute>
-                    </PermissionRoute>
-                  )}
-                />
-                <Route
-                  path="/channels/paid"
-                  element={(
-                    <PermissionRoute permission="channels:read" roles={['1', '2']}>
-                      <FeatureRoute feature="channel">
-                        <PaidChannelOpsPage />
-                      </FeatureRoute>
-                    </PermissionRoute>
-                  )}
-                />
-                <Route
-                  path="/channels/:id"
-                  element={(
-                    <PermissionRoute permission="channels:read" roles={['1', '2']}>
-                      <FeatureRoute feature="channel">
-                        <ChannelDetailPage />
-                      </FeatureRoute>
-                    </PermissionRoute>
-                  )}
-                />
-                <Route
-                  path="/channels/:id/messages"
-                  element={(
-                    <PermissionRoute permission="channels:read" roles={['1', '2']}>
-                      <FeatureRoute feature="channel">
-                        <ChannelMessagePage />
-                      </FeatureRoute>
-                    </PermissionRoute>
-                  )}
-                />
-                <Route
-                  path="/channels/:id/subscribers"
-                  element={(
-                    <PermissionRoute permission="channels:read" roles={['1', '2']}>
-                      <FeatureRoute feature="channel">
-                        <ChannelSubscriberPage />
-                      </FeatureRoute>
-                    </PermissionRoute>
-                  )}
-                />
-                <Route
-                  path="/channels/:id/admins"
-                  element={(
-                    <PermissionRoute permission="channels:read" roles={['1', '2']}>
-                      <FeatureRoute feature="channel">
-                        <ChannelAdminPage />
-                      </FeatureRoute>
-                    </PermissionRoute>
-                  )}
-                />
-                <Route
-                  path="/channels/:id/invitations"
-                  element={(
-                    <PermissionRoute permission="channels:read" roles={['1', '2']}>
-                      <FeatureRoute feature="channel_invitation">
-                        <ChannelInvitationPage />
-                      </FeatureRoute>
-                    </PermissionRoute>
-                  )}
-                />
-                <Route
-                  path="/channels/:id/orders"
-                  element={(
-                    <PermissionRoute permission="channels:read" roles={['1', '2']}>
-                      <FeatureRoute feature="channel_order">
-                        <ChannelOrderPage />
-                      </FeatureRoute>
-                    </PermissionRoute>
-                  )}
-                />
-                <Route
-                  path="/moments"
-                  element={(
-                    <PermissionRoute permission={['moments:read', 'messages:read']} roles={['1', '2']}>
-                      <FeatureRoute feature="moment">
-                        <MomentListPage />
-                      </FeatureRoute>
-                    </PermissionRoute>
-                  )}
-                />
+                {compiledAdminFeatureRoutes()}
                 <Route
                   path="/reports"
                   element={(
@@ -455,25 +309,6 @@ function App() {
                     </PermissionRoute>
                   )}
                 />
-                <Route
-                  path="/moments/reports"
-                  element={(
-                    <PermissionRoute permission={['reports:read', 'moments:report:read', 'messages:read']} roles={['1', '2']}>
-                      <Navigate to="/reports?target_type=moment" replace />
-                    </PermissionRoute>
-                  )}
-                />
-                <Route
-                  path="/moments/:id"
-                  element={(
-                    <PermissionRoute permission={['moments:read', 'messages:read']} roles={['1', '2']}>
-                      <FeatureRoute feature="moment">
-                        <MomentDetailPage />
-                      </FeatureRoute>
-                    </PermissionRoute>
-                  )}
-                />
-
                 {/* Workspace / Project 运营管理（双体验 v2.5.2 WP7/T11b） */}
                 <Route
                   path="/workspaces"
@@ -558,16 +393,6 @@ function App() {
                   element={(
                     <PermissionRoute permission="settings:view" roles={['1']}>
                       <CapabilityConfigPage />
-                    </PermissionRoute>
-                  )}
-                />
-                <Route
-                  path="/settings/compliance-keys"
-                  element={(
-                    <PermissionRoute permission="settings:view" roles={['1']}>
-                      <FeatureRoute feature="e2ee">
-                        <ComplianceKeyPage />
-                      </FeatureRoute>
                     </PermissionRoute>
                   )}
                 />

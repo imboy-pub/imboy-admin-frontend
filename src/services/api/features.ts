@@ -1,8 +1,15 @@
 import client, { SKIP_AUTH_EXPIRED_EVENT_FLAG } from './client'
 import { requireApiPayload } from './responseAdapter'
 import { AxiosRequestConfig } from 'axios'
+import {
+  compiledProductFeatures,
+  productFeatureManifestHash,
+  productFeatureSchemaVersion,
+} from '@/generated/productFeatures'
 
 export type FeatureFlags = Record<string, boolean>
+
+export class FeatureManifestMismatchError extends Error {}
 
 const FEATURE_CACHE_KEY = 'imboy_admin_feature_flags'
 const ADMIN_ENTRIES_CACHE_KEY = 'imboy_admin_entries'
@@ -38,6 +45,29 @@ function normalizeFeatureFlags(raw: unknown): FeatureFlags {
     }
   })
   return normalized
+}
+
+export function assertAdminFeatureManifest(payload: Record<string, unknown>) {
+  const hash = payload.manifest_hash
+  const schemaVersion = payload.manifest_schema_version
+  if (hash !== productFeatureManifestHash) {
+    throw new FeatureManifestMismatchError('Admin 与服务端功能清单不一致，请部署匹配版本')
+  }
+  if (schemaVersion !== productFeatureSchemaVersion) {
+    throw new FeatureManifestMismatchError('Admin 与服务端功能清单版本不一致，请部署匹配版本')
+  }
+  const serverFeatures = payload.compiled_features
+  if (
+    !Array.isArray(serverFeatures) ||
+    serverFeatures.length === 0 ||
+    serverFeatures.some(
+      (feature) =>
+        typeof feature !== 'string' ||
+        !(compiledProductFeatures as readonly string[]).includes(feature)
+    )
+  ) {
+    throw new FeatureManifestMismatchError('服务端功能集合超出 Admin 编译能力，请部署匹配版本')
+  }
 }
 
 function readCachedFeatureFlags(): FeatureFlags | null {
@@ -104,6 +134,7 @@ export async function getAdminFeaturesPayload(): Promise<FeatureFlags | null> {
       response.data,
       '/admin/config/features'
     )
+    assertAdminFeatureManifest(payload)
     const flags = normalizeFeatureFlags(payload)
     cacheFeatureFlags(flags)
 
@@ -114,7 +145,8 @@ export async function getAdminFeaturesPayload(): Promise<FeatureFlags | null> {
     }
 
     return flags
-  } catch {
+  } catch (error) {
+    if (error instanceof FeatureManifestMismatchError) throw error
     return readCachedFeatureFlags()
   }
 }
@@ -140,6 +172,7 @@ export function isAdminFeatureEnabled(
   featureKey?: string | null
 ): boolean {
   if (!featureKey) return true
+  if (!(compiledProductFeatures as readonly string[]).includes(featureKey)) return false
   const currentFlag = normalizeBoolean(featureFlags?.[featureKey])
   if (currentFlag === false) return false
   const parentFeature = PARENT_FEATURES[featureKey]
