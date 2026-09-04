@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Skill(update-config)",
-      "mcp__plugin_ecc_playwright__browser_navigate"
-    ]
-  }
-}

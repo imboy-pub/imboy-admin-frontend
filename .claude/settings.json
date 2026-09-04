@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Skill(update-config)",
+      "mcp__plugin_ecc_playwright__browser_navigate"
+    ],
+    "deny": [
+      "Bash(rm -rf*)",
+      "Bash(git push --force*)",
+      "Bash(git reset --hard*)",
+      "Bash(sudo*)",
+      "Bash(chmod 777*)",
+      "Bash(ssh*)",
+      "Bash(* > /dev/*)"
+    ]
+  }
+}

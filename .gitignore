@@ -51,3 +51,6 @@ _build
 
 # Playwright E2E 自动证据副产物（截图/JSON，不入库）
 tests/auto_test/evidence/
+
+# Claude local-scope 本机配置不入库（共享配置为 tracked 的 .claude/settings.json）
+.claude/settings.local.json
