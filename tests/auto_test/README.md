@@ -48,17 +48,17 @@
 
 | 计划变化 | 条数 | 占比 |
 |---|---|---|
-| 无待办 | 581 | 98.8% |
-| 阻塞 | 7 | 1.2% |
+| 无待办 | 583 | 99.1% |
+| 待修复 | 5 | 0.9% |
 | **合计** | **588** | 100% |
 
-bug 累计：**发现 51 / 解决 51 / 待处理 0**
+bug 累计：**发现 56 / 解决 51 / 待处理 5**
 
 > 恒等式 `发现 − 解决 = 待处理` 成立
 
 ## 模块索引
 
-| 模块 | 页面 | 功能点 | 待处理bug | 无待办 | 阻塞 |
+| 模块 | 页面 | 功能点 | 待处理bug | 无待办 | 待修复 |
 |---|---|---|---|---|---|
 | [groups](groups/) | 14 | 129 | 0 | 129 | 0 |
 | [channels](channels/) | 8 | 80 | 0 | 80 | 0 |
@@ -67,7 +67,7 @@ bug 累计：**发现 51 / 解决 51 / 待处理 0**
 | [workspaces](workspaces/) | 4 | 35 | 0 | 35 | 0 |
 | [moments](moments/) | 3 | 26 | 0 | 26 | 0 |
 | [ai_agent](ai_agent/) | 4 | 25 | 0 | 25 | 0 |
-| [plugin_management](plugin_management/) | 2 | 18 | 0 | 11 | 7 |
+| [plugin_management](plugin_management/) | 2 | 18 | 5 | 13 | 5 |
 | [admins](admins/) | 1 | 14 | 0 | 14 | 0 |
 | [content-moderation](content-moderation/) | 2 | 14 | 0 | 14 | 0 |
 | [feedback](feedback/) | 1 | 11 | 0 | 11 | 0 |
@@ -222,7 +222,7 @@ bug 累计：**发现 51 / 解决 51 / 待处理 0**
 ### plugin_management
 
 - [PluginLogPage](plugin_management/PluginLogPage.md) — 6 功能点
-- [PluginManagementPage](plugin_management/PluginManagementPage.md) — 12 功能点
+- [PluginManagementPage](plugin_management/PluginManagementPage.md) — 12 功能点 ⚠️ 5 待处理
 
 ### pricing
 
