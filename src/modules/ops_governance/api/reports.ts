@@ -552,3 +552,83 @@ export async function getReportDetail(
   )
   return normalizeReport(payload, 'message')
 }
+
+// ─────────────────────────────────────────────────────────────
+// R-02: 处置动作（case = report_ticket 行；audit = moderation_action 表）
+// ─────────────────────────────────────────────────────────────
+
+export type ReportActionType =
+  | 'warning'
+  | 'group_mute'
+  | 'group_kick'
+  | 'reject'
+  | 'content_removal'
+  | 'account_restrict'
+
+export interface ReportActionRow {
+  id: EntityId
+  case_id: EntityId
+  action: ReportActionType
+  target_type: string
+  target_id: EntityId
+  target_uid: EntityId
+  scope: Record<string, unknown>
+  reason: string
+  actor_id: EntityId
+  status: 'executed' | 'failed' | 'reversed' | 'expired'
+  result: Record<string, unknown>
+  fail_reason: string
+  start_at: string
+  end_at: string | null
+  reversed_at: string | null
+  reversed_by: EntityId
+  reverse_reason: string
+  created_at: string
+  updated_at: string
+}
+
+export interface ReportActionRequest {
+  case_id: EntityId
+  action: ReportActionType
+  target_uid: EntityId
+  reason: string
+  gid?: EntityId
+  duration_minutes?: number
+  target_type?: string
+  target_id?: EntityId
+}
+
+/** 执行处置动作；HTTP 200 且 code!=0（业务拒绝，如重复/unsupported）时由调用方读取 msg。 */
+export async function executeReportAction(
+  request: ReportActionRequest
+): Promise<ApiResponse<ReportActionRow>> {
+  const response = await client.post('/report_action/execute', request)
+  return response.data as ApiResponse<ReportActionRow>
+}
+
+/** 撤销动作：仅 executed 态可撤销；group_mute 撤销同步解除禁言。 */
+export async function reverseReportAction(
+  actionId: EntityId,
+  reason: string
+): Promise<ApiResponse<ReportActionRow>> {
+  const response = await client.post('/report_action/reverse', {
+    action_id: actionId,
+    reason,
+  })
+  return response.data as ApiResponse<ReportActionRow>
+}
+
+/** 某 case 的动作历史（按 id 升序）。 */
+export async function getReportActions(
+  caseId: EntityId
+): Promise<ReportActionRow[]> {
+  const response = await client.get('/report_action/list', {
+    params: { case_id: caseId },
+  })
+  const payload = requireApiPayload<Record<string, unknown>>(
+    response.data as ApiResponse<Record<string, unknown>>,
+    '/report_action/list'
+  )
+  const rows = (payload as { data?: unknown }).data
+  return Array.isArray(rows) ? (rows as ReportActionRow[]) : []
+}
