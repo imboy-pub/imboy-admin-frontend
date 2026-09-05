@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'bun:test'
 
 type EntityId = string
-type ReportTargetType = 'moment' | 'user' | 'group' | 'channel'
+type ReportTargetType = 'moment' | 'user' | 'group' | 'channel' | 'message'
 
 type ApiErrorLike = { code?: unknown; msg?: string; message?: string }
 
@@ -192,6 +192,7 @@ function normalizeTargetType(raw: unknown, fallback: ReportTargetType): ReportTa
   if (normalized === 'group' || normalized === 'groups') return 'group'
   if (normalized === 'channel' || normalized === 'channels') return 'channel'
   if (normalized === 'user' || normalized === 'users') return 'user'
+  if (normalized === 'message' || normalized === 'messages') return 'message'
   return fallback
 }
 
@@ -209,6 +210,12 @@ describe('normalizeTargetType (reports module)', () => {
   it('maps "group" and "groups"', () => {
     expect(normalizeTargetType('group', 'moment')).toBe('group')
     expect(normalizeTargetType('groups', 'moment')).toBe('group')
+  })
+
+  it('maps "message" and "messages" (R-01)', () => {
+    expect(normalizeTargetType('message', 'group')).toBe('message')
+    expect(normalizeTargetType('messages', 'user')).toBe('message')
+    expect(normalizeTargetType('  MESSAGE  ', 'group')).toBe('message')
   })
 
   it('maps "channel" and "channels"', () => {
@@ -367,5 +374,50 @@ describe('buildReportListParams', () => {
     expect(result.page).toBe(3)
     expect(result.size).toBe(20)
     expect(result.status).toBe(1)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// R-01: message report normalization (sub_type / scope / author / evidence)
+// ---------------------------------------------------------------------------
+
+function normalizeSubType(raw: unknown): '' | 'c2c' | 'c2g' | 'channel' {
+  if (raw === 'c2c' || raw === 'c2g' || raw === 'channel') return raw
+  return ''
+}
+
+function normalizeEvidence(raw: unknown): Record<string, unknown> | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
+  return raw as Record<string, unknown>
+}
+
+describe('R-01 message report fields', () => {
+  it('normalizeSubType accepts only whitelisted surfaces', () => {
+    expect(normalizeSubType('c2c')).toBe('c2c')
+    expect(normalizeSubType('c2g')).toBe('c2g')
+    expect(normalizeSubType('channel')).toBe('channel')
+    expect(normalizeSubType('p2p')).toBe('')
+    expect(normalizeSubType('')).toBe('')
+    expect(normalizeSubType(null)).toBe('')
+    expect(normalizeSubType(42)).toBe('')
+  })
+
+  it('normalizeEvidence passes allow-listed evidence objects through', () => {
+    const evidence = {
+      e2ee: true,
+      e2ee_consent: true,
+      content_state: 'present',
+      content_excerpt: '举报摘录',
+      content_hash: 'ab12',
+      server_msg_id: '55001',
+    }
+    expect(normalizeEvidence(evidence)).toEqual(evidence)
+  })
+
+  it('normalizeEvidence rejects non-object / array shapes', () => {
+    expect(normalizeEvidence(null)).toBeNull()
+    expect(normalizeEvidence('{"e2ee":true}')).toBeNull()
+    expect(normalizeEvidence([])).toBeNull()
+    expect(normalizeEvidence(42)).toBeNull()
   })
 })

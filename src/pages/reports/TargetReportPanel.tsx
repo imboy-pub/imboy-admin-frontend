@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { LegacyColumnDef, getCoreRowModel, useLegacyTable } from '@tanstack/react-table/legacy'
 import { RowSelectionState } from '@tanstack/react-table'
-import { CheckCircle2, Eye, Loader2, Search, XCircle } from 'lucide-react'
+import { CheckCircle2, Eye, FileSearch, Loader2, Search, XCircle } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 
@@ -40,6 +40,7 @@ import {
   resolveReportBatchWithFallback,
   type NonMomentReportTargetType,
   type ReportBatchResolveSummary,
+  type ReportEvidence,
   type ReportListParams,
   type ReportTicket,
 } from '@/modules/ops_governance/api'
@@ -85,6 +86,59 @@ function resolveTargetPath(targetType: NonMomentReportTargetType, targetId: stri
   return `/users/${targetId}`
 }
 
+const SUB_TYPE_LABELS: Record<string, string> = {
+  c2c: '单聊消息',
+  c2g: '群聊消息',
+  channel: '频道消息',
+}
+
+function evidenceRows(report: ReportTicket): Array<{ label: string; value: string }> {
+  const evidence: ReportEvidence | null = report.evidence
+  const surface = SUB_TYPE_LABELS[report.target_sub_type] ?? report.target_sub_type
+  const rows: Array<{ label: string; value: string }> = [
+    { label: '消息表面', value: surface !== '' ? surface : '-' },
+    { label: '会话/群/频道 ID', value: report.target_scope_id || '-' },
+    { label: '消息作者 UID', value: report.target_author_id || '-' },
+    { label: '服务端消息 ID', value: evidence?.server_msg_id || String(report.target_id) },
+  ]
+  if (evidence) {
+    if (typeof evidence.e2ee === 'boolean') {
+      rows.push({ label: '端到端加密', value: evidence.e2ee ? '是' : '否' })
+    }
+    if (evidence.e2ee === true) {
+      rows.push({ label: '举报人明文披露同意', value: evidence.e2ee_consent === true ? '已同意' : '未提交' })
+    }
+    if (typeof evidence.content_state === 'string' && evidence.content_state) {
+      rows.push({
+        label: '举报时点目标状态',
+        value: evidence.content_state === 'edited' ? '已编辑' : evidence.content_state === 'deleted' ? '已删除' : '存在',
+      })
+    }
+    if (typeof evidence.msg_type === 'string' && evidence.msg_type) {
+      rows.push({ label: '消息类型', value: evidence.msg_type })
+    }
+    if (typeof evidence.client_msg_id === 'string' && evidence.client_msg_id) {
+      rows.push({ label: '客户端消息 ID', value: evidence.client_msg_id })
+    }
+    if (typeof evidence.sent_at === 'number' && evidence.sent_at > 0) {
+      rows.push({ label: '发送时间', value: formatDate(new Date(evidence.sent_at).toISOString()) })
+    }
+    if (typeof evidence.content_excerpt === 'string' && evidence.content_excerpt) {
+      rows.push({
+        label: evidence.e2ee === true ? '举报人披露的明文摘录' : '内容摘录',
+        value: evidence.content_excerpt,
+      })
+    }
+    if (typeof evidence.content_hash === 'string' && evidence.content_hash) {
+      rows.push({ label: '举报人内容哈希', value: evidence.content_hash })
+    }
+    if (typeof evidence.server_content_hash === 'string' && evidence.server_content_hash) {
+      rows.push({ label: '服务端内容哈希（举报时点）', value: evidence.server_content_hash })
+    }
+  }
+  return rows
+}
+
 function modeLabel(mode: ReportBatchResolveSummary['mode'] | null): string {
   if (mode === 'batch') return '统一批量接口'
   if (mode === 'target-batch') return '对象批量接口'
@@ -120,6 +174,7 @@ export function TargetReportPanel({
   const [lastBatchExecutionMode, setLastBatchExecutionMode] = useState<ReportBatchResolveSummary['mode'] | null>(null)
   const [resolveDialog, setResolveDialog] = useState<{ report: ReportTicket; result: 1 | 2 } | null>(null)
   const [resolveNote, setResolveNote] = useState('')
+  const [evidenceDialog, setEvidenceDialog] = useState<ReportTicket | null>(null)
 
   const requestParams: ReportListParams = {
     page: params.page,
@@ -308,9 +363,42 @@ export function TargetReportPanel({
     },
     {
       accessorKey: 'target_id',
-      header: `${targetLabel}ID`,
+      header: targetType === 'message' ? '消息ID' : `${targetLabel}ID`,
       cell: ({ row }) => <span className="font-mono">{row.original.target_id}</span>,
     },
+    ...(targetType === 'message' ? [
+      {
+        id: 'target_sub_type',
+        header: '消息表面',
+        cell: ({ row }: { row: { original: ReportTicket } }) => {
+          const surface = SUB_TYPE_LABELS[row.original.target_sub_type] ?? row.original.target_sub_type
+          return <span>{surface !== '' ? surface : '-'}</span>
+        },
+      },
+      {
+        accessorKey: 'target_scope_id',
+        header: '会话/群/频道',
+        cell: ({ row }: { row: { original: ReportTicket } }) => (
+          <span className="font-mono">{row.original.target_scope_id || '-'}</span>
+        ),
+      },
+      {
+        accessorKey: 'target_author_id',
+        header: '消息作者',
+        cell: ({ row }: { row: { original: ReportTicket } }) => (
+          <span className="font-mono">{row.original.target_author_id || '-'}</span>
+        ),
+      },
+      {
+        id: 'e2ee',
+        header: '加密',
+        cell: ({ row }: { row: { original: ReportTicket } }) => (
+          <span className={row.original.evidence?.e2ee === true ? 'text-amber-600' : 'text-muted-foreground'}>
+            {row.original.evidence?.e2ee === true ? 'E2EE' : '明文'}
+          </span>
+        ),
+      },
+    ] : []),
     {
       accessorKey: 'reporter_uid',
       header: '举报人UID',
@@ -344,14 +432,27 @@ export function TargetReportPanel({
       header: '操作',
       cell: ({ row }) => (
         <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            title="查看对象"
-            onClick={() => navigate(resolveTargetPath(targetType, row.original.target_id))}
-          >
-            <Eye className="h-4 w-4" />
-          </Button>
+          {targetType === 'message' ? (
+            // R-01: 消息举报只展示该工单绑定的结构化证据，不提供
+            // 按消息 ID 的任意浏览入口（Eye 跳转对象不适用）。
+            <Button
+              variant="ghost"
+              size="icon"
+              title="查看工单证据"
+              onClick={() => setEvidenceDialog(row.original)}
+            >
+              <FileSearch className="h-4 w-4" />
+            </Button>
+          ) : (
+            <Button
+              variant="ghost"
+              size="icon"
+              title="查看对象"
+              onClick={() => navigate(resolveTargetPath(targetType, row.original.target_id))}
+            >
+              <Eye className="h-4 w-4" />
+            </Button>
+          )}
           {row.original.status === 0 && (
             <>
               <Button
@@ -608,6 +709,48 @@ export function TargetReportPanel({
               {resolveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {resolveDialog?.result === 2 ? '确认违规' : '驳回'}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={evidenceDialog !== null}
+        onOpenChange={(open) => { if (!open) setEvidenceDialog(null) }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>工单证据（仅本工单绑定）</DialogTitle>
+            <DialogDescription>
+              {evidenceDialog
+                ? `举报 #${evidenceDialog.id} · ${SUB_TYPE_LABELS[evidenceDialog.target_sub_type] ?? evidenceDialog.target_sub_type}`
+                : ''}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[60vh] space-y-2 overflow-y-auto">
+            {evidenceDialog && (
+              <>
+                {evidenceDialog.reason && (
+                  <div className="rounded-md border bg-muted/20 p-2 text-sm">
+                    <span className="text-muted-foreground">举报原因：</span>
+                    <span className="ml-1">{evidenceDialog.reason}</span>
+                  </div>
+                )}
+                {evidenceDialog.evidence?.e2ee === true && (
+                  <div className="rounded-md border border-amber-300/70 bg-amber-500/10 p-2 text-xs text-amber-700">
+                    端到端加密消息：以下明文摘录由举报人明确同意后主动披露；
+                    服务端无法解密任何其他消息内容。
+                  </div>
+                )}
+                {evidenceRows(evidenceDialog).map((rowItem) => (
+                  <div key={rowItem.label} className="rounded-md border bg-muted/20 p-2 text-sm">
+                    <div className="text-xs text-muted-foreground">{rowItem.label}</div>
+                    <div className="mt-0.5 break-all font-mono text-xs">{rowItem.value}</div>
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEvidenceDialog(null)}>关闭</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

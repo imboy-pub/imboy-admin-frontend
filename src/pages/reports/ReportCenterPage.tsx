@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { Camera, Radio, Users, UsersRound } from 'lucide-react'
+import { Camera, MessageSquare, Radio, Users, UsersRound } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 
 import { PageHeader } from '@/components/shared'
@@ -63,6 +63,15 @@ const REPORT_TARGETS: ReportTargetConfig[] = [
     governancePath: '/users',
     governanceLabel: '用户治理',
   },
+  {
+    type: 'message',
+    label: '消息',
+    description: 'R-01 一等消息举报（C2C/C2G/频道消息）：工单绑定结构化证据（scope/作者/摘录哈希），仅展示该工单授权范围内的证据，不提供任意消息浏览。',
+    status: 'ready',
+    icon: MessageSquare,
+    governancePath: '/users',
+    governanceLabel: '用户治理（消息作者）',
+  },
 ]
 
 const REPORT_PROCESS_STEPS: ReportProcessStep[] = [
@@ -77,7 +86,7 @@ function isNonMomentTargetType(targetType: ReportTargetType): targetType is Excl
 }
 
 function normalizeTargetType(raw: string | null): ReportTargetType {
-  if (raw === 'group' || raw === 'channel' || raw === 'user' || raw === 'moment') {
+  if (raw === 'group' || raw === 'channel' || raw === 'user' || raw === 'moment' || raw === 'message') {
     return raw
   }
   return 'moment'
@@ -140,8 +149,8 @@ export function ReportCenterPage() {
       <PageHeader
         title="举报中心"
         description={rollingCount > 0
-          ? `统一承接朋友圈、群组、频道、用户举报工单。当前已联调 ${readyCount}/${REPORT_TARGETS.length} 类对象，其余 ${rollingCount} 类处于联调模式。`
-          : '统一承接朋友圈、群组、频道、用户举报工单，支持筛选、单条/批量处理与联动治理。'}
+          ? `统一承接朋友圈、群组、频道、用户与消息举报工单。当前已联调 ${readyCount}/${REPORT_TARGETS.length} 类对象，其余 ${rollingCount} 类处于联调模式。`
+          : '统一承接朋友圈、群组、频道、用户与消息举报工单，支持筛选、单条/批量处理与联动治理。'}
       />
 
       <Card>

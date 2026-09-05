@@ -17,16 +17,34 @@ type ApiErrorLike = {
   message?: string
 }
 
-export type ReportTargetType = 'moment' | 'group' | 'channel' | 'user'
+export type ReportTargetType = 'moment' | 'group' | 'channel' | 'user' | 'message'
 export type NonMomentReportTargetType = Exclude<ReportTargetType, 'moment'>
+
+export interface ReportEvidence {
+  e2ee?: boolean
+  e2ee_consent?: boolean
+  content_state?: string
+  content_excerpt?: string
+  content_hash?: string
+  server_content_hash?: string
+  server_msg_id?: string
+  client_msg_id?: string
+  msg_type?: string
+  sent_at?: number
+  [key: string]: unknown
+}
 
 export interface ReportTicket {
   id: EntityId
   target_type: ReportTargetType
   target_id: EntityId
+  target_sub_type: '' | 'c2c' | 'c2g' | 'channel'
+  target_scope_id: EntityId
+  target_author_id: EntityId
   reporter_uid: EntityId
   reason: string
   description: string
+  evidence: ReportEvidence | null
   status: number
   handled_by: EntityId | ''
   handled_at: string | null
@@ -74,6 +92,13 @@ const TARGET_ENDPOINTS: TargetEndpointMap = {
     list: '/user/report/list',
     resolve: '/user/report/resolve',
     batchResolve: '/user/report/batch_resolve',
+  },
+  // R-01: 消息举报只有统一 generic 端点（target_type=message），
+  // fallback 复用同一路径（generic 已支持，fallback 永不实际触发）。
+  message: {
+    list: '/report/list',
+    resolve: '/report/resolve',
+    batchResolve: '/report/batch_resolve',
   },
 }
 
@@ -170,7 +195,18 @@ function normalizeTargetType(raw: unknown, fallback: ReportTargetType): ReportTa
   if (normalized === 'group' || normalized === 'groups') return 'group'
   if (normalized === 'channel' || normalized === 'channels') return 'channel'
   if (normalized === 'user' || normalized === 'users') return 'user'
+  if (normalized === 'message' || normalized === 'messages') return 'message'
   return fallback
+}
+
+function normalizeSubType(raw: unknown): ReportTicket['target_sub_type'] {
+  if (raw === 'c2c' || raw === 'c2g' || raw === 'channel') return raw
+  return ''
+}
+
+function normalizeEvidence(raw: unknown): ReportEvidence | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
+  return raw as ReportEvidence
 }
 
 function pickFirst(record: Record<string, unknown>, keys: string[]): unknown {
@@ -193,9 +229,13 @@ function normalizeReport(raw: unknown, fallbackType: ReportTargetType): ReportTi
     fallbackType
   )
   const targetId = pickFirst(item, ['target_id', 'post_id', 'group_id', 'channel_id', 'user_id', 'reported_id', 'object_id'])
+  const targetSubType = normalizeSubType(item.target_sub_type)
+  const targetScopeId = pickFirst(item, ['target_scope_id', 'scope_id'])
+  const targetAuthorId = pickFirst(item, ['target_author_id', 'author_id'])
   const reporterUid = pickFirst(item, ['reporter_uid', 'uid', 'from_uid', 'report_uid'])
   const reason = pickFirst(item, ['reason', 'reason_text', 'reason_label', 'category'])
-  const description = pickFirst(item, ['description', 'desc', 'evidence', 'detail'])
+  const description = pickFirst(item, ['description', 'desc', 'detail'])
+  const evidence = normalizeEvidence(item.evidence)
   const status = Number(pickFirst(item, ['status', 'result', 'state']))
   const handledBy = pickFirst(item, ['handled_by', 'operator_uid', 'admin_uid'])
   const handledAt = pickFirst(item, ['handled_at', 'resolved_at'])
@@ -206,9 +246,13 @@ function normalizeReport(raw: unknown, fallbackType: ReportTargetType): ReportTi
     id: coerceEntityId(id),
     target_type: targetType,
     target_id: coerceEntityId(targetId),
+    target_sub_type: targetSubType,
+    target_scope_id: coerceEntityId(targetScopeId),
+    target_author_id: coerceEntityId(targetAuthorId),
     reporter_uid: coerceEntityId(reporterUid),
     reason: String(reason ?? ''),
     description: String(description ?? ''),
+    evidence,
     status: Number.isFinite(status) ? status : 0,
     handled_by: coerceEntityId(handledBy),
     handled_at: typeof handledAt === 'string' && handledAt.length > 0 ? handledAt : null,
@@ -238,9 +282,13 @@ function normalizeMomentReport(report: MomentReport): ReportTicket {
     id: report.id,
     target_type: 'moment',
     target_id: report.post_id,
+    target_sub_type: '',
+    target_scope_id: '',
+    target_author_id: '',
     reporter_uid: report.reporter_uid,
     reason: report.reason || '',
     description: report.description || '',
+    evidence: null,
     status: report.status,
     handled_by: report.handled_by,
     handled_at: report.handled_at,
@@ -488,4 +536,19 @@ export async function resolveReportBatchWithFallback(
     failedCount,
     failedIds,
   }
+}
+
+/**
+ * R-01: 举报工单详情——仅返回该工单自身绑定的结构化证据（含消息举报
+ * 的 scope/author/evidence），不提供按消息 ID 的任意浏览入口。
+ */
+export async function getReportDetail(
+  reportId: EntityId
+): Promise<ReportTicket> {
+  const response = await client.get('/report/detail', { params: { report_id: reportId } })
+  const payload = requireApiPayload<Record<string, unknown>>(
+    response.data as ApiResponse<Record<string, unknown>>,
+    '/report/detail'
+  )
+  return normalizeReport(payload, 'message')
 }
