@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { LegacyColumnDef, getCoreRowModel, useLegacyTable } from '@tanstack/react-table/legacy'
 import { RowSelectionState } from '@tanstack/react-table'
-import { CheckCircle2, Eye, FileSearch, Loader2, Search, XCircle } from 'lucide-react'
+import { CheckCircle2, Eye, FileSearch, Gavel, Loader2, Search, XCircle } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 
@@ -44,6 +44,7 @@ import {
   type ReportListParams,
   type ReportTicket,
 } from '@/modules/ops_governance/api'
+import { ReportActionPanel } from './ReportActionPanel'
 import type { EntityId } from '@/types/common'
 import { trackUxEvent } from '@/lib/uxTelemetry'
 import { getErrorMessage } from '@/lib/errorUtils'
@@ -175,6 +176,7 @@ export function TargetReportPanel({
   const [resolveDialog, setResolveDialog] = useState<{ report: ReportTicket; result: 1 | 2 } | null>(null)
   const [resolveNote, setResolveNote] = useState('')
   const [evidenceDialog, setEvidenceDialog] = useState<ReportTicket | null>(null)
+  const [actionTicket, setActionTicket] = useState<ReportTicket | null>(null)
 
   const requestParams: ReportListParams = {
     page: params.page,
@@ -481,6 +483,18 @@ export function TargetReportPanel({
               </Button>
             </>
           )}
+          {row.original.status === 2 && (
+            // R-02：已确认违规的工单可执行处置动作（warning/mute/kick/reject）
+            <Button
+              variant="ghost"
+              size="icon"
+              title="处置动作"
+              disabled={!canHandleReports || handlePermissionLoading}
+              onClick={() => setActionTicket(row.original)}
+            >
+              <Gavel className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       ),
     },
@@ -754,6 +768,11 @@ export function TargetReportPanel({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <ReportActionPanel
+        ticket={actionTicket}
+        canHandleReports={canHandleReports && !handlePermissionLoading}
+        onClose={() => setActionTicket(null)}
+      />
     </Card>
   )
 }
