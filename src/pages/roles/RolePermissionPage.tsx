@@ -88,8 +88,8 @@ const defaultPermissions: PermissionItem[] = [
   { key: 'license:write', name: '写入/更新 License 授权', module: '系统设置', path: '/settings' },
 ]
 
-/** 内置系统角色（后端拒绝 id<=3 的停用/删除/权限覆盖） */
-const SYSTEM_ROLE_IDS = new Set<RoleItem['id']>(['1', '2', '3'])
+/** 内置系统角色（后端拒绝 id<=6 的停用/删除/权限覆盖；4=moderator 5=security_admin 6=support） */
+const SYSTEM_ROLE_IDS = new Set<RoleItem['id']>(['1', '2', '3', '4', '5', '6'])
 
 const defaultRoleTemplates: RoleTemplate[] = [
   {
@@ -128,6 +128,49 @@ const defaultRoleTemplates: RoleTemplate[] = [
       'logout_applications:read',
       'logs:view',
       'roles:view',
+    ],
+  },
+  {
+    id: '4',
+    name: '内容审核员',
+    description: '处理举报工单与动态/消息元数据审核，不读消息内容、不处置用户。',
+    permissions: [
+      'dashboard:view',
+      'groups:read',
+      'channels:read',
+      'moments:read', 'moments:delete',
+      'moments:report:read', 'moments:report:handle',
+      'reports:read', 'reports:handle',
+      'messages:read', 'messages:metadata:read',
+      'feedback:read',
+    ],
+  },
+  {
+    id: '5',
+    name: '安全管理员',
+    description: '安全治理与封禁处置，消息内容取证需绑定举报工单（逐次审计），不可导出。',
+    permissions: [
+      'dashboard:view',
+      'users:read', 'users:update',
+      'groups:read',
+      'channels:read',
+      'moments:read',
+      'reports:read',
+      'messages:read', 'messages:metadata:read', 'messages:content:read',
+      'logout_applications:read',
+      'roles:view',
+      'logs:view',
+    ],
+  },
+  {
+    id: '6',
+    name: '客服支持',
+    description: '查看用户资料与消息元数据、回复反馈，无任何处置与内容读取能力。',
+    permissions: [
+      'dashboard:view',
+      'users:read',
+      'feedback:read', 'feedback:reply',
+      'messages:read', 'messages:metadata:read',
     ],
   },
 ]

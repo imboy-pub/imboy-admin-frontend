@@ -120,7 +120,7 @@ function App() {
                 <Route
                   path="/dashboard"
                   element={(
-                    <PermissionRoute permission="dashboard:view" roles={['1', '2', '3']}>
+                    <PermissionRoute permission="dashboard:view" roles={['1', '2', '3', '4', '5', '6']}>
                       <DashboardPage />
                     </PermissionRoute>
                   )}
@@ -130,7 +130,7 @@ function App() {
                 <Route
                   path="/users"
                   element={(
-                    <PermissionRoute permission="users:read" roles={['1', '2']}>
+                    <PermissionRoute permission="users:read" roles={['1', '2', '5', '6']}>
                       <UserListPage />
                     </PermissionRoute>
                   )}
@@ -138,7 +138,7 @@ function App() {
                 <Route
                   path="/ai-agents"
                   element={(
-                    <PermissionRoute permission="users:read" roles={['1', '2']}>
+                    <PermissionRoute permission="users:read" roles={['1', '2', '5', '6']}>
                       <AiAgentListPage />
                     </PermissionRoute>
                   )}
@@ -146,7 +146,7 @@ function App() {
                 <Route
                   path="/ai-agents/onboarding"
                   element={(
-                    <PermissionRoute permission="users:read" roles={['1', '2']}>
+                    <PermissionRoute permission="users:read" roles={['1', '2', '5', '6']}>
                       <OnboardingConfigPage />
                     </PermissionRoute>
                   )}
@@ -154,7 +154,7 @@ function App() {
                 <Route
                   path="/ai-agents/knowledge"
                   element={(
-                    <PermissionRoute permission="users:read" roles={['1', '2']}>
+                    <PermissionRoute permission="users:read" roles={['1', '2', '5', '6']}>
                       <KnowledgeConfigPage />
                     </PermissionRoute>
                   )}
@@ -162,7 +162,7 @@ function App() {
                 <Route
                   path="/ai-agents/roles"
                   element={(
-                    <PermissionRoute permission="users:read" roles={['1', '2']}>
+                    <PermissionRoute permission="users:read" roles={['1', '2', '5', '6']}>
                       <AiRolesPage />
                     </PermissionRoute>
                   )}
@@ -178,7 +178,7 @@ function App() {
                 <Route
                   path="/users/:id"
                   element={(
-                    <PermissionRoute permission="users:read" roles={['1', '2']}>
+                    <PermissionRoute permission="users:read" roles={['1', '2', '5', '6']}>
                       <UserDetailPage />
                     </PermissionRoute>
                   )}
@@ -186,7 +186,7 @@ function App() {
                 <Route
                   path="/users/:id/tags"
                   element={(
-                    <PermissionRoute permission="users:read" roles={['1', '2']}>
+                    <PermissionRoute permission="users:read" roles={['1', '2', '5', '6']}>
                       <UserTagManagePage />
                     </PermissionRoute>
                   )}
@@ -194,7 +194,7 @@ function App() {
                 <Route
                   path="/users/:id/collects"
                   element={(
-                    <PermissionRoute permission="users:read" roles={['1', '2']}>
+                    <PermissionRoute permission="users:read" roles={['1', '2', '5', '6']}>
                       <UserCollectManagePage />
                     </PermissionRoute>
                   )}
@@ -286,7 +286,7 @@ function App() {
                 <Route
                   path="/messages"
                   element={(
-                    <PermissionRoute permission="messages:read" roles={['1', '2', '3']}>
+                    <PermissionRoute permission="messages:read" roles={['1', '2', '3', '4', '5', '6']}>
                       <MessageListPage />
                     </PermissionRoute>
                   )}
@@ -294,7 +294,7 @@ function App() {
                 <Route
                   path="/logout-applications"
                   element={(
-                    <PermissionRoute permission="logout_applications:read" roles={['1', '2', '3']}>
+                    <PermissionRoute permission="logout_applications:read" roles={['1', '2', '3', '5']}>
                       <LogoutApplicationListPage />
                     </PermissionRoute>
                   )}
@@ -304,7 +304,7 @@ function App() {
                 <Route
                   path="/reports"
                   element={(
-                    <PermissionRoute permission={['reports:read', 'moments:report:read', 'messages:read']} roles={['1', '2']}>
+                    <PermissionRoute permission={['reports:read', 'moments:report:read', 'messages:read']} roles={['1', '2', '4', '5']}>
                       <ReportCenterPage />
                     </PermissionRoute>
                   )}
@@ -347,7 +347,7 @@ function App() {
                 <Route
                   path="/feedback"
                   element={(
-                    <PermissionRoute permission="feedback:read" roles={['1', '2']}>
+                    <PermissionRoute permission="feedback:read" roles={['1', '2', '4', '6']}>
                       <FeedbackListPage />
                     </PermissionRoute>
                   )}
@@ -459,7 +459,7 @@ function App() {
                 <Route
                   path="/roles"
                   element={(
-                    <PermissionRoute permission="roles:view" roles={['1', '3']}>
+                    <PermissionRoute permission="roles:view" roles={['1', '3', '5']}>
                       <RolePermissionPage />
                     </PermissionRoute>
                   )}
@@ -469,7 +469,7 @@ function App() {
                 <Route
                   path="/logs"
                   element={(
-                    <PermissionRoute permission="logs:view" roles={['1', '3']}>
+                    <PermissionRoute permission="logs:view" roles={['1', '3', '5']}>
                       <AuditLogPage />
                     </PermissionRoute>
                   )}
