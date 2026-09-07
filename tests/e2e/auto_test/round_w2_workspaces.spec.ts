@@ -203,12 +203,14 @@ test('W2R1 首测：bots + product-experience + workspaces 4 页', async ({ page
     const detailResp = page.waitForResponse((r) => r.url().includes('/api/adm/bot/detail'), { timeout: 15_000 })
     await page.getByRole('button', { name: /详情/ }).first().click()
     expect((await detailResp).status(), 'bot/detail 必须 2xx').toBeLessThan(300)
-    await expect(page.getByText('基础信息')).toBeVisible()
-    await expect(page.getByText('Webhook')).toBeVisible()
-    await expect(page.getByText('能力声明')).toBeVisible()
+    // BotDetailBody 三个小节均为 h4；用 heading 角色避免与 PageHeader 描述里的
+    // 「Webhook」字样 strict-mode 冲突
+    await expect(page.getByRole('heading', { name: '基础信息', exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Webhook', exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: '能力声明', exact: true })).toBeVisible()
     await shot(page, 'bots', 'drawer-open')
     await page.getByRole('button', { name: '关闭抽屉' }).click()
-    await expect(page.getByText('基础信息')).not.toBeVisible()
+    await expect(page.getByRole('heading', { name: '基础信息', exact: true })).not.toBeVisible()
     await shot(page, 'bots', 'drawer-closed')
   })
 
