@@ -6,7 +6,6 @@
 import { expect, test, type Page, type Response } from '@playwright/test'
 import { loginAsAdmin, requireAdminCredentials } from '../support/adminAuth'
 
-const WS_ID = process.env.AT_WS_ID || '109901865994684416'
 const WS_NAME = process.env.AT_WS_NAME || 'AT-WS-20260830210132'
 
 function dialogButton(page: Page, name: string) {
