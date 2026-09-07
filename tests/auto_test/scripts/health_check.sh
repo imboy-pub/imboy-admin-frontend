@@ -41,6 +41,26 @@ echo "违反行数: $identity"
 
 echo
 echo "== 4. 回归 spec（3 套） =="
+# chromium 回退：项目 playwright 锁定的 headless shell revision 可能不在本地缓存
+# （历史：缓存只有 1228 而锁定 1217），此时回退完整 chromium 可执行文件。
+# 缓存由其他会话/工具共用，版本会漂移，故每次运行时动态探测而非硬编码。
+if [ -z "${PLAYWRIGHT_EXECUTABLE_PATH:-}" ]; then
+  PW_CACHE="${PLAYWRIGHT_BROWSERS_PATH:-$HOME/Library/Caches/ms-playwright}"
+  PINNED_REV=$(LC_ALL=C grep -A2 '"name": "chromium-headless-shell"' \
+    node_modules/playwright-core/browsers.json 2>/dev/null \
+    | LC_ALL=C grep '"revision"' | head -1 | LC_ALL=C sed 's/[^0-9]//g')
+  SHELL_BIN="$PW_CACHE/chromium_headless_shell-${PINNED_REV}/chrome-headless-shell-mac-arm64/chrome-headless-shell"
+  if [ -n "$PINNED_REV" ] && [ ! -x "$SHELL_BIN" ]; then
+    FULL_BIN=$(ls "$PW_CACHE"/chromium-*/chrome-mac-arm64/*.app/Contents/MacOS/* 2>/dev/null | LC_ALL=C sort -V | tail -1)
+    if [ -n "$FULL_BIN" ] && [ -x "$FULL_BIN" ]; then
+      export PLAYWRIGHT_EXECUTABLE_PATH="$FULL_BIN"
+      echo "ℹ️ headless shell r${PINNED_REV} 缺失，回退完整 chromium：$FULL_BIN"
+    else
+      echo "⚠️ headless shell r${PINNED_REV} 缺失且缓存无完整 chromium，spec 可能启动失败"
+      fail=1
+    fi
+  fi
+fi
 # 插件 spec 的写操作需要 lifecycle 门禁（默认关闭）；其 afterAll 测完会 gate-off，
 # 因此每次进巡检前必须重新开启，收尾无论成败都恢复关闭（trap 兜底）。
 PROBE="tests/auto_test/scripts/plugin_gate_probe.escript"
