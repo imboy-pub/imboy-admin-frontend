@@ -53,6 +53,9 @@ export function MessageListPage() {
   const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>({})
   const [payloadView, setPayloadView] = useState<PayloadViewMode>('pretty')
   const [payloadKeyword, setPayloadKeyword] = useState('')
+  // A-01 内容访问：需绑定举报工单 + 处理原因，服务端校验并逐次审计
+  const [ticketInput, setTicketInput] = useState('')
+  const [reasonInput, setReasonInput] = useState('')
 
   const applyQuickRange = (hours: number) => {
     const now = new Date()
@@ -91,13 +94,24 @@ export function MessageListPage() {
     error: detailError,
     refetch: refetchDetail,
   } = useQuery({
-    queryKey: ['message-detail', selectedMessage?.msgId, selectedMessage?.scope],
-    queryFn: () => getMessageDetailPayload(selectedMessage!.msgId, selectedMessage!.scope),
+    queryKey: [
+      'message-detail',
+      selectedMessage?.msgId,
+      selectedMessage?.scope,
+      params.ticket,
+      params.reason,
+    ],
+    queryFn: () =>
+      getMessageDetailPayload(selectedMessage!.msgId, selectedMessage!.scope, {
+        ticket: params.ticket,
+        reason: params.reason,
+      }),
     enabled: !!selectedMessage?.msgId,
   })
 
   const handleSearch = () => {
     const nextUid = uidInput.trim() || undefined
+    const ticketNum = Number(ticketInput.trim())
 
     setParams((prev) => ({
       ...prev,
@@ -108,6 +122,8 @@ export function MessageListPage() {
       keyword: keywordInput.trim() || undefined,
       from_ts: fromTsInput.trim() || undefined,
       to_ts: toTsInput.trim() || undefined,
+      ticket: ticketInput.trim() && !Number.isNaN(ticketNum) && ticketNum > 0 ? ticketNum : undefined,
+      reason: reasonInput.trim() || undefined,
     }))
   }
 
@@ -375,6 +391,22 @@ export function MessageListPage() {
                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
               />
             </div>
+
+            <Input
+              className="w-40"
+              placeholder="举报工单ID(查内容)"
+              value={ticketInput}
+              onChange={(e) => setTicketInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+            />
+
+            <Input
+              className="w-48"
+              placeholder="处理原因(必填，入审计)"
+              value={reasonInput}
+              onChange={(e) => setReasonInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+            />
 
             <Button onClick={handleSearch}>查询</Button>
 

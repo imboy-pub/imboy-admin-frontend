@@ -26,19 +26,24 @@ export async function getMessageListPayload(
  */
 export async function getMessageDetail(
   msgId: string,
-  msgScope: MessageListParams['msg_scope'] = 'all'
+  msgScope: MessageListParams['msg_scope'] = 'all',
+  contentAccess?: Pick<MessageListParams, 'ticket' | 'reason'>
 ): Promise<ApiResponse<ManagedMessage>> {
   const response = await client.get('/message/detail', {
-    params: { msg_id: msgId, msg_scope: msgScope },
+    params: { msg_id: msgId, msg_scope: msgScope, ...contentAccess },
   })
   return response.data
 }
 
 export async function getMessageDetailPayload(
   msgId: string,
-  msgScope: MessageListParams['msg_scope'] = 'all'
+  msgScope: MessageListParams['msg_scope'] = 'all',
+  contentAccess?: Pick<MessageListParams, 'ticket' | 'reason'>
 ): Promise<ManagedMessage> {
-  return requireApiPayload(await getMessageDetail(msgId, msgScope), '/message/detail')
+  return requireApiPayload(
+    await getMessageDetail(msgId, msgScope, contentAccess),
+    '/message/detail'
+  )
 }
 
 export async function exportMessageCsvBlob(params: MessageListParams): Promise<Blob> {

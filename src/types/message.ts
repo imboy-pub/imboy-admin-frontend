@@ -24,4 +24,8 @@ export interface MessageListParams {
   from_ts?: string
   to_ts?: string
   keyword?: string
+  /** A-01 内容访问：举报工单 ID（与 reason 成对提供才可能看到 payload） */
+  ticket?: number
+  /** A-01 内容访问：处理原因（必填，随审计落库） */
+  reason?: string
 }
