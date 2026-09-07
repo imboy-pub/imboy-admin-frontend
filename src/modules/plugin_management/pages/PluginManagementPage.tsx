@@ -159,7 +159,8 @@ function PluginCard({
             详情
           </Button>
 
-          {plugin.state === 'disabled' && (
+          {/* 后端状态机支持 installed→enable（imboy_plugin_lifecycle），installed 也要给启用入口 */}
+          {(plugin.state === 'disabled' || plugin.state === 'installed') && (
             <Button
               size="sm"
               variant="outline"
@@ -370,7 +371,7 @@ function InstallPluginDialog({
 
   const installMut = useMutation({
     mutationFn: () =>
-      installPlugin({ name: name.trim(), path: path.trim() || undefined }),
+      installPlugin({ name: name.trim(), path: path.trim() }),
     onSuccess: () => {
       toast.success('插件安装成功')
       setName('')
@@ -388,6 +389,11 @@ function InstallPluginDialog({
       toast.error('请填写插件名称')
       return
     }
+    // 后端契约：path 必填（缺失返回 400「缺少插件路径」），前端同步校验
+    if (!path.trim()) {
+      toast.error('请填写插件路径')
+      return
+    }
     installMut.mutate()
   }
 
@@ -396,7 +402,7 @@ function InstallPluginDialog({
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>安装插件</DialogTitle>
-          <DialogDescription>填写插件名称，可选填插件包路径。</DialogDescription>
+          <DialogDescription>填写插件名称与插件包路径。</DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-4 py-2">
@@ -413,7 +419,7 @@ function InstallPluginDialog({
           </div>
           <div className="space-y-2">
             <Label htmlFor="plugin-install-path" className="font-medium">
-              插件路径（可选）
+              插件路径
             </Label>
             <Input
               id="plugin-install-path"

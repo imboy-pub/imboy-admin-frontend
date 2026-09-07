@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 
-export type ReportTargetType = 'moment' | 'group' | 'channel' | 'user'
+export type ReportTargetType = 'moment' | 'group' | 'channel' | 'user' | 'message'
 
 export type ReportProcessStep = {
   title: string

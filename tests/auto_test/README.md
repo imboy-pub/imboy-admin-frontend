@@ -48,53 +48,52 @@
 
 | 计划变化 | 条数 | 占比 |
 |---|---|---|
-| 无待办 | 583 | 99.1% |
-| 待修复 | 5 | 0.9% |
+| 无待办 | 588 | 100.0% |
 | **合计** | **588** | 100% |
 
-bug 累计：**发现 56 / 解决 51 / 待处理 5**
+bug 累计：**发现 56 / 解决 56 / 待处理 0**
 
 > 恒等式 `发现 − 解决 = 待处理` 成立
 
 ## 模块索引
 
-| 模块 | 页面 | 功能点 | 待处理bug | 无待办 | 待修复 |
-|---|---|---|---|---|---|
-| [groups](groups/) | 14 | 129 | 0 | 129 | 0 |
-| [channels](channels/) | 8 | 80 | 0 | 80 | 0 |
-| [settings](settings/) | 11 | 54 | 0 | 54 | 0 |
-| [users](users/) | 4 | 41 | 0 | 41 | 0 |
-| [workspaces](workspaces/) | 4 | 35 | 0 | 35 | 0 |
-| [moments](moments/) | 3 | 26 | 0 | 26 | 0 |
-| [ai_agent](ai_agent/) | 4 | 25 | 0 | 25 | 0 |
-| [plugin_management](plugin_management/) | 2 | 18 | 5 | 13 | 5 |
-| [admins](admins/) | 1 | 14 | 0 | 14 | 0 |
-| [content-moderation](content-moderation/) | 2 | 14 | 0 | 14 | 0 |
-| [feedback](feedback/) | 1 | 11 | 0 | 11 | 0 |
-| [logs](logs/) | 1 | 11 | 0 | 11 | 0 |
-| [announcements](announcements/) | 1 | 10 | 0 | 10 | 0 |
-| [logout-applications](logout-applications/) | 1 | 9 | 0 | 9 | 0 |
-| [storage](storage/) | 1 | 9 | 0 | 9 | 0 |
-| [billing-plans](billing-plans/) | 1 | 8 | 0 | 8 | 0 |
-| [messages](messages/) | 1 | 8 | 0 | 8 | 0 |
-| [payment-transactions](payment-transactions/) | 1 | 8 | 0 | 8 | 0 |
-| [recharge-orders](recharge-orders/) | 1 | 8 | 0 | 8 | 0 |
-| [withdrawals](withdrawals/) | 1 | 8 | 0 | 8 | 0 |
-| [auth](auth/) | 2 | 7 | 0 | 7 | 0 |
-| [bots](bots/) | 1 | 7 | 0 | 7 | 0 |
-| [roles](roles/) | 1 | 7 | 0 | 7 | 0 |
-| [billing-invoices](billing-invoices/) | 1 | 6 | 0 | 6 | 0 |
-| [billing-subscriptions](billing-subscriptions/) | 1 | 6 | 0 | 6 | 0 |
-| [wallets](wallets/) | 1 | 6 | 0 | 6 | 0 |
-| [mcp-governance](mcp-governance/) | 1 | 5 | 0 | 5 | 0 |
-| [analytics](analytics/) | 1 | 4 | 0 | 4 | 0 |
-| [license](license/) | 1 | 4 | 0 | 4 | 0 |
-| [dashboard](dashboard/) | 1 | 2 | 0 | 2 | 0 |
-| [errors](errors/) | 2 | 2 | 0 | 2 | 0 |
-| [finance-report](finance-report/) | 1 | 2 | 0 | 2 | 0 |
-| [system-health](system-health/) | 1 | 2 | 0 | 2 | 0 |
-| [pricing](pricing/) | 1 | 1 | 0 | 1 | 0 |
-| [reports](reports/) | 1 | 1 | 0 | 1 | 0 |
+| 模块 | 页面 | 功能点 | 待处理bug | 无待办 |
+|---|---|---|---|---|
+| [groups](groups/) | 14 | 129 | 0 | 129 |
+| [channels](channels/) | 8 | 80 | 0 | 80 |
+| [settings](settings/) | 11 | 54 | 0 | 54 |
+| [users](users/) | 4 | 41 | 0 | 41 |
+| [workspaces](workspaces/) | 4 | 35 | 0 | 35 |
+| [moments](moments/) | 3 | 26 | 0 | 26 |
+| [ai_agent](ai_agent/) | 4 | 25 | 0 | 25 |
+| [plugin_management](plugin_management/) | 2 | 18 | 0 | 18 |
+| [admins](admins/) | 1 | 14 | 0 | 14 |
+| [content-moderation](content-moderation/) | 2 | 14 | 0 | 14 |
+| [feedback](feedback/) | 1 | 11 | 0 | 11 |
+| [logs](logs/) | 1 | 11 | 0 | 11 |
+| [announcements](announcements/) | 1 | 10 | 0 | 10 |
+| [logout-applications](logout-applications/) | 1 | 9 | 0 | 9 |
+| [storage](storage/) | 1 | 9 | 0 | 9 |
+| [billing-plans](billing-plans/) | 1 | 8 | 0 | 8 |
+| [messages](messages/) | 1 | 8 | 0 | 8 |
+| [payment-transactions](payment-transactions/) | 1 | 8 | 0 | 8 |
+| [recharge-orders](recharge-orders/) | 1 | 8 | 0 | 8 |
+| [withdrawals](withdrawals/) | 1 | 8 | 0 | 8 |
+| [auth](auth/) | 2 | 7 | 0 | 7 |
+| [bots](bots/) | 1 | 7 | 0 | 7 |
+| [roles](roles/) | 1 | 7 | 0 | 7 |
+| [billing-invoices](billing-invoices/) | 1 | 6 | 0 | 6 |
+| [billing-subscriptions](billing-subscriptions/) | 1 | 6 | 0 | 6 |
+| [wallets](wallets/) | 1 | 6 | 0 | 6 |
+| [mcp-governance](mcp-governance/) | 1 | 5 | 0 | 5 |
+| [analytics](analytics/) | 1 | 4 | 0 | 4 |
+| [license](license/) | 1 | 4 | 0 | 4 |
+| [dashboard](dashboard/) | 1 | 2 | 0 | 2 |
+| [errors](errors/) | 2 | 2 | 0 | 2 |
+| [finance-report](finance-report/) | 1 | 2 | 0 | 2 |
+| [system-health](system-health/) | 1 | 2 | 0 | 2 |
+| [pricing](pricing/) | 1 | 1 | 0 | 1 |
+| [reports](reports/) | 1 | 1 | 0 | 1 |
 
 ## 页面清单
 
@@ -222,7 +221,7 @@ bug 累计：**发现 56 / 解决 51 / 待处理 5**
 ### plugin_management
 
 - [PluginLogPage](plugin_management/PluginLogPage.md) — 6 功能点
-- [PluginManagementPage](plugin_management/PluginManagementPage.md) — 12 功能点 ⚠️ 5 待处理
+- [PluginManagementPage](plugin_management/PluginManagementPage.md) — 12 功能点
 
 ### pricing
 

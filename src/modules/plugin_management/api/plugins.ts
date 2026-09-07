@@ -60,12 +60,21 @@ export const pluginKeys = {
 
 // --- Normalizers ---
 
+/**
+ * 后端 lifecycle 状态机（imboy_plugin_lifecycle）含 failed 等前端 PluginState
+ * 没有的值；failed 按运营语义归一为 error（错误徽标 + 重置/强制卸载入口）。
+ */
+export function normalizePluginState(value: unknown): PluginState {
+  if (value === 'failed') return 'error'
+  return (typeof value === 'string' && value.length > 0 ? value : 'disabled') as PluginState
+}
+
 function normalizePlugin(raw: Record<string, unknown>): PluginInfo {
   return {
     name: String(raw.name ?? ''),
     version: String(raw.version ?? ''),
     description: String(raw.description ?? ''),
-    state: (raw.state as PluginState) ?? 'disabled',
+    state: normalizePluginState(raw.state),
     installed_at: typeof raw.installed_at === 'string' ? raw.installed_at : null,
     enabled_at: typeof raw.enabled_at === 'string' ? raw.enabled_at : null,
     error_message: typeof raw.error_message === 'string' ? raw.error_message : null,
