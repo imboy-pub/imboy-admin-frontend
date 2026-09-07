@@ -41,13 +41,22 @@ echo "违反行数: $identity"
 
 echo
 echo "== 4. 回归 spec（3 套） =="
+# 插件 spec 的写操作需要 lifecycle 门禁（默认关闭）；其 afterAll 测完会 gate-off，
+# 因此每次进巡检前必须重新开启，收尾无论成败都恢复关闭（trap 兜底）。
+PROBE="tests/auto_test/scripts/plugin_gate_probe.escript"
+if escript "$PROBE" gate-on; then
+  trap 'escript "$PROBE" gate-off >/dev/null 2>&1 || true' EXIT
+else
+  echo "⚠️ 无法开启插件门禁（后端 rpc 不可达？），插件 spec 大概率失败"
+  fail=1
+fi
 run_regression_specs() {
   PLAYWRIGHT_HEADLESS="${PLAYWRIGHT_HEADLESS:-1}" \
   bunx playwright test \
     tests/e2e/auto_test/round_w2r2_plugin_fix_verify.spec.ts \
     tests/e2e/auto_test/round_w2r3_archive_regression.spec.ts \
     tests/e2e/auto_test/round_w2r3_detail_regression.spec.ts \
-    --reporter=list
+    --workers=1 --reporter=list
 }
 # 插件 spec 依赖后端全局 lifecycle + 管理端登录，与其他会话/任务并发操作时
 # 存在环境性失败（历史证据：W2R3 巡检三跑三样，debug 复刻全绿）。

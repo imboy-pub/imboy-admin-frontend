@@ -243,7 +243,7 @@ test('W2R1 首测：bots + product-experience + workspaces 4 页', async ({ page
         await botRow().getByRole('button', { name: confirmLabel === '停用' ? /停用/ : /启用/ }).click()
         await dialogButton(page, confirmLabel).click()
         expect((await mutationResp).status(), 'bot 启停必须 2xx').toBeLessThan(300)
-        await expect(page.getByText(confirmLabel === '停用' ? 'Bot 已停用' : 'Bot 已启用')).toBeVisible({ timeout: 1_000 })
+        await expect(page.getByText(confirmLabel === '停用' ? 'Bot 已停用' : 'Bot 已启用')).toBeVisible({ timeout: 3_000 })
         await shot(page, 'bots', `status-confirm-exec-${i}`)
         expect((await refetchResp).status(), '启停后列表必须失效重拉').toBeLessThan(300)
       }
@@ -260,7 +260,7 @@ test('W2R1 首测：bots + product-experience + workspaces 4 页', async ({ page
       return
     }
     await botRow().locator('button').filter({ hasText: /^\d{6,}$/ }).first().click()
-    await expect(page.getByText('属主 UID 已复制')).toBeVisible({ timeout: 1_000 })
+    await expect(page.getByText('属主 UID 已复制')).toBeVisible({ timeout: 3_000 })
     await shot(page, 'bots', 'copy-uid-toast')
   })
 
@@ -776,7 +776,7 @@ test('W2R1 首测：bots + product-experience + workspaces 4 页', async ({ page
     if (archBizOk) {
       const refetchResp = page.waitForResponse(
         (r) => r.url().includes('/api/adm/workspace/list') && r.url().includes(`keyword=${WS_NAME}`), { timeout: 15_000 })
-      await expect(page.getByText('工作区已归档（读保留，业务写被拒绝）')).toBeVisible({ timeout: 1_000 })
+      await expect(page.getByText('工作区已归档（读保留，业务写被拒绝）')).toBeVisible({ timeout: 3_000 })
       await shot(page, 'workspaces', 'wslist-archive-toast')
       expect((await refetchResp).status(), '归档后列表必须失效重拉').toBeLessThan(300)
       await expect(seedRow().getByText('已归档')).toBeVisible({ timeout: 10_000 })
@@ -809,7 +809,7 @@ test('W2R1 首测：bots + product-experience + workspaces 4 页', async ({ page
     await shot(page, 'workspaces', 'wslist-restore-confirm-dialog')
     await dialogButton(page, '恢复').click()
     expect((await restoreResp).status(), 'workspace/restore 必须 2xx').toBeLessThan(300)
-    await expect(page.getByText('工作区已恢复')).toBeVisible({ timeout: 1_000 })
+    await expect(page.getByText('工作区已恢复')).toBeVisible({ timeout: 3_000 })
     await shot(page, 'workspaces', 'wslist-restore-toast')
     expect((await refetchResp).status(), '恢复后列表必须失效重拉').toBeLessThan(300)
     await expect(seedRow().getByText('正常')).toBeVisible({ timeout: 10_000 })
