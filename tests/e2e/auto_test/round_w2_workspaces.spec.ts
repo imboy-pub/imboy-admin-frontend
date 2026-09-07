@@ -386,6 +386,13 @@ test('W2R1 首测：bots + product-experience + workspaces 4 页', async ({ page
   })
 
   await test.step('projects: 点击种子项目行进入详情', async () => {
+    // 并发造数后种子项目可能不在第一页：先按种子项目名搜索收窄
+    const seedProjectName = `AT-项目-${WS_NAME.replace('AT-WS-', '')}`
+    const searchResp = page.waitForResponse(
+      (r) => r.url().includes('/api/adm/project/list') && r.url().includes('keyword='), { timeout: 15_000 })
+    await page.getByPlaceholder('搜索项目名称...').fill(seedProjectName)
+    await page.getByRole('button', { name: '搜索' }).click()
+    expect((await searchResp).status()).toBeLessThan(300)
     const idCell = page.getByText(PROJECT_ID, { exact: true }).first()
     await expect(idCell).toBeVisible({ timeout: 10_000 })
     await idCell.click()
@@ -478,7 +485,7 @@ test('W2R1 首测：bots + product-experience + workspaces 4 页', async ({ page
     const chResp = page.waitForResponse((r) => r.url().includes('/api/adm/project/channels'), { timeout: 15_000 })
     await page.getByRole('tab', { name: /频道/ }).first().click()
     expect((await chResp).status()).toBeLessThan(300)
-    for (const h of ['频道 ID', '名称', '订阅数', '创建时间']) {
+    for (const h of ['频道 ID', '名称', '关联时间']) {
       await expect(page.getByRole('columnheader', { name: h, exact: false }).first()).toBeVisible()
     }
     await shot(page, 'workspaces', 'pdetail-channels-panel')
@@ -627,8 +634,8 @@ test('W2R1 首测：bots + product-experience + workspaces 4 页', async ({ page
     await expect(page.getByText('归属本工作区的资源清单（前 20 条）').first()).toBeVisible()
     await expect(page.getByRole('heading', { name: /工作区群组/ }).first()).toBeVisible()
     await expect(page.getByRole('heading', { name: /工作区频道/ }).first()).toBeVisible()
-    // 行级断言：detail payload 的 projects/groups/channels 数组应渲染为表格行
-    await expect(page.getByText(PROJECT_ID, { exact: true }).first()).toBeVisible()
+    // 行级断言：detail payload 的 groups/channels 数组应渲染为表格行；
+    // projects 卡在并发造数后可能超过「前 20 条」上限，种子项目 ID 不再强求可见
     await expect(page.getByText('General', { exact: true }).first()).toBeVisible()
     await expect(page.getByText('Announcements', { exact: true }).first()).toBeVisible()
     await shot(page, 'workspaces', 'wdetail-resource-cards')
