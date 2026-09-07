@@ -189,6 +189,11 @@ export function featureKeyForAdminPath(pathname?: string | null): string | null 
   if (/^\/channels\/[^/]+\/orders(?:\/|$)/.test(pathname)) {
     return 'channel_order'
   }
+  // 付费频道运营页（/channels/paid）与订单子路径同属 channel_order，
+  // 不得落入下方 /channels 通配（否则 channel_order 关闭时菜单仍可见）
+  if (/^\/channels\/paid(?:\/|$)/.test(pathname)) {
+    return 'channel_order'
+  }
   if (/^\/channels(?:\/|$)/.test(pathname)) {
     return 'channel'
   }
