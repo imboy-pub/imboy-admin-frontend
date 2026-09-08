@@ -78,8 +78,11 @@ const PricingPage = lazy(() => import('@/pages/pricing/PricingPage').then((m) =>
 const LicensePage = lazy(() => import('@/pages/license/LicensePage').then((m) => ({ default: m.LicensePage })))
 const SensitiveWordPage = lazy(() => import('@/pages/content-moderation/SensitiveWordPage').then((m) => ({ default: m.SensitiveWordPage })))
 const ContentReviewQueuePage = lazy(() => import('@/pages/content-moderation/ContentReviewQueuePage').then((m) => ({ default: m.ContentReviewQueuePage })))
+const AppealReviewPage = lazy(() => import('@/pages/content-moderation/AppealReviewPage').then((m) => ({ default: m.AppealReviewPage })))
 const SSOConfigPage = lazy(() => import('@/pages/settings/SSOConfigPage').then((m) => ({ default: m.SSOConfigPage })))
 const McpGovernanceListPage = lazy(() => import('@/pages/mcp-governance/McpGovernanceListPage').then((m) => ({ default: m.McpGovernanceListPage })))
+const AiHubOverviewPage = lazy(() => import('@/pages/ai-hub/AiHubOverviewPage').then((m) => ({ default: m.AiHubOverviewPage })))
+const BotDeliveriesPage = lazy(() => import('@/pages/ai-hub/BotDeliveriesPage').then((m) => ({ default: m.BotDeliveriesPage })))
 // Product Experience 安装级配置只读页（双体验 v2.5.2 WP7/T11）
 const ProductExperiencePage = lazy(() => import('@/pages/settings/ProductExperiencePage').then((m) => ({ default: m.ProductExperiencePage })))
 
@@ -492,6 +495,14 @@ function App() {
                     </PermissionRoute>
                   )}
                 />
+                <Route
+                  path="/moderation/appeals"
+                  element={(
+                    <PermissionRoute permission="reports:read" roles={['1', '2']}>
+                      <AppealReviewPage />
+                    </PermissionRoute>
+                  )}
+                />
 
                 {/* SSO 配置 */}
                 <Route
@@ -623,6 +634,23 @@ function App() {
                 />
 
                 {/* MCP 治理（roadmap T3.5，后端 /api/adm/mcp/* 已就绪） */}
+                {/* AI 协作总览 + 出站交付死信（ADM-01） */}
+                <Route
+                  path="/ai-hub"
+                  element={(
+                    <PermissionRoute permission="mcp_clients:approve" roles={['1', '2']}>
+                      <AiHubOverviewPage />
+                    </PermissionRoute>
+                  )}
+                />
+                <Route
+                  path="/ai-hub/deliveries"
+                  element={(
+                    <PermissionRoute permission="mcp_clients:approve" roles={['1', '2']}>
+                      <BotDeliveriesPage />
+                    </PermissionRoute>
+                  )}
+                />
                 <Route
                   path="/mcp-governance"
                   element={(

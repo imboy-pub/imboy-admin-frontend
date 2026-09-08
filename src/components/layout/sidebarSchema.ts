@@ -119,6 +119,7 @@ export const defaultConfig: SidebarMenuConfig = {
       children: [
         { path: '/moderation/sensitive-words', icon: 'ShieldAlert', label: '敏感词管理', roles: ['1', '2'], permission: 'reports:read' },
         { path: '/moderation/review-queue', icon: 'ListChecks', label: '人工复审队列', roles: ['1', '2'], permission: 'reports:read' },
+        { path: '/moderation/appeals', icon: 'MessageSquareWarning', label: '处置申诉复审', roles: ['1', '2'], permission: 'reports:read' },
       ],
     },
     {
@@ -129,6 +130,8 @@ export const defaultConfig: SidebarMenuConfig = {
         { path: '/messages', icon: 'MessageSquare', label: '消息管理', roles: ['1', '2', '3'], permission: 'messages:read' },
         { path: '/logout-applications', icon: 'UserMinus', label: '注销申请', roles: ['1', '2', '3'], permission: 'logout_applications:read' },
         { path: '/logs', icon: 'FileText', label: '日志审计', roles: ['1', '3'], permission: 'logs:view' },
+        { path: '/ai-hub', icon: 'Bot', label: 'AI 协作总览', roles: ['1', '2'], permission: 'mcp_clients:approve' },
+        { path: '/ai-hub/deliveries', icon: 'Bot', label: '出站交付死信', roles: ['1', '2'], permission: 'mcp_clients:approve' },
         { path: '/mcp-governance', icon: 'Bot', label: 'MCP 治理', roles: ['1', '2'], permission: 'mcp_clients:approve' },
       ],
     },
