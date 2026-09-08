@@ -20,7 +20,7 @@ afterEach(() => {
   cleanup()
 })
 
-const mutableClient = client as unknown as { post: (url: string, body: unknown) => Promise<unknown> }
+const mutableClient = client as unknown as { post: (_url: string, _body: unknown) => Promise<unknown> }
 
 const TICKET: ReportTicket = {
   id: '510001',
@@ -40,7 +40,7 @@ const TICKET: ReportTicket = {
   updated_at: '2026-09-05T00:00:00Z',
 }
 
-function makePosts(postImpl: (url: string, body: unknown) => Promise<unknown>) {
+function makePosts(postImpl: (_url: string, _body: unknown) => Promise<unknown>) {
   mutableClient.post = postImpl
   mutableClient.get = (async () => ({
     data: { code: 0, msg: 'ok', payload: { data: [] } },
@@ -48,7 +48,7 @@ function makePosts(postImpl: (url: string, body: unknown) => Promise<unknown>) {
 }
 
 /** React 受控组件必须走 native setter 才能触发 onChange。 */
-function setControlledValue(el: HTMLTextAreaElement | HTMLInputElement, value: string) {
+function _setControlledValue(el: HTMLTextAreaElement | HTMLInputElement, value: string) {
   const proto = el instanceof HTMLTextAreaElement
     ? HTMLTextAreaElement.prototype
     : HTMLInputElement.prototype
