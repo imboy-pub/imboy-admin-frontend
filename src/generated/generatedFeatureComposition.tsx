@@ -22,7 +22,7 @@ const GroupTaskManagePage = lazy(() => import('@/pages/groups/GroupTaskManagePag
 const ComplianceKeyPage = lazy(() => import('@/pages/settings/ComplianceKeyPage').then((m) => ({ default: m.ComplianceKeyPage })))
 
 export const adminFeatureCompositionManifestHash =
-  "sha256:07a5403f17de6912bc9f2b1e6761b95f673f9352d1465cb7e077bd13605c4a74"
+  "sha256:b6f00f4cd9f203a82c8cb63e4d0f95b1dd843e647e0c4cafe3b5af49bb4e39d9"
 export const adminFeatureCompositionSchemaVersion = 1
 export const adminFeatureCompositionFeatures = ["bot_webhook", "channel", "channel_discover", "channel_invitation", "channel_order", "core", "e2ee", "group_schedule", "group_task", "group_vote", "location", "moment"] as const
 
