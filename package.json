@@ -2,6 +2,7 @@
   "name": "imboy-admin-frontend",
   "private": true,
   "version": "1.0.0-alpha.16",
+  "license": "BUSL-1.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
