@@ -30,6 +30,8 @@ import {
   Building2,
   FolderKanban,
   MonitorSmartphone,
+  Headphones,
+  Briefcase,
   type LucideIcon,
 } from 'lucide-react'
 import type { SidebarMenuConfig } from '@/services/api/adminConfig'
@@ -78,6 +80,8 @@ export const iconMap: Record<string, LucideIcon> = {
   Building2,
   FolderKanban,
   MonitorSmartphone,
+  Headphones,
+  Briefcase,
 }
 
 export const defaultConfig: SidebarMenuConfig = {
@@ -148,6 +152,14 @@ export const defaultConfig: SidebarMenuConfig = {
         { path: '/withdrawals', icon: 'ArrowDownToLine', label: '提现审核', roles: ['1', '2'], permission: 'finance:read' },
         { path: '/finance-report', icon: 'BarChart3', label: '财务报表', roles: ['1', '2'], permission: 'finance:read' },
         { path: '/pricing', icon: 'DollarSign', label: '产品定价', roles: ['1', '2'], permission: 'finance:read' },
+      ],
+    },
+    {
+      label: '企业业务',
+      icon: 'Briefcase',
+      children: [
+        { path: '/enterprise-business', icon: 'Building2', label: '企业业务数据', roles: ['1', '2'], permission: 'enterprise_business:read' },
+        { path: '/customer-service', icon: 'Headphones', label: '客服运营', roles: ['1', '2'], permission: 'customer_service:read' },
       ],
     },
     {

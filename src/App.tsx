@@ -83,6 +83,9 @@ const SSOConfigPage = lazy(() => import('@/pages/settings/SSOConfigPage').then((
 const McpGovernanceListPage = lazy(() => import('@/pages/mcp-governance/McpGovernanceListPage').then((m) => ({ default: m.McpGovernanceListPage })))
 const AiHubOverviewPage = lazy(() => import('@/pages/ai-hub/AiHubOverviewPage').then((m) => ({ default: m.AiHubOverviewPage })))
 const BotDeliveriesPage = lazy(() => import('@/pages/ai-hub/BotDeliveriesPage').then((m) => ({ default: m.BotDeliveriesPage })))
+// 企业业务 + 客服平台运营面（CS-03，只调 /api/adm/*）
+const EnterpriseBusinessPage = lazy(() => import('@/modules/enterprise_business').then((m) => ({ default: m.EnterpriseBusinessPage })))
+const CustomerServiceOpsPage = lazy(() => import('@/modules/customer_service').then((m) => ({ default: m.CustomerServiceOpsPage })))
 // Product Experience 安装级配置只读页（双体验 v2.5.2 WP7/T11）
 const ProductExperiencePage = lazy(() => import('@/pages/settings/ProductExperiencePage').then((m) => ({ default: m.ProductExperiencePage })))
 
@@ -656,6 +659,24 @@ function App() {
                   element={(
                     <PermissionRoute permission="mcp_clients:approve" roles={['1', '2']}>
                       <McpGovernanceListPage />
+                    </PermissionRoute>
+                  )}
+                />
+
+                {/* 企业业务 + 客服平台运营面（CS-03：read/write 权限分立 + 直链门） */}
+                <Route
+                  path="/enterprise-business"
+                  element={(
+                    <PermissionRoute permission="enterprise_business:read" roles={['1', '2']}>
+                      <EnterpriseBusinessPage />
+                    </PermissionRoute>
+                  )}
+                />
+                <Route
+                  path="/customer-service"
+                  element={(
+                    <PermissionRoute permission="customer_service:read" roles={['1', '2']}>
+                      <CustomerServiceOpsPage />
                     </PermissionRoute>
                   )}
                 />
