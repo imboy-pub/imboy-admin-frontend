@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:widget": "vite build --mode widget && vite build --mode widget-loader",
     "preview": "vite preview",
     "test": "bun test --isolate",
     "test:e2e": "playwright test",

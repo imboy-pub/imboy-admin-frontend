@@ -35,15 +35,61 @@ function devCspPlaceholderFix() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// CSW-01：客服 Widget 独立构建（`bun run build:widget`，不与 Admin SPA 混排）
+// - mode 'widget'        → iframe 聊天应用（widget/index.html → dist-widget/widget/index.html）
+// - mode 'widget-loader' → 宿主页 loader（lib/iife → dist-widget/loader.js）
+// 两种模式只产出独立 artifact 目录 dist-widget/（.gitignore 已忽略，不提交产物）；
+// Admin 默认构建（mode production）与 dev server 完全不受影响。
+// ---------------------------------------------------------------------------
+function widgetBuildOverrides(mode: string): import('vite').BuildOptions | null {
+  if (mode === 'widget') {
+    return {
+      outDir: 'dist-widget',
+      emptyOutDir: true,
+      cssCodeSplit: false,
+      assetsDir: 'assets',
+      // 独立 artifact：不拷贝 Admin 的 public/（sidebar-menu.json / vite.svg 等）
+      copyPublicDir: false,
+      rollupOptions: {
+        input: { widget: path.resolve(__dirname, 'widget/index.html') },
+        // 固定产物文件名（无 hash）：Playwright E2E 用 page.route 按确定性路径提供
+        // dist 产物（loader.js / widget/index.html / assets/cs-widget.js）。
+        output: {
+          entryFileNames: 'assets/cs-widget.js',
+          chunkFileNames: 'assets/cs-widget-[name].js',
+          assetFileNames: 'assets/cs-widget[extname]',
+        },
+      },
+    }
+  }
+  if (mode === 'widget-loader') {
+    return {
+      outDir: 'dist-widget',
+      emptyOutDir: false,
+      copyPublicDir: false,
+      lib: {
+        entry: path.resolve(__dirname, 'src/widget/customer_service/loader.ts'),
+        formats: ['iife'],
+        name: 'ImboyCsWidget',
+        fileName: () => 'loader.js',
+      },
+    }
+  }
+  return null
+}
+
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  const widgetBuild = widgetBuildOverrides(mode)
+  return {
   plugins: [devCspPlaceholderFix(), spaRouteClashFix(), react(), tailwindcss()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
     },
   },
-  build: {
+  build: widgetBuild ?? {
     rollupOptions: {
       output: {
         manualChunks(id) {
@@ -86,4 +132,5 @@ export default defineConfig({
       },
     },
   },
+  }
 })

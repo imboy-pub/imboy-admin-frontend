@@ -89,6 +89,8 @@ const CustomerServiceOpsPage = lazy(() => import('@/modules/customer_service').t
 // W2：平台 CS 会话列表/详情 + 离岗交接 case 列表/详情（冻结合同 C1 + W2-ADMIN 段）
 const PlatformCsSessionsPage = lazy(() => import('@/modules/customer_service').then((m) => ({ default: m.PlatformCsSessionsPage })))
 const CsSessionDetailPage = lazy(() => import('@/modules/customer_service').then((m) => ({ default: m.CsSessionDetailPage })))
+// CSW-01：客服 Widget 接入管理（installation 配置页）
+const CsWidgetInstallationsPage = lazy(() => import('@/modules/customer_service').then((m) => ({ default: m.CsWidgetInstallationsPage })))
 const OffboardingCasesPage = lazy(() => import('@/modules/enterprise_business').then((m) => ({ default: m.OffboardingCasesPage })))
 const OffboardingCaseDetailPage = lazy(() => import('@/modules/enterprise_business').then((m) => ({ default: m.OffboardingCaseDetailPage })))
 // Product Experience 安装级配置只读页（双体验 v2.5.2 WP7/T11）
@@ -699,6 +701,15 @@ function App() {
                   element={(
                     <PermissionRoute permission="customer_service:read" roles={['1', '2']}>
                       <CsSessionDetailPage />
+                    </PermissionRoute>
+                  )}
+                />
+                {/* CSW-01：客服 Widget 接入管理（installation 配置/撤销/复制接入代码） */}
+                <Route
+                  path="/customer-service/widgets"
+                  element={(
+                    <PermissionRoute permission="customer_service:read" roles={['1', '2']}>
+                      <CsWidgetInstallationsPage />
                     </PermissionRoute>
                   )}
                 />

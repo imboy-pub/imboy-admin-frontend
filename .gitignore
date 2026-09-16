@@ -12,6 +12,8 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+# CSW-01：客服 Widget 独立构建产物（bun run build:widget 生成），只提交源码与脚本
+dist-widget
 *.local
 
 # 包管理器统一使用 bun；禁止 pnpm-lock 漂移
