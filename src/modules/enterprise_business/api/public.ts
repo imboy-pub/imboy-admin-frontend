@@ -20,13 +20,22 @@ import type { ApiResponse } from '@/types/api'
 import type { EntityId } from '@/types/common'
 import {
   assertEbScope,
+  buildOffboardingDetailQuery,
+  buildOffboardingListQuery,
   toEbContact,
   toEbContactList,
   toEbIdentityList,
   toEbMessageList,
+  toEbOffboardingCaseDetail,
+  toEbOffboardingCaseListPage,
+  parseOffboardingItemsStatusFilter,
   type EbContact,
   type EbMessage,
   type EbIdentity,
+  type EbOffboardingCaseDetail,
+  type EbOffboardingCaseListPage,
+  type EbOffboardingItemsStatusFilter,
+  type EbOffboardingStatusFilter,
   type EbScopeParams,
 } from './pureFunctions'
 
@@ -187,4 +196,105 @@ export async function readBlobErrorMessage(blob: Blob): Promise<string | null> {
   } catch {
     return null
   }
+}
+
+// ===========================================================================
+// W2：平台 offboarding cases（冻结合同 W2-ADMIN 段）
+//   GET  /enterprise-business/organizations/:org_id/offboarding/cases[/:id]  (read)
+//   POST /enterprise-business/organizations/:org_id/offboarding/:id/execute  (write)
+// ===========================================================================
+
+export type EbOffboardingListParams = {
+  status: EbOffboardingStatusFilter
+  afterId?: EntityId | null
+  limit?: number
+}
+
+/** GET 离岗交接 case 列表（键集分页 + status 过滤；enterprise_business:read）。 */
+export async function getEbOffboardingCases(
+  scope: EbScopeParams,
+  params: EbOffboardingListParams
+): Promise<EbOffboardingCaseListPage> {
+  assertEbScope(scope)
+  const organizationId = requireNonEmptyId(scope.organizationId, 'organization_id')
+  if (params.limit !== undefined && (!Number.isSafeInteger(params.limit) || params.limit <= 0)) {
+    throw new Error('limit 必须是正整数')
+  }
+  const response = await client.get<ApiResponse<unknown>>(
+    `${EB_ORGS_BASE}/${encodeURIComponent(organizationId)}/offboarding/cases`,
+    {
+      params: {
+        // workspace_id 是平台面每条路径的必填参数（缺失后端 422）
+        workspace_id: requireNonEmptyId(scope.workspaceId, 'workspace_id'),
+        ...buildOffboardingListQuery({
+          status: params.status,
+          afterId: params.afterId ?? null,
+          limit: params.limit,
+        }),
+      },
+    }
+  )
+  const payload = requireApiPayload(response.data, 'GET eb offboarding cases')
+  return toEbOffboardingCaseListPage(payload, params.limit ?? 50)
+}
+
+export type EbOffboardingDetailParams = {
+  itemsStatus?: EbOffboardingItemsStatusFilter
+}
+
+/** GET 离岗交接 case 详情（含 items 子表；items_status=failed 即失败项查询）。 */
+export async function getEbOffboardingCaseDetail(
+  scope: EbScopeParams,
+  caseId: EntityId,
+  itemsStatusOrParams: EbOffboardingItemsStatusFilter | EbOffboardingDetailParams = 'all'
+): Promise<EbOffboardingCaseDetail | null> {
+  assertEbScope(scope)
+  const organizationId = requireNonEmptyId(scope.organizationId, 'organization_id')
+  const id = requireNonEmptyId(caseId, 'case_id')
+  const itemsStatus =
+    typeof itemsStatusOrParams === 'string' ? itemsStatusOrParams : (itemsStatusOrParams.itemsStatus ?? 'all')
+  const response = await client.get<ApiResponse<unknown>>(
+    `${EB_ORGS_BASE}/${encodeURIComponent(organizationId)}/offboarding/cases/${encodeURIComponent(id)}`,
+    {
+      params: {
+        workspace_id: requireNonEmptyId(scope.workspaceId, 'workspace_id'),
+        ...buildOffboardingDetailQuery(parseOffboardingItemsStatusFilter(itemsStatus)),
+      },
+    }
+  )
+  return toEbOffboardingCaseDetail(requireApiPayload(response.data, 'GET eb offboarding case detail'))
+}
+
+export type EbOffboardingExecuteParams = {
+  expectedVersion: number
+  actorUserId: EntityId
+}
+
+/**
+ * POST 执行/重试交接 case（既有幂等 execute 端点；enterprise_business:write）。
+ *
+ * 幂等重试语义：仅重放 status=failed 的项（attempt 递增），已成功项不重复执行；
+ * body 必须携带 expected_version（乐观锁）与 actor_user_id（审计责任人）。
+ */
+export async function executeEbOffboardingCase(
+  scope: EbScopeParams,
+  caseId: EntityId,
+  params: EbOffboardingExecuteParams
+): Promise<EbOffboardingCaseDetail | null> {
+  assertEbScope(scope)
+  const organizationId = requireNonEmptyId(scope.organizationId, 'organization_id')
+  const id = requireNonEmptyId(caseId, 'case_id')
+  const actorUserId = requireNonEmptyId(params.actorUserId, 'actor_user_id')
+  if (!Number.isSafeInteger(params.expectedVersion) || params.expectedVersion <= 0) {
+    throw new Error('expected_version 必须是正整数')
+  }
+  const response = await client.post<ApiResponse<unknown>>(
+    `${EB_ORGS_BASE}/${encodeURIComponent(organizationId)}/offboarding/${encodeURIComponent(id)}/execute`,
+    {
+      workspace_id: requireNonEmptyId(scope.workspaceId, 'workspace_id'),
+      expected_version: params.expectedVersion,
+      actor_user_id: actorUserId,
+    }
+  )
+  return toEbOffboardingCaseDetail(requireApiPayload(response.data, 'POST eb offboarding execute'))
 }

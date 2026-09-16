@@ -159,7 +159,9 @@ export const defaultConfig: SidebarMenuConfig = {
       icon: 'Briefcase',
       children: [
         { path: '/enterprise-business', icon: 'Building2', label: '企业业务数据', roles: ['1', '2'], permission: 'enterprise_business:read' },
+        { path: '/enterprise-business/offboarding', icon: 'ListChecks', label: '离岗交接', roles: ['1', '2'], permission: 'enterprise_business:read' },
         { path: '/customer-service', icon: 'Headphones', label: '客服运营', roles: ['1', '2'], permission: 'customer_service:read' },
+        { path: '/customer-service/sessions', icon: 'Headphones', label: '客服会话列表', roles: ['1', '2'], permission: 'customer_service:read' },
       ],
     },
     {

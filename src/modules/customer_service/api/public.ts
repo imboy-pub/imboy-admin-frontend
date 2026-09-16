@@ -20,12 +20,16 @@ import type { ApiResponse } from '@/types/api'
 import type { EntityId } from '@/types/common'
 import {
   assertScope,
+  buildCsSessionListQuery,
   toCsSeat,
   toCsSeatList,
   toCsSession,
+  toCsSessionListPage,
   type CsScopeParams,
   type CsSeat,
   type CsSession,
+  type CsSessionListPage,
+  type CsSessionStatusFilter,
 } from './pureFunctions'
 
 const CS_ORGS_BASE = '/customer-service/organizations'
@@ -80,6 +84,43 @@ export async function resumeCsSeat(
     { workspace_id: requireNonEmptyId(scope.workspaceId, 'workspace_id') }
   )
   return toCsSeat(requireApiPayload(response.data, 'POST cs seat resume'))
+}
+
+export type CsSessionListParams = {
+  status: CsSessionStatusFilter
+  afterId?: EntityId | null
+  limit?: number
+}
+
+/**
+ * GET 平台会话列表（W2 冻结合同 C1）：after_id 键集游标 + limit 分页，
+ * status 可选过滤（queued|active|closed）。响应 { sessions, next_after_id }。
+ */
+export async function getPlatformCsSessions(
+  scope: CsScopeParams,
+  params: CsSessionListParams
+): Promise<CsSessionListPage> {
+  assertScope(scope)
+  const organizationId = requireNonEmptyId(scope.organizationId, 'organization_id')
+  if (params.limit !== undefined && (!Number.isSafeInteger(params.limit) || params.limit <= 0)) {
+    throw new Error('limit 必须是正整数')
+  }
+  const response = await client.get<ApiResponse<unknown>>(
+    `${CS_ORGS_BASE}/${encodeURIComponent(organizationId)}/sessions`,
+    {
+      params: {
+        // workspace_id 是平台面每条路径的必填参数（缺失后端 422）
+        workspace_id: requireNonEmptyId(scope.workspaceId, 'workspace_id'),
+        ...buildCsSessionListQuery({
+          status: params.status,
+          afterId: params.afterId ?? null,
+          limit: params.limit,
+        }),
+      },
+    }
+  )
+  const payload = requireApiPayload(response.data, 'GET cs sessions')
+  return toCsSessionListPage(payload, params.limit ?? 50)
 }
 
 /** GET 会话详情（平台面只有按 id 取详情，无平台级会话列表——契约如此）。 */

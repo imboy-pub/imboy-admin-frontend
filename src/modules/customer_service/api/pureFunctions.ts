@@ -284,3 +284,161 @@ export function paginateClientSide<T>(items: T[], page: number, size: number): T
   const start = (safePage - 1) * safeSize
   return items.slice(start, start + safeSize)
 }
+
+// ===========================================================================
+// W2：平台 CS session 列表（冻结合同 C1，contracts-w2.md）
+//
+// GET /api/adm/customer-service/organizations/:org_id/sessions
+//   查询：workspace_id（必填）/ status（queued|active|closed）/ after_id / limit（1..200 缺省 50）
+//   响应：{ sessions: [...], next_after_id: string|null }
+// 列表投影白名单（逐字对齐 C1）：
+//   id, organization_id, workspace_id, contact_id, business_identity_id, status,
+//   rating, queued_at, claimed_at, closed_at, version
+// 禁止：visit_token_id、close_reason、任何 digest/secret/cipher（列表级熔断）。
+// ===========================================================================
+
+export type CsSessionStatusFilter = 'all' | 'queued' | 'active' | 'closed'
+
+export const CS_SESSION_STATUS_FILTERS: readonly CsSessionStatusFilter[] = [
+  'all',
+  'queued',
+  'active',
+  'closed',
+] as const
+
+/** URL/status 参数 → 白名单过滤值；非法值一律归 all（不把脏值发给后端，后端 422 兜底）。 */
+export function parseCsSessionStatusFilter(raw: string | null | undefined): CsSessionStatusFilter {
+  if (raw === 'queued' || raw === 'active' || raw === 'closed' || raw === 'all') return raw
+  return 'all'
+}
+
+export type CsSessionListQueryInput = {
+  status: CsSessionStatusFilter
+  afterId: EntityId | null
+  limit?: number
+}
+
+/**
+ * C1 查询串构造：status=all 不下发；after_id 为空不下发；limit 缺省不下发
+ * （交后端缺省 50），显式给出时钳制到 1..200（客户端防呆，服务端越界仍 422）。
+ */
+export function buildCsSessionListQuery(
+  input: CsSessionListQueryInput
+): Record<string, string | number> {
+  const query: Record<string, string | number> = {}
+  if (input.status !== 'all') query.status = input.status
+  const afterId = typeof input.afterId === 'string' ? input.afterId.trim() : ''
+  if (afterId.length > 0) query.after_id = afterId
+  if (typeof input.limit === 'number' && Number.isFinite(input.limit)) {
+    const clamped = Math.min(Math.max(Math.floor(input.limit), 1), 200)
+    query.limit = clamped
+  }
+  return query
+}
+
+/** C1 会话列表摘要视图（白名单字段，TSID 全 string）。 */
+export type CsSessionSummary = {
+  id: EntityId
+  organization_id: EntityId
+  workspace_id: EntityId
+  contact_id: EntityId | null
+  business_identity_id: EntityId | null
+  status: string
+  rating: number | null
+  queued_at: number | null
+  claimed_at: number | null
+  closed_at: number | null
+  version: number
+}
+
+/** 原始行 → C1 白名单摘要；缺 id 返回 null（fail-closed，不渲染半行）。 */
+export function toCsSessionSummary(raw: unknown): CsSessionSummary | null {
+  if (!raw || typeof raw !== 'object') return null
+  const row = raw as Record<string, unknown>
+  const id = toIdOrNull(row.id)
+  if (id === null) return null
+  return {
+    id,
+    organization_id: coerceEntityId(row.organization_id, ''),
+    workspace_id: coerceEntityId(row.workspace_id, ''),
+    contact_id: toIdOrNull(row.contact_id),
+    business_identity_id: toIdOrNull(row.business_identity_id),
+    status: typeof row.status === 'string' ? row.status : '',
+    rating: toOptionalInt(row.rating),
+    queued_at: toOptionalInt(row.queued_at),
+    claimed_at: toOptionalInt(row.claimed_at),
+    closed_at: toOptionalInt(row.closed_at),
+    version: toOptionalInt(row.version) ?? 0,
+  }
+}
+
+export function toCsSessionSummaryList(raw: unknown): CsSessionSummary[] {
+  if (!Array.isArray(raw)) return []
+  return raw.map(toCsSessionSummary).filter((item): item is CsSessionSummary => item !== null)
+}
+
+export type CsSessionListPage = {
+  sessions: CsSessionSummary[]
+  next_after_id: EntityId | null
+}
+
+/**
+ * C1 响应整包解析。next_after_id 优先取响应值；响应未携带（容错旧后端）且
+ * 页满 limit 时回退页尾 id；不足一页视为没有更多。
+ */
+export function toCsSessionListPage(raw: unknown, fallbackLimit: number): CsSessionListPage {
+  if (!raw || typeof raw !== 'object') return { sessions: [], next_after_id: null }
+  const payload = raw as Record<string, unknown>
+  const sessions = toCsSessionSummaryList(payload.sessions)
+  const explicit = toIdOrNull(payload.next_after_id)
+  if (explicit !== null) return { sessions, next_after_id: explicit }
+  const limit = Number.isFinite(fallbackLimit) && fallbackLimit > 0 ? Math.floor(fallbackLimit) : 0
+  if (limit > 0 && sessions.length >= limit && sessions.length > 0) {
+    return { sessions, next_after_id: sessions[sessions.length - 1].id }
+  }
+  return { sessions, next_after_id: null }
+}
+
+/** 会话状态 → 展示标签（列表页用；语义与 csSessionStatusLabel 一致，非法值原样返回）。 */
+export function csSessionListStatusLabel(status: string): string {
+  const label = CS_SESSION_STATUS_LABELS[status]
+  return typeof label === 'string' ? label : status
+}
+
+// ---------------------------------------------------------------------------
+// 列表错误态映射（401/403/404/422）
+// ---------------------------------------------------------------------------
+
+export type CsListFailure =
+  | 'unauthenticated' // 401 —— 会话失效，需重新登录
+  | 'permission_missing' // 403 —— 缺 customer_service:read
+  | 'not_found' // 404 —— 资源不在作用域内/不存在
+  | 'validation' // 400/422 —— 参数不合法（非法 status/after_id/limit）
+  | 'unknown'
+
+export function classifyListFailure(err: unknown): CsListFailure {
+  const apiErr = toApiErrorLike(err)
+  if (!apiErr) return 'unknown'
+  const code = errorCode(apiErr)
+  if (code === 401) return 'unauthenticated'
+  if (code === 403) return 'permission_missing'
+  if (code === 404) return 'not_found'
+  if (code === 400 || code === 422) return 'validation'
+  return 'unknown'
+}
+
+/** 列表失败分类 → 用户可读文案。 */
+export function listFailureMessage(failure: CsListFailure): string {
+  switch (failure) {
+    case 'unauthenticated':
+      return '登录状态已失效，请重新登录'
+    case 'permission_missing':
+      return '缺少 customer_service:read 权限，无法查看'
+    case 'not_found':
+      return '资源不在该组织/工作区作用域内（或不存在）'
+    case 'validation':
+      return '查询参数不合法（status/after_id/limit），请修正后重试'
+    default:
+      return '加载失败，请稍后重试'
+  }
+}

@@ -86,6 +86,11 @@ const BotDeliveriesPage = lazy(() => import('@/pages/ai-hub/BotDeliveriesPage').
 // 企业业务 + 客服平台运营面（CS-03，只调 /api/adm/*）
 const EnterpriseBusinessPage = lazy(() => import('@/modules/enterprise_business').then((m) => ({ default: m.EnterpriseBusinessPage })))
 const CustomerServiceOpsPage = lazy(() => import('@/modules/customer_service').then((m) => ({ default: m.CustomerServiceOpsPage })))
+// W2：平台 CS 会话列表/详情 + 离岗交接 case 列表/详情（冻结合同 C1 + W2-ADMIN 段）
+const PlatformCsSessionsPage = lazy(() => import('@/modules/customer_service').then((m) => ({ default: m.PlatformCsSessionsPage })))
+const CsSessionDetailPage = lazy(() => import('@/modules/customer_service').then((m) => ({ default: m.CsSessionDetailPage })))
+const OffboardingCasesPage = lazy(() => import('@/modules/enterprise_business').then((m) => ({ default: m.OffboardingCasesPage })))
+const OffboardingCaseDetailPage = lazy(() => import('@/modules/enterprise_business').then((m) => ({ default: m.OffboardingCaseDetailPage })))
 // Product Experience 安装级配置只读页（双体验 v2.5.2 WP7/T11）
 const ProductExperiencePage = lazy(() => import('@/pages/settings/ProductExperiencePage').then((m) => ({ default: m.ProductExperiencePage })))
 
@@ -677,6 +682,40 @@ function App() {
                   element={(
                     <PermissionRoute permission="customer_service:read" roles={['1', '2']}>
                       <CustomerServiceOpsPage />
+                    </PermissionRoute>
+                  )}
+                />
+                {/* W2 C1：平台 CS 会话列表 + 详情（点击列表行进入详情） */}
+                <Route
+                  path="/customer-service/sessions"
+                  element={(
+                    <PermissionRoute permission="customer_service:read" roles={['1', '2']}>
+                      <PlatformCsSessionsPage />
+                    </PermissionRoute>
+                  )}
+                />
+                <Route
+                  path="/customer-service/sessions/:sessionId"
+                  element={(
+                    <PermissionRoute permission="customer_service:read" roles={['1', '2']}>
+                      <CsSessionDetailPage />
+                    </PermissionRoute>
+                  )}
+                />
+                {/* W2：平台离岗交接 case 列表 + 详情（重试走既有 execute 端点，write 门） */}
+                <Route
+                  path="/enterprise-business/offboarding"
+                  element={(
+                    <PermissionRoute permission="enterprise_business:read" roles={['1', '2']}>
+                      <OffboardingCasesPage />
+                    </PermissionRoute>
+                  )}
+                />
+                <Route
+                  path="/enterprise-business/offboarding/:caseId"
+                  element={(
+                    <PermissionRoute permission="enterprise_business:read" roles={['1', '2']}>
+                      <OffboardingCaseDetailPage />
                     </PermissionRoute>
                   )}
                 />

@@ -1,2 +1,4 @@
 export { CustomerServiceOpsPage } from './pages/CustomerServiceOpsPage'
+export { PlatformCsSessionsPage } from './pages/PlatformCsSessionsPage'
+export { CsSessionDetailPage } from './pages/CsSessionDetailPage'
 export * from './api'
