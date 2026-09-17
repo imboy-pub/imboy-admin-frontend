@@ -93,6 +93,12 @@ const OffboardingCasesPage = lazy(() => import('@/modules/enterprise_business').
 const OffboardingCaseDetailPage = lazy(() => import('@/modules/enterprise_business').then((m) => ({ default: m.OffboardingCaseDetailPage })))
 // Product Experience 安装级配置只读页（双体验 v2.5.2 WP7/T11）
 const ProductExperiencePage = lazy(() => import('@/pages/settings/ProductExperiencePage').then((m) => ({ default: m.ProductExperiencePage })))
+// 企业组织 V1 治理面（ORG-14，/api/v1/organizations App 面 + member_role 事实矩阵）
+const OrganizationListPage = lazy(() => import('@/modules/organization').then((m) => ({ default: m.OrganizationListPage })))
+const OrganizationDetailPage = lazy(() => import('@/modules/organization').then((m) => ({ default: m.OrganizationDetailPage })))
+const OrganizationMembersPage = lazy(() => import('@/modules/organization').then((m) => ({ default: m.OrganizationMembersPage })))
+const OrganizationInvitationsPage = lazy(() => import('@/modules/organization').then((m) => ({ default: m.OrganizationInvitationsPage })))
+const OrganizationDepartmentsPage = lazy(() => import('@/modules/organization').then((m) => ({ default: m.OrganizationDepartmentsPage })))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -716,6 +722,48 @@ function App() {
                   element={(
                     <PermissionRoute permission="enterprise_business:read" roles={['1', '2']}>
                       <OffboardingCaseDetailPage />
+                    </PermissionRoute>
+                  )}
+                />
+
+                {/* 企业组织 V1 治理面（ORG-14）：平台侧入口门 workspaces:read；org 级写由服务端 member_role 事实裁决 */}
+                <Route
+                  path="/organizations"
+                  element={(
+                    <PermissionRoute permission="workspaces:read" roles={['1', '2']}>
+                      <OrganizationListPage />
+                    </PermissionRoute>
+                  )}
+                />
+                <Route
+                  path="/organizations/:organizationId"
+                  element={(
+                    <PermissionRoute permission="workspaces:read" roles={['1', '2']}>
+                      <OrganizationDetailPage />
+                    </PermissionRoute>
+                  )}
+                />
+                <Route
+                  path="/organizations/:organizationId/members"
+                  element={(
+                    <PermissionRoute permission="workspaces:read" roles={['1', '2']}>
+                      <OrganizationMembersPage />
+                    </PermissionRoute>
+                  )}
+                />
+                <Route
+                  path="/organizations/:organizationId/invitations"
+                  element={(
+                    <PermissionRoute permission="workspaces:read" roles={['1', '2']}>
+                      <OrganizationInvitationsPage />
+                    </PermissionRoute>
+                  )}
+                />
+                <Route
+                  path="/organizations/:organizationId/departments"
+                  element={(
+                    <PermissionRoute permission="workspaces:read" roles={['1', '2']}>
+                      <OrganizationDepartmentsPage />
                     </PermissionRoute>
                   )}
                 />
