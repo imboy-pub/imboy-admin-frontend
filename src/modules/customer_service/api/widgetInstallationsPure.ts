@@ -90,7 +90,9 @@ export function toWidgetInstallation(raw: unknown): WidgetInstallation | null {
     },
     consent_version: str(raw.consent_version),
     status: str(raw.status) || 'active',
-    created_at: typeof raw.created_at === 'string' ? raw.created_at : null,
+    // 后端全 API 惯例：时间为 epoch 秒 number（sv_ts/created_at 同口径）。
+    // number 规范化为 string 以满足 WidgetInstallation 类型合同；仅 null/undefined 落 null。
+    created_at: raw.created_at == null ? null : String(raw.created_at),
   }
 }
 

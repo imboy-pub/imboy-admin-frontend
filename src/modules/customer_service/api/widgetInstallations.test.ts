@@ -123,6 +123,22 @@ describe('installation 投影熔断（A04/A06）', () => {
     expect(toWidgetInstallationList([{ id: '2', public_widget_id: 'w2' }])).toHaveLength(1)
     expect(toWidgetInstallationList(null)).toEqual([])
   })
+
+  it('created_at 按 epoch 秒 number 惯例规范化为 string；null 落 null（W4-7 回归）', () => {
+    const row = toWidgetInstallation({
+      id: '1',
+      public_widget_id: 'wgt_pub_x',
+      created_at: 1789638174,
+      allowed_origins: [],
+      branding: {},
+      status: 'active',
+    })
+    expect(row?.created_at).toBe('1789638174')
+    expect(toWidgetInstallation({ id: '2', public_widget_id: 'w', created_at: null })?.created_at).toBeNull()
+    expect(
+      toWidgetInstallation({ id: '3', public_widget_id: 'w', created_at: '2026-09-17T00:00:00Z' })?.created_at,
+    ).toBe('2026-09-17T00:00:00Z')
+  })
 })
 
 describe('接入代码只含公开标识（负例锁死）', () => {
