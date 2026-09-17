@@ -1,25 +1,31 @@
 /**
- * CSW-01：Widget HTTP 客户端（轻量 fetch，独立于 Admin axios 实例）。
+ * CSW-01R：Widget HTTP 客户端（轻量 fetch，独立于 Admin axios 实例）。
  *
- * 纪律（冻结合同）：
- * - 凭证只走 `x-cs-visit-token` 请求头；URL 查询串出现任何 token 形状直接抛错
- *   （后端对查询串 token 一律 400，客户端必须提前拦住）；
+ * 逐键对齐后端真实校验（cs_actions.erl table(widget) + cs_widget_handler）：
+ * - 每条请求正文/查询必带申报键 `organization_id`（org_source=param）；
+ * - 凭证只走 `x-cs-visit-token` 头；URL 查询串出现任何 token 形状直接抛错
+ *   （后端对查询串凭证键一律 400，客户端提前拦住）；
+ * - 服务端派生键（at/contact_id/workspace_id/origin/secret…）绝不出现客户端请求；
  * - `credentials: 'omit'`：Widget 与宿主跨源，绝不携带/依赖 Cookie；
  * - 信封 {code,msg,payload}，payload 缺失 fail-closed。
- * 桩=E2E 替身声明：真实后端联调归 CSX-01。
  */
 import {
   buildBootstrapBody,
   buildCreateSessionBody,
   buildMessagesPath,
+  buildRatingBody,
+  buildScopeQuery,
   buildSendMessageBody,
+  isValidExpectedVersion,
+  isValidRatingScore,
   toBootstrapResult,
-  toMessageListPage,
-  toSession,
+  toCreatedSession,
+  toMessageList,
+  toSessionList,
   toWidgetMessage,
   WIDGET_API_BASE,
   type BootstrapResult,
-  type MessageListPage,
+  type RequestScope,
   type WidgetMessage,
   type WidgetSession,
 } from './contract'
@@ -80,11 +86,18 @@ export class WidgetApiClient {
     return envelope.payload
   }
 
-  /** POST /bootstrap（public widget_id；Origin 头由浏览器自动携带）。 */
-  async bootstrap(widgetId: string): Promise<BootstrapResult> {
+  /**
+   * POST /bootstrap（widget_bootstrap 逐键：organization_id + public_widget_id +
+   * subject_id；Origin 头由浏览器自动携带）。响应 `secret` 即 visit token。
+   */
+  async bootstrap(body: {
+    organizationId: string
+    publicWidgetId: string
+    subjectId: string
+  }): Promise<BootstrapResult> {
     const payload = await this.requestJson(`${WIDGET_API_BASE}/bootstrap`, {
       method: 'POST',
-      body: JSON.stringify(buildBootstrapBody(widgetId)),
+      body: JSON.stringify(buildBootstrapBody(body)),
     })
     const result = toBootstrapResult(payload)
     if (result === null) throw new WidgetApiError('bootstrap 响应形状非法', 502)
@@ -92,46 +105,59 @@ export class WidgetApiClient {
     return result
   }
 
-  /** POST /sessions（携带白名单页面上下文）。 */
-  async createSession(context: { pageOrigin: string; pagePath: string }): Promise<WidgetSession> {
+  /** POST /sessions（widget_create_session：installation_id 必填）。 */
+  async createSession(scope: RequestScope): Promise<WidgetSession> {
     const payload = await this.requestJson(`${WIDGET_API_BASE}/sessions`, {
       method: 'POST',
-      body: JSON.stringify(buildCreateSessionBody(context)),
+      body: JSON.stringify(buildCreateSessionBody(scope)),
     })
-    const session = toSession(isPayloadObject(payload) ? payload.session : null)
+    const session = toCreatedSession(payload)
     if (session === null) throw new WidgetApiError('创建会话响应形状非法', 502)
     return session
   }
 
-  /** GET /sessions/:id/messages（after_id 键集分页）。 */
-  async listMessages(sessionId: string, afterId: string | null): Promise<MessageListPage> {
-    const payload = await this.requestJson(buildMessagesPath(sessionId, afterId), null)
-    return toMessageListPage(payload)
+  /** GET /sessions（widget_list_sessions：查询串 installation_id + organization_id）。 */
+  async listSessions(scope: RequestScope): Promise<WidgetSession[]> {
+    const payload = await this.requestJson(
+      `${WIDGET_API_BASE}/sessions${buildScopeQuery(scope)}`,
+      null
+    )
+    return toSessionList(payload)
   }
 
-  /** POST /sessions/:id/messages（client_msg_id 幂等）。 */
-  async sendMessage(sessionId: string, clientMsgId: string, body: string): Promise<WidgetMessage> {
+  /** GET /sessions/:id/messages（widget_history_after：after_id 键集；载荷=裸数组）。 */
+  async listMessages(sessionId: string, scope: RequestScope, afterId?: string | null): Promise<WidgetMessage[]> {
+    const payload = await this.requestJson(buildMessagesPath(sessionId, scope, afterId ?? null), null)
+    return toMessageList(payload)
+  }
+
+  /** POST /sessions/:id/messages（widget_visitor_message：client_msg_id 幂等）。 */
+  async sendMessage(
+    sessionId: string,
+    scope: RequestScope,
+    clientMsgId: string,
+    body: string
+  ): Promise<WidgetMessage> {
     const payload = await this.requestJson(
       `${WIDGET_API_BASE}/sessions/${encodeURIComponent(sessionId)}/messages`,
-      { method: 'POST', body: JSON.stringify(buildSendMessageBody(clientMsgId, body)) }
+      { method: 'POST', body: JSON.stringify(buildSendMessageBody(scope, clientMsgId, body)) }
     )
-    const message = toWidgetMessage(isPayloadObject(payload) ? payload.message : null)
+    const message = toWidgetMessage(payload)
     if (message === null) throw new WidgetApiError('发送消息响应形状非法', 502)
     return message
   }
 
-  /** POST /sessions/:id/rating（仅 closed、1..5、幂等）。 */
-  async submitRating(sessionId: string, score: number): Promise<void> {
-    if (!Number.isSafeInteger(score) || score < 1 || score > 5) {
+  /** POST /sessions/:id/rating（widget_rate：rating 1..5 + expected_version CAS）。 */
+  async submitRating(sessionId: string, scope: RequestScope, rating: number, expectedVersion: number): Promise<void> {
+    if (!isValidRatingScore(rating)) {
       throw new WidgetApiError('评分必须是 1..5 的整数', 422)
+    }
+    if (!isValidExpectedVersion(expectedVersion)) {
+      throw new WidgetApiError('缺少有效的 expected_version（评分 CAS）', 422)
     }
     await this.requestJson(`${WIDGET_API_BASE}/sessions/${encodeURIComponent(sessionId)}/rating`, {
       method: 'POST',
-      body: JSON.stringify({ score }),
+      body: JSON.stringify(buildRatingBody(scope, rating, expectedVersion)),
     })
   }
-}
-
-function isPayloadObject(payload: unknown): payload is Record<string, unknown> {
-  return typeof payload === 'object' && payload !== null && !Array.isArray(payload)
 }

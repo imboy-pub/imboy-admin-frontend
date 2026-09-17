@@ -228,6 +228,7 @@ export function CsWidgetInstallationsPage() {
 
       <EmbedCodeDialog
         installation={embedTarget}
+        organizationId={organizationId}
         onClose={() => setEmbedTarget(null)}
       />
 
@@ -504,13 +505,20 @@ function CreateInstallationDialog(props: {
   )
 }
 
-function EmbedCodeDialog(props: { installation: WidgetInstallation | null; onClose: () => void }) {
+function EmbedCodeDialog(props: {
+  installation: WidgetInstallation | null
+  organizationId: string
+  onClose: () => void
+}) {
   const [widgetOrigin, setWidgetOrigin] = useState('https://cs-widget.example.com')
   let snippet = ''
   let snippetError: string | null = null
   if (props.installation !== null) {
     try {
-      snippet = buildEmbedCode(props.installation.public_widget_id, { widgetOrigin })
+      snippet = buildEmbedCode(props.installation.public_widget_id, {
+        widgetOrigin,
+        organizationId: props.organizationId,
+      })
     } catch (error) {
       snippetError = getErrorMessage(error)
     }
@@ -521,7 +529,7 @@ function EmbedCodeDialog(props: { installation: WidgetInstallation | null; onClo
         <DialogHeader>
           <DialogTitle>接入代码（仅含公开标识，无任何 secret）</DialogTitle>
           <DialogDescription>
-            将以下代码粘贴到商家页面 &lt;body&gt; 内。public_widget_id 为公开标识，可安全入库；shop_key 不出现在接入代码中。
+            将以下代码粘贴到商家页面 &lt;body&gt; 内。public_widget_id 与 organization_id 为公开申报标识（后端仍以 installation/allowlist/令牌证明）；shop_key 不出现在接入代码中。
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">

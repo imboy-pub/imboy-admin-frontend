@@ -41,10 +41,14 @@ function iframeOf(handle: LoaderHandle): HTMLIFrameElement | null {
   return handle.shadow.querySelector('iframe[data-testid="cs-widget-iframe"]')
 }
 
-const BASE_ATTRS = { 'data-widget-id': 'wgt_pub_unit', 'data-widget-origin': 'https://cs.example.com' }
+const BASE_ATTRS = {
+  'data-org-id': '1234567890123456789',
+  'data-widget-id': 'wgt_pub_unit',
+  'data-widget-origin': 'https://cs.example.com',
+}
 
 describe('readLoaderConfig / buildWidgetUrl（A01/A04）', () => {
-  it('读取白名单 data-* 键，忽略未知键（如 data-shop-key）并只报键名', () => {
+  it('读取白名单 data-* 键（含 data-org-id），忽略未知键（如 data-shop-key）并只报键名', () => {
     const script = makeScript(document, {
       ...BASE_ATTRS,
       'data-locale': 'zh-CN',
@@ -53,6 +57,7 @@ describe('readLoaderConfig / buildWidgetUrl（A01/A04）', () => {
     })
     const read = readLoaderConfig(script)
     expect(read).not.toBeNull()
+    expect(read?.config.organizationId).toBe('1234567890123456789')
     expect(read?.config.widgetId).toBe('wgt_pub_unit')
     expect(read?.config.widgetOrigin).toBe('https://cs.example.com')
     expect(read?.config.position).toBe('bottom-left')
@@ -61,9 +66,11 @@ describe('readLoaderConfig / buildWidgetUrl（A01/A04）', () => {
     expect(JSON.stringify(read?.config)).not.toContain('SHOULD_NEVER_BE_READ')
   })
 
-  it('缺少 data-widget-id 时 fail-closed（返回 null）', () => {
-    const script = makeScript(document, { 'data-widget-origin': 'https://cs.example.com' })
-    expect(readLoaderConfig(script)).toBeNull()
+  it('缺少 data-widget-id 或 data-org-id 时 fail-closed（返回 null）', () => {
+    const noWidget = makeScript(document, { 'data-widget-origin': 'https://cs.example.com', 'data-org-id': '1' })
+    expect(readLoaderConfig(noWidget)).toBeNull()
+    const noOrg = makeScript(document, { 'data-widget-id': 'wgt_pub_unit', 'data-widget-origin': 'https://cs.example.com' })
+    expect(readLoaderConfig(noOrg)).toBeNull()
   })
 
   it('data-widget-origin 非法时 fail-closed；normalizeOriginInput 拒绝非 http(s)', () => {
@@ -76,6 +83,7 @@ describe('readLoaderConfig / buildWidgetUrl（A01/A04）', () => {
 
   it('buildWidgetUrl 拼接固定 entry path；origin 为空返回 null', () => {
     const config: LoaderConfig = {
+      organizationId: '1234567890123456789',
       widgetId: 'w',
       widgetOrigin: 'https://cs.example.com',
       widgetPath: '/widget/index.html',
@@ -230,6 +238,7 @@ describe('isFromWidgetFrame / 宿主异常零外泄（A05）', () => {
     const detached = document.implementation.createHTMLDocument('x')
     detached.body.remove()
     const script = detached.createElement('script')
+    script.setAttribute('data-org-id', '1')
     script.setAttribute('data-widget-id', 'w')
     script.setAttribute('data-widget-origin', 'https://cs.example.com')
     expect(() => mountCustomerServiceWidget(detached, script, detached.defaultView as Window)).not.toThrow()
@@ -251,7 +260,7 @@ describe('isFromWidgetFrame / 宿主异常零外泄（A05）', () => {
     try {
       const doc = document
       doc.body.innerHTML = ''
-      const script = makeScript(doc, { 'data-widget-id': 'w', 'data-widget-origin': 'https://cs.example.com', 'data-shop-key': 'fake_secret_shape_TOPSECRETVALUE' })
+      const script = makeScript(doc, { 'data-org-id': '1', 'data-widget-id': 'w', 'data-widget-origin': 'https://cs.example.com', 'data-shop-key': 'fake_secret_shape_TOPSECRETVALUE' })
       const h = mountCustomerServiceWidget(doc, script, window)
       h?.destroy()
       const joined = warns.join('\n')

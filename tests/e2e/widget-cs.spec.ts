@@ -46,15 +46,51 @@ function requireArtifacts(): { loaderJs: string; appHtml: string; appJs: string 
 
 const SESSION_ID = '72057594037927936'
 
-/** 冻结合同形状的 bootstrap 响应（pending → 由访客在 Widget 内完成同意）。 */
+/** 冻结合同形状（cs_widget_app:bootstrap_view/1）：consent_version 非空 → UI 展示同意门。 */
 const BOOTSTRAP_PAYLOAD = {
-  visit_token: 'e2e-visit-token-stub',
-  brand: { display_name: 'E2E 商城客服', primary_color: '#2563eb' },
-  notice: { version: 'v1', state: 'pending' },
+  installation_id: '72057594037928001',
+  public_widget_id: 'wgt_pub_e2e',
+  display_name: 'E2E 商城客服',
+  consent_version: 'v1',
+  branding: { display_name: 'E2E 商城客服', primary_color: '#2563eb', welcome_text: '您好' },
+  contact_id: '72057594037928002',
+  secret: 'e2e-visit-token-stub',
+  expires_at: 1789600000000,
+  reused: false,
+}
+
+const ORG_ID = '1234567890123456789'
+const INSTALLATION_ID = '72057594037928001'
+const CONTACT_ID = '72057594037928002'
+
+/** create_session 响应投影（cs_widget_session_app）。 */
+const SESSION_PAYLOAD = {
+  session_id: SESSION_ID,
+  conversation_id: '72057594037927937',
+  contact_id: CONTACT_ID,
+  workspace_id: '72057594037927938',
+  installation_id: INSTALLATION_ID,
+  status: 'queued',
 }
 
 function envelope(payload: unknown): string {
   return JSON.stringify({ code: 0, msg: 'success', payload })
+}
+
+/** message row（message_fields/0 投影；读面是 body_cipher——D5 为后端缺口）。 */
+function messageRow(id: string, senderType: string, clientMsgId: string | null): Record<string, unknown> {
+  return {
+    id,
+    organization_id: ORG_ID,
+    workspace_id: '72057594037927938',
+    conversation_id: '72057594037927937',
+    sender_type: senderType,
+    sender_contact_id: senderType === 'contact' ? CONTACT_ID : null,
+    client_msg_id: clientMsgId,
+    body_cipher: 'AAEq..stub',
+    version: 1,
+    created_at: '2026-09-16T00:00:00Z',
+  }
 }
 
 type HostFixtureOptions = {
@@ -72,7 +108,7 @@ type StubOptions = {
 function hostFixtureHtml(origin: string, options: HostFixtureOptions = {}): string {
   const { scriptCount = 1, extraAttrs = '' } = options
   const scripts = Array.from({ length: scriptCount }, () =>
-    `  <script async src="/loader.js" data-widget-id="wgt_pub_e2e" data-widget-origin="${origin}"${extraAttrs}></script>`
+    `  <script async src="/loader.js" data-widget-id="wgt_pub_e2e" data-org-id="1234567890123456789" data-widget-origin="${origin}"${extraAttrs}></script>`
   ).join('\n')
   return [
     '<!doctype html>',
@@ -129,46 +165,45 @@ async function stubWidgetRoutes(
     }
     void route.fulfill({ contentType: 'application/json', body: envelope(BOOTSTRAP_PAYLOAD) })
   })
-  await page.route('**/api/v1/cs/widget/sessions', (route) => {
+  // POST=建会话 / GET=访客会话列表（同路径双动作；带查询串 → glob 用 * 收尾）
+  await page.route('**/api/v1/cs/widget/sessions*', (route) => {
     record(route.request())
     const request = route.request()
     if (request.method() === 'POST') {
-      void route.fulfill({
-        contentType: 'application/json',
-        body: envelope({ session: { id: SESSION_ID, status: 'active' } }),
-      })
-      return
-    }
-    void route.fulfill({ contentType: 'application/json', body: envelope({ sessions: [] }) })
-  })
-  await page.route('**/api/v1/cs/widget/sessions/*/messages', (route) => {
-    record(route.request())
-    const request = route.request()
-    if (request.method() === 'POST') {
-      const sent = request.postDataJSON() as { client_msg_id: string; body: string }
-      void route.fulfill({
-        contentType: 'application/json',
-        body: envelope({ message: { id: '900000000000000001', role: 'visitor', body: sent.body, client_msg_id: sent.client_msg_id, created_at: '2026-09-16T00:00:00Z' } }),
-      })
+      void route.fulfill({ contentType: 'application/json', body: envelope(SESSION_PAYLOAD) })
       return
     }
     void route.fulfill({
       contentType: 'application/json',
-      body: envelope({ messages: [], next_after_id: null }),
+      body: envelope([{ id: SESSION_ID, status: 'active', version: 2 }]),
     })
+  })
+  await page.route('**/api/v1/cs/widget/sessions/*/messages*', (route) => {
+    record(route.request())
+    const request = route.request()
+    if (request.method() === 'POST') {
+      const sent = request.postDataJSON() as { client_msg_id: string }
+      void route.fulfill({
+        contentType: 'application/json',
+        body: envelope(messageRow('72057594037927940', 'contact', sent.client_msg_id)),
+      })
+      return
+    }
+    void route.fulfill({ contentType: 'application/json', body: envelope([]) })
   })
   await page.route('**/api/v1/cs/widget/sessions/*/rating', (route) => {
     record(route.request())
+    const sent = route.request().postDataJSON() as { rating: number }
     void route.fulfill({
       contentType: 'application/json',
-      body: envelope({ rating: { score: (route.request().postDataJSON() as { score: number }).score } }),
+      body: envelope({ id: SESSION_ID, status: 'closed', rating: sent.rating, version: 3 }),
     })
   })
   // SSE：静态完成流（读完即触发 Last-Event-ID 重连，便于断言补偿头）；
   // 传数组时第 2 次连接起切换响应体（如 active → closed）
   const sseBodies = Array.isArray(options.sseBody) ? options.sseBody : [options.sseBody ?? defaultSseBody()]
   let sseConnections = 0
-  await page.route('**/api/v1/cs/widget/sessions/*/events', (route) => {
+  await page.route('**/api/v1/cs/widget/sessions/*/events*', (route) => {
     record(route.request())
     const body = sseBodies[Math.min(sseConnections, sseBodies.length - 1)]
     sseConnections += 1
@@ -178,15 +213,20 @@ async function stubWidgetRoutes(
   return { apiRequests }
 }
 
+/** state 帧数据 = cs_widget_handler:state_data/2（resource + session_id + status）。 */
+function stateFrame(status: string): string {
+  return `data: {"resource":"cs.session","session_id":"${SESSION_ID}","status":"${status}"}`
+}
+
 function defaultSseBody(): string {
   return [
     'retry: 3000',
     'event: state',
-    `data: {"session":{"id":"${SESSION_ID}","status":"active"}}`,
+    stateFrame('active'),
     '',
     'id: 101',
     'event: message',
-    'data: {"id":"800000000000000002","role":"agent","body":"您好，请问有什么可以帮您？"}',
+    `data: {"id":"72057594037927941","conversation_id":"72057594037927937","created_at":"2026-09-16T00:00:00Z"}`,
     '',
     '',
   ].join('\n')

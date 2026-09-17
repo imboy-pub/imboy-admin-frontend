@@ -10,7 +10,17 @@
  * - 发送消息用 client_msg_id 幂等（pending → sent/failed，重试沿用同一 id）；
  * - 评分仅 closed 后开放，1..5，提交一次后幂等（重复事件不改变状态）。
  */
-import { isValidRatingScore, type WidgetBrand, type WidgetNotice, type WidgetSession } from './contract'
+import { isValidRatingScore, type WidgetBrand, type WidgetSession } from './contract'
+
+/**
+ * 合成同意/提示门状态（CSW-01R：bootstrap 响应不再携带独立 notice 对象——
+ * consent_version 非空 ⇒ 门开启（pending），空 ⇒ 无门（accepted）；
+ * 'rejected' 保留给服务端裁定的拒绝语义）。
+ */
+export type WidgetNotice = {
+  version: string
+  state: 'accepted' | 'pending' | 'rejected'
+}
 
 export type ChatPhase =
   | 'awaiting-context'
@@ -62,7 +72,7 @@ export type ChatEvent =
   | { type: 'rating_failed'; message: string }
   | { type: 'retry' }
 
-export function initialChatState(brand: WidgetBrand = { displayName: '在线客服', primaryColor: null }): ChatState {
+export function initialChatState(brand: WidgetBrand = { displayName: '在线客服', primaryColor: null, welcomeText: null }): ChatState {
   return {
     phase: 'awaiting-context',
     brand,

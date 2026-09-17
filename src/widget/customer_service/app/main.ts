@@ -1,30 +1,65 @@
 /**
- * CSW-01：Widget iframe 聊天应用入口（独立 entry，无 React/Router/Admin 依赖）。
+ * CSW-01R：Widget iframe 聊天应用入口（独立 entry，无 React/Router/Admin 依赖）。
  *
- * 流程：loader postMessage 握手（白名单上下文）→ bootstrap（visit token 存内存）
- * → notice/consent → 创建会话 → 历史 after_id + SSE（Last-Event-ID 补偿）
- * → 发送（client_msg_id 幂等）→ closed 后评分（1..5 幂等）。
+ * 流程（逐键对齐后端真实校验，cs_actions table(widget)）：
+ * loader postMessage 握手（organization_id + public widget_id 白名单上下文）
+ * → bootstrap（organization_id/public_widget_id/subject_id → visit token=secret、
+ *   installation_id、consent_version、contact_id）
+ * → consent（consent_version 非空才展示同意门；拒绝不产生任何持久化动作）
+ * → POST /sessions（organization_id+installation_id）
+ * → 历史 after_id 键集（裸数组载荷）+ SSE（Last-Event-ID 补偿）
+ * → 发送（installation_id+client_msg_id 幂等）
+ * → closed 后评分（rating 1..5 + expected_version CAS，版本取自 list_sessions）。
  *
  * 安全：
  * - 与 loader 的 postMessage 只接受 `event.source === window.parent` 的消息，
- *   且逐字校验 envelope；首个可信消息后锁定 host origin，后续消息 origin 必须一致；
+ *   逐字校验 envelope；首个可信消息后锁定 host origin；
  * - visit token 只保存在内存（绝不写 URL/storage/Cookie）；
+ * - subject_id 每次页面加载随机生成（不持久化——与 A5 零存储纪律一致；
+ *   跨刷新 contact 连续性属设计取舍，见报告）；
  * - 面板不可见时收到坐席消息 → 通过 loader 协议上报未读数。
- * 桩=E2E 替身声明：真实后端联调归 CSX-01。
  */
 import { initialChatState, reduceChat, type ChatMessage, type ChatState } from './chatMachine'
-import { buildSsePath, toWidgetMessage, type WidgetMessage } from './contract'
-import { WidgetEventStream, type StreamStatus } from './eventStream'
+import {
+  buildSsePath,
+  isValidExpectedVersion,
+  toWidgetMessage,
+  type BootstrapResult,
+  type RequestScope,
+  type WidgetMessage,
+} from './contract'
+import { WidgetEventStream, type SseEvent, type StreamStatus } from './eventStream'
 import { createChatUi } from './ui'
 import { parseHostToWidget, WIDGET_MESSAGE_SOURCE } from '../protocol'
 import { WidgetApiClient } from './widgetApi'
 
-type HostContext = { widgetId: string; locale: string; pageOrigin: string; pagePath: string }
+type HostContext = { organizationId: string; widgetId: string; locale: string; pageOrigin: string; pagePath: string }
 
-function newClientMsgId(): string {
+const CIPHER_PLACEHOLDER = '[加密消息：明文读面未开放（后端缺口 D5）]'
+
+function newId(): string {
   const cryptoObj = typeof crypto !== 'undefined' ? crypto : undefined
   if (cryptoObj && typeof cryptoObj.randomUUID === 'function') return cryptoObj.randomUUID()
   return `cm-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`
+}
+
+/** 访客行/坐席行 → 聊天视图（sender_type 决定角色；cipher 缺明文用占位）。 */
+function toChatMessage(message: WidgetMessage, selfContactId: string): ChatMessage {
+  const role: ChatMessage['role'] =
+    message.senderType === 'contact'
+      ? 'visitor'
+      : message.senderType === 'business_identity'
+        ? 'agent'
+        : 'system'
+  const isSelf = message.senderType === 'contact' && message.senderContactId === selfContactId
+  return {
+    key: `srv-${message.id}`,
+    id: message.id,
+    clientMsgId: message.clientMsgId,
+    role: isSelf || role === 'visitor' ? 'visitor' : role,
+    body: message.body ?? CIPHER_PLACEHOLDER,
+    status: 'sent',
+  }
 }
 
 function boot(): void {
@@ -34,9 +69,14 @@ function boot(): void {
   let state: ChatState = initialChatState()
   let context: HostContext | null = null
   let trustedHostOrigin: string | null = null
+  let scope: RequestScope | null = null
+  let selfContact = ''
   let stream: WidgetEventStream | null = null
   let panelOpen = true
   let unread = 0
+  let lastCursor = '0'
+  // subject_id：客户端生成的访客主体（bootstrap 必填；内存内一次，不持久化）
+  const subjectId = newId()
   const ui = createChatUi(rootElement, 'zh-CN', {
     onConsentAccept: () => void onConsentAccept(),
     onConsentDecline: () => dispatch({ type: 'consent_declined' }),
@@ -80,6 +120,7 @@ function boot(): void {
         if (trustedHostOrigin === null) trustedHostOrigin = event.origin
         if (context !== null) return
         context = {
+          organizationId: message.organizationId,
           widgetId: message.widgetId,
           locale: message.locale,
           pageOrigin: message.page.origin,
@@ -90,9 +131,7 @@ function boot(): void {
       }
       if (message.type === 'panel') {
         panelOpen = message.open
-        if (panelOpen) {
-          unread = 0
-        }
+        if (panelOpen) unread = 0
         reportUnread()
       }
     } catch {
@@ -104,9 +143,20 @@ function boot(): void {
     if (context === null) return
     dispatch({ type: 'bootstrap_started' })
     try {
-      const result = await api.bootstrap(context.widgetId)
-      dispatch({ type: 'bootstrap_succeeded', brand: result.brand, notice: result.notice })
-      if (result.notice.state === 'accepted') await ensureSession()
+      const result: BootstrapResult = await api.bootstrap({
+        organizationId: context.organizationId,
+        publicWidgetId: context.widgetId,
+        subjectId,
+      })
+      scope = { organizationId: context.organizationId, installationId: result.installationId }
+      selfContact = result.contactId
+      // 同意门：installation 配置了 consent_version 才展示（空版本 = 无门）
+      const notice =
+        result.consentVersion.length > 0
+          ? { version: result.consentVersion, state: 'pending' as const }
+          : { version: '', state: 'accepted' as const }
+      dispatch({ type: 'bootstrap_succeeded', brand: result.branding, notice })
+      if (notice.state === 'accepted') await ensureSession()
     } catch (error) {
       dispatch({ type: 'bootstrap_failed', message: error instanceof Error ? error.message : 'bootstrap 失败' })
       postToHost({ source: WIDGET_MESSAGE_SOURCE, type: 'status', state: 'error' })
@@ -119,12 +169,11 @@ function boot(): void {
   }
 
   async function ensureSession(): Promise<void> {
-    if (context === null || state.session !== null) return
+    if (scope === null || state.session !== null) return
     try {
-      const session = await api.createSession({ pageOrigin: context.pageOrigin, pagePath: context.pagePath })
+      const session = await api.createSession(scope)
       dispatch({ type: 'session_created', session })
-      const page = await api.listMessages(session.id, null)
-      dispatch({ type: 'messages_loaded', messages: page.messages.map(toChatMessage) })
+      await refreshHistory()
       startStream(session.id)
     } catch (error) {
       dispatch({ type: 'bootstrap_failed', message: error instanceof Error ? error.message : '创建会话失败' })
@@ -132,44 +181,61 @@ function boot(): void {
     }
   }
 
-  function toChatMessage(message: WidgetMessage): ChatMessage {
-    return {
-      key: `srv-${message.id}`,
-      id: message.id,
-      clientMsgId: message.clientMsgId,
-      role: message.role,
-      body: message.body,
-      status: 'sent',
+  function selfContactId(): string {
+    return selfContact
+  }
+
+  /** 历史 after_id 键集增量（cursor = 消息 id 十进制字符串；SSE 补偿同源）。 */
+  async function refreshHistory(): Promise<void> {
+    if (state.session === null || scope === null) return
+    const page = await api.listMessages(state.session.id, scope, lastCursor === '0' ? null : lastCursor)
+    let agentDelta = 0
+    for (const row of page) {
+      const before = state.messages.length
+      dispatch({ type: 'messages_loaded', messages: [toChatMessage(row, selfContactId())] })
+      if (state.messages.length > before && row.senderType === 'business_identity') agentDelta += 1
+      if (BigInt(row.id) > BigInt(lastCursor)) lastCursor = row.id
+    }
+    if (agentDelta > 0 && !panelOpen) {
+      unread += agentDelta
+      reportUnread()
     }
   }
 
   function startStream(sessionId: string): void {
     stream?.stop()
+    if (scope === null) return
     stream = new WidgetEventStream({
-      path: buildSsePath(sessionId),
+      path: buildSsePath(sessionId, scope),
       token: () => api.currentToken() ?? '',
-      onEvent: (event) => handleSseEvent(event),
+      onEvent: (event) => void handleSseEvent(event),
       onStatus: (status) => reportStatus(status),
     })
     stream.start()
   }
 
-  function handleSseEvent(event: { event: string; data: string }): void {
+  async function handleSseEvent(event: SseEvent): Promise<void> {
     try {
-      const data = JSON.parse(event.data) as unknown
+      let data: unknown
+      try {
+        data = JSON.parse(event.data) as unknown
+      } catch {
+        return
+      }
       if (event.event === 'state') {
-        const session = (data as { session?: { status?: unknown } } | null)?.session
-        if (typeof session?.status === 'string') dispatch({ type: 'session_status', status: session.status })
+        // state_data：{resource:'cs.session', session_id, status}
+        const status = (data as { status?: unknown } | null)?.status
+        if (typeof status === 'string') dispatch({ type: 'session_status', status })
         return
       }
       if (event.event === 'message') {
-        const message = toWidgetMessage(data)
-        if (message === null) return
-        dispatch({ type: 'message_received', message: toChatMessage(message) })
-        if (message.role === 'agent') {
-          if (!panelOpen) unread += 1
-          reportUnread()
+        // 消息事件帧只携带游标/标识（内容经历史读面拉取——合同如此）
+        const row = toWidgetMessage(data)
+        if (row !== null && BigInt(row.id) > BigInt(lastCursor)) {
+          lastCursor = row.id
         }
+        if (event.id !== null && BigInt(event.id) > BigInt(lastCursor)) lastCursor = event.id
+        await refreshHistory()
       }
     } catch {
       /* 非法事件帧忽略 */
@@ -182,13 +248,14 @@ function boot(): void {
       await ensureSession()
     }
     const session = state.session
-    if (session === null) return
-    const clientMsgId = newClientMsgId()
+    if (session === null || scope === null) return
+    const clientMsgId = newId()
     const key = `local-${clientMsgId}`
     dispatch({ type: 'message_optimistic', key, clientMsgId, body })
     try {
-      const confirmed = await api.sendMessage(session.id, clientMsgId, body)
+      const confirmed = await api.sendMessage(session.id, scope, clientMsgId, body)
       dispatch({ type: 'message_confirmed', key, id: confirmed.id })
+      if (BigInt(confirmed.id) > BigInt(lastCursor)) lastCursor = confirmed.id
     } catch {
       dispatch({ type: 'message_failed', key })
     }
@@ -196,11 +263,11 @@ function boot(): void {
 
   async function retryMessage(key: string): Promise<void> {
     const message = state.messages.find((m) => m.key === key)
-    if (message === undefined || state.session === null) return
-    const clientMsgId = message.clientMsgId ?? newClientMsgId()
+    if (message === undefined || state.session === null || scope === null) return
+    const clientMsgId = message.clientMsgId ?? newId()
     dispatch({ type: 'message_optimistic', key, clientMsgId, body: message.body })
     try {
-      const confirmed = await api.sendMessage(state.session.id, clientMsgId, message.body)
+      const confirmed = await api.sendMessage(state.session.id, scope, clientMsgId, message.body)
       dispatch({ type: 'message_confirmed', key, id: confirmed.id })
     } catch {
       dispatch({ type: 'message_failed', key })
@@ -208,12 +275,24 @@ function boot(): void {
   }
 
   async function submitRating(score: number): Promise<void> {
-    if (state.session === null) return
+    if (state.session === null || scope === null) return
+    // expected_version（评分 CAS）取自访客会话列表视图（create 响应不携带）
+    let expectedVersion: number
+    try {
+      const sessions = await api.listSessions(scope)
+      expectedVersion = sessions.find((s) => s.id === state.session?.id)?.version ?? 0
+    } catch {
+      expectedVersion = 0
+    }
+    if (!isValidExpectedVersion(expectedVersion)) {
+      dispatch({ type: 'rating_failed', message: '无法取得会话版本（expected_version）' })
+      return
+    }
     dispatch({ type: 'rating_submitted', score })
     try {
-      await api.submitRating(state.session.id, score)
+      await api.submitRating(state.session.id, scope, score, expectedVersion)
     } catch (error) {
-      // 幂等语义：评分提交失败允许重试（phase 保持 closed-rating，重试按钮仍在）
+      // 幂等语义：评分提交失败允许重试（phase 保持 closed-rating，重试入口仍在）
       dispatch({ type: 'rating_failed', message: error instanceof Error ? error.message : '评分提交失败' })
     }
   }

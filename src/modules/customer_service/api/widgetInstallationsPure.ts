@@ -118,16 +118,30 @@ export function isValidPublicWidgetId(value: string): boolean {
   return /^[A-Za-z0-9_-]{1,64}$/.test(value)
 }
 
+/** organization_id（TSID 十进制串）形状校验——widget 面每条请求的必填申报键。 */
+export function isValidOrganizationId(value: string): boolean {
+  return /^[0-9]{1,20}$/.test(value) && Number(value) > 0
+}
+
 /**
- * 生成商家接入代码：只含 script 标签 + public widget_id（可另带 locale/position）。
+ * 生成商家接入代码：script 标签 + public widget_id + organization_id
+ * （widget 面每条请求的必填申报键，org_source=param）。
  * 绝不包含 shop_key / 签名 secret / visit token——由单测负例锁死。
  */
 export function buildEmbedCode(
   publicWidgetId: string,
-  options: { widgetOrigin: string; locale?: string | null; position?: string | null }
+  options: {
+    widgetOrigin: string
+    organizationId: string
+    locale?: string | null
+    position?: string | null
+  }
 ): string {
   if (!isValidPublicWidgetId(publicWidgetId)) {
     throw new Error('public_widget_id 形状非法，拒绝生成接入代码')
+  }
+  if (!isValidOrganizationId(options.organizationId)) {
+    throw new Error('organization_id 形状非法，拒绝生成接入代码')
   }
   const origin = originOrNull(options.widgetOrigin)
   if (origin === null) throw new Error('Widget 域名非法，拒绝生成接入代码')
@@ -135,6 +149,7 @@ export function buildEmbedCode(
     'async',
     `src="${origin}/loader.js"`,
     `data-widget-id="${publicWidgetId}"`,
+    `data-org-id="${options.organizationId}"`,
   ]
   if (typeof options.locale === 'string' && /^[A-Za-z-]{2,10}$/.test(options.locale)) {
     attrs.push(`data-locale="${options.locale}"`)

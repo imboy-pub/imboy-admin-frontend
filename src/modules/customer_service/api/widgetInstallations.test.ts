@@ -11,6 +11,7 @@ import { afterEach, describe, expect, it } from 'bun:test'
 import client from '@/services/api/client'
 import {
   buildEmbedCode,
+  isValidOrganizationId,
   isValidPublicWidgetId,
   parseAllowedOriginsInput,
   toOneTimeSecret,
@@ -131,21 +132,29 @@ describe('installation 投影熔断（A04/A06）', () => {
 })
 
 describe('接入代码只含公开标识（负例锁死）', () => {
-  it('embed code 只含 script + public id + origin，绝无 secret', () => {
-    const code = buildEmbedCode('wgt_pub_abc123', { widgetOrigin: 'https://cs.example.com', locale: 'zh-CN', position: 'bottom-left' })
+  const EMBED = { widgetOrigin: 'https://cs.example.com', organizationId: '1234567890123456789' }
+  it('embed code 逐键：script + data-widget-id + data-org-id（无 secret）', () => {
+    const code = buildEmbedCode('wgt_pub_abc123', { ...EMBED, locale: 'zh-CN', position: 'bottom-left' })
     expect(code).toContain('<script async')
     expect(code).toContain('src="https://cs.example.com/loader.js"')
     expect(code).toContain('data-widget-id="wgt_pub_abc123"')
+    // organization_id 是 widget 面（org_source=param）必填申报键，随接入代码携带
+    expect(code).toContain('data-org-id="1234567890123456789"')
     expect(code).toContain('data-position="bottom-left"')
     expect(code).not.toMatch(/shop_key|shop-key|secret|token|sk_live|signature/i)
   })
 
-  it('非法 public_widget_id / 非法 origin 拒绝生成（防注入）', () => {
-    expect(() => buildEmbedCode('wgt"><script>alert(1)</script>', { widgetOrigin: 'https://cs.example.com' })).toThrow()
-    expect(() => buildEmbedCode('wgt_pub_ok', { widgetOrigin: 'javascript:alert(1)' })).toThrow()
-    expect(() => buildEmbedCode('wgt_pub_ok', { widgetOrigin: 'https://cs.example.com/path' })).toThrow()
+  it('非法 public_widget_id / organization_id / origin 拒绝生成（防注入）', () => {
+    expect(() => buildEmbedCode('wgt"><script>alert(1)</script>', EMBED)).toThrow()
+    expect(() => buildEmbedCode('wgt_pub_ok', { ...EMBED, organizationId: 'abc' })).toThrow()
+    expect(() => buildEmbedCode('wgt_pub_ok', { ...EMBED, organizationId: '' })).toThrow()
+    expect(() => buildEmbedCode('wgt_pub_ok', { widgetOrigin: 'javascript:alert(1)', organizationId: '1' })).toThrow()
+    expect(() => buildEmbedCode('wgt_pub_ok', { widgetOrigin: 'https://cs.example.com/path', organizationId: '1' })).toThrow()
     expect(isValidPublicWidgetId('wgt_pub_ok')).toBe(true)
     expect(isValidPublicWidgetId('bad id')).toBe(false)
+    expect(isValidOrganizationId('1234567890123456789')).toBe(true)
+    expect(isValidOrganizationId('0')).toBe(false)
+    expect(isValidOrganizationId('12a')).toBe(false)
   })
 
   it('allowed_origins 解析：拒通配/路径/非 http(s)，去重', () => {

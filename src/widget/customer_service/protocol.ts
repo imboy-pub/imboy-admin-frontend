@@ -12,8 +12,11 @@
 
 export const WIDGET_MESSAGE_SOURCE = 'imboy-cs-widget' as const
 
-/** loader 支持的 data-* 配置键（不含 `data-` 前缀，kebab-case），全部为 PUBLIC 标识。 */
-export const LOADER_DATA_KEYS = ['widget-id', 'widget-origin', 'widget-path', 'locale', 'position'] as const
+/** loader 支持的 data-* 配置键（不含 `data-` 前缀，kebab-case），全部为 PUBLIC 标识。
+ * `org-id`：organization_id 是 widget 面每条请求的必填申报参数（cs_actions
+ * org_source=param → cs_http:org_id 取查询/正文 `organization_id`），由接入代码
+ * 携带、服务端仍以 installation/allowlist/令牌 digest fail-closed 证明。 */
+export const LOADER_DATA_KEYS = ['org-id', 'widget-id', 'widget-origin', 'widget-path', 'locale', 'position'] as const
 
 export type LoaderDataKey = (typeof LOADER_DATA_KEYS)[number]
 
@@ -21,10 +24,11 @@ export type WidgetConnectionState = 'online' | 'offline' | 'error'
 
 export type WidgetPosition = 'bottom-right' | 'bottom-left'
 
-/** loader → iframe：宿主白名单上下文（仅页面 origin + path）。 */
+/** loader → iframe：宿主白名单上下文（页面 origin + path + 接入申报标识）。 */
 export type HostContextMessage = {
   source: typeof WIDGET_MESSAGE_SOURCE
   type: 'host-context'
+  organizationId: string
   widgetId: string
   locale: string
   page: { origin: string; path: string }
@@ -85,6 +89,8 @@ export function parseHostToWidget(data: unknown): HostToWidgetMessage | null {
   if (data.type === 'host-context') {
     const page = isPlainObject(data.page) ? data.page : null
     if (
+      typeof data.organizationId === 'string' &&
+      data.organizationId.length > 0 &&
       typeof data.widgetId === 'string' &&
       data.widgetId.length > 0 &&
       typeof data.locale === 'string' &&
@@ -95,6 +101,7 @@ export function parseHostToWidget(data: unknown): HostToWidgetMessage | null {
       return {
         source: WIDGET_MESSAGE_SOURCE,
         type: 'host-context',
+        organizationId: data.organizationId,
         widgetId: data.widgetId,
         locale: data.locale,
         page: { origin: page.origin, path: page.path },

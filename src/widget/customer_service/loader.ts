@@ -31,6 +31,7 @@ const DEFAULT_LOCALE = 'zh-CN'
 const MESSAGE_SOURCE = 'imboy-cs-widget'
 
 export type LoaderConfig = {
+  organizationId: string
   widgetId: string
   widgetOrigin: string
   widgetPath: string
@@ -82,7 +83,8 @@ export function readLoaderConfig(el: Element): { config: LoaderConfig; ignoredKe
     picked[key] = attr.value
   }
   const widgetId = (picked['widget-id'] ?? '').trim()
-  if (widgetId.length === 0) return null
+  const organizationId = (picked['org-id'] ?? '').trim()
+  if (widgetId.length === 0 || organizationId.length === 0) return null
   const originRaw = picked['widget-origin']
   const origin = typeof originRaw === 'string' ? normalizeOriginInput(originRaw) : null
   if (originRaw !== undefined && origin === null) return null
@@ -91,6 +93,7 @@ export function readLoaderConfig(el: Element): { config: LoaderConfig; ignoredKe
   const position: WidgetPosition = picked.position === 'bottom-left' ? 'bottom-left' : 'bottom-right'
   return {
     config: {
+      organizationId,
       widgetId,
       widgetOrigin: origin ?? '',
       widgetPath: path,
@@ -304,6 +307,7 @@ function sendHostContext(win: Window, config: LoaderConfig, state: WidgetState):
       {
         source: MESSAGE_SOURCE,
         type: 'host-context',
+        organizationId: config.organizationId,
         widgetId: config.widgetId,
         locale: config.locale,
         page: { origin: win.location.origin, path: win.location.pathname },
