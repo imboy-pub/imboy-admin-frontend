@@ -18,9 +18,15 @@ import { loginAsAdmin, requireAdminCredentials } from './support/adminAuth'
  *   凭据缺失时本文件全部 skip（skipped != passed）。
  */
 test.describe('组织治理面（ORG-14）', () => {
-  async function openPage(page: import('@playwright/test').Page, path: string): Promise<boolean> {
+  async function openPage(
+    page: import('@playwright/test').Page,
+    path: string,
+    pageMarker = '[data-page="organization-list"]'
+  ): Promise<boolean> {
+    // pageMarker：目标路由渲染后的页面标记；详情直链传 organization-detail
+    // （首次真实执行时发现助手写死列表页标记，详情路由永远等不到——spec 笔误）。
     await page.goto(path)
-    const pageRoot = page.locator('[data-page="organization-list"]')
+    const pageRoot = page.locator(pageMarker)
     const forbidden = page.locator('text=无权访问')
     await expect(pageRoot.or(forbidden).first()).toBeVisible({ timeout: 15_000 })
     return !(await forbidden.isVisible())
@@ -48,7 +54,7 @@ test.describe('组织治理面（ORG-14）', () => {
   test('组织详情直链：无 org 成员事实时呈现受限/错误态而非伪成功', async ({ page }) => {
     const credentials = requireAdminCredentials()
     await loginAsAdmin(page, credentials)
-    const reachable = await openPage(page, '/organizations/1234567890123456789')
+    const reachable = await openPage(page, '/organizations/1234567890123456789', '[data-page="organization-detail"]')
 
     if (!reachable) {
       test.info().annotations.push({ type: 'note', description: '当前账号无 workspaces:read，直链门生效' })

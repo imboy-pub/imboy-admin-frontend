@@ -7,6 +7,9 @@
  *
  * 会话边界（ORG-A14）：v1 面要求用户 Bearer token；admin 控制台会话（adm cookie）
  * 不携带该凭据时后端按 401 拒绝。本模块不做、也不引入任何身份冒充。
+ * 该 401 属管理端**常态受限场景**：全部请求跳过全局「401 → 登出」事件
+ * （SKIP_AUTH_EXPIRED_EVENT_FLAG），由页面 restricted 态呈现（G07 E2E 实测抓出：
+ * 缺此标志会把整个管理会话踢回 /login，组织页受限态永远无法呈现）。
  *
  * 纪律：
  * - 复用全局 client（big-integer safe JSON 解析 / loading / 401 事件），
@@ -18,7 +21,7 @@
  *   invitation command（C11/C18 术语冻结）。
  */
 import client from '@/services/api/client'
-import { BASE_URL } from '@/services/api/client'
+import { BASE_URL, SKIP_AUTH_EXPIRED_EVENT_FLAG } from '@/services/api/client'
 import { requireApiPayload } from '@/services/api/responseAdapter'
 import type { ApiResponse } from '@/types/api'
 import type { EntityId } from '@/types/common'
@@ -47,6 +50,15 @@ import {
 /** v1 App 面基址：由公共 client 的 /api/adm 基址派生（生产占位符同源替换）。 */
 export const ORG_V1_BASE = BASE_URL.replace(/\/api\/adm\/?$/, '/api/v1')
 
+/**
+ * 组织模块全部请求的共用配置：v1 App 面 + 跳过全局 401 登出事件。
+ * 管理员本无 App 面会话，401 是预期受限态而非管理会话失效。
+ */
+const V1_REQUEST = {
+  baseURL: ORG_V1_BASE,
+  [SKIP_AUTH_EXPIRED_EVENT_FLAG]: true,
+} as const
+
 function requireNonEmptyId(value: EntityId, label: string): EntityId {
   const id = typeof value === 'string' ? value.trim() : ''
   if (id.length === 0) {
@@ -67,7 +79,7 @@ function orgPath(organizationId: EntityId, suffix = ''): string {
 /** GET /api/v1/organizations/mine —— 当前用户（active 成员）视角的组织分页。 */
 export async function getMyOrganizations(page: number, size: number): Promise<OrgPage<OrganizationSummary>> {
   const response = await client.get<ApiResponse<unknown>>('/organizations/mine', {
-    baseURL: ORG_V1_BASE,
+    ...V1_REQUEST,
     params: { page, size },
   })
   return normalizeOrgPage(
@@ -79,31 +91,31 @@ export async function getMyOrganizations(page: number, size: number): Promise<Or
 
 /** POST /api/v1/organizations —— 以当前用户身份创建组织（创建者成为 owner）。 */
 export async function createOrganization(name: string): Promise<OrganizationSummary> {
-  const response = await client.post<ApiResponse<unknown>>('/organizations', { name }, { baseURL: ORG_V1_BASE })
+  const response = await client.post<ApiResponse<unknown>>('/organizations', { name }, V1_REQUEST)
   return toOrganizationSummary(requireApiPayload(response.data, 'POST organizations'))
 }
 
 /** GET /api/v1/organizations/:id —— 详情（仅成员可读；响应含 member_role 事实）。 */
 export async function getOrganizationDetail(organizationId: EntityId): Promise<OrganizationSummary> {
-  const response = await client.get<ApiResponse<unknown>>(orgPath(organizationId), { baseURL: ORG_V1_BASE })
+  const response = await client.get<ApiResponse<unknown>>(orgPath(organizationId), V1_REQUEST)
   return toOrganizationSummary(requireApiPayload(response.data, 'GET organization detail'))
 }
 
 /** PATCH /api/v1/organizations/:id —— 改名（owner/admin；archived 409）。 */
 export async function updateOrganizationName(organizationId: EntityId, name: string): Promise<OrganizationSummary> {
-  const response = await client.patch<ApiResponse<unknown>>(orgPath(organizationId), { name }, { baseURL: ORG_V1_BASE })
+  const response = await client.patch<ApiResponse<unknown>>(orgPath(organizationId), { name }, V1_REQUEST)
   return toOrganizationSummary(requireApiPayload(response.data, 'PATCH organization'))
 }
 
 /** POST /api/v1/organizations/:id/archive —— 归档（owner/admin，幂等 command，C16）。 */
 export async function archiveOrganization(organizationId: EntityId): Promise<OrganizationSummary> {
-  const response = await client.post<ApiResponse<unknown>>(orgPath(organizationId, '/archive'), {}, { baseURL: ORG_V1_BASE })
+  const response = await client.post<ApiResponse<unknown>>(orgPath(organizationId, '/archive'), {}, V1_REQUEST)
   return toOrganizationSummary(requireApiPayload(response.data, 'POST organization archive'))
 }
 
 /** POST /api/v1/organizations/:id/restore —— 恢复（owner/admin，幂等，archived 态唯一放行写）。 */
 export async function restoreOrganization(organizationId: EntityId): Promise<OrganizationSummary> {
-  const response = await client.post<ApiResponse<unknown>>(orgPath(organizationId, '/restore'), {}, { baseURL: ORG_V1_BASE })
+  const response = await client.post<ApiResponse<unknown>>(orgPath(organizationId, '/restore'), {}, V1_REQUEST)
   return toOrganizationSummary(requireApiPayload(response.data, 'POST organization restore'))
 }
 
@@ -113,14 +125,14 @@ export async function restoreOrganization(organizationId: EntityId): Promise<Org
  * facts + 聚合 blockers；任何缺域/超时 → 503 DEPENDENCY_FACTS_UNAVAILABLE fail-closed。
  */
 export async function getDeletionPreflight(): Promise<DeletionPreflight> {
-  const response = await client.get<ApiResponse<unknown>>('/organizations/deletion-preflight', { baseURL: ORG_V1_BASE })
+  const response = await client.get<ApiResponse<unknown>>('/organizations/deletion-preflight', V1_REQUEST)
   return toDeletionPreflight(requireApiPayload(response.data, 'GET deletion-preflight'))
 }
 
 /** GET /api/v1/organizations/:id/default-workspace —— 默认 Workspace 指针（只读事实）。 */
 export async function getDefaultWorkspace(organizationId: EntityId): Promise<EntityId | null> {
   const response = await client.get<ApiResponse<unknown>>(orgPath(organizationId, '/default-workspace'), {
-    baseURL: ORG_V1_BASE,
+    ...V1_REQUEST,
   })
   const payload = requireApiPayload(response.data, 'GET default-workspace') as Record<string, unknown>
   const wsId = payload['default_workspace_id']
@@ -144,7 +156,7 @@ export async function getOrganizationMembers(
   size: number
 ): Promise<OrgPage<OrganizationMemberRow>> {
   const response = await client.get<ApiResponse<unknown>>(orgPath(organizationId, '/members'), {
-    baseURL: ORG_V1_BASE,
+    ...V1_REQUEST,
     params: { page, size },
   })
   return normalizeOrgPage(
@@ -161,7 +173,7 @@ export async function changeMemberRole(organizationId: EntityId, userId: EntityI
   await client.put<ApiResponse<unknown>>(
     `/organizations/${encodeURIComponent(org)}/members/${encodeURIComponent(target)}/role`,
     { role },
-    { baseURL: ORG_V1_BASE }
+    V1_REQUEST
   )
 }
 
@@ -184,7 +196,7 @@ export async function suspendOrganizationMember(organizationId: EntityId, userId
   const response = await client.post<ApiResponse<unknown>>(
     memberLifecyclePath(organizationId, userId, 'suspend'),
     {},
-    { baseURL: ORG_V1_BASE }
+    V1_REQUEST
   )
   return toMemberLifecycleResult(requireApiPayload(response.data, 'POST member suspend'))
 }
@@ -194,7 +206,7 @@ export async function restoreOrganizationMember(organizationId: EntityId, userId
   const response = await client.post<ApiResponse<unknown>>(
     memberLifecyclePath(organizationId, userId, 'restore'),
     {},
-    { baseURL: ORG_V1_BASE }
+    V1_REQUEST
   )
   return toMemberLifecycleResult(requireApiPayload(response.data, 'POST member restore'))
 }
@@ -207,7 +219,7 @@ export async function offboardOrganizationMember(organizationId: EntityId, userI
   const response = await client.post<ApiResponse<unknown>>(
     memberLifecyclePath(organizationId, userId, 'offboard'),
     {},
-    { baseURL: ORG_V1_BASE }
+    V1_REQUEST
   )
   return toMemberLifecycleResult(requireApiPayload(response.data, 'POST member offboard'))
 }
@@ -217,7 +229,7 @@ export async function transferOrganizationOwner(organizationId: EntityId, userId
   await client.post<ApiResponse<unknown>>(
     orgPath(organizationId, '/members/transfer_owner'),
     { user_id: requireNonEmptyId(userId, 'user_id') },
-    { baseURL: ORG_V1_BASE }
+    V1_REQUEST
   )
 }
 
@@ -232,7 +244,7 @@ export async function listOrganizationInvitations(
   limit?: number
 ): Promise<InvitationView[]> {
   const response = await client.get<ApiResponse<unknown>>(orgPath(organizationId, '/invitations'), {
-    baseURL: ORG_V1_BASE,
+    ...V1_REQUEST,
     params: {
       ...(status && status !== 'unknown' ? { status } : {}),
       ...(limit != null && Number.isSafeInteger(limit) && limit > 0 ? { limit } : {}),
@@ -258,7 +270,7 @@ export async function createOrganizationInvitation(
     body['expires_at'] = expiresAt
   }
   const response = await client.post<ApiResponse<unknown>>(orgPath(organizationId, '/invitations'), body, {
-    baseURL: ORG_V1_BASE,
+    ...V1_REQUEST,
   })
   const reveal = toInvitationCreatedReveal(requireApiPayload(response.data, 'POST organization invitation'))
   if (!reveal) {
@@ -274,7 +286,7 @@ export async function revokeOrganizationInvitation(organizationId: EntityId, inv
   await client.post<ApiResponse<unknown>>(
     `/organizations/${encodeURIComponent(org)}/invitations/${encodeURIComponent(invitation)}/revoke`,
     {},
-    { baseURL: ORG_V1_BASE }
+    V1_REQUEST
   )
 }
 
@@ -288,7 +300,7 @@ export async function listDepartments(
   status: 'all' | 'active' | 'archived' = 'all'
 ): Promise<DepartmentRow[]> {
   const response = await client.get<ApiResponse<unknown>>(orgPath(organizationId, '/departments'), {
-    baseURL: ORG_V1_BASE,
+    ...V1_REQUEST,
     params: { status },
   })
   const payload = requireApiPayload(response.data, 'GET organization departments')
@@ -305,7 +317,7 @@ export async function createDepartment(
   const response = await client.post<ApiResponse<unknown>>(
     orgPath(organizationId, '/departments'),
     { name, parent_id: parentId },
-    { baseURL: ORG_V1_BASE }
+    V1_REQUEST
   )
   return toDepartmentRow(requireApiPayload(response.data, 'POST department'))
 }
@@ -320,7 +332,7 @@ export async function renameDepartment(
   const response = await client.patch<ApiResponse<unknown>>(
     orgPath(organizationId, `/departments/${encodeURIComponent(requireNonEmptyId(departmentId, 'department_id'))}`),
     { name, expected_version: expectedVersion },
-    { baseURL: ORG_V1_BASE }
+    V1_REQUEST
   )
   return toDepartmentRow(requireApiPayload(response.data, 'PATCH department'))
 }
@@ -339,7 +351,7 @@ export async function moveDepartment(
   const response = await client.post<ApiResponse<unknown>>(
     orgPath(organizationId, `/departments/${encodeURIComponent(requireNonEmptyId(departmentId, 'department_id'))}/move`),
     { parent_id: parentId, expected_version: expectedVersion },
-    { baseURL: ORG_V1_BASE }
+    V1_REQUEST
   )
   return toDepartmentRow(requireApiPayload(response.data, 'POST department move'))
 }
@@ -349,7 +361,7 @@ export async function archiveDepartment(organizationId: EntityId, departmentId: 
   const response = await client.post<ApiResponse<unknown>>(
     orgPath(organizationId, `/departments/${encodeURIComponent(requireNonEmptyId(departmentId, 'department_id'))}/archive`),
     {},
-    { baseURL: ORG_V1_BASE }
+    V1_REQUEST
   )
   return toDepartmentRow(requireApiPayload(response.data, 'POST department archive'))
 }
@@ -358,7 +370,7 @@ export async function archiveDepartment(organizationId: EntityId, departmentId: 
 export async function listDepartmentMembers(organizationId: EntityId, departmentId: EntityId): Promise<DepartmentMemberRow[]> {
   const response = await client.get<ApiResponse<unknown>>(
     orgPath(organizationId, `/departments/${encodeURIComponent(requireNonEmptyId(departmentId, 'department_id'))}/members`),
-    { baseURL: ORG_V1_BASE }
+    V1_REQUEST
   )
   const payload = requireApiPayload(response.data, 'GET department members')
   const rows = Array.isArray(payload) ? payload : []
@@ -370,7 +382,7 @@ export async function addDepartmentMember(organizationId: EntityId, departmentId
   const response = await client.post<ApiResponse<unknown>>(
     orgPath(organizationId, `/departments/${encodeURIComponent(requireNonEmptyId(departmentId, 'department_id'))}/members`),
     { user_id: requireNonEmptyId(userId, 'user_id') },
-    { baseURL: ORG_V1_BASE }
+    V1_REQUEST
   )
   return toDepartmentMemberRow(requireApiPayload(response.data, 'POST department member'))
 }
@@ -382,7 +394,7 @@ export async function removeDepartmentMember(organizationId: EntityId, departmen
   const target = requireNonEmptyId(userId, 'user_id')
   await client.delete<ApiResponse<unknown>>(
     `/organizations/${encodeURIComponent(org)}/departments/${encodeURIComponent(dept)}/members/${encodeURIComponent(target)}`,
-    { baseURL: ORG_V1_BASE }
+    V1_REQUEST
   )
 }
 
@@ -399,6 +411,6 @@ export async function setDepartmentMemberAdmin(
   await client.put<ApiResponse<unknown>>(
     `/organizations/${encodeURIComponent(org)}/departments/${encodeURIComponent(dept)}/members/${encodeURIComponent(target)}/admin`,
     { admin },
-    { baseURL: ORG_V1_BASE }
+    V1_REQUEST
   )
 }
