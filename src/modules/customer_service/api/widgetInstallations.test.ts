@@ -3,7 +3,7 @@
  *
  * 覆盖验收点：
  * - A06（管理面）：路径只落 /api/adm/customer-service/widget-installations*；
- *   shop_key 只允许出现在创建响应的一次性投影；列表投影熔断 secret；
+ *   installation 不签发 shop_key，列表投影熔断 secret；
  * - 接入代码只含 script + public widget_id，绝不出现任何 secret（负例锁死）；
  * - allowed_origins 解析拒绝非法 origin / 通配 / 路径。
  */
@@ -14,7 +14,6 @@ import {
   isValidOrganizationId,
   isValidPublicWidgetId,
   parseAllowedOriginsInput,
-  toOneTimeSecret,
   toWidgetInstallation,
   toWidgetInstallationList,
 } from './widgetInstallationsPure'
@@ -53,12 +52,12 @@ function captureCalls(responder?: (_url: string, _body: unknown) => unknown) {
 
 const SCOPE = { organizationId: '1234567890123456789', workspaceId: '9876543210987654321' }
 
-describe('installation API 路径（A06 前端先行）', () => {
+describe('installation API 路径（A06）', () => {
   it('list/create/revoke 全部落在 /customer-service/widget-installations 下且带租户条件', async () => {
     const calls = captureCalls((url) => {
       if (url.endsWith('/revoke')) return { installation: { id: '1', public_widget_id: 'wgt_pub_x' } }
       if (url.includes('/widget-installations/')) return { installation: { id: '1', public_widget_id: 'wgt_pub_x' } }
-      return { installation: { id: '1', public_widget_id: 'wgt_pub_x' }, one_time_secret: { shop_key: 'sk_live_once' } }
+      return { installation: { id: '1', public_widget_id: 'wgt_pub_x' } }
     })
     await listWidgetInstallations(SCOPE)
     await createWidgetInstallation({
@@ -88,11 +87,6 @@ describe('installation API 路径（A06 前端先行）', () => {
     ])
   })
 
-  it('创建响应的一次性投影：shop_key 只从 one_time_secret 取；缺失返回 null', () => {
-    expect(toOneTimeSecret({ installation: {}, one_time_secret: { shop_key: 'sk_live_once' } })).toEqual({ shopKey: 'sk_live_once' })
-    expect(toOneTimeSecret({ installation: {} })).toBeNull()
-    expect(toOneTimeSecret(null)).toBeNull()
-  })
 })
 
 describe('installation 投影熔断（A04/A06）', () => {

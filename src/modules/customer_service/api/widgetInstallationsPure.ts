@@ -1,9 +1,6 @@
 /**
  * 客服 Widget installation 管理面纯函数（CSW-01）。
  *
- * 契约状态：前端先行（后端管理路由 `/api/adm/customer-service/widget-installations`
- * 未建，联调归 CSX-01）——本文件按 §12.5.2 计划形状冻结前端类型与投影。
- *
  * 安全要点（CSW-01-A04/A06）：
  * - installation 投影走「白名单 + 敏感键熔断」双层（复用 CS-03 的 isSensitiveKey），
  *   即便后端误把 shop_key 塞进列表行也进不了展示视图；
@@ -16,7 +13,7 @@ import { isSensitiveKey } from './pureFunctions'
 export type WidgetInstallation = {
   id: string
   organization_id: string
-  workspace_id: string
+  // installation 是 Org 级公开接入面；workspace_id 只属于管理接口请求上下文。
   display_name: string
   public_widget_id: string
   allowed_origins: string[]
@@ -30,7 +27,6 @@ export type WidgetInstallation = {
 export const WIDGET_INSTALLATION_SAFE_KEYS = [
   'id',
   'organization_id',
-  'workspace_id',
   'display_name',
   'public_widget_id',
   'allowed_origins',
@@ -85,7 +81,6 @@ export function toWidgetInstallation(raw: unknown): WidgetInstallation | null {
   return {
     id,
     organization_id: str(raw.organization_id),
-    workspace_id: str(raw.workspace_id),
     display_name: str(raw.display_name),
     public_widget_id: publicWidgetId,
     allowed_origins: originsRaw.map(originOrNull).filter((o): o is string => o !== null),
@@ -102,15 +97,6 @@ export function toWidgetInstallation(raw: unknown): WidgetInstallation | null {
 export function toWidgetInstallationList(raw: unknown): WidgetInstallation[] {
   const list = isRecord(raw) && Array.isArray(raw.installations) ? raw.installations : Array.isArray(raw) ? raw : []
   return list.map(toWidgetInstallation).filter((item): item is WidgetInstallation => item !== null)
-}
-
-/** 一次显示 secret 的投影：只认 payload.one_time_secret.shop_key；缺失返回 null。 */
-export function toOneTimeSecret(raw: unknown): { shopKey: string } | null {
-  if (!isRecord(raw)) return null
-  const secret = isRecord(raw.one_time_secret) ? raw.one_time_secret : null
-  const shopKey = secret === null ? '' : str(secret.shop_key)
-  if (shopKey.length === 0) return null
-  return { shopKey }
 }
 
 /** public widget id 形状校验（PUBLIC 标识；防止把任意文本拼进接入代码片段）。 */

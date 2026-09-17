@@ -49,11 +49,8 @@ const WRITE_PERMISSION = 'customer_service:write'
  *
  * - read（customer_service:read）：installation 列表 + public_widget_id + 复制接入代码；
  * - write（customer_service:write）：创建 / 撤销；
- * - shop_key 只在创建响应的一次性弹层里显示（关闭即从内存清除，列表/详情永不回显）；
- * - 接入代码只含 script 标签 + public widget_id，绝不出现任何 secret。
- *
- * ⚠️ 后端管理路由未建（联调归 CSX-01）：当前接口 404 时页面给出可重试错误态，
- * 不伪造数据。
+ * - 接入代码只含 script 标签 + public widget_id，绝不出现任何 secret；
+ * - shop_key 是另一套 Org 级门店接入凭证，不属于 Widget installation。
  */
 export function CsWidgetInstallationsPage() {
   const { state, setState } = useListQueryState<{
@@ -80,10 +77,6 @@ export function CsWidgetInstallationsPage() {
   const [createOpen, setCreateOpen] = useState(false)
   const [revokeTarget, setRevokeTarget] = useState<WidgetInstallation | null>(null)
   const [embedTarget, setEmbedTarget] = useState<WidgetInstallation | null>(null)
-  // 一次性 secret 只存活在该 state；弹层关闭立即置空，任何列表/详情都不再持有
-  const [oneTimeSecret, setOneTimeSecret] = useState<string | null>(null)
-  const [createdInstallation, setCreatedInstallation] = useState<WidgetInstallation | null>(null)
-
   const createMutation = useMutation({
     mutationFn: (input: {
       displayName: string
@@ -103,11 +96,10 @@ export function CsWidgetInstallationsPage() {
         },
         consentVersion: input.consentVersion,
       }),
-    onSuccess: (result) => {
+    onSuccess: (installation) => {
       toast.success('Widget 接入已创建')
       setCreateOpen(false)
-      setCreatedInstallation(result.installation)
-      setOneTimeSecret(result.oneTimeSecret?.shopKey ?? null)
+      setEmbedTarget(installation)
       void listQuery.refetch()
     },
     onError: (error) => toast.error(`创建失败：${getErrorMessage(error)}`),
@@ -130,7 +122,7 @@ export function CsWidgetInstallationsPage() {
     <div className="space-y-4" data-page="cs-widget-installations">
       <PageHeader
         title="Widget 接入"
-        description="商家客服 Widget 安装配置。查看/复制接入代码需 customer_service:read，创建/撤销需 customer_service:write；shop_key 仅在创建时显示一次。"
+        description="商家客服 Widget 安装配置。查看/复制接入代码需 customer_service:read，创建/撤销需 customer_service:write。"
       />
 
       <Card>
@@ -173,58 +165,6 @@ export function CsWidgetInstallationsPage() {
         onOpenChange={setCreateOpen}
         onSubmit={(input) => createMutation.mutate(input)}
       />
-
-      {/* 一次性 secret 弹层：关闭即从 state 清除（A06「一次显示 secret」） */}
-      <Dialog
-        open={oneTimeSecret !== null}
-        onOpenChange={(open) => {
-          if (!open) {
-            setOneTimeSecret(null)
-            setCreatedInstallation(null)
-          }
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>创建成功——请立即保存 shop_key</DialogTitle>
-            <DialogDescription>
-              shop_key 仅显示这一次，关闭后无法再次查看（丢失只能撤销后重建）。
-              请妥善保管，禁止写入页面代码、日志或聊天记录。
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="csw-once-secret">shop_key（一次显示）</Label>
-              <Input id="csw-once-secret" readOnly value={oneTimeSecret ?? ''} className="font-mono text-xs" data-testid="csw-one-time-secret" />
-            </div>
-            {createdInstallation !== null && (
-              <div className="space-y-1.5">
-                <Label htmlFor="csw-created-public-id">public_widget_id（公开标识，可入代码）</Label>
-                <Input id="csw-created-public-id" readOnly value={createdInstallation.public_widget_id} className="font-mono text-xs" />
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                if (oneTimeSecret !== null) void copyText(oneTimeSecret)
-              }}
-            >
-              复制 shop_key
-            </Button>
-            <Button
-              onClick={() => {
-                setOneTimeSecret(null)
-                if (createdInstallation !== null) setEmbedTarget(createdInstallation)
-                setCreatedInstallation(null)
-              }}
-            >
-              我已保存，关闭
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <EmbedCodeDialog
         installation={embedTarget}
@@ -300,7 +240,7 @@ function InstallationsSection(props: InstallationsSectionProps) {
     return (
       <Card>
         <CardContent className="py-8">
-          <EmptyState icon={<MessageSquare className="h-10 w-10" />} title="请先填写组织与工作区" description="Widget 接入按租户隔离，必须显式 org_id + workspace_id 才能查询。" />
+          <EmptyState icon={<MessageSquare className="h-10 w-10" />} title="请先填写组织与工作区" description="Widget 接入归属组织；管理接口要求显式提供 org_id 与 workspace_id。" />
         </CardContent>
       </Card>
     )
@@ -328,7 +268,7 @@ function InstallationsSection(props: InstallationsSectionProps) {
       <Card>
         <CardContent className="py-8">
           <ErrorState
-            message={`加载 Widget 接入失败：${getErrorMessage(props.error)}（后端管理路由联调归 CSX-01，当前可为 404/未实现）`}
+            message={`加载 Widget 接入失败：${getErrorMessage(props.error)}`}
             onRetry={props.onRetry}
           />
         </CardContent>
@@ -464,7 +404,7 @@ function CreateInstallationDialog(props: {
         <DialogHeader>
           <DialogTitle>新建 Widget 接入</DialogTitle>
           <DialogDescription>
-            创建成功后将生成 public_widget_id（可公开）与 shop_key（仅显示一次）。
+            创建成功后将生成可公开的 public_widget_id，并直接提供接入代码。
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
@@ -529,7 +469,7 @@ function EmbedCodeDialog(props: {
         <DialogHeader>
           <DialogTitle>接入代码（仅含公开标识，无任何 secret）</DialogTitle>
           <DialogDescription>
-            将以下代码粘贴到商家页面 &lt;body&gt; 内。public_widget_id 与 organization_id 为公开申报标识（后端仍以 installation/allowlist/令牌证明）；shop_key 不出现在接入代码中。
+            将以下代码粘贴到商家页面 &lt;body&gt; 内。public_widget_id 与 organization_id 为公开申报标识，后端仍以 installation、allowlist 与短期令牌完成校验。
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
