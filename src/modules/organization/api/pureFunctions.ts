@@ -298,6 +298,76 @@ export function canManageInvitations(role: OrgRole): boolean {
   return role === 'owner' || role === 'admin'
 }
 
+// ===========================================================================
+// 成员生命周期命令（EB-D07/EB-08：suspend / restore / offboard）
+//
+// 服务端契约（organization_member_logic，ORG-ADMIN-WIRING 逐条核对）：
+//   * suspend  POST .../members/:uid/suspend  —— actor owner/admin（组织 active）；
+//     目标仅 active；主 Owner 目标 409「请先转移 Owner」；admin 目标**不**要求主
+//     Owner（与 remove 的角色规则不同，UI 镜像该差异）；
+//   * restore  POST .../members/:uid/restore —— 同 actor 资格；目标仅 suspended
+//     （active/removed 均 409 明确拒绝，恢复 removed 走重新邀请）；
+//   * offboard POST .../members/:uid/offboard —— 即 remove 终态语义（两步离场 S3）；
+//     目标 active|suspended；主 Owner 目标 409；admin 目标需主 Owner
+//     （ensure_primary_owner）；仍被依赖资源引用时数据库守卫 → 409。
+// 成员列表分页只含 active（page_by_organization WHERE status='active'），因此
+// suspended 成员不出现在列表里：恢复入口来自本页会话内的停用记录（见页面）。
+// ===========================================================================
+
+/** 生命周期命令响应的 status 窄化（suspend→suspended / restore→active / offboard→removed）。 */
+export type MemberLifecycleStatus = 'active' | 'suspended' | 'removed' | 'unknown'
+
+/** suspend/restore/offboard 响应 data 投影（后端 member_result/4）。
+ * suspend/restore 含 role；offboard（removed 终态）响应无 role → null。 */
+export type MemberLifecycleResult = {
+  organizationId: EntityId
+  userId: EntityId
+  role: OrgRole
+  status: MemberLifecycleStatus
+}
+
+export function toMemberLifecycleResult(raw: unknown): MemberLifecycleResult {
+  const record = asRecord(raw)
+  const status = record['status']
+  return {
+    organizationId: coerceEntityId(record['organization_id']),
+    userId: coerceEntityId(record['user_id']),
+    role: asOrgRole(record['role']),
+    status: status === 'active' || status === 'suspended' || status === 'removed' ? status : 'unknown',
+  }
+}
+
+/** 生命周期命令 actor 资格基线：owner/admin（组织 active 前提由页面另行裁决）。 */
+export function canManageMemberLifecycle(role: OrgRole): boolean {
+  return role === 'owner' || role === 'admin'
+}
+
+/** suspend 行级谓词：owner 行不可暂停（服务端 409 镜像）；admin 行放行（后端不要求主 Owner）。 */
+export function canSuspendMember(
+  actor: OrgRole,
+  row: Pick<OrganizationMemberRow, 'role'>
+): boolean {
+  return canManageMemberLifecycle(actor) && row.role !== 'owner'
+}
+
+/** restore 行级谓词：仅 suspended 状态可恢复。 */
+export function canRestoreMember(
+  actor: OrgRole,
+  row: Pick<OrganizationMemberRow, 'status'>
+): boolean {
+  return canManageMemberLifecycle(actor) && row.status === 'suspended'
+}
+
+/** offboard 行级谓词：owner 行不可离场；admin 行需主 Owner（ensure_primary_owner 镜像）。 */
+export function canOffboardMember(
+  actor: OrgRole,
+  row: Pick<OrganizationMemberRow, 'role'>
+): boolean {
+  if (!canManageMemberLifecycle(actor) || row.role === 'owner') return false
+  if (row.role === 'admin' && !canManageAdminRole(actor)) return false
+  return true
+}
+
 /** 部门域写基线 = 同 Org active 成员（服务端口径，含局部目录管理员委托）。 */
 export function canWriteDepartments(role: OrgRole): boolean {
   return role === 'owner' || role === 'admin' || role === 'member'

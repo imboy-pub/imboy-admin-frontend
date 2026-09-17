@@ -12,7 +12,11 @@ import {
   buildDepartmentTree,
   canManageAdminRole,
   canManageInvitations,
+  canManageMemberLifecycle,
+  canOffboardMember,
   canOrgWrite,
+  canRestoreMember,
+  canSuspendMember,
   canTransferOwner,
   canViewMembers,
   canViewOrgDetail,
@@ -29,6 +33,7 @@ import {
   toDepartmentRow,
   toInvitationCreatedReveal,
   toInvitationView,
+  toMemberLifecycleResult,
   toOrganizationMemberRow,
   toOrganizationSummary,
   toDeletionPreflight,
@@ -83,6 +88,88 @@ describe('organization 权限矩阵', () => {
     expect(isOrgWriteAllowed('archived', 'archive')).toBe(false)
     expect(isOrgWriteAllowed('archived', 'restore')).toBe(true)
     expect(isOrgWriteAllowed('unknown', 'restore')).toBe(false)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// 成员生命周期命令谓词（EB-D07/EB-08：suspend / restore / offboard）
+// 服务端契约：actor 均需 owner/admin；suspend 禁 owner 目标（admin 目标不要求
+// 主 Owner）；restore 仅 suspended；offboard 禁 owner 目标、admin 目标需主 Owner。
+// ---------------------------------------------------------------------------
+describe('成员生命周期谓词', () => {
+  const rowOf = (role: string) => ({ role: role as 'owner' | 'admin' | 'member' | 'unknown' })
+
+  it('actor 资格基线：owner/admin 可执行生命周期命令，member/非成员不可', () => {
+    expect(canManageMemberLifecycle('owner')).toBe(true)
+    expect(canManageMemberLifecycle('admin')).toBe(true)
+    expect(canManageMemberLifecycle('member')).toBe(false)
+    expect(canManageMemberLifecycle(null)).toBe(false)
+  })
+
+  it('suspend：owner 行不可停用；admin/member 行放行（admin 目标不要求主 Owner，与离场不同）', () => {
+    expect(canSuspendMember('owner', rowOf('owner'))).toBe(false)
+    expect(canSuspendMember('owner', rowOf('admin'))).toBe(true)
+    expect(canSuspendMember('owner', rowOf('member'))).toBe(true)
+    // 关键差异：非主 Owner 的 admin actor 也可停用 admin 目标（后端 suspend_tx 无主 Owner 门）
+    expect(canSuspendMember('admin', rowOf('admin'))).toBe(true)
+    expect(canSuspendMember('admin', rowOf('member'))).toBe(true)
+    expect(canSuspendMember('member', rowOf('member'))).toBe(false)
+    expect(canSuspendMember(null, rowOf('member'))).toBe(false)
+  })
+
+  it('restore：仅 suspended 状态可恢复；active / removed / unknown 均不可', () => {
+    expect(canRestoreMember('owner', { status: 'suspended' })).toBe(true)
+    expect(canRestoreMember('admin', { status: 'suspended' })).toBe(true)
+    expect(canRestoreMember('owner', { status: 'active' })).toBe(false)
+    expect(canRestoreMember('owner', { status: 'removed' })).toBe(false)
+    expect(canRestoreMember('owner', { status: 'unknown' })).toBe(false)
+    expect(canRestoreMember('member', { status: 'suspended' })).toBe(false)
+    expect(canRestoreMember(null, { status: 'suspended' })).toBe(false)
+  })
+
+  it('offboard：owner 行不可离场；admin 行需主 Owner；member 行 owner/admin 均可离场', () => {
+    expect(canOffboardMember('owner', rowOf('owner'))).toBe(false)
+    expect(canOffboardMember('owner', rowOf('admin'))).toBe(true)
+    expect(canOffboardMember('admin', rowOf('admin'))).toBe(false) // admin actor 离场 admin 目标被拒
+    expect(canOffboardMember('owner', rowOf('member'))).toBe(true)
+    expect(canOffboardMember('admin', rowOf('member'))).toBe(true)
+    expect(canOffboardMember('member', rowOf('member'))).toBe(false)
+    expect(canOffboardMember(null, rowOf('member'))).toBe(false)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// 生命周期命令响应投影（member_result：suspend/restore 含 role，offboard 无 role）
+// ---------------------------------------------------------------------------
+describe('生命周期响应投影', () => {
+  it('suspend / restore 响应：organization_id/user_id/role/status 全量映射，TSID 保持 string', () => {
+    const result = toMemberLifecycleResult({
+      organization_id: '7700487111111111111',
+      user_id: '7700487222222222222',
+      role: 'member',
+      status: 'suspended',
+    })
+    expect(result.organizationId).toBe('7700487111111111111')
+    expect(result.userId).toBe('7700487222222222222')
+    expect(result.role).toBe('member')
+    expect(result.status).toBe('suspended')
+
+    const restored = toMemberLifecycleResult({ organization_id: '1', user_id: '2', role: 'admin', status: 'active' })
+    expect(restored.status).toBe('active')
+    expect(restored.role).toBe('admin')
+  })
+
+  it('offboard 响应（removed 终态）无 role 字段 → role 投影为 null', () => {
+    const result = toMemberLifecycleResult({ organization_id: '1', user_id: '2', status: 'removed' })
+    expect(result.status).toBe('removed')
+    expect(result.role).toBeNull()
+  })
+
+  it('未知 status / 缺字段走防御默认（不抛异常）', () => {
+    const result = toMemberLifecycleResult({})
+    expect(result.status).toBe('unknown')
+    expect(result.role).toBeNull()
+    expect(toMemberLifecycleResult(undefined).status).toBe('unknown')
   })
 })
 

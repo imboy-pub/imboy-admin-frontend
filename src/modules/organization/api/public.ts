@@ -28,6 +28,7 @@ import {
   toDepartmentRow,
   toInvitationCreatedReveal,
   toInvitationView,
+  toMemberLifecycleResult,
   toOrganizationMemberRow,
   toOrganizationSummary,
   normalizeOrgPage,
@@ -37,6 +38,7 @@ import {
   type InvitationCreatedReveal,
   type InvitationStatus,
   type InvitationView,
+  type MemberLifecycleResult,
   type OrganizationMemberRow,
   type OrganizationSummary,
   type OrgPage,
@@ -163,14 +165,51 @@ export async function changeMemberRole(organizationId: EntityId, userId: EntityI
   )
 }
 
-/** DELETE /api/v1/organizations/:id/members/:user_id —— 移除成员（owner 不可移除；admin 需主 Owner）。 */
-export async function removeOrganizationMember(organizationId: EntityId, userId: EntityId): Promise<void> {
+// ---------------------------------------------------------------------------
+// 成员生命周期命令（EB-D07/EB-08）：suspend / restore / offboard
+// 三者都是 POST command（路径绑定 organization_id + user_id，无请求体）；
+// 响应 data 为 member_result：suspend/restore 含 role，offboard（removed 终态）无 role。
+// 离场单一入口：UI 一律走 POST offboard，不再调 legacy DELETE .../members/:uid。
+// ---------------------------------------------------------------------------
+
+/** 组装成员生命周期命令路径并校验 TSID（EntityId 全程 string）。 */
+function memberLifecyclePath(organizationId: EntityId, userId: EntityId, action: 'suspend' | 'restore' | 'offboard'): string {
   const org = requireNonEmptyId(organizationId, 'organization_id')
   const target = requireNonEmptyId(userId, 'user_id')
-  await client.delete<ApiResponse<unknown>>(
-    `/organizations/${encodeURIComponent(org)}/members/${encodeURIComponent(target)}`,
+  return `/organizations/${encodeURIComponent(org)}/members/${encodeURIComponent(target)}/${action}`
+}
+
+/** POST /api/v1/organizations/:id/members/:user_id/suspend —— 停用（active→suspended，可恢复撤权第一步）。 */
+export async function suspendOrganizationMember(organizationId: EntityId, userId: EntityId): Promise<MemberLifecycleResult> {
+  const response = await client.post<ApiResponse<unknown>>(
+    memberLifecyclePath(organizationId, userId, 'suspend'),
+    {},
     { baseURL: ORG_V1_BASE }
   )
+  return toMemberLifecycleResult(requireApiPayload(response.data, 'POST member suspend'))
+}
+
+/** POST /api/v1/organizations/:id/members/:user_id/restore —— 恢复（仅 suspended→active）。 */
+export async function restoreOrganizationMember(organizationId: EntityId, userId: EntityId): Promise<MemberLifecycleResult> {
+  const response = await client.post<ApiResponse<unknown>>(
+    memberLifecyclePath(organizationId, userId, 'restore'),
+    {},
+    { baseURL: ORG_V1_BASE }
+  )
+  return toMemberLifecycleResult(requireApiPayload(response.data, 'POST member restore'))
+}
+
+/**
+ * POST /api/v1/organizations/:id/members/:user_id/offboard —— 离场（active|suspended→removed 终态）。
+ * 与后端 offboarding 数据库守卫同名同义：仍被依赖资源引用（如 active 经办关系）时 409 拒绝并要求先交接。
+ */
+export async function offboardOrganizationMember(organizationId: EntityId, userId: EntityId): Promise<MemberLifecycleResult> {
+  const response = await client.post<ApiResponse<unknown>>(
+    memberLifecyclePath(organizationId, userId, 'offboard'),
+    {},
+    { baseURL: ORG_V1_BASE }
+  )
+  return toMemberLifecycleResult(requireApiPayload(response.data, 'POST member offboard'))
 }
 
 /** POST /api/v1/organizations/:id/members/transfer_owner —— Owner 转移（主 Owner 专属，危险动作）。 */
