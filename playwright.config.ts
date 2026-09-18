@@ -58,7 +58,10 @@ export default defineConfig({
     launchOptions: executablePath ? { executablePath } : undefined,
     screenshot: 'only-on-failure',
     trace: 'on-first-retry',
-    video: 'retain-on-failure',
+    // video 录制依赖 ms-playwright 自带的 ffmpeg 二进制（缺失时 browserContext.newPage
+    // 直接失败，整个套件被挡）。默认关闭消除该环境依赖；需要录像取证时显式
+    // PLAYWRIGHT_VIDEO=1 并先 `npx playwright install ffmpeg`。
+    video: process.env.PLAYWRIGHT_VIDEO === '1' ? 'retain-on-failure' : 'off',
   },
   webServer: disableWebServer
     ? undefined
