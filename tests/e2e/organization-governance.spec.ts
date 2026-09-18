@@ -3,21 +3,17 @@ import { expect, test } from '@playwright/test'
 import { loginAsAdmin, requireAdminCredentials } from './support/adminAuth'
 
 /**
- * ORG-14 e2e：imboyadmin 组织治理面（/organizations*）。
+ * ORG-14 e2e（App 面时代）：imboyadmin 组织治理面（/organizations*）。
  *
- * 覆盖验收点：
- * - ORG-A14 直链门：无 workspaces:read 权限时跳 /forbidden；
- * - 页面骨架与权限矩阵文案（平台管理员权限不映射为组织角色）；
- * - 敏感字段熔断：页面不出现 token/token_digest/branding 取值等敏感形态；
- * - 数据面受限说明：/api/v1 用户会话缺失时的 401 受限态呈现（不伪造成功）。
- *
- * 运行前提（BLOCKED_E2E_ENV）：
- *   1. imboy 后端实例（admin 登录 + RBAC profile + /api/v1/organizations 面）；
- *   2. IMBOY_ADMIN_E2E_ACCOUNT / IMBOY_ADMIN_E2E_PASSWORD 凭据；
- *   3. dev server 的 /api/v1 代理规则已随 ORG-14 租约写入 vite.config.ts。
- *   凭据缺失时本文件全部 skip（skipped != passed）。
+ * ⚠️ superseded by admin-organization-governance.spec.ts (wave2)。
+ * 本 spec 断言的 /api/v1 App 面（/organizations/mine、member_role 受限态、
+ * 「仅 Organization 成员可查看详情」文案）已随 f34be178 迁移到 /api/adm 平台面
+ * 而不存在：页面行为、错误语义（401 = 管理会话失效走全局登出，而非 App 面
+ * 受限态）均已改变，保留执行只会红。保留文件以存证 ORG-14 验收脉络
+ * （openPage pageMarker 参数化教训见下），wave2 新 spec 跑绿后由协调者决定
+ * 是否随提交删除。
  */
-test.describe('组织治理面（ORG-14）', () => {
+test.describe.skip('组织治理面（ORG-14）', () => {
   async function openPage(
     page: import('@playwright/test').Page,
     path: string,
