@@ -1,6 +1,6 @@
 import { expect, test, type APIResponse, type Page } from '@playwright/test'
 
-import { loginAsAdmin, requireAdminCredentials } from './support/adminAuth'
+import { getAdminCredentials, loginAsAdmin } from './support/adminAuth'
 
 /**
  * ORG-14 wave2 e2e：平台组织治理面（/api/adm/organizations，f34be178 迁移后）。
@@ -14,7 +14,7 @@ import { loginAsAdmin, requireAdminCredentials } from './support/adminAuth'
  *   ⑤ 邀请 create→list→cancel（一次性 token / pending→revoked）
  *   ⑥ 部门与 Workspace（目录渲染 / create / rename 正路径 + expected_version
  *      CAS 冲突 / archive；workspaces 只读端点走 API 层——W3 无该 UI 页面）
- *   负例：未登录 401 / 无效 TSID 404 / read-only 403（条件用例）。
+ *   负例：未登录 401 / 无效 TSID 404 / read-only 403。
  *
  * 关于「expected_version 409」的落点说明（与任务卡的口径差异，按实现事实写）：
  *   - 组织 lifecycle（archive/restore）在合同 r1/r2 与后端实现中均无
@@ -31,7 +31,7 @@ import { loginAsAdmin, requireAdminCredentials } from './support/adminAuth'
  *     （organization_invitation_app.erl）在 adm 面 admin_invitation_create 中
  *     不存在，故本 spec 不对该分支断言（页面文案继承自 App 面语义）。
  *
- * 运行前提（BLOCKED_E2E_ENV，缺任一项本文件相应用例 skip，skipped != passed）：
+ * 运行前提（BLOCKED_E2E_ENV）：required 前置缺失 = 硬失败（非 0 退出），不得 skip：
  *   1. wave2 后端节点（erl 直起 9822，加载含 W2 adm org 端点的 ebin）；
  *   2. VITE_PROXY_TARGET=http://127.0.0.1:9822（vite proxy ^/api/adm 规则转发）；
  *   3. IMBOY_ADMIN_E2E_ACCOUNT / IMBOY_ADMIN_E2E_PASSWORD（super_admin，
@@ -45,10 +45,16 @@ import { loginAsAdmin, requireAdminCredentials } from './support/adminAuth'
  *      旅程③会把 owner 转给 U2，④ 停用/移除 U3，⑤ 邀请 U3（removed 终态
  *      的「重新邀请」语义）；若另备非成员已注册用户，可用
  *      IMBOY_ADMIN_E2E_SEED_INVITEE_ID 指定其为邀请目标。
- *   5. read-only 403 负例（可选）：IMBOY_ADMIN_E2E_READONLY_ACCOUNT /
+ *   5. read-only 403 负例（**必备**）：IMBOY_ADMIN_E2E_READONLY_ACCOUNT /
  *      IMBOY_ADMIN_E2E_READONLY_PASSWORD —— role_id=[3]（audit_admin，代码级
  *      role_acl 仅 organizations:read，对全部 mutation 恒 403）。setup/init 只
  *      能创建 super_admin，该账号需 wave2 执行方另行准备（adm 用户管理或 SQL）。
+ *      ORG-A14 要求 read-only Admin mutation 被拒必须被验证，该账号不是可选项。
+ *
+ * required 前置缺失语义（ORG-A14 修复轮）：凭据（super_admin / read-only）、
+ * seed 组织、owner + ≥2 普通成员、前序旅程产出的 owner/member/invitation 状态、
+ * 创建后 Department 可回读——任一缺失 = 相应用例**硬失败**（throw → 非 0 退出），
+ * 一律不得 test.skip。历史由 Git 与证据归档承担，不靠运行时 skip。
  *
  * 用例顺序：六旅程 describe 为 serial（修改共享服务端状态，后续用例依赖
  * 前序状态：③ 转移 owner、④ 移除成员、⑤ 邀请被移除者）。不要 --grep 单跑
@@ -56,6 +62,23 @@ import { loginAsAdmin, requireAdminCredentials } from './support/adminAuth'
  */
 
 const SEED_ORG_NAME = process.env.IMBOY_ADMIN_E2E_ORG_SEED_NAME?.trim() || 'org15-e2e-w2-seed'
+
+/**
+ * required 前置硬失败（ORG-A14 修复轮）：缺失必须 throw（用例 FAIL、非 0 退出），
+ * 不得 test.skip——静默跳过会掩盖环境劣化（skipped != passed）。
+ */
+function requireFixture(condition: unknown, message: string): asserts condition {
+  if (!condition) {
+    throw new Error(`required fixture 缺失：${message}（硬失败，不得 skip）`)
+  }
+}
+
+/** super_admin 凭据获取（硬失败版）：不使用共享 requireAdminCredentials（其内部是 test.skip 语义）。 */
+function requireCreds(): { account: string; password: string } {
+  const credentials = getAdminCredentials()
+  requireFixture(credentials, 'super_admin 凭据（IMBOY_ADMIN_E2E_ACCOUNT / IMBOY_ADMIN_E2E_PASSWORD）')
+  return credentials
+}
 
 /** 格式合法但（几乎必然）不存在的 TSID——沿用 ORG-14 旧 spec 惯例。 */
 const INVALID_TSID = '1234567890123456789'
@@ -168,7 +191,7 @@ test.describe('平台组织治理面 · fail-closed 负例', () => {
   })
 
   test('无效 TSID：detail API 返回 404 语义码（HTTP 200 + envelope code 形态）', async ({ page }) => {
-    const credentials = requireAdminCredentials()
+    const credentials = requireCreds()
     await loginAsAdmin(page, credentials)
     const { status, body } = await apiGet(page, `/api/adm/organizations/${INVALID_TSID}`)
     expect(status).toBe(200)
@@ -176,7 +199,7 @@ test.describe('平台组织治理面 · fail-closed 负例', () => {
   })
 
   test('无效 TSID：详情直链呈现诚实错误态（目标不存在 404），且不触发敏感字段泄漏', async ({ page }) => {
-    const credentials = requireAdminCredentials()
+    const credentials = requireCreds()
     await loginAsAdmin(page, credentials)
     await page.goto(`/organizations/${INVALID_TSID}`)
     await waitPageRoot(page, '[data-page="organization-detail"]')
@@ -186,7 +209,7 @@ test.describe('平台组织治理面 · fail-closed 负例', () => {
   })
 
   test('无效 TSID：mutation（archive）同样返回 404 语义码', async ({ page }) => {
-    const credentials = requireAdminCredentials()
+    const credentials = requireCreds()
     await loginAsAdmin(page, credentials)
     const { status, body } = await apiPost(page, `/api/adm/organizations/${INVALID_TSID}/archive`)
     expect(envelopeCode(status, body)).toBe(404)
@@ -195,7 +218,7 @@ test.describe('平台组织治理面 · fail-closed 负例', () => {
   test('read-only 账号（audit_admin）对 mutation 恒 403（adm_acl 分权）', async ({ page }) => {
     const account = process.env.IMBOY_ADMIN_E2E_READONLY_ACCOUNT?.trim()
     const password = process.env.IMBOY_ADMIN_E2E_READONLY_PASSWORD?.trim()
-    test.skip(!account || !password, '需要 role_id=[3] audit_admin 账号（IMBOY_ADMIN_E2E_READONLY_ACCOUNT/PASSWORD）')
+    requireFixture(account && password, '需要 role_id=[3] audit_admin 账号（IMBOY_ADMIN_E2E_READONLY_ACCOUNT/PASSWORD）')
 
     await loginAsAdmin(page, { account: account as string, password: password as string })
     // 分权语义（实测锚定 74dc41d7）：audit_admin 持有 organizations:read，
@@ -226,7 +249,7 @@ test.describe('平台组织治理面 · 六旅程（/api/adm/organizations）', 
   test.describe.configure({ mode: 'serial' })
 
   test('① 列表页骨架：页面标记、权限矩阵文案、搜索表单与分页条（不依赖 seed）', async ({ page }) => {
-    const credentials = requireAdminCredentials()
+    const credentials = requireCreds()
     await loginAsAdmin(page, credentials)
     await page.goto('/organizations')
     await waitPageRoot(page, '[data-page="organization-list"]')
@@ -244,11 +267,11 @@ test.describe('平台组织治理面 · 六旅程（/api/adm/organizations）', 
   })
 
   test('① seed 组织：服务端搜索命中、行渲染与详情事实域投影', async ({ page }) => {
-    const credentials = requireAdminCredentials()
+    const credentials = requireCreds()
     await loginAsAdmin(page, credentials)
 
     const seed = await findSeedOrg(page)
-    test.skip(!seed, `缺少 seed 组织（keyword=${SEED_ORG_NAME}）：按预研方案 §3.6 种子后再跑`)
+    requireFixture(seed, `缺少 seed 组织（keyword=${SEED_ORG_NAME}）：按预研方案 §3.6 种子后再跑`)
     seedOrgId = (seed as { id: string }).id
 
     await page.goto('/organizations')
@@ -281,13 +304,13 @@ test.describe('平台组织治理面 · 六旅程（/api/adm/organizations）', 
   })
 
   test('② 组织 lifecycle：active→restore 幂等重放 → archive → C16 archived 禁写 → restore 复原', async ({ page }) => {
-    test.skip(seedOrgId.length === 0, 'seed 未发现（前置用例 skip），本用例随之 skip')
-    const credentials = requireAdminCredentials()
+    requireFixture(seedOrgId.length > 0, 'seed 未发现（前序用例未产出 seed 组织）')
+    const credentials = requireCreds()
     await loginAsAdmin(page, credentials)
 
     const members = await fetchActiveMembers(page, seedOrgId)
     const plainMembers = members.filter((m) => m.role === 'member')
-    test.skip(plainMembers.length < 2, `seed 成员不足（需 owner + 2 个 member，实得 ${members.map((m) => m.role).join(',')}）`)
+    requireFixture(plainMembers.length >= 2, `seed 成员不足（需 owner + 2 个 member，实得 ${members.map((m) => m.role).join(',')}）`)
     memberKeptId = plainMembers[0]?.userId ?? ''
     memberRemovedId = plainMembers[1]?.userId ?? ''
 
@@ -321,13 +344,13 @@ test.describe('平台组织治理面 · 六旅程（/api/adm/organizations）', 
   })
 
   test('③ Owner 不变量：owner 行不可停用/移除（UI 镜像 + API 409）', async ({ page }) => {
-    test.skip(seedOrgId.length === 0, 'seed 未发现，skip')
-    const credentials = requireAdminCredentials()
+    requireFixture(seedOrgId.length > 0, 'seed 组织未发现')
+    const credentials = requireCreds()
     await loginAsAdmin(page, credentials)
 
     const members = await fetchActiveMembers(page, seedOrgId)
     const owner = members.find((m) => m.role === 'owner')
-    test.skip(!owner, '成员页无 owner 行（seed 异常）')
+    requireFixture(owner, '成员页无 owner 行（seed 异常）')
     const ownerId = (owner as MemberFact).userId
 
     // API：owner 目标 suspend / remove 均 409（先转移 Owner）
@@ -347,13 +370,13 @@ test.describe('平台组织治理面 · 六旅程（/api/adm/organizations）', 
   })
 
   test('③ Owner 转移：自转移 400 / 非成员 409（负例）+ 正向转移（单事务投影）', async ({ page }) => {
-    test.skip(seedOrgId.length === 0 || memberKeptId.length === 0, 'seed 未发现或普通成员不足，skip')
-    const credentials = requireAdminCredentials()
+    requireFixture(seedOrgId.length > 0 && memberKeptId.length > 0, 'seed 未发现或普通成员不足')
+    const credentials = requireCreds()
     await loginAsAdmin(page, credentials)
 
     const members = await fetchActiveMembers(page, seedOrgId)
     const owner = members.find((m) => m.role === 'owner')
-    test.skip(!owner, '成员页无 owner 行（seed 异常）')
+    requireFixture(owner, '成员页无 owner 行（seed 异常）')
     const ownerId = (owner as MemberFact).userId
 
     // 负例①：自转移（target = 当前 owner 自己）→ 400
@@ -389,8 +412,8 @@ test.describe('平台组织治理面 · 六旅程（/api/adm/organizations）', 
   })
 
   test('④ 成员 suspend → 「最近停用」面板 → restore 回表', async ({ page }) => {
-    test.skip(seedOrgId.length === 0 || memberRemovedId.length === 0, 'seed 未发现或普通成员不足，skip')
-    const credentials = requireAdminCredentials()
+    requireFixture(seedOrgId.length > 0 && memberRemovedId.length > 0, 'seed 未发现或普通成员不足')
+    const credentials = requireCreds()
     await loginAsAdmin(page, credentials)
 
     await page.goto(`/organizations/${seedOrgId}/members`)
@@ -416,8 +439,8 @@ test.describe('平台组织治理面 · 六旅程（/api/adm/organizations）', 
   })
 
   test('④ 成员 remove：再次停用后从面板移除（removed 终态）', async ({ page }) => {
-    test.skip(seedOrgId.length === 0 || memberRemovedId.length === 0, 'seed 未发现或普通成员不足，skip')
-    const credentials = requireAdminCredentials()
+    requireFixture(seedOrgId.length > 0 && memberRemovedId.length > 0, 'seed 未发现或普通成员不足')
+    const credentials = requireCreds()
     await loginAsAdmin(page, credentials)
 
     await page.goto(`/organizations/${seedOrgId}/members`)
@@ -441,8 +464,8 @@ test.describe('平台组织治理面 · 六旅程（/api/adm/organizations）', 
   })
 
   test('⑤ 邀请：未注册 target 404 → 创建（非成员）→ 一次性 token → 重复 pending 409 → cancel → revoked', async ({ page }) => {
-    test.skip(seedOrgId.length === 0, 'seed 未发现，skip')
-    const credentials = requireAdminCredentials()
+    requireFixture(seedOrgId.length > 0, 'seed 组织未发现')
+    const credentials = requireCreds()
     await loginAsAdmin(page, credentials)
 
     // 负例：未注册用户（格式合法的不存在 TSID）→ 404「用户不存在」
@@ -454,7 +477,7 @@ test.describe('平台组织治理面 · 六旅程（/api/adm/organizations）', 
 
     // 邀请目标：removed 成员（重新邀请语义）或显式注入的非成员用户
     const invitee = process.env.IMBOY_ADMIN_E2E_SEED_INVITEE_ID?.trim() || memberRemovedId
-    test.skip(invitee.length === 0, '无可用的非成员邀请目标（且 ④ 未产出 removed 成员）')
+    requireFixture(invitee.length > 0, '无可用的非成员邀请目标（且 ④ 未产出 removed 成员）')
 
     await page.goto(`/organizations/${seedOrgId}/invitations`)
     await waitPageRoot(page, '[data-page="organization-invitations"]')
@@ -491,8 +514,8 @@ test.describe('平台组织治理面 · 六旅程（/api/adm/organizations）', 
   })
 
   test('⑥ 部门：目录渲染 + 创建 + rename（正路径 / expected_version CAS 冲突）+ 归档', async ({ page }) => {
-    test.skip(seedOrgId.length === 0, 'seed 未发现，skip')
-    const credentials = requireAdminCredentials()
+    requireFixture(seedOrgId.length > 0, 'seed 组织未发现')
+    const credentials = requireCreds()
     await loginAsAdmin(page, credentials)
 
     await page.goto(`/organizations/${seedOrgId}/departments`)
@@ -522,7 +545,7 @@ test.describe('平台组织治理面 · 六旅程（/api/adm/organizations）', 
     const created = departments
       .map((item) => (item != null && typeof item === 'object' ? (item as Record<string, unknown>) : {}))
       .find((row) => (typeof row['name'] === 'string' ? row['name'] : '') === deptName)
-    test.skip(!created, 'API 部门目录未见刚创建的部门（数据同步异常）')
+    requireFixture(created, 'API 部门目录未见刚创建的部门（数据同步异常）')
     const deptId = typeof created?.['id'] === 'string' ? created['id'] : String(created?.['id'] ?? '')
     const realVersion = typeof created?.['version'] === 'number' ? (created['version'] as number) : 1
 
@@ -553,8 +576,8 @@ test.describe('平台组织治理面 · 六旅程（/api/adm/organizations）', 
   })
 
   test('⑥ workspaces 只读关系端点（合同 #6；W3 无该 UI 页面，API 层断言）', async ({ page }) => {
-    test.skip(seedOrgId.length === 0, 'seed 未发现，skip')
-    const credentials = requireAdminCredentials()
+    requireFixture(seedOrgId.length > 0, 'seed 组织未发现')
+    const credentials = requireCreds()
     await loginAsAdmin(page, credentials)
 
     const { status, body } = await apiGet(page, `/api/adm/organizations/${seedOrgId}/workspaces?page=1&size=10`)
