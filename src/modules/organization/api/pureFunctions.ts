@@ -1,19 +1,24 @@
 /**
- * Organization 治理面纯函数（ORG-14）。
+ * Organization 治理面纯函数（ORG-14 → ORG-ADMIN-ADM-WIRING 平台面）。
  *
- * 契约真源（后端 worktree codex/org-v1-backend-20260916）：
- *   - `src/api/organization_handler.erl` / `organization_member_handler.erl`
- *   - `src/lib/organization/interfaces/organization_api_handler.erl`
- *   - `src/lib/organization/application/*`（invitation / department / lifecycle / preflight）
+ * 契约真源（后端 worktree codex/org-v1-backend-20260916，adm 面）：
+ *   - `src/adm/adm_organization_handler.erl`（路由分派 + 出站归一化）
+ *   - `src/logic/organization_admin_logic.erl`（admin_page / admin_detail /
+ *     lifecycle / member_transition / invitation / department）
+ *   - 冻结合同 `control/org15/adm-org-api-contract.md`（A0 冻结版 r1）
  *
- * 关键口径（与实现逐条核对过）：
- *   - 组织列表分页信封 `{list,page,size,total,total_page}`（organization_repo:page_by_member）；
- *   - 部门 move/update 的并发冲突字段是 `expected_version`（CAS，仅部门域有）；
+ * 关键口径（与 W2 实现逐条核对过）：
+ *   - 组织列表/详情分页信封 `{list,page,size,total,total_page}`；list/detail 行
+ *     无 member_role（平台管理员不是组织成员），但携带 owner_nickname /
+ *     owner_account / member_count / workspace_count 平台事实（可选投影）；
+ *   - archive/restore 响应为 lifecycle 结果 `{organization_id,status,changed}`
+ *     （与 App 面返回组织全量投影不同——adm 面合同偏差，已回报 A0）；
+ *   - 部门 rename/move 的并发冲突字段是 `expected_version`（CAS，仅部门域有）；
  *   - 成员行键 `organization_id/user_id/role/invited_by/joined_at/status/nickname/avatar/account`；
- *   - 部门成员行键 `organization_id/department_id/user_id/is_admin/created_at/updated_at`；
  *   - 邀请明文 token 只在 create 响应出现一次（view 白名单永不含 token/token_digest）；
  *   - C16：archived 组织禁新写（409），restore 是唯一放行写；
- *   - C17：删除预检 503 = DEPENDENCY_FACTS_UNAVAILABLE（fail-closed，不得继续）。
+ *   - 权限矩阵：adm_acl organizations:read / organizations:write 分权，
+ *     read-only 角色对全部 mutation = 403（member_role 事实不再参与裁决）。
  */
 import { coerceEntityId } from '@/lib/entityId'
 import type { EntityId } from '@/types/common'
@@ -37,6 +42,14 @@ export type OrganizationSummary = {
   /** branding/settings 只投影键名（键值可能含租户私有配置，不渲染取值） */
   brandingKeys: string[]
   settingsKeys: string[]
+  /**
+   * 平台面可选事实（adm list/detail 行新增；App 面 /mine 旅程无这些键）：
+   * owner 昵称/账号 + 关系计数。缺键时为 null/undefined，页面按 '-' 呈现。
+   */
+  ownerNickname?: string
+  ownerAccount?: string
+  memberCount?: number | null
+  workspaceCount?: number | null
 }
 
 export type OrganizationMemberRow = {
@@ -87,41 +100,18 @@ export type DepartmentTreeNode = DepartmentRow & {
   depth: number
 }
 
-export type DepartmentMemberRow = {
+/**
+ * Workspace 只读关系行（GET /api/adm/organizations/:id/workspaces）。
+ * 合同 read 端点，暂无 UI 旅程——形状按 W2 admin_workspace_page SQL 列投影。
+ */
+export type WorkspaceRow = {
+  id: EntityId
+  name: string
+  ownerId: EntityId
   organizationId: EntityId
-  departmentId: EntityId
-  userId: EntityId
-  isAdmin: boolean
+  status: string
   createdAt: string
   updatedAt: string
-}
-
-export type DeletionBlocker = {
-  code: string
-  resourceType: string
-  resourceId: string
-  organizationId: EntityId | null
-}
-
-export type DeletionPreflightFactDomain =
-  | 'organization'
-  | 'workspace'
-  | 'enterprise_business'
-  | 'customer_service'
-  | 'agent'
-  | string
-
-export type DeletionPreflightFact = {
-  domain: DeletionPreflightFactDomain
-  factVersion: number
-  observedAt: number
-}
-
-export type DeletionPreflight = {
-  subjectUserId: EntityId
-  blockers: DeletionBlocker[]
-  facts: DeletionPreflightFact[]
-  observedAt: number
 }
 
 export type OrgPage<T> = {
@@ -154,9 +144,9 @@ export type OrgFailure = {
   suggestRefresh: boolean
 }
 
-/** 管理端会话边界说明：v1 面需要用户 Bearer token，admin cookie 会话不可用。 */
-export const V1_SESSION_HINT =
-  '该面板走 /api/v1 用户会话（Bearer token）；当前管理端会话未携带该凭据时请求会被拒绝（401）。此为部署边界，不做身份冒充。'
+/** 管理会话边界说明：adm 面与整个管理控制台共用 cookie 会话。 */
+export const ADM_SESSION_HINT =
+  '该面板走 /api/adm 平台会话（adm cookie）；401 表示管理会话已失效，请重新登录。'
 
 export function orgFailureKindFromStatus(status: number): OrgFailureKind {
   if (status === 401) return 'unauthorized'
@@ -173,7 +163,7 @@ export function orgFailureKindFromStatus(status: number): OrgFailureKind {
 export function orgFailureMessage(kind: OrgFailureKind, detail: string): string {
   switch (kind) {
     case 'unauthorized':
-      return `未认证（401）：${detail}。${V1_SESSION_HINT}`
+      return `未认证（401）：${detail}。${ADM_SESSION_HINT}`
     case 'forbidden':
       return `无权限（403）：${detail}`
     case 'not_found':
@@ -181,7 +171,7 @@ export function orgFailureMessage(kind: OrgFailureKind, detail: string): string 
     case 'conflict':
       return `状态或并发冲突（409）：${detail}。数据可能已被他人修改，请刷新后重试`
     case 'facts_unavailable':
-      return `依赖域事实不可用（503 fail-closed）：${detail}。删除预检被拒绝，不允许继续删除动作`
+      return `依赖域事实不可用（503 fail-closed）：${detail}`
     case 'validation':
       return `参数校验失败（422/400）：${detail}`
     case 'server':
@@ -254,25 +244,16 @@ function isNetworkError(err: unknown): boolean {
 }
 
 // ===========================================================================
-// 权限矩阵（ORG-A14：Platform Admin 不映射为 Org owner/admin）
+// 权限与状态机（adm 面：RBAC=adm_acl，read/write 分权）
 //
-// 服务端事实真源：
-//   * 组织本体写（改名/archive/restore）：仅 active owner/admin（C16）；
-//   * 成员列表/邀请治理：仅 owner/admin；
-//   * admin 角色授予/移除 admin 成员：仅主 Owner（ensure_primary_owner）；
-//   * owner 转移：仅主 Owner（organization_owner_transfer）；
-//   * 部门域写基线：同 Org active 成员（organization_department_app require_actor）。
-// 平台侧 RBAC 只控制「能否进入本模块页面」，org 级裁决完全由 member_role 驱动。
+// 服务端事实真源（adm_organization_handler / organization_admin_logic）：
+//   * 页面可达性与读 = organizations:read；全部 mutation = organizations:write
+//     （read-only 角色对 mutation 恒 403）——UI 门控由 useAdminPermission 驱动；
+//   * Platform Admin 不映射 org owner/admin：list/detail 行无 member_role；
+//   * 组织状态机（C16）：archived 禁新写，restore 是唯一放行的写入口；
+//   * 成员命令行级守卫：owner 目标 suspend/remove 均 409（先转移 Owner）；
+//   * owner-transfer：组织须 active，目标须是本组织成员，自转移 400。
 // ===========================================================================
-
-export function canViewOrgDetail(role: OrgRole): boolean {
-  return role === 'owner' || role === 'admin' || role === 'member'
-}
-
-/** 组织本体写（改名/archive/restore）：owner/admin，且组织未归档（restore 除外）。 */
-export function canOrgWrite(role: OrgRole): boolean {
-  return role === 'owner' || role === 'admin'
-}
 
 /** C16：archived 禁新写；restore 是 archived 态唯一放行的写入口。 */
 export function isOrgWriteAllowed(status: OrgStatus, action: 'archive' | 'restore' | 'update'): boolean {
@@ -281,44 +262,34 @@ export function isOrgWriteAllowed(status: OrgStatus, action: 'archive' | 'restor
   return false
 }
 
-export function canViewMembers(role: OrgRole): boolean {
-  return role === 'owner' || role === 'admin'
-}
-
-/** admin 角色管理 / 移除 admin 成员：仅主 Owner。 */
-export function canManageAdminRole(role: OrgRole): boolean {
-  return role === 'owner'
-}
-
-export function canTransferOwner(role: OrgRole): boolean {
-  return role === 'owner'
-}
-
-export function canManageInvitations(role: OrgRole): boolean {
-  return role === 'owner' || role === 'admin'
+/**
+ * 成员生命周期命令的行级谓词（平台写权限前提下的服务端 409 镜像）：
+ * owner 行不可 suspend / remove（须先转移 Owner）；restore 仅面向本会话停用记录。
+ */
+export function canTargetMemberRow(row: Pick<OrganizationMemberRow, 'role'>): boolean {
+  return row.role !== 'owner'
 }
 
 // ===========================================================================
-// 成员生命周期命令（EB-D07/EB-08：suspend / restore / offboard）
+// 成员生命周期命令（EB-D07/EB-D08 平台通道：suspend / restore / remove）
 //
-// 服务端契约（organization_member_logic，ORG-ADMIN-WIRING 逐条核对）：
-//   * suspend  POST .../members/:uid/suspend  —— actor owner/admin（组织 active）；
-//     目标仅 active；主 Owner 目标 409「请先转移 Owner」；admin 目标**不**要求主
-//     Owner（与 remove 的角色规则不同，UI 镜像该差异）；
-//   * restore  POST .../members/:uid/restore —— 同 actor 资格；目标仅 suspended
+// 服务端契约（organization_admin_logic member_transition，逐条核对）：
+//   * suspend  POST .../members/:uid/suspend —— 组织须 active；目标仅 active；
+//     owner 目标 409「请先转移 Owner」；adm 面无「admin 目标需主 Owner」限制；
+//   * restore  POST .../members/:uid/restore —— 目标仅 suspended
 //     （active/removed 均 409 明确拒绝，恢复 removed 走重新邀请）；
-//   * offboard POST .../members/:uid/offboard —— 即 remove 终态语义（两步离场 S3）；
-//     目标 active|suspended；主 Owner 目标 409；admin 目标需主 Owner
-//     （ensure_primary_owner）；仍被依赖资源引用时数据库守卫 → 409。
+//   * remove   POST .../members/:uid/remove —— 即 removed 终态（App 面 offboard
+//     的 adm 收敛）；目标 active|suspended；owner 目标 409；仍被依赖资源引用时
+//     数据库守卫 → 409。
 // 成员列表分页只含 active（page_by_organization WHERE status='active'），因此
 // suspended 成员不出现在列表里：恢复入口来自本页会话内的停用记录（见页面）。
 // ===========================================================================
 
-/** 生命周期命令响应的 status 窄化（suspend→suspended / restore→active / offboard→removed）。 */
+/** 生命周期命令响应的 status 窄化（suspend→suspended / restore→active / remove→removed）。 */
 export type MemberLifecycleStatus = 'active' | 'suspended' | 'removed' | 'unknown'
 
-/** suspend/restore/offboard 响应 data 投影（后端 member_result/4）。
- * suspend/restore 含 role；offboard（removed 终态）响应无 role → null。 */
+/** suspend/restore/remove 响应 data 投影（后端 member_result/4）。
+ * suspend/restore 含 role；remove（removed 终态）响应无 role → null。 */
 export type MemberLifecycleResult = {
   organizationId: EntityId
   userId: EntityId
@@ -337,40 +308,28 @@ export function toMemberLifecycleResult(raw: unknown): MemberLifecycleResult {
   }
 }
 
-/** 生命周期命令 actor 资格基线：owner/admin（组织 active 前提由页面另行裁决）。 */
-export function canManageMemberLifecycle(role: OrgRole): boolean {
-  return role === 'owner' || role === 'admin'
+// ===========================================================================
+// 组织 lifecycle 结果（adm 面 archive/restore 响应信封）
+// ===========================================================================
+
+/**
+ * POST archive / POST restore 响应 data 投影（organization_admin_logic transition）：
+ * `{organization_id, status, changed}`——changed=false 表示幂等重放（状态未变，零写入）。
+ * 与 App 面返回组织全量投影不同，这是 adm 面的合同实现形态。
+ */
+export type OrgLifecycleResult = {
+  organizationId: EntityId
+  status: OrgStatus
+  changed: boolean
 }
 
-/** suspend 行级谓词：owner 行不可暂停（服务端 409 镜像）；admin 行放行（后端不要求主 Owner）。 */
-export function canSuspendMember(
-  actor: OrgRole,
-  row: Pick<OrganizationMemberRow, 'role'>
-): boolean {
-  return canManageMemberLifecycle(actor) && row.role !== 'owner'
-}
-
-/** restore 行级谓词：仅 suspended 状态可恢复。 */
-export function canRestoreMember(
-  actor: OrgRole,
-  row: Pick<OrganizationMemberRow, 'status'>
-): boolean {
-  return canManageMemberLifecycle(actor) && row.status === 'suspended'
-}
-
-/** offboard 行级谓词：owner 行不可离场；admin 行需主 Owner（ensure_primary_owner 镜像）。 */
-export function canOffboardMember(
-  actor: OrgRole,
-  row: Pick<OrganizationMemberRow, 'role'>
-): boolean {
-  if (!canManageMemberLifecycle(actor) || row.role === 'owner') return false
-  if (row.role === 'admin' && !canManageAdminRole(actor)) return false
-  return true
-}
-
-/** 部门域写基线 = 同 Org active 成员（服务端口径，含局部目录管理员委托）。 */
-export function canWriteDepartments(role: OrgRole): boolean {
-  return role === 'owner' || role === 'admin' || role === 'member'
+export function toOrgLifecycleResult(raw: unknown): OrgLifecycleResult {
+  const record = asRecord(raw)
+  return {
+    organizationId: coerceEntityId(record['organization_id']),
+    status: asStatus(record['status']),
+    changed: record['changed'] === true,
+  }
 }
 
 // ===========================================================================
@@ -413,11 +372,17 @@ export function toOrganizationSummary(raw: unknown): OrganizationSummary {
     name: asString(record['name']) || `#${coerceEntityId(record['id']) || '未知'}`,
     ownerId: coerceEntityId(record['owner_id']),
     status: asStatus(record['status']),
+    // adm 面 list/detail 行无 member_role（平台管理员不是组织成员）→ 恒 null；
+    // App 面 /mine 旅程的 role/member_role 键仍可被防御读取。
     memberRole: asOrgRole(record['member_role'] ?? record['role']),
     createdAt: asString(record['created_at']),
     updatedAt: asString(record['updated_at']),
     brandingKeys: safeJsonKeyNames(record['branding']),
     settingsKeys: safeJsonKeyNames(record['settings']),
+    ownerNickname: asString(record['owner_nickname']) || undefined,
+    ownerAccount: asString(record['owner_account']) || undefined,
+    memberCount: asNumberOrNull(record['member_count']),
+    workspaceCount: asNumberOrNull(record['workspace_count']),
   }
 }
 
@@ -480,46 +445,16 @@ export function toDepartmentRow(raw: unknown): DepartmentRow {
   }
 }
 
-export function toDepartmentMemberRow(raw: unknown): DepartmentMemberRow {
+export function toWorkspaceRow(raw: unknown): WorkspaceRow {
   const record = asRecord(raw)
   return {
+    id: coerceEntityId(record['id']),
+    name: asString(record['name']),
+    ownerId: coerceEntityId(record['owner_id']),
     organizationId: coerceEntityId(record['organization_id']),
-    departmentId: coerceEntityId(record['department_id']),
-    userId: coerceEntityId(record['user_id']),
-    isAdmin: record['is_admin'] === true,
+    status: asString(record['status']) || 'unknown',
     createdAt: asString(record['created_at']),
     updatedAt: asString(record['updated_at']),
-  }
-}
-
-export function toDeletionPreflight(raw: unknown): DeletionPreflight {
-  const record = asRecord(raw)
-  const blockers = Array.isArray(record['blockers'])
-    ? record['blockers'].map((item) => {
-        const b = asRecord(item)
-        return {
-          code: asString(b['code']),
-          resourceType: asString(b['resource_type']),
-          resourceId: asString(b['resource_id']),
-          organizationId: b['organization_id'] == null ? null : coerceEntityId(b['organization_id']),
-        }
-      })
-    : []
-  const facts = Array.isArray(record['facts'])
-    ? record['facts'].map((item) => {
-        const f = asRecord(item)
-        return {
-          domain: asString(f['domain']),
-          factVersion: asVersion(f['fact_version']),
-          observedAt: asNumberOrNull(f['observed_at']) ?? 0,
-        }
-      })
-    : []
-  return {
-    subjectUserId: coerceEntityId(record['subject_user_id']),
-    blockers,
-    facts,
-    observedAt: asNumberOrNull(record['observed_at']) ?? 0,
   }
 }
 

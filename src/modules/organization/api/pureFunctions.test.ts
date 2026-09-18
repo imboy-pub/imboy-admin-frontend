@@ -1,26 +1,19 @@
 /**
- * ORG-14 organization 模块纯函数单测。
+ * ORG-ADMIN-ADM-WIRING organization 模块纯函数单测（adm 平台面）。
  *
- * 覆盖：权限矩阵（ORG-A14：read-only/平台管理员不映射为 org 角色）、
+ * 覆盖：C16 组织写门禁、成员行级谓词（owner 不可 suspend/remove）、
  * 错误分类映射（400/401/403/404/409/422/503）、分页信封归一化、
- * TSID→EntityId 投影、邀请 token 一次性展示语义、部门树构造（含孤儿节点）、
+ * TSID→EntityId 投影、平台事实投影（owner 昵称/账号 + 关系计数）、
+ * org lifecycle 信封（{organization_id,status,changed}）、Workspace 行投影、
+ * 邀请 token 一次性展示语义、部门树构造（含孤儿节点）、
  * 并发冲突（expected_version 409）刷新提示、敏感键白名单投影。
  */
 import { describe, expect, it } from 'bun:test'
 import {
+  ADM_SESSION_HINT,
   asOrgRole,
   buildDepartmentTree,
-  canManageAdminRole,
-  canManageInvitations,
-  canManageMemberLifecycle,
-  canOffboardMember,
-  canOrgWrite,
-  canRestoreMember,
-  canSuspendMember,
-  canTransferOwner,
-  canViewMembers,
-  canViewOrgDetail,
-  canWriteDepartments,
+  canTargetMemberRow,
   classifyOrgError,
   descendantIdsOf,
   isOrgConflict,
@@ -36,50 +29,14 @@ import {
   toMemberLifecycleResult,
   toOrganizationMemberRow,
   toOrganizationSummary,
-  toDeletionPreflight,
-  V1_SESSION_HINT,
+  toOrgLifecycleResult,
+  toWorkspaceRow,
 } from './pureFunctions'
 
 // ---------------------------------------------------------------------------
-// 权限矩阵（服务端事实驱动的 org 级裁决）
+// C16 写门禁 + adm 面成员行级谓词
 // ---------------------------------------------------------------------------
-describe('organization 权限矩阵', () => {
-  it('member / 非成员（含平台管理员降级场景）拿不到任何组织写入口', () => {
-    expect(canOrgWrite('member')).toBe(false)
-    expect(canOrgWrite(null)).toBe(false)
-    expect(canManageAdminRole('admin')).toBe(false)
-    expect(canManageAdminRole('member')).toBe(false)
-    expect(canManageAdminRole(null)).toBe(false)
-    expect(canTransferOwner('admin')).toBe(false)
-    expect(canTransferOwner('member')).toBe(false)
-    expect(canTransferOwner(null)).toBe(false)
-    expect(canManageInvitations('member')).toBe(false)
-    expect(canManageInvitations(null)).toBe(false)
-    expect(canViewMembers('member')).toBe(false)
-    expect(canViewMembers(null)).toBe(false)
-  })
-
-  it('owner / admin 按服务端口径分级放行', () => {
-    expect(canOrgWrite('owner')).toBe(true)
-    expect(canOrgWrite('admin')).toBe(true)
-    expect(canManageAdminRole('owner')).toBe(true)
-    expect(canTransferOwner('owner')).toBe(true)
-    expect(canViewMembers('owner')).toBe(true)
-    expect(canViewMembers('admin')).toBe(true)
-    expect(canManageInvitations('owner')).toBe(true)
-    expect(canManageInvitations('admin')).toBe(true)
-  })
-
-  it('详情只读对任意 active 成员开放；部门写基线是任意 active 成员', () => {
-    expect(canViewOrgDetail('member')).toBe(true)
-    expect(canViewOrgDetail('admin')).toBe(true)
-    expect(canViewOrgDetail('owner')).toBe(true)
-    expect(canViewOrgDetail(null)).toBe(false)
-    expect(canWriteDepartments('member')).toBe(true)
-    expect(canWriteDepartments('owner')).toBe(true)
-    expect(canWriteDepartments(null)).toBe(false)
-  })
-
+describe('组织写门禁与成员行级谓词', () => {
   it('C16 archived fail-closed：只有 restore 放行', () => {
     expect(isOrgWriteAllowed('active', 'update')).toBe(true)
     expect(isOrgWriteAllowed('active', 'archive')).toBe(true)
@@ -89,57 +46,18 @@ describe('organization 权限矩阵', () => {
     expect(isOrgWriteAllowed('archived', 'restore')).toBe(true)
     expect(isOrgWriteAllowed('unknown', 'restore')).toBe(false)
   })
-})
 
-// ---------------------------------------------------------------------------
-// 成员生命周期命令谓词（EB-D07/EB-08：suspend / restore / offboard）
-// 服务端契约：actor 均需 owner/admin；suspend 禁 owner 目标（admin 目标不要求
-// 主 Owner）；restore 仅 suspended；offboard 禁 owner 目标、admin 目标需主 Owner。
-// ---------------------------------------------------------------------------
-describe('成员生命周期谓词', () => {
-  const rowOf = (role: string) => ({ role: role as 'owner' | 'admin' | 'member' | 'unknown' })
-
-  it('actor 资格基线：owner/admin 可执行生命周期命令，member/非成员不可', () => {
-    expect(canManageMemberLifecycle('owner')).toBe(true)
-    expect(canManageMemberLifecycle('admin')).toBe(true)
-    expect(canManageMemberLifecycle('member')).toBe(false)
-    expect(canManageMemberLifecycle(null)).toBe(false)
-  })
-
-  it('suspend：owner 行不可停用；admin/member 行放行（admin 目标不要求主 Owner，与离场不同）', () => {
-    expect(canSuspendMember('owner', rowOf('owner'))).toBe(false)
-    expect(canSuspendMember('owner', rowOf('admin'))).toBe(true)
-    expect(canSuspendMember('owner', rowOf('member'))).toBe(true)
-    // 关键差异：非主 Owner 的 admin actor 也可停用 admin 目标（后端 suspend_tx 无主 Owner 门）
-    expect(canSuspendMember('admin', rowOf('admin'))).toBe(true)
-    expect(canSuspendMember('admin', rowOf('member'))).toBe(true)
-    expect(canSuspendMember('member', rowOf('member'))).toBe(false)
-    expect(canSuspendMember(null, rowOf('member'))).toBe(false)
-  })
-
-  it('restore：仅 suspended 状态可恢复；active / removed / unknown 均不可', () => {
-    expect(canRestoreMember('owner', { status: 'suspended' })).toBe(true)
-    expect(canRestoreMember('admin', { status: 'suspended' })).toBe(true)
-    expect(canRestoreMember('owner', { status: 'active' })).toBe(false)
-    expect(canRestoreMember('owner', { status: 'removed' })).toBe(false)
-    expect(canRestoreMember('owner', { status: 'unknown' })).toBe(false)
-    expect(canRestoreMember('member', { status: 'suspended' })).toBe(false)
-    expect(canRestoreMember(null, { status: 'suspended' })).toBe(false)
-  })
-
-  it('offboard：owner 行不可离场；admin 行需主 Owner；member 行 owner/admin 均可离场', () => {
-    expect(canOffboardMember('owner', rowOf('owner'))).toBe(false)
-    expect(canOffboardMember('owner', rowOf('admin'))).toBe(true)
-    expect(canOffboardMember('admin', rowOf('admin'))).toBe(false) // admin actor 离场 admin 目标被拒
-    expect(canOffboardMember('owner', rowOf('member'))).toBe(true)
-    expect(canOffboardMember('admin', rowOf('member'))).toBe(true)
-    expect(canOffboardMember('member', rowOf('member'))).toBe(false)
-    expect(canOffboardMember(null, rowOf('member'))).toBe(false)
+  it('canTargetMemberRow：owner 行不可 suspend/remove（服务端 409 镜像），admin/member 行放行', () => {
+    expect(canTargetMemberRow({ role: 'owner' })).toBe(false)
+    expect(canTargetMemberRow({ role: 'admin' })).toBe(true)
+    expect(canTargetMemberRow({ role: 'member' })).toBe(true)
+    expect(canTargetMemberRow({ role: 'unknown' })).toBe(true)
+    expect(canTargetMemberRow({ role: null })).toBe(true)
   })
 })
 
 // ---------------------------------------------------------------------------
-// 生命周期命令响应投影（member_result：suspend/restore 含 role，offboard 无 role）
+// 生命周期命令响应投影（member_result：suspend/restore 含 role，remove 无 role）
 // ---------------------------------------------------------------------------
 describe('生命周期响应投影', () => {
   it('suspend / restore 响应：organization_id/user_id/role/status 全量映射，TSID 保持 string', () => {
@@ -159,7 +77,7 @@ describe('生命周期响应投影', () => {
     expect(restored.role).toBe('admin')
   })
 
-  it('offboard 响应（removed 终态）无 role 字段 → role 投影为 null', () => {
+  it('remove 响应（removed 终态）无 role 字段 → role 投影为 null', () => {
     const result = toMemberLifecycleResult({ organization_id: '1', user_id: '2', status: 'removed' })
     expect(result.status).toBe('removed')
     expect(result.role).toBeNull()
@@ -170,6 +88,28 @@ describe('生命周期响应投影', () => {
     expect(result.status).toBe('unknown')
     expect(result.role).toBeNull()
     expect(toMemberLifecycleResult(undefined).status).toBe('unknown')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// org lifecycle 信封投影（adm 面 archive/restore 响应）
+// ---------------------------------------------------------------------------
+describe('组织 lifecycle 信封投影', () => {
+  it('{organization_id,status,changed} 全量映射；changed=false 表示幂等重放', () => {
+    const archived = toOrgLifecycleResult({ organization_id: '7700487111111111111', status: 'archived', changed: true })
+    expect(archived.organizationId).toBe('7700487111111111111')
+    expect(archived.status).toBe('archived')
+    expect(archived.changed).toBe(true)
+
+    const replay = toOrgLifecycleResult({ organization_id: '1', status: 'archived', changed: false })
+    expect(replay.changed).toBe(false)
+  })
+
+  it('缺字段走防御默认（unknown / changed=false），不抛异常', () => {
+    const result = toOrgLifecycleResult({})
+    expect(result.status).toBe('unknown')
+    expect(result.changed).toBe(false)
+    expect(toOrgLifecycleResult(undefined).status).toBe('unknown')
   })
 })
 
@@ -195,19 +135,19 @@ describe('错误分类映射', () => {
     expect(conflict.suggestRefresh).toBe(true)
     expect(conflict.message).toContain('409')
 
-    const forbidden = classifyOrgError({ code: 403, msg: '仅 Organization Owner 或 Admin 可执行此操作' })
+    const forbidden = classifyOrgError({ code: 403, msg: '无 organizations:write 权限' })
     expect(forbidden.kind).toBe('forbidden')
     expect(forbidden.suggestRefresh).toBe(false)
 
-    const unavailable = classifyOrgError({ code: 503, msg: '依赖域事实不可用，删除预检被拒绝' })
+    const unavailable = classifyOrgError({ code: 503, msg: '依赖域事实不可用' })
     expect(unavailable.kind).toBe('facts_unavailable')
     expect(unavailable.message).toContain('fail-closed')
   })
 
-  it('401 呈现 v1 会话边界说明（不做身份冒充）', () => {
+  it('401 呈现 adm 会话边界说明（管理会话失效 → 重新登录）', () => {
     const unauthorized = classifyOrgError({ code: 401, msg: '未登录，请先登录' })
     expect(unauthorized.kind).toBe('unauthorized')
-    expect(unauthorized.message).toContain(V1_SESSION_HINT)
+    expect(unauthorized.message).toContain(ADM_SESSION_HINT)
   })
 
   it('isOrgConflict 识别 expected_version CAS 冲突', () => {
@@ -260,9 +200,9 @@ describe('分页信封归一化', () => {
 })
 
 // ---------------------------------------------------------------------------
-// TSID → EntityId 投影（64 位安全）
+// TSID → EntityId 投影（64 位安全）+ 平台事实投影
 // ---------------------------------------------------------------------------
-describe('TSID 投影', () => {
+describe('TSID 与平台事实投影', () => {
   it('大整数 TSID 以 string 形态安全保留（safeParseBigIntJson 产物）', () => {
     const tsid = '7700487123456789012'
     const summary = toOrganizationSummary({
@@ -282,6 +222,36 @@ describe('TSID 投影', () => {
     expect(summary.status).toBe('active')
     expect(summary.brandingKeys).toEqual(['logo'])
     expect(summary.settingsKeys).toEqual([])
+  })
+
+  it('adm 面 list/detail 行无 member_role → memberRole 恒 null；平台事实键完整投影', () => {
+    const summary = toOrganizationSummary({
+      id: '7700487123456789012',
+      name: '示例组织',
+      owner_id: '7700487999999999999',
+      owner_nickname: '张三',
+      owner_account: 'zhangsan',
+      member_count: 12,
+      workspace_count: 3,
+      status: 'active',
+      branding: {},
+      settings: {},
+      created_at: '2026-09-01T00:00:00',
+      updated_at: '2026-09-01T00:00:00',
+    })
+    expect(summary.memberRole).toBeNull()
+    expect(summary.ownerNickname).toBe('张三')
+    expect(summary.ownerAccount).toBe('zhangsan')
+    expect(summary.memberCount).toBe(12)
+    expect(summary.workspaceCount).toBe(3)
+  })
+
+  it('平台事实键缺失时投影为 null/undefined（页面按 - 呈现）', () => {
+    const summary = toOrganizationSummary({ id: '1', name: '组织', owner_id: '2', status: 'active' })
+    expect(summary.ownerNickname).toBeUndefined()
+    expect(summary.ownerAccount).toBeUndefined()
+    expect(summary.memberCount).toBeNull()
+    expect(summary.workspaceCount).toBeNull()
   })
 
   it('branding/settings 只投影键名，不投影取值（敏感内部字段熔断）', () => {
@@ -312,6 +282,36 @@ describe('TSID 投影', () => {
   it('asOrgRole 拒绝未知角色（无万能角色）', () => {
     expect(asOrgRole('superadmin')).toBeNull()
     expect(asOrgRole('owner')).toBe('owner')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Workspace 只读关系行投影（adm 面 read 端点）
+// ---------------------------------------------------------------------------
+describe('Workspace 行投影', () => {
+  it('id/name/owner_id/organization_id/status/时间戳 全量映射，TSID 保持 string', () => {
+    const row = toWorkspaceRow({
+      id: '7700487555555555555',
+      name: '默认空间',
+      owner_id: '7700487222222222222',
+      organization_id: '7700487111111111111',
+      status: 'active',
+      created_at: '2026-09-01T00:00:00',
+      updated_at: '2026-09-01T00:00:00',
+    })
+    expect(row.id).toBe('7700487555555555555')
+    expect(row.name).toBe('默认空间')
+    expect(row.ownerId).toBe('7700487222222222222')
+    expect(row.organizationId).toBe('7700487111111111111')
+    expect(row.status).toBe('active')
+    expect(row.createdAt).toBe('2026-09-01T00:00:00')
+  })
+
+  it('缺字段走防御默认，不抛异常', () => {
+    const row = toWorkspaceRow({})
+    expect(row.name).toBe('')
+    expect(row.status).toBe('unknown')
+    expect(toWorkspaceRow(undefined).status).toBe('unknown')
   })
 })
 
@@ -405,30 +405,5 @@ describe('部门树构造', () => {
     }
     walk(tree)
     expect(collected.sort()).toEqual(['a', 'b'])
-  })
-})
-
-// ---------------------------------------------------------------------------
-// 删除预检投影（C17 冻结形状）
-// ---------------------------------------------------------------------------
-describe('删除预检投影', () => {
-  it('blockers / facts / observed_at 冻结字段完整映射', () => {
-    const preflight = toDeletionPreflight({
-      subject_user_id: '42',
-      blockers: [
-        { code: 'org_owner_of_active_org', resource_type: 'organization', resource_id: '111', organization_id: 111 },
-        { code: 'cs_active_seat', resource_type: 'cs_seat', resource_id: 'seat-9', organization_id: null },
-      ],
-      facts: [
-        { subject_user_id: 42, domain: 'organization', observed_at: 1770000000, fact_version: 1, blockers: [] },
-      ],
-      observed_at: 1770000001,
-    })
-    expect(preflight.subjectUserId).toBe('42')
-    expect(preflight.blockers).toHaveLength(2)
-    expect(preflight.blockers[0]?.organizationId).toBe('111')
-    expect(preflight.blockers[1]?.organizationId).toBeNull()
-    expect(preflight.facts[0]?.domain).toBe('organization')
-    expect(preflight.observedAt).toBe(1770000001)
   })
 })

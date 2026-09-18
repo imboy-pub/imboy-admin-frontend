@@ -21,13 +21,12 @@ import {
 import { useAdminPermission } from '@/hooks/useAdminPermission'
 import { useListQueryState } from '@/hooks/useListQueryState'
 import {
+  cancelOrganizationInvitation,
   createOrganizationInvitation,
   getOrganizationDetail,
   listOrganizationInvitations,
-  revokeOrganizationInvitation,
 } from '../api/public'
 import {
-  canManageInvitations,
   classifyOrgError,
   formatEpochSeconds,
   invitationStatusLabel,
@@ -37,7 +36,8 @@ import {
   type InvitationView,
 } from '../api/pureFunctions'
 
-const READ_PERMISSION = 'workspaces:read'
+const READ_PERMISSION = 'organizations:read'
+const WRITE_PERMISSION = 'organizations:write'
 
 type ListState = {
   status: string
@@ -62,12 +62,13 @@ function parseStatusFilter(value: string): InvitationStatus | undefined {
 }
 
 /**
- * 邀请管理页（ORG-14，Core Contract C11）。
+ * 邀请管理页（ORG-14 → ORG-ADMIN-ADM-WIRING 平台面，Core Contract C11）。
  *
- * 契约：GET/POST /organizations/:id/invitations（owner/admin；limit 1..100 默认 20）；
- * POST /invitations/:invitation_id/revoke（幂等）。明文 token 只在 create 响应出现一次：
- * 本页用一次性 Dialog 展示 + 复制，关闭即丢弃，不进 query cache / store / 日志。
- * 不实现 legacy direct-add（POST /organizations/:id/members 是 C11 TRANSITION 过渡项）。
+ * 契约（/api/adm/organizations/:id/invitations）：GET 列表（read）+ POST 创建
+ * （write，body 键 target_user_id，平台面 invited_by 恒 null）+ POST
+ * /invitations/:invitation_id/cancel（write，幂等；App 面 revoke 的 adm 收敛）。
+ * 明文 token 只在 create 响应出现一次：本页用一次性 Dialog 展示 + 复制，
+ * 关闭即丢弃，不进 query cache / store / 日志。
  */
 export function OrganizationInvitationsPage() {
   const params = useParams<{ organizationId: string }>()
@@ -76,13 +77,14 @@ export function OrganizationInvitationsPage() {
   const { state, setState } = useListQueryState<ListState>({ status: 'all', limit: 20 })
   const { allowed: canRead, loading: permLoading } = useAdminPermission({ permission: READ_PERMISSION })
   const readReady = canRead && !permLoading
+  const { allowed: canManage } = useAdminPermission({ permission: WRITE_PERMISSION })
 
   const [createOpen, setCreateOpen] = useState(false)
   const [createUserId, setCreateUserId] = useState('')
   const [createExpiresInDays, setCreateExpiresInDays] = useState('')
   /** 一次性 token 展示：组件局部 state，关闭即清空（唯一持有点）。 */
   const [reveal, setReveal] = useState<InvitationCreatedReveal | null>(null)
-  const [pendingRevoke, setPendingRevoke] = useState<InvitationView | null>(null)
+  const [pendingCancel, setPendingCancel] = useState<InvitationView | null>(null)
 
   const detailQuery = useQuery({
     queryKey: ['organization', 'detail', organizationId],
@@ -91,15 +93,13 @@ export function OrganizationInvitationsPage() {
   })
 
   const org = detailQuery.data
-  const myRole = org?.memberRole ?? null
-  const canManage = canManageInvitations(myRole)
   const archived = org?.status === 'archived'
 
   const status = parseStatusFilter(state.status)
   const listQuery = useQuery({
     queryKey: ['organization', 'invitations', organizationId, state.status, state.limit],
     queryFn: () => listOrganizationInvitations(organizationId, status, state.limit),
-    enabled: readReady && canManage && organizationId.length > 0 && detailQuery.isSuccess,
+    enabled: readReady && organizationId.length > 0 && detailQuery.isSuccess,
   })
 
   const invalidateList = () => {
@@ -125,11 +125,11 @@ export function OrganizationInvitationsPage() {
     onError: (err) => toast.error(classifyOrgError(err).message),
   })
 
-  const revokeMutation = useMutation({
-    mutationFn: (invitationId: string) => revokeOrganizationInvitation(organizationId, invitationId),
+  const cancelMutation = useMutation({
+    mutationFn: (invitationId: string) => cancelOrganizationInvitation(organizationId, invitationId),
     onSuccess: () => {
-      toast.success('邀请已撤销（幂等命令；已终态时服务端返回稳定当前状态）')
-      setPendingRevoke(null)
+      toast.success('邀请已取消（幂等命令；已终态时服务端返回稳定当前状态）')
+      setPendingCancel(null)
       invalidateList()
     },
     onError: (err) => toast.error(classifyOrgError(err).message),
@@ -193,10 +193,10 @@ export function OrganizationInvitationsPage() {
             <Button
               variant="ghost"
               size="sm"
-              data-testid="invitation-revoke-btn"
-              onClick={() => setPendingRevoke(row.original)}
+              data-testid="invitation-cancel-btn"
+              onClick={() => setPendingCancel(row.original)}
             >
-              撤销
+              取消
             </Button>
           ) : (
             <span className="text-xs text-muted-foreground">-</span>
@@ -222,8 +222,8 @@ export function OrganizationInvitationsPage() {
   } else if (!canManage) {
     body = (
       <EmptyState
-        title="需要组织 Owner / Admin 角色"
-        description={`邀请治理仅组织 Owner/Admin 可见（服务端 403 fail-closed）。当前角色：${myRole === 'admin' ? 'Admin' : myRole === 'member' ? 'Member' : '非成员'}。`}
+        title="无 organizations:write 权限"
+        description={`邀请治理（创建 / 取消）需要 ${WRITE_PERMISSION}（adm_acl 分权，read-only 角色对 mutation 恒 403）。本页对你是只读的。`}
       />
     )
   } else if (listQuery.error) {
@@ -244,7 +244,7 @@ export function OrganizationInvitationsPage() {
     <div className="space-y-4" data-page="organization-invitations">
       <PageHeader
         title="邀请管理"
-        description="邀请（invitation）与直接加人（legacy direct-add）是不同命令：本页只治理邀请——创建、一次性 token 交付、撤销。"
+        description="邀请（invitation）与直接加人（legacy direct-add）是不同命令：本页只治理邀请——创建、一次性 token 交付、取消（App 面 revoke 的 adm 收敛）。"
       />
 
       <Card>
@@ -395,17 +395,17 @@ export function OrganizationInvitationsPage() {
       </Dialog>
 
       <ConfirmDialog
-        open={pendingRevoke != null}
+        open={pendingCancel != null}
         onOpenChange={(open) => {
-          if (!open) setPendingRevoke(null)
+          if (!open) setPendingCancel(null)
         }}
-        title={`撤销邀请 ${pendingRevoke?.invitationId ?? ''}`}
-        description="撤销后被邀请人将无法接受该邀请（幂等：已终态时返回稳定当前状态，不重复审计）。确认撤销？"
-        confirmText="确认撤销"
+        title={`取消邀请 ${pendingCancel?.invitationId ?? ''}`}
+        description="取消后被邀请人将无法接受该邀请（幂等：已终态时返回稳定当前状态，不重复审计）。确认取消？"
+        confirmText="确认取消"
         variant="destructive"
-        loading={revokeMutation.isPending}
+        loading={cancelMutation.isPending}
         onConfirm={async () => {
-          if (pendingRevoke) await revokeMutation.mutateAsync(pendingRevoke.invitationId)
+          if (pendingCancel) await cancelMutation.mutateAsync(pendingCancel.invitationId)
         }}
       />
     </div>

@@ -9,7 +9,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select } from '@/components/ui/select'
 import {
   ConfirmDialog,
   DataTable,
@@ -22,36 +21,30 @@ import { useAdminPermission } from '@/hooks/useAdminPermission'
 import { useListQueryState } from '@/hooks/useListQueryState'
 import { DEFAULT_PAGE_SIZE } from '@/lib/pagination'
 import {
-  changeMemberRole,
   getOrganizationDetail,
   getOrganizationMembers,
-  offboardOrganizationMember,
+  removeOrganizationMember,
   restoreOrganizationMember,
   suspendOrganizationMember,
   transferOrganizationOwner,
 } from '../api/public'
 import {
-  canManageAdminRole,
-  canOffboardMember,
-  canOrgWrite,
-  canSuspendMember,
-  canTransferOwner,
-  canViewMembers,
+  canTargetMemberRow,
   classifyOrgError,
   isOrgWriteAllowed,
   orgRoleLabel,
   type OrganizationMemberRow,
-  type OrgRole,
 } from '../api/pureFunctions'
 
-const READ_PERMISSION = 'workspaces:read'
+const READ_PERMISSION = 'organizations:read'
+const WRITE_PERMISSION = 'organizations:write'
 
 type ListState = {
   page: number
   size: number
 }
 
-/** 本会话内被停用（suspended）的成员记录：恢复/离场操作的唯一 UI 入口来源。 */
+/** 本会话内被停用（suspended）的成员记录：恢复/移除操作的唯一 UI 入口来源。 */
 type SuspendedRecord = {
   userId: string
   nickname: string
@@ -59,18 +52,18 @@ type SuspendedRecord = {
 }
 
 /**
- * 成员治理页（ORG-14；ORG-ADMIN-WIRING 接入生命周期命令）。
+ * 成员治理页（ORG-14 → ORG-ADMIN-ADM-WIRING 平台面）。
  *
- * 契约：GET 成员列表（owner/admin）；PUT role（仅 admin|member，Owner 走转移流程）；
- * POST transfer_owner（主 Owner 专属）；POST members/:uid/suspend（active→suspended，
- * 主 Owner 不可暂停）；POST members/:uid/restore（仅 suspended→active）；
- * POST members/:uid/offboard（离场单一入口，active|suspended→removed 终态，
- * admin 目标需主 Owner；依赖资源冲突 409）。
+ * 契约（/api/adm/organizations/:id）：GET members（read）；POST
+ * owner-transfer、POST members/:uid/suspend、POST members/:uid/restore、
+ * POST members/:uid/remove（write）。平台无租户 actor 概念：owner 目标
+ * suspend/remove 均被服务端 409 拒绝（先转移 Owner）；admin 目标无
+ * 「主 Owner」限制；角色调整（PUT role）不在 adm 面合同内，入口已移除。
  *
- * 恢复入口说明：成员列表分页只含 active（服务端 page_by_organization 硬编码
- * status='active'，无 suspended 列表端点），因此停用后的成员会从表格消失；
- * 恢复操作从本页会话内的「最近停用」记录触发（刷新页面后记录消失，长期悬置
- * 成员需在 App 端处理）。不发明新页面结构，仅在本页内呈现。
+ * 恢复入口说明：成员列表分页只含 active（服务端硬编码 status='active'，
+ * 无 suspended 列表端点），因此停用后的成员会从表格消失；恢复操作从本页
+ * 会话内的「最近停用」记录触发（刷新页面后记录消失，长期悬置成员需在
+ * App 端处理）。不发明新页面结构，仅在本页内呈现。
  */
 export function OrganizationMembersPage() {
   const params = useParams<{ organizationId: string }>()
@@ -79,15 +72,15 @@ export function OrganizationMembersPage() {
   const { state, setState } = useListQueryState<ListState>({ page: 1, size: DEFAULT_PAGE_SIZE })
   const { allowed: canRead, loading: permLoading } = useAdminPermission({ permission: READ_PERMISSION })
   const readReady = canRead && !permLoading
+  const { allowed: canWrite } = useAdminPermission({ permission: WRITE_PERMISSION })
 
-  const [roleDraft, setRoleDraft] = useState<{ row: OrganizationMemberRow; role: 'admin' | 'member' } | null>(null)
   const [pendingSuspend, setPendingSuspend] = useState<OrganizationMemberRow | null>(null)
-  const [pendingOffboard, setPendingOffboard] = useState<OrganizationMemberRow | null>(null)
+  const [pendingRemove, setPendingRemove] = useState<OrganizationMemberRow | null>(null)
   const [suspendedRecords, setSuspendedRecords] = useState<SuspendedRecord[]>([])
   const [transferOpen, setTransferOpen] = useState(false)
   const [transferTarget, setTransferTarget] = useState('')
 
-  // 服务端事实：组织状态 + 我的 member_role（权限矩阵数据源）
+  // 服务端事实：组织状态（archived 门禁与提示的数据源）
   const detailQuery = useQuery({
     queryKey: ['organization', 'detail', organizationId],
     queryFn: () => getOrganizationDetail(organizationId),
@@ -95,32 +88,19 @@ export function OrganizationMembersPage() {
   })
 
   const org = detailQuery.data
-  const myRole = org?.memberRole ?? null
   const orgStatus = org?.status ?? 'unknown'
-  const canList = canViewMembers(myRole)
   const archived = orgStatus === 'archived'
 
   const membersQuery = useQuery({
     queryKey: ['organization', 'members', organizationId, state.page, state.size],
     queryFn: () => getOrganizationMembers(organizationId, state.page, state.size),
-    enabled: readReady && canList && organizationId.length > 0 && detailQuery.isSuccess,
+    enabled: readReady && organizationId.length > 0 && detailQuery.isSuccess,
   })
 
   const invalidateMembers = () => {
     void queryClient.invalidateQueries({ queryKey: ['organization', 'members', organizationId] })
     void queryClient.invalidateQueries({ queryKey: ['organization', 'detail', organizationId] })
   }
-
-  const roleMutation = useMutation({
-    mutationFn: (input: { row: OrganizationMemberRow; role: 'admin' | 'member' }) =>
-      changeMemberRole(organizationId, input.row.userId, input.role),
-    onSuccess: (_data, input) => {
-      toast.success(`成员 ${input.row.userId} 角色已调整为 ${input.role}`)
-      setRoleDraft(null)
-      invalidateMembers()
-    },
-    onError: (err) => toast.error(classifyOrgError(err).message),
-  })
 
   const suspendMutation = useMutation({
     mutationFn: (row: OrganizationMemberRow) => suspendOrganizationMember(organizationId, row.userId),
@@ -147,14 +127,14 @@ export function OrganizationMembersPage() {
     onError: (err) => toast.error(classifyOrgError(err).message),
   })
 
-  const offboardMutation = useMutation({
+  const removeMutation = useMutation({
     mutationFn: (input: { row: OrganizationMemberRow | SuspendedRecord }) =>
-      offboardOrganizationMember(organizationId, input.row.userId),
+      removeOrganizationMember(organizationId, input.row.userId),
     onSuccess: (_data, input) => {
       toast.success(
-        `成员 ${input.row.userId} 已离场（removed 终态）：若仍被依赖资源引用，服务端会以 409 拒绝并要求先完成交接`
+        `成员 ${input.row.userId} 已移除（removed 终态）：若仍被依赖资源引用，服务端会以 409 拒绝并要求先完成交接`
       )
-      setPendingOffboard(null)
+      setPendingRemove(null)
       setSuspendedRecords((prev) => prev.filter((item) => item.userId !== input.row.userId))
       invalidateMembers()
     },
@@ -221,46 +201,23 @@ export function OrganizationMembersPage() {
       {
         header: '操作',
         cell: ({ row }) => {
-          if (!canOrgWrite(myRole) || archived) {
+          if (!canWrite || archived) {
             return <span className="text-xs text-muted-foreground">-</span>
           }
-          const isOwnerRow = row.original.role === 'owner'
-          const isAdminRow = row.original.role === 'admin'
+          if (!canTargetMemberRow(row.original)) {
+            return <span className="text-xs text-muted-foreground">主 Owner 不可直接操作（先转移 Owner）</span>
+          }
           return (
-            <div className="flex items-center gap-1">
-              {isOwnerRow ? (
-                <span className="text-xs text-muted-foreground">主 Owner 不可经角色接口修改</span>
-              ) : (
-                <Select
-                  aria-label={`调整成员 ${row.original.userId} 角色`}
-                  className="h-8 w-28 text-xs"
-                  value={row.original.role === 'admin' ? 'admin' : 'member'}
-                  disabled={isAdminRow && !canManageAdminRole(myRole)}
-                  onChange={(event) => {
-                    const next = event.target.value === 'admin' ? 'admin' : 'member'
-                    if (next !== (row.original.role === 'admin' ? 'admin' : 'member')) {
-                      setRoleDraft({ row: row.original, role: next })
-                    }
-                  }}
-                >
-                  <option value="member">member</option>
-                  <option value="admin">admin</option>
-                </Select>
-              )}
-              {isOwnerRow ? null : (
-                <MemberLifecycleActions
-                  row={row.original}
-                  myRole={myRole}
-                  onSuspend={setPendingSuspend}
-                  onOffboard={setPendingOffboard}
-                />
-              )}
-            </div>
+            <MemberLifecycleActions
+              row={row.original}
+              onSuspend={setPendingSuspend}
+              onRemove={setPendingRemove}
+            />
           )
         },
       },
     ],
-    [myRole, archived]
+    [canWrite, archived]
   )
 
   const table = useLegacyTable({
@@ -275,14 +232,7 @@ export function OrganizationMembersPage() {
   } else if (detailQuery.error) {
     body = <ErrorState message={classifyOrgError(detailQuery.error).message} onRetry={() => void detailQuery.refetch()} />
   } else if (!detailQuery.isSuccess) {
-    body = <EmptyState title="加载中…" description="正在读取组织事实（成员资格裁决依据）。" />
-  } else if (!canList) {
-    body = (
-      <EmptyState
-        title="需要组织 Owner / Admin 角色"
-        description={`成员列表仅组织 Owner/Admin 可见（服务端 403 fail-closed）。当前角色：${orgRoleLabel(myRole)}。`}
-      />
-    )
+    body = <EmptyState title="加载中…" description="正在读取组织事实。" />
   } else if (membersQuery.error) {
     body = <ErrorState message={classifyOrgError(membersQuery.error).message} onRetry={() => void membersQuery.refetch()} />
   } else {
@@ -291,11 +241,11 @@ export function OrganizationMembersPage() {
         {!archived ? (
           <SuspendedMembersPanel
             records={suspendedRecords}
-            canRestore={canOrgWrite(myRole)}
+            canRestore={canWrite}
             restoring={restoreMutation.isPending}
-            offboarding={offboardMutation.isPending}
+            removing={removeMutation.isPending}
             onRestore={(record) => restoreMutation.mutate(record)}
-            onOffboard={(record) => offboardMutation.mutate({ row: record })}
+            onRemove={(record) => removeMutation.mutate({ row: record })}
           />
         ) : null}
         <DataTable table={table} loading={membersQuery.isLoading} emptyMessage="暂无成员" />
@@ -316,7 +266,7 @@ export function OrganizationMembersPage() {
     <div className="space-y-4" data-page="organization-members">
       <PageHeader
         title="成员治理"
-        description="组织成员的角色治理与离场。角色只有 owner / admin / member 三档（无万能角色 UI）；Owner 变更只走转移流程。"
+        description="组织成员的生命周期治理（停用 / 恢复 / 移除）与 Owner 转移。角色只有 owner / admin / member 三档；Owner 变更只走转移流程。adm 面不提供成员角色调整。"
       />
 
       <Card>
@@ -325,11 +275,11 @@ export function OrganizationMembersPage() {
             成员列表
             {org ? (
               <span className="ml-2 text-xs font-normal text-muted-foreground">
-                {org.name} · 我的角色 {orgRoleLabel(myRole)} · 组织 {orgStatusLabelSafe(orgStatus)}
+                {org.name} · 组织 {orgStatus === 'active' || orgStatus === 'archived' ? orgStatus : 'unknown'}
               </span>
             ) : null}
           </CardTitle>
-          {canTransferOwner(myRole) && isOrgWriteAllowed(orgStatus, 'update') ? (
+          {canWrite && isOrgWriteAllowed(orgStatus, 'update') ? (
             <Button variant="destructive" size="sm" data-testid="transfer-owner-btn" onClick={() => setTransferOpen(true)}>
               转移 Owner
             </Button>
@@ -343,9 +293,9 @@ export function OrganizationMembersPage() {
           ) : null}
           {body}
           <p className="text-xs text-muted-foreground">
-            生命周期命令（POST suspend / restore / offboard）已接入：停用是可恢复的撤权第一步，
-            离场是 removed 终态（离场 admin 成员需要主 Owner；仍被依赖资源引用时服务端 409 要求先交接）。
-            成员列表只含 active，停用后的成员从表格消失，恢复操作请使用上方「最近停用」记录
+            生命周期命令（POST suspend / restore / remove）已接入平台面：停用是可恢复的撤权第一步，
+            移除是 removed 终态（若成员仍被依赖资源引用，服务端 409 要求先交接）。主 Owner 不可被停用或移除
+            （先转移 Owner）。成员列表只含 active，停用后的成员从表格消失，恢复操作请使用上方「最近停用」记录
             （仅本会话可见，刷新页面后消失；长期悬置成员需在 App 端处理）。
           </p>
           <p className="text-xs text-muted-foreground">
@@ -355,24 +305,6 @@ export function OrganizationMembersPage() {
           </p>
         </CardContent>
       </Card>
-
-      <ConfirmDialog
-        open={roleDraft != null}
-        onOpenChange={(open) => {
-          if (!open) setRoleDraft(null)
-        }}
-        title={`调整成员 ${roleDraft?.row.userId ?? ''} 的角色`}
-        description={
-          roleDraft?.role === 'admin'
-            ? '授予 admin 将允许该成员参与组织治理（成员/邀请/部门/生命周期写）。授予 admin 角色需要主 Owner。确认继续？'
-            : '把该成员降级为 member（普通成员，仅保留成员资格）。确认继续？'
-        }
-        confirmText="确认调整"
-        loading={roleMutation.isPending}
-        onConfirm={async () => {
-          if (roleDraft) await roleMutation.mutateAsync(roleDraft)
-        }}
-      />
 
       <ConfirmDialog
         open={pendingSuspend != null}
@@ -390,17 +322,17 @@ export function OrganizationMembersPage() {
       />
 
       <ConfirmDialog
-        open={pendingOffboard != null}
+        open={pendingRemove != null}
         onOpenChange={(open) => {
-          if (!open) setPendingOffboard(null)
+          if (!open) setPendingRemove(null)
         }}
-        title={`成员离场 ${pendingOffboard?.userId ?? ''}`}
-        description="离场（offboard）是 removed 终态：若该成员仍被依赖资源引用（如 active 经办关系），服务端会以 409 拒绝并要求先完成交接——失败会如实呈现，可重试。离场 admin 成员需要主 Owner。确认离场？"
-        confirmText="确认离场"
+        title={`移除成员 ${pendingRemove?.userId ?? ''}`}
+        description="移除（remove）是 removed 终态：若该成员仍被依赖资源引用（如 active 经办关系），服务端会以 409 拒绝并要求先完成交接——失败会如实呈现，可重试。主 Owner 不可被移除（先转移 Owner）。确认移除？"
+        confirmText="确认移除"
         variant="destructive"
-        loading={offboardMutation.isPending}
+        loading={removeMutation.isPending}
         onConfirm={async () => {
-          if (pendingOffboard) await offboardMutation.mutateAsync({ row: pendingOffboard })
+          if (pendingRemove) await removeMutation.mutateAsync({ row: pendingRemove })
         }}
       />
 
@@ -411,6 +343,7 @@ export function OrganizationMembersPage() {
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
             单事务执行：当前主 Owner 降级为 admin，目标成员升级为 Owner，organization.owner_id 投影同步更新。
+            目标必须是本组织的 active 成员，且不能是当前 Owner 自己（自转移被 400 拒绝）。
             该动作影响组织控制权归属，请确认目标用户 ID。
           </p>
           <div className="space-y-1.5">
@@ -442,63 +375,51 @@ export function OrganizationMembersPage() {
   )
 }
 
-function orgStatusLabelSafe(status: string): string {
-  return status === 'active' || status === 'archived' ? status : 'unknown'
-}
-
 /**
- * 行级生命周期按钮（停用 / 离场）：由谓词驱动显隐（owner 行不出按钮；
- * admin 行的离场按钮需要主 Owner 时禁用而非隐藏——规则可见）。
+ * 行级生命周期按钮（停用 / 移除）：owner 行不出按钮（服务端 409 镜像，
+ * 由 canTargetMemberRow 在列级裁决）；平台写权限下的 admin/member 行均放行。
  */
 function MemberLifecycleActions(props: {
   row: OrganizationMemberRow
-  myRole: OrgRole
   onSuspend: (_row: OrganizationMemberRow) => void
-  onOffboard: (_row: OrganizationMemberRow) => void
+  onRemove: (_row: OrganizationMemberRow) => void
 }): ReactElement {
-  const { row, myRole, onSuspend, onOffboard } = props
-  const adminNeedsPrimaryOwner = row.role === 'admin' && !canManageAdminRole(myRole)
+  const { row, onSuspend, onRemove } = props
   return (
     <>
-      {canSuspendMember(myRole, row) ? (
-        <Button
-          variant="ghost"
-          size="sm"
-          data-testid="member-suspend-btn"
-          onClick={() => onSuspend(row)}
-        >
-          停用
-        </Button>
-      ) : null}
-      {canOffboardMember(myRole, row) ? (
-        <Button
-          variant="ghost"
-          size="sm"
-          data-testid="member-offboard-btn"
-          disabled={adminNeedsPrimaryOwner}
-          title={adminNeedsPrimaryOwner ? '离场 admin 成员需要主 Owner 执行' : undefined}
-          onClick={() => onOffboard(row)}
-        >
-          离场
-        </Button>
-      ) : null}
+      <Button
+        variant="ghost"
+        size="sm"
+        data-testid="member-suspend-btn"
+        onClick={() => onSuspend(row)}
+      >
+        停用
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        data-testid="member-remove-btn"
+        onClick={() => onRemove(row)}
+      >
+        移除
+      </Button>
     </>
   )
 }
 
 /**
- * 「最近停用」记录面板：本会话内 suspend 成功的成员集中在此，提供恢复 / 离场入口。
+ * 「最近停用」记录面板：本会话内 suspend 成功的成员集中在此，提供恢复 / 移除入口。
  * 记录仅存在于组件 state（不进 query cache / store / 日志），刷新页面即消失。
  */
 function SuspendedMembersPanel(props: {
   records: SuspendedRecord[]
   canRestore: boolean
   restoring: boolean
-  offboarding: boolean
+  removing: boolean
   onRestore: (_record: SuspendedRecord) => void
-  onOffboard: (_record: SuspendedRecord) => void
+  onRemove: (_record: SuspendedRecord) => void
 }): ReactElement | null {
-  const { records, canRestore, restoring, offboarding, onRestore, onOffboard } = props
+  const { records, canRestore, restoring, removing, onRestore, onRemove } = props
   if (records.length === 0) return null
   return (
     <div
@@ -528,11 +449,11 @@ function SuspendedMembersPanel(props: {
               variant="ghost"
               size="sm"
               className="h-6 text-xs"
-              data-testid="suspended-offboard-btn"
-              disabled={offboarding}
-              onClick={() => onOffboard(record)}
+              data-testid="suspended-remove-btn"
+              disabled={removing}
+              onClick={() => onRemove(record)}
             >
-              离场
+              移除
             </Button>
           </li>
         ))}

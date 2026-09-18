@@ -14,31 +14,25 @@ import { ConfirmDialog, EmptyState, ErrorState, PageHeader } from '@/components/
 import { useAdminPermission } from '@/hooks/useAdminPermission'
 import { useListQueryState } from '@/hooks/useListQueryState'
 import {
-  addDepartmentMember,
   archiveDepartment,
   createDepartment,
   getOrganizationDetail,
-  listDepartmentMembers,
   listDepartments,
   moveDepartment,
-  removeDepartmentMember,
   renameDepartment,
-  setDepartmentMemberAdmin,
 } from '../api/public'
 import {
   buildDepartmentTree,
-  canWriteDepartments,
   classifyOrgError,
   descendantIdsOf,
-  departmentStatusLabel,
   isOrgWriteAllowed,
-  orgRoleLabel,
   suggestRefreshForCasMutation,
   type DepartmentRow,
   type DepartmentTreeNode,
 } from '../api/pureFunctions'
 
-const READ_PERMISSION = 'workspaces:read'
+const READ_PERMISSION = 'organizations:read'
+const WRITE_PERMISSION = 'organizations:write'
 
 type ListState = {
   status: string
@@ -49,12 +43,15 @@ function parseDeptStatusFilter(value: string): 'all' | 'active' | 'archived' {
 }
 
 /**
- * 部门管理页（ORG-14，Core Contract C10/C15）。
+ * 部门管理页（ORG-14 → ORG-ADMIN-ADM-WIRING 平台面，Core Contract C10/C15）。
  *
- * 契约：GET/POST /organizations/:id/departments（写基线 = 本 Org active 成员）；
- * PATCH 改名与 POST move 均走 expected_version CAS（409 = 版本/层级冲突，提示刷新）；
- * move body 的 parent_id=null 表示提为根；archive 原子归档全部 active 后代（纯目录状态，
- * 不级联撤销任何权限）；部门成员挂载/卸载/设管理员（is_admin 是局部目录角色，非权限）。
+ * 契约（/api/adm/organizations/:id/departments）：GET 目录（read）+ POST 创建 /
+ * :department_id/rename / move / archive（write）。rename/move 走 expected_version
+ * CAS（409 = 版本/层级/归档冲突，提示刷新）；move body 的 parent_id=null 表示提为根；
+ * archive 原子归档全部 active 后代（纯目录状态，不级联撤销任何权限）。
+ *
+ * 平台面合同未提供部门成员挂载域（列表 / 挂载 / 卸载 / 设部门管理员）——
+ * 相应面板已随 App 面（v1）迁移移除；department_admin 局部目录角色不在 adm 面。
  */
 export function OrganizationDepartmentsPage() {
   const params = useParams<{ organizationId: string }>()
@@ -63,8 +60,8 @@ export function OrganizationDepartmentsPage() {
   const { state, setState } = useListQueryState<ListState>({ status: 'all' })
   const { allowed: canRead, loading: permLoading } = useAdminPermission({ permission: READ_PERMISSION })
   const readReady = canRead && !permLoading
+  const { allowed: canWrite } = useAdminPermission({ permission: WRITE_PERMISSION })
 
-  const [selectedId, setSelectedId] = useState('')
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [createOpen, setCreateOpen] = useState(false)
   const [createName, setCreateName] = useState('')
@@ -74,7 +71,6 @@ export function OrganizationDepartmentsPage() {
   const [moveTarget, setMoveTarget] = useState<DepartmentRow | null>(null)
   const [moveParent, setMoveParent] = useState('')
   const [archiveTarget, setArchiveTarget] = useState<DepartmentRow | null>(null)
-  const [addMemberValue, setAddMemberValue] = useState('')
 
   const detailQuery = useQuery({
     queryKey: ['organization', 'detail', organizationId],
@@ -83,8 +79,6 @@ export function OrganizationDepartmentsPage() {
   })
 
   const org = detailQuery.data
-  const myRole = org?.memberRole ?? null
-  const canWrite = canWriteDepartments(myRole)
   const archived = org?.status === 'archived'
   const writeGate = canWrite && isOrgWriteAllowed(org?.status ?? 'unknown', 'update')
 
@@ -97,13 +91,6 @@ export function OrganizationDepartmentsPage() {
 
   const rows = useMemo(() => departmentsQuery.data ?? [], [departmentsQuery.data])
   const tree = useMemo(() => buildDepartmentTree(rows), [rows])
-  const selected = useMemo(() => rows.find((row) => row.id === selectedId) ?? null, [rows, selectedId])
-
-  const membersQuery = useQuery({
-    queryKey: ['organization', 'department-members', organizationId, selectedId],
-    queryFn: () => listDepartmentMembers(organizationId, selectedId),
-    enabled: readReady && selectedId.length > 0,
-  })
 
   const invalidateDepartments = () => {
     void queryClient.invalidateQueries({ queryKey: ['organization', 'departments', organizationId] })
@@ -186,35 +173,6 @@ export function OrganizationDepartmentsPage() {
     onError: conflictToast,
   })
 
-  const addMemberMutation = useMutation({
-    mutationFn: () => addDepartmentMember(organizationId, selectedId, addMemberValue.trim()),
-    onSuccess: (member) => {
-      toast.success(`成员 ${member.userId} 已挂载到部门（幂等：已在部门时返回当前行）`)
-      setAddMemberValue('')
-      void queryClient.invalidateQueries({ queryKey: ['organization', 'department-members', organizationId, selectedId] })
-    },
-    onError: conflictToast,
-  })
-
-  const removeMemberMutation = useMutation({
-    mutationFn: (userId: string) => removeDepartmentMember(organizationId, selectedId, userId),
-    onSuccess: () => {
-      toast.success('成员已从部门卸载')
-      void queryClient.invalidateQueries({ queryKey: ['organization', 'department-members', organizationId, selectedId] })
-    },
-    onError: conflictToast,
-  })
-
-  const adminMutation = useMutation({
-    mutationFn: (input: { userId: string; admin: boolean }) =>
-      setDepartmentMemberAdmin(organizationId, selectedId, input.userId, input.admin),
-    onSuccess: (_data, input) => {
-      toast.success(`成员 ${input.userId} 的部门管理员标记已${input.admin ? '设置' : '取消'}（局部目录角色，不产生任何权限）`)
-      void queryClient.invalidateQueries({ queryKey: ['organization', 'department-members', organizationId, selectedId] })
-    },
-    onError: conflictToast,
-  })
-
   const activeParents = useMemo(() => rows.filter((row) => row.status === 'active'), [rows])
 
   const toggleCollapse = (id: string) => {
@@ -228,10 +186,7 @@ export function OrganizationDepartmentsPage() {
 
   const renderNode = (node: DepartmentTreeNode): ReactElement => (
     <li key={node.id} role="treeitem" aria-expanded={node.children.length > 0 ? !collapsed.has(node.id) : undefined}>
-      <div
-        className={`flex items-center gap-1 rounded px-1 py-0.5 ${node.id === selectedId ? 'bg-accent' : ''}`}
-        style={{ paddingLeft: `${node.depth * 16}px` }}
-      >
+      <div className="flex items-center gap-1 rounded px-1 py-0.5">
         {node.children.length > 0 ? (
           <button type="button" className="text-muted-foreground" aria-label={collapsed.has(node.id) ? '展开' : '折叠'} onClick={() => toggleCollapse(node.id)}>
             {collapsed.has(node.id) ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
@@ -239,17 +194,12 @@ export function OrganizationDepartmentsPage() {
         ) : (
           <span className="inline-block w-3.5" />
         )}
-        <button
-          type="button"
-          className="flex items-center gap-1.5 rounded px-1 py-0.5 text-left text-sm hover:bg-muted"
-          data-department-id={node.id}
-          onClick={() => setSelectedId(node.id)}
-        >
+        <span className="flex items-center gap-1.5 rounded px-0.5 py-0.5 text-left text-sm">
           <span className="font-mono text-xs text-muted-foreground">{node.id}</span>
           <span>{node.name}</span>
           {node.status === 'archived' ? <Badge variant="destructive">已归档</Badge> : null}
           <span className="text-[10px] text-muted-foreground">v{node.version}</span>
-        </button>
+        </span>
         {writeGate && node.status === 'active' ? (
           <span className="ml-1 flex items-center gap-0.5 opacity-80">
             <Button
@@ -296,14 +246,7 @@ export function OrganizationDepartmentsPage() {
   } else if (detailQuery.error) {
     body = <ErrorState message={classifyOrgError(detailQuery.error).message} onRetry={() => void detailQuery.refetch()} />
   } else if (!detailQuery.isSuccess) {
-    body = <EmptyState title="加载中…" description="正在读取组织事实（部门治理裁决依据）。" />
-  } else if (!canWriteDepartments(myRole)) {
-    body = (
-      <EmptyState
-        title="需要组织成员资格"
-        description={`部门目录读写基线是本组织 active 成员（服务端口径）。当前角色：${orgRoleLabel(myRole)}。`}
-      />
-    )
+    body = <EmptyState title="加载中…" description="正在读取组织事实。" />
   } else if (departmentsQuery.error) {
     body = <ErrorState message={classifyOrgError(departmentsQuery.error).message} onRetry={() => void departmentsQuery.refetch()} />
   } else {
@@ -325,7 +268,7 @@ export function OrganizationDepartmentsPage() {
     <div className="space-y-4" data-page="organization-departments">
       <PageHeader
         title="部门管理"
-        description="树形组织目录（C10）：部门是目录事实，不是权限边界；department_admin 是局部目录角色（C15），不产生任何 Workspace/CS/Agent 权限。"
+        description="树形组织目录（C10）：部门是目录事实，不是权限边界；平台面只治理目录结构（创建 / 改名 / 移动 / 归档）。"
       />
 
       <Card>
@@ -355,112 +298,20 @@ export function OrganizationDepartmentsPage() {
         <CardContent className="space-y-3">
           {archived ? (
             <p className="rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-800" data-testid="departments-archived-hint">
-              组织已归档：部门写操作被服务端拒绝（409，C16 fail-closed）；archived 部门的成员卸载仍放行（清理事）。
+              组织已归档：部门写操作被服务端拒绝（409，C16 fail-closed）。
             </p>
           ) : null}
           {body}
           <p className="text-xs text-muted-foreground">
             改名 / 移动走 expected_version 乐观锁：并发修改会被服务端拒绝（层级/归档冲突 409；版本冲突经后端错误表兜底映射为
             400「请求参数非法」）。点击失败提示中的「刷新目录」取回服务端最新事实后重试。
+            部门成员挂载域（成员列表 / 挂载 / 卸载 / 部门管理员）不在 adm 面合同内，请在 App 面操作。
             <Link className="ml-1 underline" to={`/organizations/${encodeURIComponent(organizationId)}`}>
               返回组织详情
             </Link>
           </p>
         </CardContent>
       </Card>
-
-      {selected ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">
-              部门成员：{selected.name}
-              <span className="ml-2 text-xs font-normal text-muted-foreground">
-                {selected.id} · {departmentStatusLabel(selected.status)} · v{selected.version}
-              </span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {membersQuery.error ? (
-              <ErrorState message={classifyOrgError(membersQuery.error).message} onRetry={() => void membersQuery.refetch()} />
-            ) : (
-              <>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs" data-testid="department-member-table">
-                    <thead>
-                      <tr className="border-b text-left">
-                        <th className="py-1 pr-3">用户 ID</th>
-                        <th className="py-1 pr-3">部门管理员（is_admin）</th>
-                        <th className="py-1 pr-3">挂载时间</th>
-                        <th className="py-1">操作</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(membersQuery.data ?? []).map((member) => (
-                        <tr key={member.userId} className="border-b last:border-0">
-                          <td className="py-1 pr-3 font-mono">{member.userId}</td>
-                          <td className="py-1 pr-3">{member.isAdmin ? <Badge>管理员</Badge> : <span className="text-muted-foreground">-</span>}</td>
-                          <td className="py-1 pr-3 font-mono">{member.createdAt || '-'}</td>
-                          <td className="py-1">
-                            {writeGate || selected.status === 'archived' ? (
-                              <span className="flex items-center gap-1">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-6 px-1.5 text-xs"
-                                  disabled={!writeGate}
-                                  onClick={() => adminMutation.mutate({ userId: member.userId, admin: !member.isAdmin })}
-                                >
-                                  {member.isAdmin ? '取消管理员' : '设为管理员'}
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-6 px-1.5 text-xs text-destructive"
-                                  onClick={() => removeMemberMutation.mutate(member.userId)}
-                                >
-                                  卸载
-                                </Button>
-                              </span>
-                            ) : (
-                              <span className="text-muted-foreground">-</span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  {(membersQuery.data ?? []).length === 0 ? (
-                    <p className="py-2 text-sm text-muted-foreground">该部门暂无成员（一人可属多部门，兼职挂载）。</p>
-                  ) : null}
-                </div>
-                {writeGate ? (
-                  <div className="flex items-end gap-2">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="dept-add-member">挂载成员（本组织 active 成员的用户 ID）</Label>
-                      <Input
-                        id="dept-add-member"
-                        className="w-72"
-                        value={addMemberValue}
-                        inputMode="numeric"
-                        onChange={(event) => setAddMemberValue(event.target.value)}
-                        placeholder="TSID，例如 1234567890123456789"
-                      />
-                    </div>
-                    <Button
-                      size="sm"
-                      data-testid="dept-add-member-btn"
-                      disabled={addMemberMutation.isPending || addMemberValue.trim().length === 0 || selected.status === 'archived'}
-                      onClick={() => addMemberMutation.mutate()}
-                    >
-                      挂载
-                    </Button>
-                  </div>
-                ) : null}
-              </>
-            )}
-          </CardContent>
-        </Card>
-      ) : null}
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent>
@@ -578,7 +429,7 @@ export function OrganizationDepartmentsPage() {
         title={`归档部门「${archiveTarget?.name ?? ''}」`}
         description={`归档是纯目录状态变更：自身与全部 active 后代（${
           archiveTarget ? descendantIdsOf(rows, archiveTarget.id).length : 0
-        } 个子部门）原子归档；不级联撤销任何组织 / Workspace 权限，不动成员行。已归档部门禁新写（成员卸载仍放行）。确认归档？`}
+        } 个子部门）原子归档；不级联撤销任何组织 / Workspace 权限，不动成员行。已归档部门禁新写。确认归档？`}
         confirmText="确认归档"
         variant="destructive"
         loading={archiveMutation.isPending}
