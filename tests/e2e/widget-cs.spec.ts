@@ -347,21 +347,26 @@ test.describe('CSW-01 Widget 宿主页闭环', () => {
 
   test('聊天闭环：consent → 发送（client_msg_id 幂等）→ Last-Event-ID 补偿 → closed 评分', async ({ page }) => {
     const artifacts = requireArtifacts()
-    // 连接 1：active（retry:5000 给发送留出窗口）；连接 2 起：closed → 评分
+    // 连接 1：active（retry:5000 给发送留出窗口）；连接 2 起：closed → 评分。
+    // state/message 帧必须按生产契约（main.ts handleSseEvent / cs_widget_handler:state_data/2）：
+    // state 顶层 {resource,session_id,status}（用 stateFrame() 助手）；message 帧只携带游标。
+    // （2026-09-18 首次真跑发现：先前手写 {session:{id,status}} 嵌套形状与 role 键
+    //  在 main.ts 永不被消费——closed 永不派发、评分 UI 不出现；该用例长期因
+    //  缺 dist-widget 产物被 skip，故从未暴露。）
     const activeSseBody = [
       'retry: 5000',
       'event: state',
-      `data: {"session":{"id":"${SESSION_ID}","status":"active"}}`,
+      stateFrame('active'),
       '',
       'id: 101',
       'event: message',
-      'data: {"id":"800000000000000002","role":"agent","body":"您好，请问有什么可以帮您？"}',
+      'data: {"id":"800000000000000002","conversation_id":"72057594037927937","created_at":"2026-09-18T00:00:00Z"}',
       '',
       '',
     ].join('\n')
     const closedSseBody = [
       'event: state',
-      `data: {"session":{"id":"${SESSION_ID}","status":"closed"}}`,
+      stateFrame('closed'),
       '',
       '',
     ].join('\n')
@@ -397,7 +402,14 @@ test.describe('CSW-01 Widget 宿主页闭环', () => {
     await expect(frame.getByText('感谢您的评价！')).toBeVisible({ timeout: 15_000 })
     const ratingRequest = apiRequests.find((request) => /\/rating$/.test(request.url))
     expect(ratingRequest).toBeDefined()
-    expect(JSON.parse(ratingRequest?.body ?? '{}')).toEqual({ score: 5 })
+    // 评分请求体按真实契约（widget submitRating，与 A10-D2 后端对齐）：
+    // {rating, expected_version, installation_id, organization_id}（org_source=param 每请求申报）。
+    // （2026-09-18 修正：旧断言 {score:5} 为臆造键名——widget/stub/后端三侧一致用 rating。）
+    const ratingBody = JSON.parse(ratingRequest?.body ?? '{}') as Record<string, unknown>
+    expect(ratingBody.rating).toBe(5)
+    expect(typeof ratingBody.expected_version).toBe('number')
+    expect(ratingBody.installation_id).toBe(BOOTSTRAP_PAYLOAD.installation_id)
+    expect(ratingBody.organization_id).toBe('1234567890123456789')
   })
 })
 
