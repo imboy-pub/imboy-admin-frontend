@@ -94,6 +94,7 @@ export const defaultConfig: SidebarMenuConfig = {
       children: [
         { path: '/users', icon: 'Users', label: '用户管理', roles: ['1', '2'], permission: 'users:read' },
         { path: '/workspaces', icon: 'Building2', label: '工作区管理', roles: ['1', '2'], permission: 'workspaces:read' },
+        { path: '/organizations', icon: 'Building2', label: '组织治理', roles: ['1', '2', '3'], permission: 'organizations:read' },
         { path: '/projects', icon: 'FolderKanban', label: '项目管理', roles: ['1', '2'], permission: 'workspaces:read' },
         { path: '/groups', icon: 'UsersRound', label: '群组管理', roles: ['1', '2'], permission: 'groups:read' },
         { path: '/groups/tasks', icon: 'FileText', label: '群作业管理', roles: ['1', '2'], permission: 'groups:task:read' },

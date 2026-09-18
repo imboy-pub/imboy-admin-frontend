@@ -126,6 +126,11 @@ export default defineConfig(({ mode }) => {
         target: process.env.VITE_PROXY_TARGET || 'http://127.0.0.1:9800',
         changeOrigin: true,
       },
+      // ORG-14：组织治理面走 /api/v1 App 面（同后端实例），dev 下同源转发
+      '^/api/v1(?=/|$)': {
+        target: process.env.VITE_PROXY_TARGET || 'http://127.0.0.1:9800',
+        changeOrigin: true,
+      },
       '^/metrics$': {
         target: process.env.VITE_PROXY_TARGET || 'http://127.0.0.1:9800',
         changeOrigin: true,
