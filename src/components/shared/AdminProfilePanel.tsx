@@ -4,6 +4,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { useNavigate } from 'react-router-dom'
 import { logout as logoutApi } from '@/modules/identity'
 import { formatOptionalDate } from '@/lib/utils'
+import { ADMIN_ROLE_LABELS } from './adminRoles'
 
 export function AdminProfilePanel() {
   const { admin, logout } = useAuthStore()
@@ -21,11 +22,7 @@ export function AdminProfilePanel() {
     }
   }
 
-  const roleLabel: Record<string, string> = {
-    1: '超级管理员',
-    2: '运营管理员',
-    3: '审计管理员',
-  }
+  const roleLabel = ADMIN_ROLE_LABELS
 
   return (
     <div className="relative">

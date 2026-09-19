@@ -17,6 +17,7 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { PageHeader, ErrorState, LoadingState, StatsCard } from '@/components/shared'
+import { ADMIN_ROLE_LABELS } from '@/components/shared/adminRoles'
 import { getOverviewStatsPayload } from '@/services/api/stats'
 import type { EntityId } from '@/types/common'
 import { getCurrentAdminPayload } from '@/modules/identity'
@@ -105,16 +106,7 @@ const modules: SettingsModule[] = [
 
 function roleLabel(roleId?: EntityId | EntityId[]): string {
   const id = Array.isArray(roleId) ? roleId[0] : roleId
-  switch (id) {
-    case '1':
-      return '超级管理员'
-    case '2':
-      return '运营管理员'
-    case '3':
-      return '审计管理员'
-    default:
-      return `角色 #${id ?? ''}`
-  }
+  return ADMIN_ROLE_LABELS[String(id)] ?? `角色 #${id ?? ''}`
 }
 
 export function SettingsHomePage() {
