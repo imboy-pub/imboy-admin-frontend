@@ -16,7 +16,9 @@ bun install
 bun run dev
 ```
 
-浏览器打开 `http://127.0.0.1:8082`。开发服务器会把 `/api/adm` 和 `/metrics` 请求代理到本地后端。
+浏览器打开 `http://127.0.0.1:8082`。开发服务器会把 `/api/adm`、`/api/v1`（客服挂件开发用）、`/brand` 和 `/metrics` 请求代理到本地后端。
+
+三端统一术语与 API 对齐以后端仓为权威：[术语表](https://github.com/imboy-pub/imboy/blob/main/docs/glossary.md) · [三端 API 对齐](https://github.com/imboy-pub/imboy/blob/main/docs/api-contracts/three-platform-alignment.md)。
 
 需要修改开发环境时，编辑 `.env.development`，不要把真实账号或密钥提交到仓库。
 
