@@ -2,9 +2,10 @@
 /**
  * CSD-IMG-01：dist-widget 产物门禁验证器（`bun run verify:widget`，build 后可重复执行）。
  *
- * 门禁（S6 + CSD-IMG-01-A02/A04）：
- * 1. 必需产物齐全：loader.js / widget/index.html / manifest.json / manifest.sha256 / health.txt；
- * 2. assets/ 全部内容 hash 文件名（cs-widget-<hash>.js|css），零无 hash 文件、零 .map；
+ * 门禁（S6 + CSD-IMG-01-A02/A04 + CSD-IMG-01R）：
+ * 1. 必需产物齐全：loader.js / widget/index.html / assets/cs-widget.v1.js / manifest.json / manifest.sha256 / health.txt；
+ * 2. assets/ 全部内容 hash 文件名（cs-widget-<hash>.js|css），稳定版本名别名
+ *    cs-widget.v*.js 白名单放行（CSD-IMG-01R），零无 hash 文件、零 .map；
  * 3. 全树零 source map（.map 文件与 sourceMappingURL 注释均不得出现）；
  * 4. widget/index.html 引用闭合（引用的相对资源必须存在于 dist-widget）；
  * 5. 零 Admin chunk：文件名不得出现 Admin 命名（index / admin / vendor- 前缀），JS 内容零 `/api/adm`；
@@ -13,6 +14,9 @@
  *    请求头名为已知良性词面，不是值泄露）；
  * 7. manifest 自洽：manifest.sha256 == sha256(manifest.json)；files 与磁盘逐一比对
  *    （path/sha256/bytes）；cache_policy 三键齐全；health.txt 指纹行可复算。
+ * 8. CSD-IMG-01R：稳定版本名别名 assets/cs-widget.v1.js 与 widget/index.html 引用的
+ *    唯一 cs-widget-<hash>.js 入口 chunk 内容一致（sha256 相等）——/w/ frame HTML
+ *    引用的稳定名文件必须与当次构建 iframe app JS 同字节。
  *
  * 任一门禁失败 exit 1；全部通过打印 PASS。
  */
@@ -64,6 +68,11 @@ const SECRET_PATTERNS: Array<[string, RegExp]> = [
 const REVIEW_PATTERN = /api[_-]?key|secret|token/gi
 
 const ASSET_HASH_NAME = /^assets\/cs-widget-[A-Za-z0-9_-]{8,}\.(js|css)$/
+/** CSD-IMG-01R：稳定版本名 frame 资产别名（升级 = v2），hash 文件名门禁的显式白名单。 */
+const STABLE_ASSET_NAME = /^assets\/cs-widget\.v\d+\.js$/
+const STABLE_ASSET_ENTRY = 'assets/cs-widget.v1.js'
+/** widget/index.html 引用的 iframe 应用入口 chunk（内容 hash 文件名）。 */
+const HASHED_JS_REF = /assets\/cs-widget-[A-Za-z0-9_-]+\.js/g
 const ADMIN_CHUNK_NAME = /(^|\/)(index|admin|vendor-|main)\.[A-Za-z0-9]/
 
 async function main(): Promise<void> {
@@ -78,7 +87,7 @@ async function main(): Promise<void> {
   const byRel = new Map(all.map((f) => [f.rel, f.abs]))
 
   // 1) 必需产物
-  for (const required of ['loader.js', 'widget/index.html', 'manifest.json', 'manifest.sha256', 'health.txt']) {
+  for (const required of ['loader.js', 'widget/index.html', STABLE_ASSET_ENTRY, 'manifest.json', 'manifest.sha256', 'health.txt']) {
     if (!byRel.has(required)) fail(`缺少必需产物: ${required}`)
   }
   if (failures.length > 0) {
@@ -86,11 +95,11 @@ async function main(): Promise<void> {
     process.exit(1)
   }
 
-  // 2) assets 全部 hash 文件名
+  // 2) assets 全部 hash 文件名（稳定版本名别名走白名单）
   const assets = all.filter((f) => f.rel.startsWith('assets/'))
   if (assets.length === 0) fail('assets/ 为空：iframe 应用产物缺失')
   for (const f of assets) {
-    if (!ASSET_HASH_NAME.test(f.rel)) fail(`assets 文件名非内容 hash 形态: ${f.rel}`)
+    if (!ASSET_HASH_NAME.test(f.rel) && !STABLE_ASSET_NAME.test(f.rel)) fail(`assets 文件名非内容 hash 形态: ${f.rel}`)
   }
 
   // 3) 零 source map
@@ -110,6 +119,29 @@ async function main(): Promise<void> {
     if (/^(https?:)?\/\//.test(ref) || ref.startsWith('data:')) continue
     const rel = ref.startsWith('/') ? ref.slice(1) : path.posix.normalize(path.posix.join('widget', ref))
     if (!byRel.has(rel)) fail(`widget/index.html 引用缺失: ${ref} (解析为 ${rel})`)
+  }
+
+  // 8) CSD-IMG-01R：稳定版本名别名与 index.html 引用的入口 chunk 内容一致
+  const entryRefs = [...new Set(indexHtml.match(HASHED_JS_REF) ?? [])]
+  if (entryRefs.length !== 1) {
+    fail(`widget/index.html 应引用恰好 1 个 cs-widget-<hash>.js 入口 chunk，实际=${JSON.stringify(entryRefs)}`)
+  } else {
+    const entryRel = entryRefs[0]!
+    const entryAbs = byRel.get(entryRel)
+    const stableAbs = byRel.get(STABLE_ASSET_ENTRY)
+    if (!entryAbs) {
+      fail(`入口 chunk 不存在: ${entryRel}`)
+    } else if (!stableAbs) {
+      fail(`缺少稳定版本名别名: ${STABLE_ASSET_ENTRY}`)
+    } else {
+      const entrySha = sha256Hex(await readFile(entryAbs))
+      const stableSha = sha256Hex(await readFile(stableAbs))
+      if (entrySha !== stableSha) {
+        fail(`稳定别名与入口 chunk 内容不一致: ${STABLE_ASSET_ENTRY}(sha256=${stableSha.slice(0, 12)}…) ≠ ${entryRel}(sha256=${entrySha.slice(0, 12)}…)`)
+      } else {
+        notes.push(`稳定别名一致: ${STABLE_ASSET_ENTRY} ≡ ${entryRel} (sha256=${entrySha.slice(0, 12)}…)`)
+      }
+    }
   }
 
   // 5) 零 Admin chunk（widget/index.html 是 S6 frame HTML 合法路径，不在此列）

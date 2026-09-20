@@ -13,7 +13,14 @@
  * 可重复性口径（CSD-IMG-01-A04）：相同输入的两次构建，files 内全部 sha256 与
  * health.txt 完全一致；generated_at_utc 允许不同（每次构建时刻），单独字段注明。
  *
- * 只读业务源码、只写 dist-widget/{manifest.json,manifest.sha256,health.txt}。
+ * CSD-IMG-01R：在 manifest 生成前，把 widget/index.html 引用的内容 hash 入口
+ * chunk（assets/cs-widget-<hash>.js）原样复制为稳定版本名 assets/cs-widget.v1.js
+ * ——/w/ frame HTML 固定引用该稳定名（后端 BE-01R 同步口径 /assets/cs-widget.v1.js），
+ * 内容随版本更新、文件名不变；升级 = 改名 v2。别名照常进入 manifest.files
+ * （含 sha256/bytes），verify:widget 校验其存在且与入口 chunk 内容一致。
+ *
+ * 只读业务源码、只写 dist-widget/{manifest.json,manifest.sha256,health.txt}
+ * 与稳定别名 assets/cs-widget.v1.js。
  */
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
@@ -27,6 +34,12 @@ const DIST = path.join(REPO_ROOT, 'dist-widget')
 const MANIFEST_NAME = 'manifest.json'
 const CHECKSUM_NAME = 'manifest.sha256'
 const HEALTH_NAME = 'health.txt'
+
+/** CSD-IMG-01R：稳定版本名 frame 资产别名（升级 = 改名 v2，合同 S4「版本化脚本」口径）。 */
+const STABLE_ASSET_ALIAS = 'assets/cs-widget.v1.js'
+
+/** widget/index.html 引用的 iframe 应用入口 chunk（内容 hash 文件名）。 */
+const HASHED_JS_REF = /assets\/cs-widget-[A-Za-z0-9_-]+\.js/g
 
 /** S6 缓存策略（照冻结表落 manifest，部署层 nginx 按同表执行）。 */
 const CACHE_POLICY = {
@@ -72,6 +85,33 @@ function gitSourceHead(): string {
   }
 }
 
+/** CSD-IMG-01R：写稳定版本名别名（必须在 manifest 收集前完成，别名才进 files）。 */
+async function writeStableAssetAlias(): Promise<void> {
+  let html: string
+  try {
+    html = await readFile(path.join(DIST, 'widget', 'index.html'), 'utf8')
+  } catch {
+    console.error('[widget-manifest] FAIL: widget/index.html 不存在，无法定位 iframe 入口 chunk')
+    process.exit(1)
+  }
+  const refs = [...new Set(html.match(HASHED_JS_REF) ?? [])]
+  if (refs.length !== 1) {
+    console.error(`[widget-manifest] FAIL: widget/index.html 应引用恰好 1 个 cs-widget-<hash>.js，实际=${JSON.stringify(refs)}`)
+    process.exit(1)
+  }
+  const sourceRel = refs[0]
+  if (!sourceRel) {
+    console.error('[widget-manifest] FAIL: 入口 chunk 引用为空')
+    process.exit(1)
+  }
+  const sourceBytes = await readFile(path.join(DIST, sourceRel))
+  await writeFile(path.join(DIST, STABLE_ASSET_ALIAS), sourceBytes)
+  console.log(
+    `[widget-manifest] stable alias: ${STABLE_ASSET_ALIAS} ← ${sourceRel} ` +
+      `(sha256=${sha256Hex(sourceBytes).slice(0, 12)}…, bytes=${sourceBytes.byteLength})`,
+  )
+}
+
 async function main(): Promise<void> {
   let distStat
   try {
@@ -84,6 +124,9 @@ async function main(): Promise<void> {
     console.error(`[widget-manifest] FAIL: ${DIST} 不是目录`)
     process.exit(1)
   }
+
+  // 0) CSD-IMG-01R：稳定版本名别名（复制入口 chunk → cs-widget.v1.js），先于收集
+  await writeStableAssetAlias()
 
   const sourceHead = gitSourceHead()
 
