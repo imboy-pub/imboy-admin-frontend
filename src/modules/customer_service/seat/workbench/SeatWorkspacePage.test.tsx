@@ -205,6 +205,22 @@ describe('SeatWorkspacePage 工作台（A01/A02/A03/A04/A05/A06）', () => {
     await waitFor(() => expect(claimButton.getAttribute('disabled')).not.toBeNull())
   })
 
+  it('DF-12：撤权播报不随复核换页被卸载——拒绝态下 live-region 常驻且文案保持', async () => {
+    const backend = new SeatFakeBackend()
+    const sse = new FakeSseStream()
+    const view = renderWorkspace(backend, sse)
+    await waitFor(() => view.getByTestId('seat-workspace'))
+    sse.push(envelopeFrame('9800000000000000001', 'seat.changed', 'seat', null, 'revoked'))
+    await waitFor(() => expect(view.getByTestId('seat-live-region').textContent).toContain('写入口已收回'))
+    // 复核换页：revoked 触发的 contexts 失效回来 403 → 整页切拒权态；
+    // live-region 必须仍挂载且撤权播报不丢（播报随页卸载即 DF-12 缺陷）。
+    backend.state.contexts403 = true
+    sse.push(envelopeFrame('9800000000000000002', 'resync.required', 'queue', null))
+    await waitFor(() => expect(view.getByTestId('seat-permission-denied')).toBeDefined())
+    expect(view.getByTestId('seat-live-region')).toBeDefined()
+    expect(view.getByTestId('seat-live-region').textContent).toContain('坐席已暂停或离岗，写入口已收回')
+  })
+
   it('A06 loading / empty / error+retry / permission denied / offline 五态', async () => {
     // loading：首个请求挂起 → contexts loading 态。
     const loadingBackend = new SeatFakeBackend()
