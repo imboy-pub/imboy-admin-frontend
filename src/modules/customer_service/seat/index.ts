@@ -80,5 +80,46 @@ export {
   type QrLoginPhase,
 } from './qrLoginSession'
 
+// ---------------------------------------------------------------------------
+// SEAT-02：坐席工作台（合同层 / API / hooks / UI）
+// ---------------------------------------------------------------------------
+export {
+  SEAT_ASSET_CONTENT_PATH_TEMPLATE,
+  SEAT_ATTACHMENT_PHASES,
+  SEAT_SESSION_STATUSES,
+  buildConversationMessagesPath,
+  buildSeatQueuePath,
+  buildSeatSessionActionPath,
+  buildSeatSessionDetailPath,
+  buildSeatSessionsPath,
+  buildTransferTargetsPath,
+  seatAssetContentPath,
+  toSeatMessage,
+  toSeatMessageList,
+  toSeatSessionDetail,
+  toSeatSessionPage,
+  toSeatSessionSummary,
+  toSeatAttachmentPhase,
+  toTransferTargetList,
+  type SeatAttachment,
+  type SeatAttachmentPhase,
+  type SeatMessage,
+  type SeatSessionCounts,
+  type SeatSessionDetail,
+  type SeatSessionPage,
+  type SeatSessionStatus,
+  type SeatSessionSummary,
+  type SeatTransferTarget,
+  type SeatTransferTargetPage,
+} from './workbench/contract'
+export {
+  SEAT_MESSAGE_PAGE_LIMIT,
+  SEAT_SESSION_PAGE_LIMIT,
+  SeatWorkbenchApi,
+  type SeatPageQuery,
+} from './workbench/workbenchApi'
+export { getOrCreateSeatDeviceId, resetSeatDeviceIdForTest } from './workbench/deviceIdentity'
+export { SeatWorkspacePage } from './workbench/SeatWorkspacePage'
+
 /** SEAT-03 wiring 参考常量（本卡不改 Router）。 */
 export const SEAT_WORKSPACE_ROUTE = '/customer-service/workspace'
