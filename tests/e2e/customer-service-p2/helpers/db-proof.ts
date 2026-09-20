@@ -36,7 +36,8 @@ export function fetchSeatState(orgId: string, identityId: string): { enabled: bo
     const line = out.trim()
     if (line !== '' && !line.startsWith('|')) {
       const parts = line.split('|')
-      return { enabled: parts[0] === 't', exists: Number(parts[1] ?? 0) > 0 }
+      // PG18 bool::text = true/false（列输出才是 t/f）——两种口径都认。
+      return { enabled: parts[0] === 't' || parts[0] === 'true', exists: Number(parts[1] ?? 0) > 0 }
     }
   }
   return null
@@ -47,14 +48,22 @@ export function setSeatEnabled(orgId: string, identityId: string, enabled: boole
   psql(`update customer_service_seat set enabled = ${enabled ? 'true' : 'false'}` + ` where organization_id = ${orgId} and business_identity_id = ${identityId}`)
 }
 
-/** A03 一次性夹具：清理本作用域已消费事件（模拟保留窗外游标→resync.required）。 */
+/** A03 一次性夹具：清理本作用域已消费事件（模拟保留窗外游标→resync.required）。
+ * 这是测试范围级的夹具绕行：customer_service_event 带 append-only 触发器，
+ * 修剪旧事件以界定流重放窗口前临时 DISABLE，DELETE 后（即使失败，finally）
+ * 立即 ENABLE 恢复；append-only 是生产运行时保证，不受本夹具影响。 */
 export function pruneSeatEventsBelow(orgId: string, workspaceId: string, keepAboveId: string | null): number {
   const where =
     keepAboveId === null
       ? `organization_id = ${orgId} and workspace_id = ${workspaceId}`
       : `organization_id = ${orgId} and workspace_id = ${workspaceId} and id <= ${keepAboveId}`
-  const out = psql(`with del as (delete from customer_service_event where ${where} returning 1) select count(*) from del`)
-  return Number(out.trim() || 0)
+  psql(`alter table customer_service_event disable trigger trg_customer_service_event_append_only`)
+  try {
+    const out = psql(`with del as (delete from customer_service_event where ${where} returning 1) select count(*) from del`)
+    return Number(out.trim() || 0)
+  } finally {
+    psql(`alter table customer_service_event enable trigger trg_customer_service_event_append_only`)
+  }
 }
 
 /** 会话 visit token 行（A04 访客面吊销目标定位）。 */
