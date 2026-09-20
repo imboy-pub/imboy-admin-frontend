@@ -242,3 +242,98 @@ export function buildRatingBody(scope: RequestScope, rating: number, expectedVer
     expected_version: expectedVersion,
   }
 }
+
+// ---------------------------------------------------------------------------
+// FE-W01：附件面（§3.7 冻结合同；路由形状 = imboy_router widget 面 +
+// cs_actions table(widget)：presign {mime,size_bytes,object_hash} /
+// confirm {upload_ref}）
+// ---------------------------------------------------------------------------
+
+/** SHA-256 形状：64 位小写 hex（object_hash 必填，PUT 后服务端复核）。 */
+export function isValidSha256Hex(hash: string): boolean {
+  return /^[0-9a-f]{64}$/.test(hash)
+}
+
+/** 请求体构造：presign（widget_asset_upload 逐键；多出的键会被后端 400）。 */
+export function buildPresignBody(
+  scope: RequestScope,
+  file: { mime: string; sizeBytes: number; objectHash: string }
+): { organization_id: string; installation_id: string; mime: string; size_bytes: number; object_hash: string } {
+  return {
+    organization_id: scope.organizationId,
+    installation_id: scope.installationId,
+    mime: file.mime,
+    size_bytes: file.sizeBytes,
+    object_hash: file.objectHash,
+  }
+}
+
+/** 请求体构造：confirm（widget_asset_confirm 逐键；upload_ref = presign 签发）。 */
+export function buildConfirmBody(scope: RequestScope, uploadRef: string): {
+  organization_id: string
+  installation_id: string
+  upload_ref: string
+} {
+  return {
+    organization_id: scope.organizationId,
+    installation_id: scope.installationId,
+    upload_ref: uploadRef,
+  }
+}
+
+/** presign 响应投影（presign_view 白名单）：asset_id + upload_ref 必填，
+ * upload.url 缺省（合同形状 rule=opaque_token_no_url_no_object_key）→ null。
+ * 对象 key / 存储侧 URL 绝不投影出去。 */
+export type PresignResult = {
+  assetId: string
+  uploadRef: string
+  uploadUrl: string | null
+}
+
+export function toPresignResult(raw: unknown): PresignResult | null {
+  if (!isRecord(raw)) return null
+  const assetId = str(raw.asset_id)
+  const uploadRef = str(raw.upload_ref)
+  if (assetId.length === 0 || uploadRef.length === 0) return null
+  let uploadUrl: string | null = null
+  if (isRecord(raw.upload) && typeof raw.upload.url === 'string') {
+    uploadUrl = isBareHttpsUploadUrl(raw.upload.url) ? raw.upload.url : null
+  }
+  return { assetId, uploadRef, uploadUrl }
+}
+
+/**
+ * 裸 PUT 目标校验：必须绝对 https、无内嵌凭证（userinfo）、无查询串 token 形状。
+ * 不合法 → null（fail-closed：绝不向非 https 目标 PUT 文件字节）。
+ */
+export function isBareHttpsUploadUrl(raw: string): string | null {
+  try {
+    const url = new URL(raw)
+    if (url.protocol !== 'https:') return null
+    if (url.username !== '' || url.password !== '') return null
+    if (/token/i.test(url.search)) return null
+    return url.toString()
+  } catch {
+    return null
+  }
+}
+
+/** 请求体构造：带附件的消息（§3.7 append input = asset_ids；空数组时不带该键，
+ * 与纯文本路径完全同形）。 */
+export function buildAssetMessageBody(
+  scope: RequestScope,
+  clientMsgId: string,
+  body: string,
+  assetIds: string[]
+): { organization_id: string; installation_id: string; client_msg_id: string; body: string; asset_ids?: string[] } {
+  const base = buildSendMessageBody(scope, clientMsgId, body)
+  if (assetIds.length === 0) return base
+  return { ...base, asset_ids: assetIds.filter((id) => id.length > 0) }
+}
+
+/** 附件内容（下载/预览）：只经授权 content 代理（visit token 走 header），
+ * 路径本身零凭证；绝不构造/返回存储侧 presigned GET URL。 */
+export function buildAssetContentPath(sessionId: string, assetId: string, scope: RequestScope): string {
+  const base = `${WIDGET_API_BASE}/sessions/${encodeURIComponent(sessionId)}/assets/${encodeURIComponent(assetId)}/content`
+  return `${base}${buildScopeQuery(scope)}`
+}

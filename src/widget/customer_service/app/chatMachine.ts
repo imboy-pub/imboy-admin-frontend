@@ -11,6 +11,7 @@
  * - 评分仅 closed 后开放，1..5，提交一次后幂等（重复事件不改变状态）。
  */
 import { isValidRatingScore, type WidgetBrand, type WidgetSession } from './contract'
+import type { AttachmentUiState } from './attachmentMachine'
 
 /**
  * 合成同意/提示门状态（CSW-01R：bootstrap 响应不再携带独立 notice 对象——
@@ -34,6 +35,16 @@ export type ChatPhase =
 
 export type ChatConnectionState = 'connecting' | 'online' | 'reconnecting' | 'offline'
 
+/** 附件投影（UI 只展示名称/大小/状态；对象 key / presigned URL 绝不进入）。 */
+export type ChatAttachment = {
+  name: string
+  mime: string
+  sizeBytes: number
+  /** §3.7 UI 映射：pending → confirming → sending → linked | failed。 */
+  state: AttachmentUiState
+  assetId: string | null
+}
+
 export type ChatMessage = {
   key: string
   id: string | null
@@ -41,6 +52,7 @@ export type ChatMessage = {
   role: 'visitor' | 'agent' | 'system'
   body: string
   status: 'pending' | 'sent' | 'failed'
+  attachment: ChatAttachment | null
 }
 
 export type ChatState = {
@@ -62,9 +74,10 @@ export type ChatEvent =
   | { type: 'consent_declined' }
   | { type: 'session_created'; session: WidgetSession }
   | { type: 'messages_loaded'; messages: ChatMessage[] }
-  | { type: 'message_optimistic'; key: string; clientMsgId: string; body: string }
+  | { type: 'message_optimistic'; key: string; clientMsgId: string; body: string; attachment?: ChatAttachment | null }
   | { type: 'message_confirmed'; key: string; id: string }
   | { type: 'message_failed'; key: string }
+  | { type: 'attachment_progress'; key: string; state: AttachmentUiState; assetId?: string | null }
   | { type: 'message_received'; message: ChatMessage }
   | { type: 'session_status'; status: string }
   | { type: 'connection'; state: ChatConnectionState }
@@ -152,12 +165,29 @@ export function reduceChat(state: ChatState, event: ChatEvent): ChatState {
           role: 'visitor',
           body: event.body,
           status: 'pending',
+          attachment: event.attachment ?? null,
         }),
       }
     case 'message_confirmed':
       return { ...state, messages: mapMessageByKey(state.messages, event.key, { id: event.id, status: 'sent' }) }
     case 'message_failed':
       return { ...state, messages: mapMessageByKey(state.messages, event.key, { status: 'failed' }) }
+    case 'attachment_progress':
+      return {
+        ...state,
+        messages: state.messages.map((message) => {
+          if (message.key !== event.key || message.attachment === null) return message
+          const attachment = {
+            ...message.attachment,
+            state: event.state,
+            assetId: event.assetId !== undefined ? event.assetId : message.attachment.assetId,
+          }
+          // linked 是唯一成功态；failed 才出现重试入口（§3.7）。
+          const status =
+            event.state === 'linked' ? ('sent' as const) : event.state === 'failed' ? ('failed' as const) : message.status
+          return { ...message, attachment, status }
+        }),
+      }
     case 'message_received':
       return { ...state, messages: mergeMessage(state.messages, event.message) }
     case 'session_status':

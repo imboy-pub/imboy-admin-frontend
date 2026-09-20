@@ -10,21 +10,26 @@
  * - 信封 {code,msg,payload}，payload 缺失 fail-closed。
  */
 import {
+  buildAssetContentPath,
+  buildAssetMessageBody,
   buildBootstrapBody,
+  buildConfirmBody,
   buildCreateSessionBody,
   buildMessagesPath,
+  buildPresignBody,
   buildRatingBody,
   buildScopeQuery,
-  buildSendMessageBody,
   isValidExpectedVersion,
   isValidRatingScore,
   toBootstrapResult,
   toCreatedSession,
   toMessageList,
+  toPresignResult,
   toSessionList,
   toWidgetMessage,
   WIDGET_API_BASE,
   type BootstrapResult,
+  type PresignResult,
   type RequestScope,
   type WidgetMessage,
   type WidgetSession,
@@ -131,20 +136,68 @@ export class WidgetApiClient {
     return toMessageList(payload)
   }
 
-  /** POST /sessions/:id/messages（widget_visitor_message：client_msg_id 幂等）。 */
+  /** POST /sessions/:id/messages（widget_visitor_message：client_msg_id 幂等；
+   * assetIds 非空时按 §3.7 附 asset_ids（confirmed asset 与消息同事务绑定）。 */
   async sendMessage(
     sessionId: string,
     scope: RequestScope,
     clientMsgId: string,
-    body: string
+    body: string,
+    assetIds: string[] = []
   ): Promise<WidgetMessage> {
     const payload = await this.requestJson(
       `${WIDGET_API_BASE}/sessions/${encodeURIComponent(sessionId)}/messages`,
-      { method: 'POST', body: JSON.stringify(buildSendMessageBody(scope, clientMsgId, body)) }
+      { method: 'POST', body: JSON.stringify(buildAssetMessageBody(scope, clientMsgId, body, assetIds)) }
     )
     const message = toWidgetMessage(payload)
     if (message === null) throw new WidgetApiError('发送消息响应形状非法', 502)
     return message
+  }
+
+  // -------------------------------------------------------------------------
+  // FE-W01：附件面（presign → 裸 PUT → confirm → 消息 asset_ids；下载走代理）
+  // -------------------------------------------------------------------------
+
+  /** POST /sessions/:id/assets/presign（widget_asset_upload 逐键：mime +
+   * size_bytes + object_hash）。响应 = 不透明 upload_ref（+ 可选裸 PUT url）。 */
+  async presignAttachment(
+    sessionId: string,
+    scope: RequestScope,
+    file: { mime: string; sizeBytes: number; objectHash: string }
+  ): Promise<PresignResult> {
+    const payload = await this.requestJson(
+      `${WIDGET_API_BASE}/sessions/${encodeURIComponent(sessionId)}/assets/presign`,
+      { method: 'POST', body: JSON.stringify(buildPresignBody(scope, file)) }
+    )
+    const result = toPresignResult(payload)
+    if (result === null) throw new WidgetApiError('presign 响应形状非法（缺 asset_id/upload_ref）', 502)
+    return result
+  }
+
+  /** POST /sessions/:id/assets/confirm（widget_asset_confirm 逐键：upload_ref）。
+   * 重复 confirm 409 不伪成功——异常原样抛出（WidgetApiError.status = 409）。 */
+  async confirmAttachment(sessionId: string, scope: RequestScope, uploadRef: string): Promise<void> {
+    await this.requestJson(
+      `${WIDGET_API_BASE}/sessions/${encodeURIComponent(sessionId)}/assets/confirm`,
+      { method: 'POST', body: JSON.stringify(buildConfirmBody(scope, uploadRef)) }
+    )
+  }
+
+  /** GET /sessions/:id/assets/:asset_id/content（授权内容代理）：
+   * visit token 只走 header；返回原始 Response（二进制流由调用方消费），
+   * 绝不返回/暴露存储侧 URL 或 presigned GET。 */
+  async fetchAssetContent(sessionId: string, assetId: string, scope: RequestScope): Promise<Response> {
+    const path = buildAssetContentPath(sessionId, assetId, scope)
+    assertNoTokenInUrl(path)
+    const response = await this.fetchImpl(path, {
+      method: 'GET',
+      headers: buildHeaders(this.visitToken, false),
+      credentials: 'omit',
+    })
+    if (!response.ok) {
+      throw new WidgetApiError(`附件内容代理失败（HTTP ${response.status}）`, response.status)
+    }
+    return response
   }
 
   /** POST /sessions/:id/rating（widget_rate：rating 1..5 + expected_version CAS）。 */
