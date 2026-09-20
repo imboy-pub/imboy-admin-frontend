@@ -1,13 +1,16 @@
 /**
- * CSW-01 loader 单元测试（jsdom）。
+ * CSW-01 / CSD-FE-01 loader 单元测试（jsdom）。
  *
- * 覆盖验收点：
- * - CSW-01-A02：重复注入幂等（多份 script / 重复调用只挂一个按钮）；
- * - CSW-01-A03：iframe sandbox 最小权限 + 标题 + postMessage origin/source 逐字校验
+ * 覆盖验收点（合同 v1 S1/S2/S3 / 计划 CSD-FE-01-A01..A05）：
+ * - A01：最小 snippet（只有 data-widget-id）可挂载；缺/非法 widget ID fail-closed
+ *   （不注入 iframe、不建 root、console.warn 一条、宿主页零副作用）；
+ * - A02：origin 只能来自自身 script.src（data-widget-origin/data-org-id 等
+ *   历史/未知键一律忽略 + warn 只报键名；非法 scheme fail-closed）；
+ *   iframe src 固定 = <origin>/w/<public_widget_id>（无 path 覆写）；
+ * - A03：iframe sandbox 最小权限 + 标题 + postMessage origin/source 逐字校验
  *   + 未读徽标 + aria 状态 + 键盘可达（原生 button + Escape 关闭）；
- * - CSW-01-A04/CSC-00-A04：SECRET 形状 data-* 键（如 data-shop-key）被忽略并 warn
- *   （只 warn 键名，值绝不外泄）；
- * - CSW-01-A05：宿主异常零外泄（body 缺失 / 查询抛错均不向宿主抛出）。
+ * - A05：宿主异常零外泄（body 缺失 / 查询抛错均不向宿主抛出）。
+ * - A04（API 相对同源/credentials omit/token 纪律）见 widgetApi.test.ts。
  */
 import '../../test/setupDom'
 
@@ -22,7 +25,11 @@ import {
   type LoaderConfig,
   type LoaderHandle,
 } from './loader'
-import { normalizeOriginInput } from './protocol'
+import { isValidPublicWidgetId, normalizeOriginInput } from './protocol'
+
+/** 合同 v1 S1：public_widget_id = TSID 十进制 string。 */
+const WIDGET_ID = '72057594037928001'
+const OTHER_WIDGET_ID = '72057594037928009'
 
 function makeScript(doc: Document, attrs: Record<string, string> = {}): HTMLScriptElement {
   const script = doc.createElement('script')
@@ -42,57 +49,96 @@ function iframeOf(handle: LoaderHandle): HTMLIFrameElement | null {
   return handle.shadow.querySelector('iframe[data-testid="cs-widget-iframe"]')
 }
 
-const BASE_ATTRS = {
-  'data-org-id': '1234567890123456789',
-  'data-widget-id': 'wgt_pub_unit',
-  'data-widget-origin': 'https://cs.example.com',
-}
+const MIN_ATTRS = { 'data-widget-id': WIDGET_ID }
 
-describe('readLoaderConfig / buildWidgetUrl（A01/A04）', () => {
-  it('读取白名单 data-* 键（含 data-org-id），忽略未知键（如 data-shop-key）并只报键名', () => {
+describe('readLoaderConfig / buildWidgetUrl（CSD-FE-01-A01/A02）', () => {
+  it('唯一配置 = data-widget-id；其它 data-* 键（含 data-org-id/data-widget-origin/data-shop-key）一律进 ignoredKeys，值绝不入配置', () => {
     const script = makeScript(document, {
-      ...BASE_ATTRS,
-      'data-locale': 'zh-CN',
-      'data-position': 'bottom-left',
+      ...MIN_ATTRS,
+      'data-org-id': '1234567890123456789',
+      'data-widget-origin': 'https://evil.example',
+      'data-widget-path': '/attacker/path',
       'data-shop-key': 'sk_live_SHOULD_NEVER_BE_READ_0123456789',
     })
     const read = readLoaderConfig(script)
     expect(read).not.toBeNull()
-    expect(read?.config.organizationId).toBe('1234567890123456789')
-    expect(read?.config.widgetId).toBe('wgt_pub_unit')
-    expect(read?.config.widgetOrigin).toBe('https://cs.example.com')
-    expect(read?.config.position).toBe('bottom-left')
-    expect(read?.ignoredKeys).toEqual(['shop-key'])
-    // 配置对象里绝不出现 shop key 值
-    expect(JSON.stringify(read?.config)).not.toContain('SHOULD_NEVER_BE_READ')
+    expect(read?.config.widgetId).toBe(WIDGET_ID)
+    expect(read?.ignoredKeys).toEqual(['org-id', 'widget-origin', 'widget-path', 'shop-key'])
+    const serialized = JSON.stringify(read)
+    // 历史键的值 / SECRET 形状值绝不进入配置与日志对象
+    expect(serialized).not.toContain('evil.example')
+    expect(serialized).not.toContain('attacker/path')
+    expect(serialized).not.toContain('SHOULD_NEVER_BE_READ')
+    expect(serialized).not.toContain('organizationId')
   })
 
-  it('缺少 data-widget-id 或 data-org-id 时 fail-closed（返回 null）', () => {
-    const noWidget = makeScript(document, { 'data-widget-origin': 'https://cs.example.com', 'data-org-id': '1' })
-    expect(readLoaderConfig(noWidget)).toBeNull()
-    const noOrg = makeScript(document, { 'data-widget-id': 'wgt_pub_unit', 'data-widget-origin': 'https://cs.example.com' })
-    expect(readLoaderConfig(noOrg)).toBeNull()
+  it('缺 data-widget-id → fail-closed（null）；非法形状（非 TSID 十进制）→ fail-closed', () => {
+    expect(readLoaderConfig(makeScript(document, {}))).toBeNull()
+    expect(readLoaderConfig(makeScript(document, { 'data-widget-id': '   ' }))).toBeNull()
+    expect(readLoaderConfig(makeScript(document, { 'data-widget-id': 'wgt_pub_unit' }))).toBeNull()
+    expect(readLoaderConfig(makeScript(document, { 'data-widget-id': '../../etc/passwd' }))).toBeNull()
+    expect(readLoaderConfig(makeScript(document, { 'data-widget-id': '123;alert(1)' }))).toBeNull()
+    expect(isValidPublicWidgetId(WIDGET_ID)).toBe(true)
+    expect(isValidPublicWidgetId('0')).toBe(true) // 形状合法；服务端 404 兜底
+    expect(isValidPublicWidgetId('abc')).toBe(false)
+    expect(isValidPublicWidgetId('1/2')).toBe(false)
   })
 
-  it('data-widget-origin 非法时 fail-closed；normalizeOriginInput 拒绝非 http(s)', () => {
-    const bad = makeScript(document, { 'data-widget-id': 'w1', 'data-widget-origin': 'javascript:alert(1)' })
-    expect(readLoaderConfig(bad)).toBeNull()
-    expect(normalizeOriginInput('ftp://x')).toBeNull()
-    expect(normalizeOriginInput('not a url')).toBeNull()
-    expect(normalizeOriginInput('https://cs.example.com/')).toBe('https://cs.example.com')
-  })
-
-  it('buildWidgetUrl 拼接固定 entry path；origin 为空返回 null', () => {
+  it('buildWidgetUrl 固定落点 = <origin>/w/<public_widget_id>；origin 为空或 id 非法返回 null', () => {
     const config: LoaderConfig = {
-      organizationId: '1234567890123456789',
-      widgetId: 'w',
+      widgetId: WIDGET_ID,
       widgetOrigin: 'https://cs.example.com',
-      widgetPath: '/widget/index.html',
       locale: 'zh-CN',
       position: 'bottom-right',
     }
-    expect(buildWidgetUrl(config)).toBe('https://cs.example.com/widget/index.html')
+    expect(buildWidgetUrl(config)).toBe('https://cs.example.com/w/72057594037928001')
     expect(buildWidgetUrl({ ...config, widgetOrigin: '' })).toBeNull()
+    expect(buildWidgetUrl({ ...config, widgetId: 'not-a-tsid' })).toBeNull()
+  })
+
+  it('normalizeOriginInput 严格规范化：拒绝非 http(s)/路径/查询/通配', () => {
+    expect(normalizeOriginInput('ftp://x')).toBeNull()
+    expect(normalizeOriginInput('javascript:alert(1)')).toBeNull()
+    expect(normalizeOriginInput('not a url')).toBeNull()
+    expect(normalizeOriginInput('https://*.example.com')).toBeNull()
+    expect(normalizeOriginInput('https://cs.example.com/')).toBe('https://cs.example.com')
+  })
+})
+
+describe('origin 推导（CSD-FE-01-A02：唯一真源 = script.src）', () => {
+  it('resolveWidgetOrigin 恒从 script.src 推导（剥离路径/查询，归一化端口/大小写）', () => {
+    expect(resolveWidgetOrigin('https://cs.example.com/static/loader.js?v=3')).toBe('https://cs.example.com')
+    expect(resolveWidgetOrigin('https://CS.Example.com:443/loader.js')).toBe('https://cs.example.com')
+    expect(resolveWidgetOrigin('http://localhost:8080/loader.js')).toBe('http://localhost:8080')
+  })
+
+  it('src 缺失/为空/非法 → null（fail-closed，绝不猜测）', () => {
+    expect(resolveWidgetOrigin(null)).toBeNull()
+    expect(resolveWidgetOrigin('')).toBeNull()
+    expect(resolveWidgetOrigin('not-a-url')).toBeNull()
+  })
+
+  it('src 的 origin 非 http(s) → fail-closed（file/ftp/javascript 均拒绝）', () => {
+    expect(resolveWidgetOrigin('file:///usr/local/loader.js')).toBeNull()
+    expect(resolveWidgetOrigin('ftp://cs.example.com/loader.js')).toBeNull()
+    expect(resolveWidgetOrigin('javascript:alert(1)')).toBeNull()
+  })
+
+  it('data-widget-origin 显式提供也不能改变 origin（恒从 src 推导）', () => {
+    document.body.innerHTML = ''
+    const win = window as unknown as Record<string, unknown>
+    delete win.__IMBOY_CS_WIDGET_V1__
+    const script = makeScript(document, {
+      'data-widget-id': WIDGET_ID,
+      'data-widget-origin': 'https://attacker.example',
+    })
+    const created = mountCustomerServiceWidget(document, script, window)
+    expect(created).not.toBeNull()
+    expect(created?.config.widgetOrigin).toBe('https://cs.example.com')
+    expect(buildWidgetUrl(created!.config)).toBe(`https://cs.example.com/w/${WIDGET_ID}`)
+    created?.destroy()
+    document.body.innerHTML = ''
+    delete win.__IMBOY_CS_WIDGET_V1__
   })
 })
 
@@ -111,8 +157,15 @@ describe('mountCustomerServiceWidget 幂等（A02）', () => {
     document.body.innerHTML = ''
   })
 
+  it('最小 snippet（只有 data-widget-id）可挂载', () => {
+    const script = makeScript(document, MIN_ATTRS)
+    handle = mountCustomerServiceWidget(document, script, window)
+    expect(handle).not.toBeNull()
+    expect(document.querySelectorAll('[data-testid="cs-widget-root"]').length).toBe(1)
+  })
+
   it('同一 script 重复 mount 只有一个 root/按钮；第二次返回 null', () => {
-    const script = makeScript(document, BASE_ATTRS)
+    const script = makeScript(document, MIN_ATTRS)
     handle = mountCustomerServiceWidget(document, script, window)
     expect(handle).not.toBeNull()
     const second = mountCustomerServiceWidget(document, script, window)
@@ -122,12 +175,75 @@ describe('mountCustomerServiceWidget 幂等（A02）', () => {
   })
 
   it('两份 script 标签（真实重复注入场景）仍单实例', () => {
-    const scriptA = makeScript(document, BASE_ATTRS)
-    const scriptB = makeScript(document, { ...BASE_ATTRS, 'data-position': 'bottom-left' })
+    const scriptA = makeScript(document, MIN_ATTRS)
+    const scriptB = makeScript(document, { 'data-widget-id': OTHER_WIDGET_ID })
     handle = mountCustomerServiceWidget(document, scriptA, window)
     expect(handle).not.toBeNull()
     expect(mountCustomerServiceWidget(document, scriptB, window)).toBeNull()
     expect(document.querySelectorAll('[data-testid="cs-widget-root"]').length).toBe(1)
+  })
+})
+
+describe('fail-closed（CSD-FE-01-A01：宿主页零副作用）', () => {
+  let warns: string[] = []
+  let originalWarn: typeof console.warn = console.warn
+
+  beforeEach(() => {
+    document.body.innerHTML = ''
+    const win = window as unknown as Record<string, unknown>
+    delete win.__IMBOY_CS_WIDGET_V1__
+    warns = []
+    originalWarn = console.warn
+    console.warn = (message: unknown) => warns.push(String(message))
+  })
+
+  afterEach(() => {
+    console.warn = originalWarn
+    document.body.innerHTML = ''
+  })
+
+  it('缺 data-widget-id：不挂载（无 root）、不建 iframe、warn 恰好一条', () => {
+    const script = makeScript(document, { 'data-org-id': '1234567890123456789' })
+    const created = mountCustomerServiceWidget(document, script, window)
+    expect(created).toBeNull()
+    expect(document.querySelectorAll('[data-testid="cs-widget-root"]').length).toBe(0)
+    expect(warns).toHaveLength(1)
+  })
+
+  it('非法 data-widget-id：不挂载且 warn 不回显非法值', () => {
+    const script = makeScript(document, { 'data-widget-id': 'https://evil.example/x' })
+    expect(mountCustomerServiceWidget(document, script, window)).toBeNull()
+    expect(document.querySelectorAll('[data-testid="cs-widget-root"]').length).toBe(0)
+    expect(warns).toHaveLength(1)
+    expect(warns.join('\n')).not.toContain('evil.example')
+  })
+
+  it('src 缺失（origin 无法推导）：不挂载、恰一条 warn', () => {
+    const script = makeScript(document, MIN_ATTRS)
+    script.removeAttribute('src')
+    expect(mountCustomerServiceWidget(document, script, window)).toBeNull()
+    expect(document.querySelectorAll('[data-testid="cs-widget-root"]').length).toBe(0)
+    expect(warns).toHaveLength(1)
+  })
+
+  it('未知 data-* 键（历史 data-org-id + data-shop-key）：忽略 + 一次性 warn 只报键名', () => {
+    const script = makeScript(document, {
+      ...MIN_ATTRS,
+      'data-org-id': '1234567890123456789',
+      'data-widget-origin': 'https://evil.example',
+      'data-shop-key': 'fake_secret_shape_TOPSECRETVALUE',
+    })
+    const created = mountCustomerServiceWidget(document, script, window)
+    expect(created).not.toBeNull()
+    created?.destroy()
+    const joined = warns.join('\n')
+    expect(joined).toContain('org-id')
+    expect(joined).toContain('widget-origin')
+    expect(joined).toContain('shop-key')
+    // 键名之外绝不回显任何值
+    expect(joined).not.toContain('1234567890123456789')
+    expect(joined).not.toContain('evil.example')
+    expect(joined).not.toContain('TOPSECRETVALUE')
   })
 })
 
@@ -138,7 +254,7 @@ function postEvent(target: Window, init: MessageEventInit): boolean {
   return target.dispatchEvent(new WinCtor('message', init))
 }
 
-describe('launcher / iframe / postMessage（A03）', () => {
+describe('launcher / iframe / postMessage（CSD-FE-01-A03）', () => {
   let handle: LoaderHandle | null = null
 
   beforeEach(() => {
@@ -154,7 +270,7 @@ describe('launcher / iframe / postMessage（A03）', () => {
   })
 
   function mount(): LoaderHandle {
-    const script = makeScript(document, BASE_ATTRS)
+    const script = makeScript(document, MIN_ATTRS)
     const created = mountCustomerServiceWidget(document, script, window)
     if (created === null) throw new Error('mount 失败')
     handle = created
@@ -170,7 +286,7 @@ describe('launcher / iframe / postMessage（A03）', () => {
     return fake
   }
 
-  it('按钮键盘可达（原生 button）+ 点击打开 iframe（sandbox/标题/aria-expanded）', () => {
+  it('iframe src 固定 = <origin>/w/<public_widget_id>；sandbox/标题/键盘可达（A02/A03）', () => {
     const created = mount()
     const button = launcherOf(created)
     expect(button.getAttribute('aria-expanded')).toBe('false')
@@ -179,20 +295,21 @@ describe('launcher / iframe / postMessage（A03）', () => {
     expect(button.getAttribute('aria-expanded')).toBe('true')
     const iframe = iframeOf(created)
     expect(iframe).not.toBeNull()
+    expect(iframe?.getAttribute('src')).toBe(`https://cs.example.com/w/${WIDGET_ID}`)
     expect(iframe?.getAttribute('sandbox')).toBe('allow-scripts allow-same-origin')
     expect(iframe?.title.length).toBeGreaterThan(0)
     // aria-label 不携带任何 secret 形状
     expect(button.getAttribute('aria-label')).not.toMatch(/sk_|shop_key|secret/i)
   })
 
-  it('合法 origin+source 的消息更新未读徽标；非法 origin 被忽略', () => {
+  it('postMessage 双校验：非法 origin / 非法 source 均忽略；合法消息生效（A03）', () => {
     const created = mount()
     launcherOf(created).click()
     const win = fakeFrameWindow(created)
+    const badge = created.shadow.querySelector('[data-testid="cs-widget-unread-badge"]')
 
     // 非法 origin：忽略（未读不变）
     postEvent(window, { origin: 'https://evil.example', source: win, data: { source: 'imboy-cs-widget', type: 'unread', count: 7 } })
-    const badge = created.shadow.querySelector('[data-testid="cs-widget-unread-badge"]')
     expect(badge?.textContent).toBe('')
 
     // 非法 source（同 origin 但不是我们的 iframe）：忽略
@@ -239,9 +356,7 @@ describe('isFromWidgetFrame / 宿主异常零外泄（A05）', () => {
     const detached = document.implementation.createHTMLDocument('x')
     detached.body.remove()
     const script = detached.createElement('script')
-    script.setAttribute('data-org-id', '1')
-    script.setAttribute('data-widget-id', 'w')
-    script.setAttribute('data-widget-origin', 'https://cs.example.com')
+    script.setAttribute('data-widget-id', WIDGET_ID)
     expect(() => mountCustomerServiceWidget(detached, script, detached.defaultView as Window)).not.toThrow()
   })
 
@@ -252,68 +367,5 @@ describe('isFromWidgetFrame / 宿主异常零外泄（A05）', () => {
       throw new Error('hostile page broke querySelector')
     }
     expect(() => autoMountCustomerServiceWidget(hostile)).not.toThrow()
-  })
-
-  it('warn 只出现在 console（jest spy），且不包含被忽略键的值', () => {
-    const warns: string[] = []
-    const originalWarn = console.warn
-    console.warn = (message: unknown) => warns.push(String(message))
-    try {
-      const doc = document
-      doc.body.innerHTML = ''
-      const script = makeScript(doc, { 'data-org-id': '1', 'data-widget-id': 'w', 'data-widget-origin': 'https://cs.example.com', 'data-shop-key': 'fake_secret_shape_TOPSECRETVALUE' })
-      const h = mountCustomerServiceWidget(doc, script, window)
-      h?.destroy()
-      const joined = warns.join('\n')
-      expect(joined).toContain('shop-key')
-      expect(joined).not.toContain('TOPSECRETVALUE')
-    } finally {
-      console.warn = originalWarn
-    }
-  })
-})
-
-describe('origin 推导与严格规范化（FE-W01 / ADM-01-A05）', () => {
-  it('resolveWidgetOrigin：显式值优先且严格规范化（大小写/默认端口/尾斜杠）', () => {
-    expect(resolveWidgetOrigin('https://CS.Example.com:443/', null)).toBe('https://cs.example.com')
-    expect(resolveWidgetOrigin('  https://cs.example.com  ', 'https://other.example/loader.js')).toBe('https://cs.example.com')
-    // 显式值非法 → fail-closed（绝不回退到推导，绝不猜测）
-    expect(resolveWidgetOrigin('javascript:alert(1)', 'https://cs.example.com/loader.js')).toBeNull()
-    expect(resolveWidgetOrigin('https://cs.example.com/path', null)).toBeNull()
-    expect(resolveWidgetOrigin('https://*.example.com', null)).toBeNull()
-  })
-
-  it('缺显式 origin 时从自身 script.src 推导（含路径剥离）', () => {
-    expect(resolveWidgetOrigin('', 'https://cs.example.com/static/loader.js?v=3')).toBe('https://cs.example.com')
-    expect(resolveWidgetOrigin('', 'http://localhost:8080/loader.js')).toBe('http://localhost:8080')
-    expect(resolveWidgetOrigin('', null)).toBeNull()
-    expect(resolveWidgetOrigin('', '')).toBeNull()
-    expect(resolveWidgetOrigin('', 'not-a-url')).toBeNull()
-  })
-
-  it('mount：无 data-widget-origin 时按 script src 推导并成功挂载', () => {
-    document.body.innerHTML = ''
-    const win = window as unknown as Record<string, unknown>
-    delete win.__IMBOY_CS_WIDGET_V1__
-    const script = makeScript(document, { 'data-org-id': '1234567890123456789', 'data-widget-id': 'wgt_pub_unit' })
-    script.setAttribute('src', 'https://cs.example.com/static/loader.js')
-    const created = mountCustomerServiceWidget(document, script, window)
-    expect(created).not.toBeNull()
-    expect(created?.config.widgetOrigin).toBe('https://cs.example.com')
-    expect(buildWidgetUrl(created!.config)).toBe('https://cs.example.com/widget/index.html')
-    created?.destroy()
-    document.body.innerHTML = ''
-    delete win.__IMBOY_CS_WIDGET_V1__
-  })
-
-  it('mount：无显式 origin 且无可用 src → fail-closed 不挂载', () => {
-    document.body.innerHTML = ''
-    const win = window as unknown as Record<string, unknown>
-    delete win.__IMBOY_CS_WIDGET_V1__
-    const script = makeScript(document, { 'data-org-id': '1', 'data-widget-id': 'w' })
-    script.removeAttribute('src')
-    expect(mountCustomerServiceWidget(document, script, window)).toBeNull()
-    document.body.innerHTML = ''
-    delete win.__IMBOY_CS_WIDGET_V1__
   })
 })

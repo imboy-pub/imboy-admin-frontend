@@ -9,6 +9,11 @@
  * - 评分：1..5 星均带可读 aria-label；连接状态以文字（非仅颜色）承载；
  * - 附件：按钮/文件输入 aria-label；附件状态用文字（linked 才是成功）；
  * - 失败消息重试按钮可读标签。
+ *
+ * CSD-FE-01-A05 边界说明：360/768/1280/1440 视口 overflow/遮挡为布局级断言，
+ * jsdom 无真实布局引擎不可测——由 CSS（loader 面板 min(380px, calc(100vw-32px))、
+ * <=480px 全屏；widget/index.html viewport meta）承担，浏览器级断言留给
+ * CSD-E2E-01（不在此伪造）。
  */
 import '../../../test/setupDom'
 
@@ -92,6 +97,18 @@ describe('聊天 UI 可访问性（键盘/焦点/aria live）', () => {
     const { root, render } = mountUi()
     render(reduceChat(chatState(), { type: 'connection', state: 'offline' }))
     expect(getByTestId(root, 'cs-banner').textContent).toContain('离线')
+  })
+
+  it('error 态：错误标题以文字承载，重试按钮经 role+name 键盘可达（CSD-FE-01-A05）', () => {
+    const { root, render } = mountUi()
+    render(
+      reduceChat(initialChatState(), { type: 'bootstrap_failed', message: 'bootstrap 失败（HTTP 404）' })
+    )
+    expect(getByText(root, '客服暂时不可用')).toBeTruthy()
+    const retry = getByRole(root, 'button', { name: '重试' }) as HTMLButtonElement
+    expect(retry.getAttribute('data-testid')).toBe('cs-retry-bootstrap')
+    retry.focus()
+    expect(document.activeElement).toBe(retry)
   })
 
   it('附件：按钮与文件输入 aria-label；附件状态用文字（failed 可见，linked 才成功）', () => {

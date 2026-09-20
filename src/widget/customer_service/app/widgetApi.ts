@@ -1,12 +1,14 @@
 /**
- * CSW-01R：Widget HTTP 客户端（轻量 fetch，独立于 Admin axios 实例）。
+ * CSW-01R / CSD-FE-01：Widget HTTP 客户端（轻量 fetch，独立于 Admin axios 实例）。
  *
- * 逐键对齐后端真实校验（cs_actions.erl table(widget) + cs_widget_handler）：
- * - 每条请求正文/查询必带申报键 `organization_id`（org_source=param）；
+ * 逐键对齐合同 v1 S3/S5：
+ * - 全部相对同源路径 `/api/v1/cs/widget/*`（iframe 与 API 同源，无跨域请求）；
+ * - organization/workspace 由服务端按 public_widget_id 反查派生——客户端请求面
+ *   绝不申报 org/workspace（服务端派生键提供即 400）；
+ * - installation_id 只来自 bootstrap 成功响应体（内存持有，不入 storage/URL/log）；
  * - 凭证只走 `x-cs-visit-token` 头；URL 查询串出现任何 token 形状直接抛错
  *   （后端对查询串凭证键一律 400，客户端提前拦住）；
- * - 服务端派生键（at/contact_id/workspace_id/origin/secret…）绝不出现客户端请求；
- * - `credentials: 'omit'`：Widget 与宿主跨源，绝不携带/依赖 Cookie；
+ * - `credentials: 'omit'`：绝不携带/依赖 Cookie；
  * - 信封 {code,msg,payload}，payload 缺失 fail-closed。
  */
 import {
@@ -92,11 +94,11 @@ export class WidgetApiClient {
   }
 
   /**
-   * POST /bootstrap（widget_bootstrap 逐键：organization_id + public_widget_id +
-   * subject_id；Origin 头由浏览器自动携带）。响应 `secret` 即 visit token。
+   * POST /bootstrap（合同 v1 S3：只报 public_widget_id + subject_id；Origin 头
+   * 由浏览器自动携带，服务端按 allowlist 校验）。响应 `installation_id` 为后续
+   * 动作唯一作用域（内存持有）；响应 `secret` 即 visit token。
    */
   async bootstrap(body: {
-    organizationId: string
     publicWidgetId: string
     subjectId: string
   }): Promise<BootstrapResult> {
@@ -110,7 +112,7 @@ export class WidgetApiClient {
     return result
   }
 
-  /** POST /sessions（widget_create_session：installation_id 必填）。 */
+  /** POST /sessions（installation_id = bootstrap 响应派生值）。 */
   async createSession(scope: RequestScope): Promise<WidgetSession> {
     const payload = await this.requestJson(`${WIDGET_API_BASE}/sessions`, {
       method: 'POST',
@@ -121,7 +123,7 @@ export class WidgetApiClient {
     return session
   }
 
-  /** GET /sessions（widget_list_sessions：查询串 installation_id + organization_id）。 */
+  /** GET /sessions（查询串 installation_id；installation 作用域会话列表）。 */
   async listSessions(scope: RequestScope): Promise<WidgetSession[]> {
     const payload = await this.requestJson(
       `${WIDGET_API_BASE}/sessions${buildScopeQuery(scope)}`,

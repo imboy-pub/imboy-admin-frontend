@@ -12,11 +12,19 @@
 
 export const WIDGET_MESSAGE_SOURCE = 'imboy-cs-widget' as const
 
-/** loader 支持的 data-* 配置键（不含 `data-` 前缀，kebab-case），全部为 PUBLIC 标识。
- * `org-id`：organization_id 是 widget 面每条请求的必填申报参数（cs_actions
- * org_source=param → cs_http:org_id 取查询/正文 `organization_id`），由接入代码
- * 携带、服务端仍以 installation/allowlist/令牌 digest fail-closed 证明。 */
-export const LOADER_DATA_KEYS = ['org-id', 'widget-id', 'widget-origin', 'widget-path', 'locale', 'position'] as const
+/** loader 支持的 data-* 配置键（不含 `data-` 前缀，kebab-case）。
+ * 合同 v1 S1：唯一允许的 data-* 属性 = `data-widget-id`（全局唯一 public ID，
+ * TSID 十进制 string）；snippet 不含 organization / workspace / origin / path /
+ * secret / token / 任意路径覆写。历史键（org-id / widget-origin / widget-path /
+ * locale / position / shop-key …）一律视为未知键：忽略 + 一次性 warn 只报键名，
+ * 绝不作为配置来源。 */
+export const LOADER_DATA_KEYS = ['widget-id'] as const
+
+/** public_widget_id 形状校验：TSID 十进制 string（1..26 位数字）。
+ * 纯数字保证 `/w/<id>` 拼接不可能被注入路径/查询结构；非法形状 fail-closed。 */
+export function isValidPublicWidgetId(raw: string): boolean {
+  return /^[0-9]{1,26}$/.test(raw.trim())
+}
 
 export type LoaderDataKey = (typeof LOADER_DATA_KEYS)[number]
 
@@ -24,11 +32,12 @@ export type WidgetConnectionState = 'online' | 'offline' | 'error'
 
 export type WidgetPosition = 'bottom-right' | 'bottom-left'
 
-/** loader → iframe：宿主白名单上下文（页面 origin + path + 接入申报标识）。 */
+/** loader → iframe：宿主白名单上下文（页面 origin + path + public widget id）。
+ * 合同 v1 S3：organization 由服务端按 public_widget_id 反查派生，浏览器任何
+ * 请求/消息面不得申报 organization/workspace。 */
 export type HostContextMessage = {
   source: typeof WIDGET_MESSAGE_SOURCE
   type: 'host-context'
-  organizationId: string
   widgetId: string
   locale: string
   page: { origin: string; path: string }
@@ -89,8 +98,6 @@ export function parseHostToWidget(data: unknown): HostToWidgetMessage | null {
   if (data.type === 'host-context') {
     const page = isPlainObject(data.page) ? data.page : null
     if (
-      typeof data.organizationId === 'string' &&
-      data.organizationId.length > 0 &&
       typeof data.widgetId === 'string' &&
       data.widgetId.length > 0 &&
       typeof data.locale === 'string' &&
@@ -101,7 +108,6 @@ export function parseHostToWidget(data: unknown): HostToWidgetMessage | null {
       return {
         source: WIDGET_MESSAGE_SOURCE,
         type: 'host-context',
-        organizationId: data.organizationId,
         widgetId: data.widgetId,
         locale: data.locale,
         page: { origin: page.origin, path: page.path },

@@ -42,7 +42,6 @@ import {
 const CIPHER_PLACEHOLDER = '[加密消息：明文读面未开放（后端缺口 D5）]'
 
 export type HostContext = {
-  organizationId: string
   widgetId: string
   locale: string
   pageOrigin: string
@@ -136,7 +135,6 @@ export function createWidgetController(deps: ControllerDeps) {
       if (message.type === 'host-context') {
         if (context !== null) return
         context = {
-          organizationId: message.organizationId,
           widgetId: message.widgetId,
           locale: message.locale,
           pageOrigin: message.page.origin,
@@ -159,7 +157,9 @@ export function createWidgetController(deps: ControllerDeps) {
 
   async function runBootstrap(): Promise<void> {
     if (context === null) return
-    visitScope = { organizationId: context.organizationId, widgetId: context.widgetId }
+    // public_widget_id 全局唯一 → 唯一 installation（合同 S3）：widgetId 即
+    // 客户端侧安装作用域键（visit 恢复存储命名空间）。
+    visitScope = { widgetId: context.widgetId }
     // 恢复优先：同一 installation 的短期匿名 subject（TTL 内）。
     const recovered =
       deps.storage !== null ? loadVisitSubject(deps.storage, visitScope, deps.nowMs()) : null
@@ -167,11 +167,12 @@ export function createWidgetController(deps: ControllerDeps) {
     dispatch({ type: 'bootstrap_started' })
     try {
       const result: BootstrapResult = await deps.api.bootstrap({
-        organizationId: context.organizationId,
         publicWidgetId: context.widgetId,
         subjectId,
       })
-      scope = { organizationId: context.organizationId, installationId: result.installationId }
+      // installation_id 只来自 bootstrap 成功响应体（合同 S3 冻结）：
+      // 仅内存持有、后续动作以响应值为参，绝不写 storage/URL/log。
+      scope = { installationId: result.installationId }
       selfContact = result.contactId
       if (deps.storage !== null && visitScope !== null) {
         saveVisitSubject(deps.storage, visitScope, subjectId, deps.nowMs())

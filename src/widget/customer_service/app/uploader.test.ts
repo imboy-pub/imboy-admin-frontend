@@ -9,7 +9,7 @@ import { blobSha256Hex, runAttachmentPipeline, sha256Hex } from './uploader'
 
 type Recorded = { url: string; init: RequestInit }
 
-const SCOPE = { organizationId: '1234567890123456789', installationId: '72057594037928001' }
+const SCOPE = { installationId: '72057594037928001' }
 const SESSION_ID = '72057594037927936'
 const HASH = 'a'.repeat(64)
 
@@ -118,7 +118,6 @@ describe('runAttachmentPipeline（hash→presign→裸PUT→confirm→asset_ids 
 
     const presign = env.requests.find((r) => r.url.includes('/assets/presign'))
     expect(JSON.parse(String(presign?.init.body))).toEqual({
-      organization_id: SCOPE.organizationId,
       installation_id: SCOPE.installationId,
       mime: 'application/pdf',
       size_bytes: env.file.size,
@@ -132,7 +131,6 @@ describe('runAttachmentPipeline（hash→presign→裸PUT→confirm→asset_ids 
     expect(env.putRequests[0]?.init.credentials).toBe('omit')
     const confirm = env.requests.find((r) => r.url.includes('/assets/confirm'))
     expect(JSON.parse(String(confirm?.init.body))).toEqual({
-      organization_id: SCOPE.organizationId,
       installation_id: SCOPE.installationId,
       upload_ref: 'ref-opaque-1',
     })

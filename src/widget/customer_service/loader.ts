@@ -1,23 +1,29 @@
 /**
- * CSW-01：客服 Widget 宿主页 loader（构建为独立 IIFE `loader.js`）。
+ * CSW-01 / CSD-FE-01：客服 Widget 宿主页 loader（构建为独立 IIFE `loader.js`）。
  *
- * 设计约束（§12.7 / CSW-01-A01..A05）：
+ * 设计约束（合同 v1 S1/S2/S3 / CSW-01-A01..A05）：
  * - 零第三方依赖、单文件 IIFE；宿主只需贴一段 `<script async src=".../loader.js"
  *   data-widget-id="<public_widget_id>">`；
+ * - 唯一配置键 = `data-widget-id`（TSID 十进制 string）；缺失/非法 → fail-closed：
+ *   不注入 iframe、不发起网络请求、console.warn 一条、宿主页零副作用；
+ * - 未知 data-* 键（含历史 data-org-id / data-widget-origin / data-widget-path /
+ *   data-shop-key 等）一律忽略 + 一次性 console.warn 只报键名（绝不回显值），
+ *   绝不作为配置来源——第三方 data attribute 不能改变 iframe/API origin 或 path；
+ * - Widget origin 唯一真源 = `document.currentScript.src` 的 `scheme://host[:port]`
+ *   归一化（非 http(s) fail-closed）；iframe src = `<origin>/w/<public_widget_id>`
+ *   固定路径；任何第三方输入（data attribute / URL 参数 / postMessage）不可覆写；
  * - 幂等：重复注入（多份 script / 重复执行）全局只挂一个按钮（全局哨兵 + DOM 查重）；
  * - 宿主异常零外泄：全部入口 try/catch，失败只隐藏/降级，绝不向宿主页抛错；
  * - iframe sandbox 最小权限起步：`allow-scripts allow-same-origin`——同源是
  *   Widget 应用访问自身同源 API 所必需；不给 allow-top-navigation /
- *   allow-popups / allow-forms（Widget 内不用表单提交，输入框为 JS 驱动），
- *   iframe 与宿主 origin 不同时该组合没有逃逸面；
+ *   allow-popups / allow-forms（Widget 内不用表单提交，输入框为 JS 驱动）；
  * - postMessage：只接受「已知 origin + 已知 source === iframe.contentWindow」的
- *   消息，逐字校验；发往 iframe 的只有白名单上下文（页面 origin/path）。
- *
- * 只读 data-* 白名单键（见 protocol.ts LOADER_DATA_KEYS）；出现其它 data-* 键
- * （例如 SECRET 形状的 data-shop-key）一律忽略并 warn（只 warn 键名，绝不落值）。
+ *   消息，逐字校验（CSD-FE-01-A03）；不读宿主 cookie/storage/form/body；
+ *   发往 iframe 的只有白名单上下文（页面 origin/path + public widget id）。
  */
 import {
   isAllowedLoaderDataKey,
+  isValidPublicWidgetId,
   normalizeOriginInput,
   parseWidgetToHost,
   type WidgetConnectionState,
@@ -26,15 +32,15 @@ import {
 
 const ROOT_ELEMENT_ID = 'imboy-cs-widget-root'
 const LAUNCHER_FLAG = '__IMBOY_CS_WIDGET_V1__'
-const DEFAULT_WIDGET_PATH = '/widget/index.html'
+/** 动态 frame 固定落点（合同 v1 S2：iframe src = <origin>/w/<public_widget_id>）。 */
+const FRAME_PATH_PREFIX = '/w/'
 const DEFAULT_LOCALE = 'zh-CN'
+const DEFAULT_POSITION: WidgetPosition = 'bottom-right'
 const MESSAGE_SOURCE = 'imboy-cs-widget'
 
 export type LoaderConfig = {
-  organizationId: string
   widgetId: string
   widgetOrigin: string
-  widgetPath: string
   locale: string
   position: WidgetPosition
 }
@@ -68,7 +74,7 @@ type UiRefs = {
 
 export function readLoaderConfig(el: Element): { config: LoaderConfig; ignoredKeys: string[] } | null {
   const ignoredKeys: string[] = []
-  const picked: Record<string, string> = {}
+  let widgetId = ''
   // index 遍历（NamedNodeMap 在部分实现里不可迭代）
   const attributes = el.attributes
   for (let index = 0; index < attributes.length; index += 1) {
@@ -76,51 +82,43 @@ export function readLoaderConfig(el: Element): { config: LoaderConfig; ignoredKe
     if (attr === null || !attr.name.startsWith('data-')) continue
     const key = attr.name.slice(5)
     if (!isAllowedLoaderDataKey(key)) {
-      // SECRET 形状键（如 data-shop-key）在此被忽略；绝不把值写入日志
+      // 历史键（org-id/widget-origin/widget-path/locale/position）与 SECRET 形状键
+      // （如 data-shop-key）一律视为未知键：忽略 + 只报键名，值绝不入日志/配置
       ignoredKeys.push(key)
       continue
     }
-    picked[key] = attr.value
+    widgetId = attr.value.trim()
   }
-  const widgetId = (picked['widget-id'] ?? '').trim()
-  const organizationId = (picked['org-id'] ?? '').trim()
-  if (widgetId.length === 0 || organizationId.length === 0) return null
-  const originRaw = picked['widget-origin']
-  const origin = typeof originRaw === 'string' ? normalizeOriginInput(originRaw) : null
-  if (originRaw !== undefined && origin === null) return null
-  const pathRaw = picked['widget-path']
-  const path = typeof pathRaw === 'string' && pathRaw.startsWith('/') ? pathRaw : DEFAULT_WIDGET_PATH
-  const position: WidgetPosition = picked.position === 'bottom-left' ? 'bottom-left' : 'bottom-right'
+  // 合同 v1 S1：缺失或非法 data-widget-id → fail-closed（不注入、不网络请求）。
+  if (widgetId.length === 0 || !isValidPublicWidgetId(widgetId)) return null
   return {
     config: {
-      organizationId,
       widgetId,
-      widgetOrigin: origin ?? '',
-      widgetPath: path,
-      locale: (picked.locale ?? DEFAULT_LOCALE).trim() || DEFAULT_LOCALE,
-      position,
+      widgetOrigin: '',
+      locale: DEFAULT_LOCALE,
+      position: DEFAULT_POSITION,
     },
     ignoredKeys,
   }
 }
 
-/** Widget 面板页完整 URL（固定 = 自身 entry origin + 固定 path）。 */
+/** 动态 frame 完整 URL（合同 v1 S2 固定路径 = <origin>/w/<public_widget_id>）。 */
 export function buildWidgetUrl(config: LoaderConfig): string | null {
-  if (config.widgetOrigin.length === 0) return null
+  if (config.widgetOrigin.length === 0 || !isValidPublicWidgetId(config.widgetId)) return null
   try {
-    return new URL(config.widgetPath, config.widgetOrigin + '/').toString()
+    return new URL(`${FRAME_PATH_PREFIX}${config.widgetId}`, config.widgetOrigin + '/').toString()
   } catch {
     return null
   }
 }
 
 /**
- * 规范化 origin：显式 data-widget-origin 优先（非法即 fail-closed，绝不回退）；
- * 缺省时从 loader 自身 `script.src` 推导（计划 FE-W01 / ADM-01-A05：
- * Widget origin 来自 loader src）。两路都经 normalizeOriginInput 严格规范化。
+ * 规范化 Widget origin：唯一真源 = loader 自身 `script.src` 的
+ * `scheme://host[:port]`（CSD-FE-01-A02：第三方 data attribute 不能改 origin）。
+ * 相对 src 按文档 baseURI 解析为绝对 URL；非 http(s)/含路径 → fail-closed
+ * （normalizeOriginInput 严格规范化，绝不猜测）。
  */
-export function resolveWidgetOrigin(explicit: string, scriptSrc: string | null): string | null {
-  if (explicit.length > 0) return normalizeOriginInput(explicit)
+export function resolveWidgetOrigin(scriptSrc: string | null): string | null {
   if (scriptSrc === null || scriptSrc.length === 0) return null
   try {
     return normalizeOriginInput(new URL(scriptSrc).origin)
@@ -324,7 +322,8 @@ function ensureIframe(
   }
 }
 
-/** 只向 iframe 发白名单上下文：页面 origin + path（§12.7）；绝不读 cookie/表单/storage/正文。 */
+/** 只向 iframe 发白名单上下文：页面 origin + path + public widget id；
+ * 合同 v1 S3/S5：绝不读 cookie/表单/storage/正文，绝不申报 organization。 */
 function sendHostContext(win: Window, config: LoaderConfig, state: WidgetState): void {
   try {
     const target = state.iframe?.contentWindow
@@ -333,7 +332,6 @@ function sendHostContext(win: Window, config: LoaderConfig, state: WidgetState):
       {
         source: MESSAGE_SOURCE,
         type: 'host-context',
-        organizationId: config.organizationId,
         widgetId: config.widgetId,
         locale: config.locale,
         page: { origin: win.location.origin, path: win.location.pathname },
@@ -413,21 +411,20 @@ export function mountCustomerServiceWidget(
 ): LoaderHandle | null {
   const read = readLoaderConfig(scriptEl)
   if (read === null) {
-    warn(win, '缺少 data-widget-id，客服 Widget 未挂载')
+    warn(win, 'data-widget-id 缺失或非法，客服 Widget 未挂载')
     return null
   }
   if (read.ignoredKeys.length > 0) {
-    // 只报键名；值为 SECRET 形状时也绝不外泄
+    // 一次性 warn，只报键名；值为 SECRET 形状时也绝不外泄
     warn(win, `忽略未知的 script data-* 配置键：${read.ignoredKeys.join(', ')}`)
   }
   if (alreadyInstalled(doc)) return null
-  // origin 解析：显式 data-widget-origin 优先；缺省从 script.src 推导
-  // （FE-W01：loader 缺显式 origin 时从自身 script.src 推导；相对 src 按
-  // 文档 baseURI 解析为绝对 URL）。
+  // origin 唯一真源 = 自身 script.src（合同 v1 S2；data-widget-origin 已废除，
+  // 出现在 snippet 里也只是未知键 → 上方已忽略 + warn）。
   const scriptSrc = absoluteScriptSrc(scriptEl, doc)
-  const resolvedOrigin = resolveWidgetOrigin(read.config.widgetOrigin, scriptSrc)
+  const resolvedOrigin = resolveWidgetOrigin(scriptSrc)
   if (resolvedOrigin === null) {
-    warn(win, 'widget origin 缺失或非法（data-widget-origin 与 script.src 均不可用），客服 Widget 未挂载')
+    warn(win, 'widget origin 无法从 script.src 推导，客服 Widget 未挂载')
     return null
   }
   const config: LoaderConfig = { ...read.config, widgetOrigin: resolvedOrigin }

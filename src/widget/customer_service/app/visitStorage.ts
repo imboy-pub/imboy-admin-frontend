@@ -1,16 +1,18 @@
 /**
- * FE-W01：iframe origin `sessionStorage` 访客恢复存储。
+ * FE-W01 / CSD-FE-01：iframe origin `sessionStorage` 访客恢复存储。
  *
- * 合同（cors-auth-matrix.widget_session_storage / 计划 FE-W01）：
+ * 合同（hosted-widget-contract-v1 S3/S5 / 计划 FE-W01）：
  * - 只保存 **installation 作用域**的匿名 subject 与短期 visit 恢复状态；
- * - 键按 organization_id + public_widget_id 命名空间化（客户端侧安装作用域）；
+ * - 键按 public_widget_id 命名空间化：public_widget_id 全局唯一 → 唯一
+ *   installation（服务端反查派生 org/workspace），故 widgetId 即客户端侧
+ *   安装作用域键；installation_id / organization 等内部标识不进存储键；
  * - TTL 过期 / 吊销(401/403) / 退出(关闭聊天) / 拒绝 consent 一律清理；
- * - access/refresh JWT 绝不进入该存储：本模块只接受匿名 subjectId，
- *   且写入前做 JWT 形状防御校验（三段 base64url / eyJ 前缀一律拒绝）；
+ * - access/refresh JWT / visit token 绝不进入该存储：本模块只接受匿名
+ *   subjectId，写入前做 JWT 形状防御校验（三段 base64url / eyJ 前缀一律拒绝）；
  * - visit token 本身绝不落盘（visit token 只在内存与 header，见 widgetApi）。
  */
 
-export type VisitScope = { organizationId: string; widgetId: string }
+export type VisitScope = { widgetId: string }
 
 /** 最小存储接口（默认 sessionStorage；测试可注入内存实现）。 */
 export type StorageLike = {
@@ -30,9 +32,9 @@ export const SUBJECT_TTL_MS_DEFAULT = 30 * 60 * 1000
 
 const KEY_PREFIX = 'imboy-cs:subject:'
 
-/** installation 作用域键（org + public widget id 唯一确定客户端侧 installation）。 */
+/** installation 作用域键（public_widget_id 全局唯一 → 唯一 installation）。 */
 export function subjectStorageKey(scope: VisitScope): string {
-  return `${KEY_PREFIX}${scope.organizationId}:${scope.widgetId}`
+  return `${KEY_PREFIX}${scope.widgetId}`
 }
 
 /** JWT 形状防御：三段 base64url（xxx.yyy.zzz）或 eyJ 开头一律视为 JWT，禁止落盘。 */

@@ -1,25 +1,26 @@
 /**
- * CSW-01R：Widget 后端合同（冻结形状）——类型 + fail-closed 出入站投影。
+ * CSW-01R / CSD-FE-01：Widget 后端合同（冻结形状）——类型 + fail-closed 出入站投影。
  *
- * 合同真源（**后端源码为准**，A6/CSX-01 实测校准）：
- * - `cs_actions.erl` table(widget)：每条路由参数表（org_source=param →
- *   `organization_id` 是每条请求的必填申报参数，POST 走正文 / GET 走查询串）；
- * - `cs_widget_handler.erl`：服务端派生键（at/origin/secret/contact_id/workspace_id
- *   等）客户端提供即 400；凭证只走 `x-cs-visit-token` 头（查询串出现即 400）；
- * - `cs_widget_app:bootstrap_view/1`、`cs_widget_session_app`（create_session /
- *   visitor_session_view / rate）与 `eb_pg_store_sql:message_fields/0`：响应投影。
+ * 合同真源（**hosted-widget-contract-v1** S3/S5 为准）：
+ * - 全局唯一 `public_widget_id` → 唯一 active installation → 服务端权威派生
+ *   `(organization_id, workspace_id)`；浏览器任何请求面**不得申报**
+ *   organization/workspace（服务端派生键客户端提供即 400 `server_derived_key_rejected`）；
+ * - installation_id 的合法来源 = bootstrap 成功响应体；widget JS 仅内存持有、
+ *   后续动作以该响应值为参；绝不写 storage/URL/log；
+ * - 凭证只走 `x-cs-visit-token` 头（查询串出现即 400）；`credentials: 'omit'`；
+ * - `cs_widget_app:bootstrap_view/1`、`cs_widget_session_app` 与
+ *   `eb_pg_store_sql:message_fields/0`：响应投影。
  *
  * 出站编码（cs_http:encode_entity）：`id`/`*_id` 整数一律转 string；version/rating/
  * expires_at 保持 number；时间戳为 RFC3339 字符串。
  *
- * 桩=E2E 替身声明：真实后端联调由 CSX-01 复验（D1 修复对齐后重跑）。
+ * 桩=E2E 替身声明：真实后端联调由 CSX-01/CSD-E2E-01 复验。
  */
 
 export const WIDGET_API_BASE = '/api/v1/cs/widget'
 
-/** 请求级申报租户（PUBLIC 路由提示，服务端仍以令牌/allowlist 证明）。 */
+/** 请求面唯一作用域 = installation（bootstrap 响应派生；浏览器不申报 org）。 */
 export type RequestScope = {
-  organizationId: string
   installationId: string
 }
 
@@ -167,34 +168,29 @@ export function isValidExpectedVersion(version: number): boolean {
   return Number.isSafeInteger(version) && version > 0
 }
 
-/** 请求体构造：bootstrap（POST 正文逐键 = cs_actions widget_bootstrap 参数表）。 */
+/** 请求体构造：bootstrap（合同 v1 S3：只报 public_widget_id + subject_id，
+ * organization 由服务端按 public_widget_id 反查派生，绝不申报）。 */
 export function buildBootstrapBody(scope: {
-  organizationId: string
   publicWidgetId: string
   subjectId: string
-}): { organization_id: string; public_widget_id: string; subject_id: string } {
+}): { public_widget_id: string; subject_id: string } {
   return {
-    organization_id: scope.organizationId,
     public_widget_id: scope.publicWidgetId,
     subject_id: scope.subjectId,
   }
 }
 
-/** 请求体构造：建会话（widget_create_session：installation_id 必填）。 */
-export function buildCreateSessionBody(scope: RequestScope): {
-  organization_id: string
-  installation_id: string
-} {
-  return { organization_id: scope.organizationId, installation_id: scope.installationId }
+/** 请求体构造：建会话（installation_id = bootstrap 响应派生值）。 */
+export function buildCreateSessionBody(scope: RequestScope): { installation_id: string } {
+  return { installation_id: scope.installationId }
 }
 
-/** 查询串构造：GET 面（organization_id/installation_id 必填 + after_id/limit 可选）。 */
+/** 查询串构造：GET 面（installation_id 必填 + after_id/limit 可选）。 */
 export function buildScopeQuery(
   scope: RequestScope,
   extra: { afterId?: string | null; limit?: number | null } = {}
 ): string {
   const params = new URLSearchParams()
-  params.set('organization_id', scope.organizationId)
   params.set('installation_id', scope.installationId)
   if (typeof extra.afterId === 'string' && extra.afterId.length > 0) params.set('after_id', extra.afterId)
   if (typeof extra.limit === 'number' && Number.isSafeInteger(extra.limit) && extra.limit > 0) {
@@ -213,30 +209,26 @@ export function buildSsePath(sessionId: string, scope: RequestScope): string {
   return `${WIDGET_API_BASE}/sessions/${encodeURIComponent(sessionId)}/events${buildScopeQuery(scope)}`
 }
 
-/** 请求体构造：访客消息（widget_visitor_message 逐键）。 */
+/** 请求体构造：访客消息（client_msg_id 幂等键；installation_id = 响应派生值）。 */
 export function buildSendMessageBody(scope: RequestScope, clientMsgId: string, body: string): {
-  organization_id: string
   installation_id: string
   client_msg_id: string
   body: string
 } {
   return {
-    organization_id: scope.organizationId,
     installation_id: scope.installationId,
     client_msg_id: clientMsgId,
     body,
   }
 }
 
-/** 请求体构造：评分（widget_rate 逐键：rating 1..5 + expected_version CAS）。 */
+/** 请求体构造：评分（rating 1..5 + expected_version CAS）。 */
 export function buildRatingBody(scope: RequestScope, rating: number, expectedVersion: number): {
-  organization_id: string
   installation_id: string
   rating: number
   expected_version: number
 } {
   return {
-    organization_id: scope.organizationId,
     installation_id: scope.installationId,
     rating,
     expected_version: expectedVersion,
@@ -254,13 +246,12 @@ export function isValidSha256Hex(hash: string): boolean {
   return /^[0-9a-f]{64}$/.test(hash)
 }
 
-/** 请求体构造：presign（widget_asset_upload 逐键；多出的键会被后端 400）。 */
+/** 请求体构造：presign（{mime,size_bytes,object_hash}；多出的键会被后端 400）。 */
 export function buildPresignBody(
   scope: RequestScope,
   file: { mime: string; sizeBytes: number; objectHash: string }
-): { organization_id: string; installation_id: string; mime: string; size_bytes: number; object_hash: string } {
+): { installation_id: string; mime: string; size_bytes: number; object_hash: string } {
   return {
-    organization_id: scope.organizationId,
     installation_id: scope.installationId,
     mime: file.mime,
     size_bytes: file.sizeBytes,
@@ -268,14 +259,12 @@ export function buildPresignBody(
   }
 }
 
-/** 请求体构造：confirm（widget_asset_confirm 逐键；upload_ref = presign 签发）。 */
+/** 请求体构造：confirm（upload_ref = presign 签发）。 */
 export function buildConfirmBody(scope: RequestScope, uploadRef: string): {
-  organization_id: string
   installation_id: string
   upload_ref: string
 } {
   return {
-    organization_id: scope.organizationId,
     installation_id: scope.installationId,
     upload_ref: uploadRef,
   }
@@ -325,7 +314,7 @@ export function buildAssetMessageBody(
   clientMsgId: string,
   body: string,
   assetIds: string[]
-): { organization_id: string; installation_id: string; client_msg_id: string; body: string; asset_ids?: string[] } {
+): { installation_id: string; client_msg_id: string; body: string; asset_ids?: string[] } {
   const base = buildSendMessageBody(scope, clientMsgId, body)
   if (assetIds.length === 0) return base
   return { ...base, asset_ids: assetIds.filter((id) => id.length > 0) }

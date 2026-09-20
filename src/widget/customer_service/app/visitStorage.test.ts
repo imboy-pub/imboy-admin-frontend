@@ -28,8 +28,8 @@ function memoryStorage(): StorageLike & { dump: () => Record<string, string> } {
   }
 }
 
-const SCOPE = { organizationId: '1234567890123456789', widgetId: 'wgt_pub_unit' }
-const OTHER_SCOPE = { organizationId: '1234567890123456789', widgetId: 'wgt_other' }
+const SCOPE = { widgetId: '72057594037928001' }
+const OTHER_SCOPE = { widgetId: '72057594037928009' }
 
 describe('visitStorage（安装作用域 + TTL + 清理）', () => {
   it('保存后可恢复同一 installation 的匿名 subject；不同 installation 键隔离', () => {
@@ -37,7 +37,7 @@ describe('visitStorage（安装作用域 + TTL + 清理）', () => {
     saveVisitSubject(storage, SCOPE, 'subject-abc', 1000)
     expect(loadVisitSubject(storage, SCOPE, 2000)).toBe('subject-abc')
     expect(loadVisitSubject(storage, OTHER_SCOPE, 2000)).toBeNull()
-    expect(subjectStorageKey(SCOPE)).toContain('wgt_pub_unit')
+    expect(subjectStorageKey(SCOPE)).toContain('72057594037928001')
   })
 
   it('TTL 过期后不可恢复，且过期条目被清除', () => {

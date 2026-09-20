@@ -17,9 +17,8 @@ import type { SseEvent } from './eventStream'
 
 type Recorded = { url: string; method: string; body: unknown }
 
-const ORG = '1234567890123456789'
-const WIDGET_ID = 'wgt_pub_unit'
-const SCOPE_KEY = subjectStorageKey({ organizationId: ORG, widgetId: WIDGET_ID })
+const WIDGET_ID = '72057594037928001'
+const SCOPE_KEY = subjectStorageKey({ widgetId: WIDGET_ID })
 
 function memoryStorage(): StorageLike & { dump: () => Record<string, string> } {
   const map = new Map<string, string>()
@@ -111,7 +110,6 @@ function makeHarness(opts: { consentVersion?: string; messagesStatus?: number } 
       {
         source: 'imboy-cs-widget',
         type: 'host-context',
-        organizationId: ORG,
         widgetId: WIDGET_ID,
         locale: 'zh-CN',
         page: { origin, path: '/products' },
@@ -124,7 +122,7 @@ function makeHarness(opts: { consentVersion?: string; messagesStatus?: number } 
     data: JSON.stringify({
       event_id: eventId,
       type,
-      organization_id: ORG,
+      organization_id: '1234567890123456789',
       workspace_id: '1234567890123456788',
       resource_type: 'message',
       resource_id: '72057594037927999',
@@ -167,7 +165,6 @@ describe('postMessage 校验（source + origin 锁定）', () => {
     h.controller.handleHostMessage('https://evil.example', true, {
       source: 'imboy-cs-widget',
       type: 'host-context',
-      organizationId: ORG,
       widgetId: WIDGET_ID,
       locale: 'zh-CN',
       page: { origin: 'https://evil.example', path: '/' },
@@ -215,11 +212,16 @@ describe('consent 链（FE-W01-A03）', () => {
 })
 
 describe('reload 恢复与吊销/退出清理（FE-W01-A05）', () => {
-  it('同一 installation 重开复用短期 subject（bootstrap body subject_id 一致）', async () => {
+  it('同一 installation 重开复用短期 subject（bootstrap body subject_id 一致；正文逐键无 org）', async () => {
     const h = makeHarness()
     await reachChat(h)
     const firstSubject = h.controller.currentSubjectId()
     expect(firstSubject.length).toBeGreaterThan(0)
+    // bootstrap 正文逐键 = {public_widget_id, subject_id}：请求面绝不申报 org（合同 S3）
+    const firstBootstrap = h.env.requests.find((r) => r.url.includes('/bootstrap'))?.body as Record<string, unknown>
+    expect(Object.keys(firstBootstrap).sort()).toEqual(['public_widget_id', 'subject_id'])
+    expect(firstBootstrap.public_widget_id).toBe(WIDGET_ID)
+    expect(JSON.stringify(firstBootstrap)).not.toContain('organization')
 
     // 模拟同源 iframe 的 sessionStorage：第二轮控制器共享第一轮存储
     const h2 = makeHarness({}, h.storage)
