@@ -91,6 +91,8 @@ const PlatformCsSessionsPage = lazy(() => import('@/modules/customer_service').t
 const CsSessionDetailPage = lazy(() => import('@/modules/customer_service').then((m) => ({ default: m.CsSessionDetailPage })))
 // CSW-01：客服 Widget 接入管理（installation 配置页）
 const CsWidgetInstallationsPage = lazy(() => import('@/modules/customer_service').then((m) => ({ default: m.CsWidgetInstallationsPage })))
+// SEAT-02/03：Web 坐席工作台（独立 Seat JWT 域 + QR 登录门；路由级懒加载 chunk）
+const SeatWorkspacePage = lazy(() => import('@/modules/customer_service').then((m) => ({ default: m.SeatWorkspacePage })))
 const OffboardingCasesPage = lazy(() => import('@/modules/enterprise_business').then((m) => ({ default: m.OffboardingCasesPage })))
 const OffboardingCaseDetailPage = lazy(() => import('@/modules/enterprise_business').then((m) => ({ default: m.OffboardingCaseDetailPage })))
 // Product Experience 安装级配置只读页（双体验 v2.5.2 WP7/T11）
@@ -132,6 +134,11 @@ function App() {
 
             {/* 登录页 */}
             <Route path="/login" element={<LoginPage />} />
+
+            {/* SEAT-03：Web 坐席工作台——独立 Seat JWT 门（QR 登录），不走 Admin
+                Cookie ProtectedRoute（两认证域绝不混用，SEAT-01-A01）；直链/刷新
+                由 SPA fallback 兜底，未命中工作台内部状态时 404 fallback 不受影响 */}
+            <Route path="/customer-service/workspace" element={<SeatWorkspacePage />} />
 
             {/* 受保护的管理后台路由 */}
             <Route element={<ProtectedRoute />}>
