@@ -16,12 +16,12 @@ const originalGet = mutableClient.get
 
 const metricsFixture = {
   counters: {
-    erlang_process_count: 120,
-    erlang_memory_total_bytes: 104857600,
-    erlang_memory_processes_bytes: 52428800,
-    erlang_memory_ets_bytes: 10485760,
+    erlang_vm_process_count: 120,
+    erlang_vm_memory_bytes_total_total: 104857600,
+    erlang_vm_memory_bytes_total_processes: 52428800,
+    erlang_vm_memory_bytes_total_ets: 10485760,
     imboy_online_users: 42,
-    ws_connections_current: 30,
+    imboy_ws_connections_total: 30,
     db_pool_free: 5,
     db_pool_in_use: 3,
     msg_sent_total: 9999,

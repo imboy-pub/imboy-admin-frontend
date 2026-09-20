@@ -25,12 +25,12 @@ describe('getSystemHealthStats', () => {
   it('maps known system counters to typed fields', async () => {
     mutableClient.get = async () =>
       makeMetrics({
-        erlang_process_count: 500,
-        erlang_memory_total_bytes: 100 * MB,
-        erlang_memory_processes_bytes: 40 * MB,
-        erlang_memory_ets_bytes: 10 * MB,
+        erlang_vm_process_count: 500,
+        erlang_vm_memory_bytes_total_total: 100 * MB,
+        erlang_vm_memory_bytes_total_processes: 40 * MB,
+        erlang_vm_memory_bytes_total_ets: 10 * MB,
         imboy_online_users: 1200,
-        ws_connections_current: 300,
+        imboy_ws_connections_total: 300,
         db_pool_free: 8,
         db_pool_in_use: 2,
       })
@@ -56,14 +56,14 @@ describe('getSystemHealthStats', () => {
   it('separates app counters from system counters', async () => {
     mutableClient.get = async () =>
       makeMetrics({
-        erlang_process_count: 100,
+        erlang_vm_process_count: 100,
         user_registrations_total: 500,
         message_send_total: 1000,
       })
     const result = await getSystemHealthStats()
     expect(result.appCounters['user_registrations_total']).toBe(500)
     expect(result.appCounters['message_send_total']).toBe(1000)
-    expect(result.appCounters['erlang_process_count']).toBeUndefined()
+    expect(result.appCounters['erlang_vm_process_count']).toBeUndefined()
   })
 
   it('excludes non-numeric values from appCounters', async () => {
@@ -79,10 +79,10 @@ describe('getSystemHealthStats', () => {
   it('returns empty appCounters when all counters are system keys', async () => {
     mutableClient.get = async () =>
       makeMetrics({
-        erlang_process_count: 10,
-        erlang_memory_total_bytes: 1024,
+        erlang_vm_process_count: 10,
+        erlang_vm_memory_bytes_total_total: 1024,
         imboy_online_users: 5,
-        ws_connections_current: 2,
+        imboy_ws_connections_total: 2,
         db_pool_free: 3,
         db_pool_in_use: 1,
       })

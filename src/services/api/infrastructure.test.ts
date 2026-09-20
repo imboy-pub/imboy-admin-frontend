@@ -29,12 +29,12 @@ describe('getSystemHealthStats', () => {
           code: 0, msg: 'ok',
           payload: {
             counters: {
-              erlang_process_count: 512,
-              erlang_memory_total_bytes: 104857600, // 100 MB
-              erlang_memory_processes_bytes: 52428800, // 50 MB
-              erlang_memory_ets_bytes: 10485760, // 10 MB
+              erlang_vm_process_count: 512,
+              erlang_vm_memory_bytes_total_total: 104857600, // 100 MB
+              erlang_vm_memory_bytes_total_processes: 52428800, // 50 MB
+              erlang_vm_memory_bytes_total_ets: 10485760, // 10 MB
               imboy_online_users: 42,
-              ws_connections_current: 38,
+              imboy_ws_connections_total: 38,
               db_pool_free: 8,
               db_pool_in_use: 2,
               msg_sent_today: 3500,
@@ -62,12 +62,12 @@ describe('getSystemHealthStats', () => {
         code: 0, msg: 'ok',
         payload: {
           counters: {
-            erlang_process_count: 100,
-            erlang_memory_total_bytes: 0,
-            erlang_memory_processes_bytes: 0,
-            erlang_memory_ets_bytes: 0,
+            erlang_vm_process_count: 100,
+            erlang_vm_memory_bytes_total_total: 0,
+            erlang_vm_memory_bytes_total_processes: 0,
+            erlang_vm_memory_bytes_total_ets: 0,
             imboy_online_users: 5,
-            ws_connections_current: 5,
+            imboy_ws_connections_total: 5,
             db_pool_free: 4,
             db_pool_in_use: 1,
             // App-level counters (not system keys)
@@ -83,7 +83,7 @@ describe('getSystemHealthStats', () => {
     expect(stats.appCounters.custom_metric_a).toBe(99)
     expect(stats.appCounters.custom_metric_b).toBe(12)
     // System keys NOT in appCounters
-    expect(stats.appCounters.erlang_process_count).toBeUndefined()
+    expect(stats.appCounters.erlang_vm_process_count).toBeUndefined()
     expect(stats.appCounters.imboy_online_users).toBeUndefined()
   })
 

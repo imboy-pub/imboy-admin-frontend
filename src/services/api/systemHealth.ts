@@ -30,15 +30,24 @@ export async function getSystemHealthStats(): Promise<SystemHealthStats> {
   const toMB = (bytes: number) => Math.round((bytes / 1024 / 1024) * 100) / 100
 
   // Known system keys — separate from app counters
+  // （B-26 改名后的扁平名，见后端 metrics_handler json_counter_key/2）
   const systemKeys = new Set([
-    'erlang_process_count',
-    'erlang_memory_total_bytes',
-    'erlang_memory_processes_bytes',
-    'erlang_memory_ets_bytes',
+    'erlang_vm_process_count',
+    'erlang_vm_port_count',
+    'erlang_vm_memory_bytes_total_total',
+    'erlang_vm_memory_bytes_total_processes',
+    'erlang_vm_memory_bytes_total_ets',
+    'process_uptime_seconds',
     'imboy_online_users',
-    'ws_connections_current',
+    'imboy_ws_connections_total',
     'db_pool_free',
     'db_pool_in_use',
+    'imboy_license_valid',
+    'imboy_license_users_current',
+    'imboy_license_users_max',
+    'imboy_license_nodes_current',
+    'imboy_license_nodes_max',
+    'imboy_license_expires_at',
   ])
 
   const appCounters: Record<string, number> = {}
@@ -49,12 +58,12 @@ export async function getSystemHealthStats(): Promise<SystemHealthStats> {
   }
 
   return {
-    processCount: c.erlang_process_count ?? 0,
-    memoryTotalMB: toMB(c.erlang_memory_total_bytes ?? 0),
-    memoryProcessesMB: toMB(c.erlang_memory_processes_bytes ?? 0),
-    memoryEtsMB: toMB(c.erlang_memory_ets_bytes ?? 0),
+    processCount: c.erlang_vm_process_count ?? 0,
+    memoryTotalMB: toMB(c.erlang_vm_memory_bytes_total_total ?? 0),
+    memoryProcessesMB: toMB(c.erlang_vm_memory_bytes_total_processes ?? 0),
+    memoryEtsMB: toMB(c.erlang_vm_memory_bytes_total_ets ?? 0),
     onlineUsers: c.imboy_online_users ?? 0,
-    wsConnections: c.ws_connections_current ?? 0,
+    wsConnections: c.imboy_ws_connections_total ?? 0,
     dbPoolFree: c.db_pool_free ?? 0,
     dbPoolInUse: c.db_pool_in_use ?? 0,
     appCounters,
