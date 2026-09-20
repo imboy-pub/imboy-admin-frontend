@@ -277,6 +277,27 @@ describe('§3.6 SSE 消费（去重 / resync / 权威刷新）', () => {
     expect(messageCalls()).toBe(before + 1)
   })
 
+  it('同一轮询批次的多帧：读窗口用推进前游标，不得跳过中间消息（A03 实证丢帧回归）', async () => {
+    const h = makeHarness()
+    await reachChat(h)
+    const before = h.env.requests.filter((r) => r.url.includes('/messages')).length
+    // 服务端一个 poll 批次的两帧在同一同步循环派发：m2(id=…800)、m3(id=…801)。
+    // EventStream 的 onEvent 是 fire-and-forget——不 await 前一帧，模拟真实
+    // 同批派发；若先推进 lastCursor 再增量读，第一条帧的读窗口（after=m2）
+    // 会永久跳过 m2。
+    h.controller.handleSseFrame({ id: '72057594037927999', event: 'message', data: JSON.stringify({ id: '72057594037927999' }) })
+    h.controller.handleSseFrame({ id: '72057594037928000', event: 'message', data: JSON.stringify({ id: '72057594037928000' }) })
+    await h.settle()
+    const batch = h.env.requests.slice(before).filter((r) => r.url.includes('/messages'))
+    expect(batch.length).toBeGreaterThanOrEqual(2)
+    // 每次增量读的 after 都必须小于第一条帧的消息 id——读窗口覆盖全部新消息
+    // （无 after_id 的全量读同样满足覆盖语义，跳过）。
+    for (const call of batch) {
+      const after = new URL(call.url, 'http://localhost').searchParams.get('after_id')
+      if (after !== null) expect(BigInt(after) < BigInt('72057594037927999')).toBe(true)
+    }
+  })
+
   it('widget 面兼容帧：state(closed) → 评分相位；message 帧触发历史刷新', async () => {
     const h = makeHarness()
     await reachChat(h)

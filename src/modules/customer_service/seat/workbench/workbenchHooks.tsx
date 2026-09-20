@@ -123,9 +123,13 @@ function useInvalidateSeatQueries() {
 
 export function useSeatContexts() {
   const { api } = useSeatWorkbenchGateway()
+  // 预认证期不发 seat-contexts：未建立坐席会话时该请求必然 401（浏览器还会
+  // 记 console error）——QR confirmed 后 status 翻转自动触发首次加载。
+  const status = useSeatAuthStore((state) => state.status)
   return useQuery({
     queryKey: [SEAT_QUERY_ROOT_KEY, 'contexts'],
     queryFn: async () => selectActiveSeatContexts(await api.fetchContexts()),
+    enabled: status === 'authenticated',
   })
 }
 

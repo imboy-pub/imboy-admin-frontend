@@ -317,14 +317,17 @@ export function createWidgetController(deps: ControllerDeps) {
       dispatch({ type: 'session_status', status: classified.status })
       return
     }
-    // widget-message 帧：帧内容不进业务真源，只推进游标并权威刷新。
-    if (classified.messageId !== null && isCursorAhead(classified.messageId, lastCursor)) {
-      lastCursor = classified.messageId
-    }
+    // widget-message 帧：帧内容不进业务真源，权威刷新 + 游标推进。
+    // 顺序不可换：先按推进前的游标做增量读，读回后再推进游标——同一 poll
+    // 批次的多帧在同一同步循环派发，若先推进游标，第一条帧的读窗口会从自身
+    // 之后开始，中间消息（含本帧）永远不被读回（A03 实证丢帧）。
     try {
       await refreshHistory()
     } catch {
       /* 刷新失败由重连/后续事件收敛 */
+    }
+    if (classified.messageId !== null && isCursorAhead(classified.messageId, lastCursor)) {
+      lastCursor = classified.messageId
     }
   }
 
