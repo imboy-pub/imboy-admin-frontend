@@ -4,26 +4,24 @@
  * 宿主页（plain HTML，本测试静态服务承载）→ loader.js 从自身 script.src 推导
  * widget origin → widget iframe（后端 frame HTML GET /api/v1/cs/widget/frame/:id
  * 经透明反代由 9802 真实渲染，CSP frame-ancestors 命中）→ consent 接受 →
- * 访客发文本（页面）→ API 驱动合成坐席 A（queue→claim→回复）→ ACK →
+ * 访客发文本（页面）→ API 驱动合成坐席 A（queue→claim→回复）→ 坐席回复经
+ * SSE message 帧页面渲染 → ACK →
  * 附件（页面经 widget 管线 presign/PUT/confirm/消息）→ transfer A→B →
- * close → 页面重载经会话历史权威刷新渲染全部消息（A03 页面证明面）→
- * 评分 → DB 直证（canonical message 行 + rating=5）。
+ * close（B）→ SSE state 帧触发页面评分 UI → 页面星级提交评分 →
+ * DB 直证（canonical message 行 + rating=5）。
  *
- * 已知后端缺陷对 oracle 的影响（详见 result.json A01/DF-4/DF-5）：
- * - DF-5：cs_widget_handler:scoped/1 丢 `session_id` → 访客 SSE 的
- *   message/state 变更帧永不推送（stream_step 静默吞 invalid_argument）。
- *   「页面渲染坐席回复」「close 触发页面评分视图」两条 oracle 在 DF-5 修复
- *   前不可达（重载恢复链同样不可行：ensureSession 恒新建空会话）。评分改走
- *   访客面评分端点（与页面评分最终调用的同一后端动作），后端修复后应恢复
- *   实时断言与页面评分交互。
- * - DF-4：visit token 吊销后写路径 fail-open（见 A02-3）。
+ * DF-5 修复后（922153f2，9802 已加载）：访客 SSE 的 message/state 帧恢复，
+ * 本套件的两处「同通道等效覆盖」回归点已翻回真实页面 oracle：
+ * 1) 坐席回复经 SSE message 帧实时渲染进页面（data-role=agent 气泡）；
+ * 2) close 经 SSE state 帧触发页面评分 UI（closed-rating 星级入口），
+ *    评分由页面星级点击提交（widget 自身 list_sessions CAS + widget_rate）。
+ * （DF-4 已由 07195ae1 修复，a02-3 同步收紧为吊销后写 4xx。）
  *
  * mock 禁令：无任何响应伪造；坐席侧按任务规格走 HTTP API 驱动。
  */
 import { expect, test } from '@playwright/test'
-import { SeatAgent, visitorApi, type QueueSession } from './helpers/agent-api'
+import { SeatAgent, type QueueSession } from './helpers/agent-api'
 import {
-  INSTALLATION_ID,
   ORG_ID,
   SEAT_A,
   SEAT_B,
@@ -37,20 +35,22 @@ import {
 
 const RUN_UNIQ = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`
 
-test('A01 主链：宿主→frame→consent→访客文本→坐席回复→ACK→附件→转接→关闭→评分→DB直证', async ({ page }) => {
-  // 被动观察：页面 widget 请求头中的 visit token（评分 API 驱动需要同一
-  // contact 的 token；观察 ≠ 拦截，页面请求原样发生）。
-  const observedVisitTokens = new Set<string>()
-  page.on('request', (req) => {
-    if (req.url().includes('/api/v1/cs/widget/')) {
-      const token = req.headers()['x-cs-visit-token']
-      if (token) observedVisitTokens.add(token)
-    }
-  })
-
+test('A01 主链：宿主→frame→consent→访客文本→坐席回复(SSE页面渲染)→ACK→附件→转接→关闭→页面评分UI→DB直证', async ({ page }) => {
   // —— 坐席登录（API 驱动的合成坐席；真实 passport/login）——
   const agentA = await SeatAgent.login('A', SEAT_A.account, SEAT_A.identityId)
   const agentB = await SeatAgent.login('B', SEAT_B.account, SEAT_B.identityId)
+
+  // —— 基线与页面活动会话观察（必须在页面可能创建会话之前取样）——
+  // widget 在 consent 接受时即 ensureSession（先于访客首条消息）；基线若晚于
+  // 该点取样，consent 会话会落入基线、发送后被误判「无新会话」（原 flake 根因）。
+  // 页面活动会话以 widget 为其打开的 SSE events 流请求为页面真相，与坐席
+  // queue 权威读交叉定位（观察 ≠ 拦截），排除同库其他来源的排队噪声。
+  const queueBaseline = new Set((await agentA.queue(ORG_ID)).map((row) => row.id))
+  const pageStreamSessionIds: string[] = []
+  page.on('request', (req) => {
+    const match = /\/api\/v1\/cs\/widget\/sessions\/(\d+)\/events/.exec(req.url())
+    if (match !== null) pageStreamSessionIds.push(match[1] ?? '')
+  })
 
   // —— 宿主页 + loader 挂载（origin 推导自 script.src = localhost:8901）——
   await page.goto('/')
@@ -67,18 +67,19 @@ test('A01 主链：宿主→frame→consent→访客文本→坐席回复→ACK�
   // —— chat 阶段；访客发文本 ——
   const visitorInput = frame.getByTestId('cs-input')
   await expect(visitorInput).toBeVisible()
-  const queueBaseline = new Set((await agentA.queue(ORG_ID)).map((row) => row.id))
   const visitorText = `csww-e2e 访客咨询 ${RUN_UNIQ}`
   await visitorInput.fill(visitorText)
   await frame.getByTestId('cs-send').click()
 
-  // —— API 驱动坐席 A：轮询 queue 直至新会话出现 → claim → 回复 ——
+  // —— API 驱动坐席 A：页面 SSE 活动会话 × queue 权威读交叉定位 → claim → 回复 ——
   let created: QueueSession | undefined
   await expect
     .poll(
       async () => {
+        const pageSession = pageStreamSessionIds[pageStreamSessionIds.length - 1]
+        if (pageSession === undefined || pageSession === '') return false
         const rows = await agentA.queue(ORG_ID)
-        created = rows.find((row) => !queueBaseline.has(row.id) && row.status === 'queued')
+        created = rows.find((row) => row.id === pageSession && !queueBaseline.has(row.id) && row.status === 'queued')
         return created !== undefined
       },
       { timeout: 30_000, intervals: [500, 1_000, 2_000] }
@@ -92,7 +93,14 @@ test('A01 主链：宿主→frame→consent→访客文本→坐席回复→ACK�
   const agentReplyText = `csww-e2e 坐席回复 ${RUN_UNIQ}`
   await agentA.reply(ORG_ID, conversationId, `e2e-reply-${RUN_UNIQ}`, agentReplyText)
 
-  // —— 坐席回复的权威面断言（DF-5：实时推送帧不可达，见文件头说明）——
+  // —— 回归点 1（DF-5 修复后恢复的页面 oracle）：坐席回复经访客 SSE message
+  // 帧实时渲染为 data-role=agent 气泡（后端 SSE 轮询节奏 15s，超时留足）。
+  // 同时保留企业真源权威面断言（A03 双证明面：API/DB + 页面）。
+  await expect(
+    frame
+      .locator('[data-testid="cs-message-list"] [data-role="agent"]')
+      .filter({ hasText: agentReplyText })
+  ).toBeVisible({ timeout: 45_000 })
   const messageList = frame.getByTestId('cs-message-list')
   await expect(messageList).toContainText(visitorText)
   await expect
@@ -133,30 +141,14 @@ test('A01 主链：宿主→frame→consent→访客文本→坐席回复→ACK�
     .poll(async () => (await agentB.detail(ORG_ID, sessionId)).status)
     .toBe('closed')
 
-  // DF-5 页面证明面缺口（如实记录，不伪绿）：「页面渲染坐席回复」的实时
-  // 通道（SSE message 帧）与恢复通道（重载→ensureSession 恒新建空会话，
-  // 前端无会话恢复逻辑）均不可达；页面侧保留的证明=访客文本 optimistic
-  // 渲染 + 附件管线 linked 态（上方断言）。坐席回复渲染断言在后端修复
-  // DF-5 后恢复。
-
-  // —— 评分：页面评分视图由 SSE state(closed) 触发（DF-5 不可达），评分走
-  // 访客面评分端点（页面评分最终调用的同一后端动作 widget_rate /
-  // POST /api/v1/cs/widget/sessions/:id/rating），token 用本会话 contact 的
-  // visit token（页面请求头被动观察所得），CAS 用会话详情版本。
-  expect(observedVisitTokens.size, 'page widget requests must carry visit token').toBeGreaterThan(0)
-  const ratingVersion = (await agentB.detail(ORG_ID, sessionId)).version
-  let rated = false
-  const rateErrors: string[] = []
-  for (const token of observedVisitTokens) {
-    try {
-      await visitorApi.rate(ORG_ID, INSTALLATION_ID, sessionId, ratingVersion, 5, token)
-      rated = true
-      break
-    } catch (err) {
-      rateErrors.push(err instanceof Error ? err.message : String(err))
-    }
-  }
-  expect(rated, `rating must succeed with the session contact visit token; version=${ratingVersion}; errors=${JSON.stringify(rateErrors)}`).toBe(true)
+  // —— 回归点 2（DF-5 修复后恢复的页面 oracle）：close 后访客 SSE state
+  // 帧驱动页面进入 closed-rating 相位，评分 UI（星级入口）出现；评分由页面
+  // 星级点击提交（widget 内部 list_sessions 取 version → widget_rate CAS）。
+  const star5 = frame.getByTestId('cs-rate-5')
+  await expect(star5).toBeVisible({ timeout: 45_000 })
+  await star5.click()
+  // rating_submitted 即置相位 rated（幂等：重复帧不回退），页面显示致谢屏。
+  await expect(frame.getByTestId('cs-overlay')).toContainText('感谢您的评价！', { timeout: 30_000 })
 
   // —— DB 直证（A03 第二证明面）——
   let canonical: ReturnType<typeof fetchCanonicalMessages> = []

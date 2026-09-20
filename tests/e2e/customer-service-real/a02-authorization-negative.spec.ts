@@ -5,7 +5,8 @@
  *    bootstrap 被 fail-closed 拒绝——页面进入错误态 + 接口状态码非 2xx；
  * 2) 跨 installation 隔离：A 安装的访客 visit token 拿不到 B 组织/安装的会话消息
  *    （页面上下文内真实 fetch，4xx）；
- * 3) 吊销 visit token：治理面（owner 坐席 A）吊销后，页面后续写请求 4xx，
+ * 3) 吊销 visit token：治理面（owner 坐席 A）吊销后，页面后续写请求 4xx
+ *    （凭证拒绝链收紧，DF-4 已由 07195ae1 修复：fail-open 不再存在），
  *    访客 UI 收敛为失败/重试态。
  */
 import { spawnSync, spawn, type ChildProcess } from 'node:child_process'
@@ -121,7 +122,7 @@ test('A02-2 跨 installation 隔离：他安装访客 token 读不到他会话�
   expect(status).toBeLessThan(500)
 })
 
-test('A02-3 吊销 visit token：治理面吊销生效落库 + 凭证拒绝链 4xx（DF-4 现状记录）', async ({ page }) => {
+test('A02-3 吊销 visit token：治理面吊销生效落库 + 页面写请求 4xx 降级（DF-4 已修复收紧）', async ({ page }) => {
   const agentA = await SeatAgent.login('A', SEAT_A.account, SEAT_A.identityId)
 
   // 真实页面流：宿主页 → launcher → consent → chat。
@@ -157,10 +158,9 @@ test('A02-3 吊销 visit token：治理面吊销生效落库 + 凭证拒绝链 4
   expect(badTokenStatus).toBeGreaterThanOrEqual(400)
   expect(badTokenStatus).toBeLessThan(500)
 
-  // DF-4 现状记录（缺陷证据，不伪绿）：后端对已吊销 token 的写路径当前
-  // fail-open（200）——原 oracle「吊销后页面写请求 4xx」因后端缺陷不可满足。
-  // 卡点与复现命令见 result.json A02-3 / DF-4（revoked_at 被毫秒当秒写入，
-  // 且写路径未拒）。此处仅断言并记录现状，供后端修复后回归收紧。
+  // DF-4 修复后的回归收紧（07195ae1：吊销时钟量纲归一 epoch 秒 + 写路径
+  // fail-closed）：已吊销 token 的页面写请求必须 4xx（实证 401
+  // credential_invalid）。翻转自「现状断言 200（fail-open）」回归点。
   const visitorInput = frame.getByTestId('cs-input')
   const revokedWriteStatuses: number[] = []
   page.on('response', (res) => {
@@ -171,6 +171,9 @@ test('A02-3 吊销 visit token：治理面吊销生效落库 + 凭证拒绝链 4
   await expect
     .poll(() => revokedWriteStatuses.length, { timeout: 20_000 })
     .toBeGreaterThan(0)
-  // 现状断言：200（fail-open）。后端修复 DF-4 后应改为 >=400（回归点已标记）。
-  expect(revokedWriteStatuses).toContain(200)
+  // 收紧断言：吊销后所有写请求均为 4xx 客户端拒绝（不允许任何 2xx/5xx）。
+  expect(
+    revokedWriteStatuses.every((status) => status >= 400 && status < 500),
+    `revoked-token writes must all be 4xx, got ${JSON.stringify(revokedWriteStatuses)}`
+  ).toBe(true)
 })
