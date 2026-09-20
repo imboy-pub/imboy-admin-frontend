@@ -36,29 +36,41 @@ function devCspPlaceholderFix() {
 }
 
 // ---------------------------------------------------------------------------
-// CSW-01：客服 Widget 独立构建（`bun run build:widget`，不与 Admin SPA 混排）
+// CSW-01 / CSD-IMG-01：客服 Widget 独立构建（`bun run build:widget`，不与 Admin SPA 混排）
 // - mode 'widget'        → iframe 聊天应用（widget/index.html → dist-widget/widget/index.html）
 // - mode 'widget-loader' → 宿主页 loader（lib/iife → dist-widget/loader.js）
 // 两种模式只产出独立 artifact 目录 dist-widget/（.gitignore 已忽略，不提交产物）；
 // Admin 默认构建（mode production）与 dev server 完全不受影响。
+//
+// 不可变发布合同（冻结合同 v1 S6）：
+// - loader.js = 稳定文件名入口（内容可变、文件名不变），宿主 snippet 永远指向它；
+// - 其余 asset（iframe 应用 JS/CSS）= 内容 hash 文件名 → CDN/nginx 可按
+//   `public, max-age=31536000, immutable` 缓存，升级即新文件名，无缓存命中错版；
+// - 零 source map（sourcemap: false，产物不得出现 .map）；
+// - vite.config 不写 manifest：manifest.json / manifest.sha256 / health.txt 由
+//   scripts/widget-manifest.mts 在 build:widget 末尾统一生成。
+// 注意：assets/cs-widget-[hash].js 为内容 hash 路径，tests/e2e/widget-cs.spec.ts
+// 的确定性路径（page.route **/assets/cs-widget.js）需由 E2E harness（CSD-E2E-01）
+// 按 manifest.json 解析实际文件名——spec 在缺产物时 test.skip，不会误报红灯。
 // ---------------------------------------------------------------------------
 function widgetBuildOverrides(mode: string): import('vite').BuildOptions | null {
   if (mode === 'widget') {
     return {
       outDir: 'dist-widget',
       emptyOutDir: true,
+      sourcemap: false,
       cssCodeSplit: false,
       assetsDir: 'assets',
       // 独立 artifact：不拷贝 Admin 的 public/（sidebar-menu.json / vite.svg 等）
       copyPublicDir: false,
       rollupOptions: {
         input: { widget: path.resolve(__dirname, 'widget/index.html') },
-        // 固定产物文件名（无 hash）：Playwright E2E 用 page.route 按确定性路径提供
-        // dist 产物（loader.js / widget/index.html / assets/cs-widget.js）。
+        // 内容 hash 文件名（S6 immutable 缓存合同）；index.html 由 vite 生成并
+        // 自动引用 hash 后的最终文件名，产物自洽。
         output: {
-          entryFileNames: 'assets/cs-widget.js',
-          chunkFileNames: 'assets/cs-widget-[name].js',
-          assetFileNames: 'assets/cs-widget[extname]',
+          entryFileNames: 'assets/cs-widget-[hash].js',
+          chunkFileNames: 'assets/cs-widget-[hash].js',
+          assetFileNames: 'assets/cs-widget-[hash][extname]',
         },
       },
     }
@@ -67,11 +79,13 @@ function widgetBuildOverrides(mode: string): import('vite').BuildOptions | null 
     return {
       outDir: 'dist-widget',
       emptyOutDir: false,
+      sourcemap: false,
       copyPublicDir: false,
       lib: {
         entry: path.resolve(__dirname, 'src/widget/customer_service/loader.ts'),
         formats: ['iife'],
         name: 'ImboyCsWidget',
+        // 稳定入口：文件名固定 loader.js（S6 no-cache 合同），内容随版本变化
         fileName: () => 'loader.js',
       },
     }
