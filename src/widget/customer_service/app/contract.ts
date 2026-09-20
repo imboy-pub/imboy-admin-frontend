@@ -137,18 +137,21 @@ export function toSessionList(raw: unknown): WidgetSession[] {
 
 /** 历史行投影（sender_type 决定角色；body_cipher 缺读面明文 = D5）。 */
 export function toWidgetMessage(raw: unknown): WidgetMessage | null {
-  if (!isRecord(raw)) return null
-  const id = str(raw.id)
+  // P1-E2E-01 实证缺陷修复：单发响应载荷是 {message:{...}} 嵌套（后端 POST
+  // /sessions/:id/messages 的真实合同），历史行是裸消息——两形兼容。
+  const row = isRecord(raw) && isRecord(raw.message) ? raw.message : raw
+  if (!isRecord(row)) return null
+  const id = str(row.id)
   if (id.length === 0) return null
-  const senderType = str(raw.sender_type)
+  const senderType = str(row.sender_type)
   if (senderType.length === 0) return null
   return {
     id,
     senderType,
-    senderContactId: optStr(raw.sender_contact_id),
-    clientMsgId: optStr(raw.client_msg_id),
-    body: optStr(raw.body),
-    createdAt: optStr(raw.created_at),
+    senderContactId: optStr(row.sender_contact_id),
+    clientMsgId: optStr(row.client_msg_id),
+    body: optStr(row.body),
+    createdAt: optStr(row.created_at),
   }
 }
 
