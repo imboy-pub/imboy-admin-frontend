@@ -43,7 +43,12 @@ function str(value: unknown): string {
   return typeof value === 'string' ? value : ''
 }
 
-function originOrNull(value: unknown): string | null {
+/**
+ * 严格 origin 规范化（ADM-01 复用导出）：http(s) + 精确 protocol/host/port，
+ * 拒绝路径/查询串/hash/通配；非法返回 null。开通向导与 installation 共用同一实现，
+ * 避免出现第二套 origin 校验口径。
+ */
+export function originOrNull(value: unknown): string | null {
   if (typeof value !== 'string') return null
   const trimmed = value.trim().replace(/\/+$/, '')
   if (trimmed.length === 0) return null
