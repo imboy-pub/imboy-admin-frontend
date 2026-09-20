@@ -18,6 +18,7 @@ export type ChatUiHandlers = {
   onRetryBootstrap: () => void
   onRating: (_score: number) => void
   onClose: () => void
+  onAttachment: (_file: File) => void
 }
 
 export type ChatUi = {
@@ -29,6 +30,15 @@ const CONNECTION_LABELS: Record<ChatState['connection'], string> = {
   online: '已连接',
   reconnecting: '重连中',
   offline: '离线（稍后自动重试）',
+}
+
+/** §3.7 UI 映射：只有 linked 显示成功；failed 才给重试入口。 */
+const ATTACHMENT_STATE_LABELS: Record<NonNullable<ChatMessage['attachment']>['state'], string> = {
+  pending: '处理中',
+  confirming: '校验中',
+  sending: '发送中',
+  linked: '已发送',
+  failed: '发送失败',
 }
 
 export function createChatUi(root: HTMLElement, locale: string, handlers: ChatUiHandlers): ChatUi {
@@ -66,6 +76,13 @@ export function createChatUi(root: HTMLElement, locale: string, handlers: ChatUi
 .cs-btn { border: 0; border-radius: 8px; padding: 9px 16px; font-size: 14px; cursor: pointer; }
 .cs-btn.primary { background: var(--cs-primary, #2563eb); color: #fff; }
 .cs-btn.plain { background: #e5e7eb; color: #374151; }
+.cs-attach { border: 0; background: transparent; font-size: 18px; cursor: pointer; padding: 6px; }
+.cs-attach:focus-visible { outline: 2px solid var(--cs-primary, #2563eb); }
+.cs-attach:disabled { opacity: .4; cursor: default; }
+.cs-file { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.cs-att { margin-top: 4px; font-size: 12px; display: flex; flex-direction: column; gap: 2px; }
+.cs-att-name { font-weight: 600; word-break: break-all; }
+.cs-att-state[data-state="failed"] { color: #b91c1c; }
 `
   root.appendChild(style)
 
@@ -106,6 +123,24 @@ export function createChatUi(root: HTMLElement, locale: string, handlers: ChatUi
   banner.style.display = 'none'
   const composer = doc.createElement('div')
   composer.className = 'cs-composer'
+  const attachBtn = doc.createElement('button')
+  attachBtn.type = 'button'
+  attachBtn.className = 'cs-attach'
+  attachBtn.setAttribute('data-testid', 'cs-attach')
+  attachBtn.setAttribute('aria-label', locale === 'zh-CN' ? '添加附件' : 'Attach a file')
+  attachBtn.setAttribute('aria-haspopup', 'false')
+  attachBtn.textContent = '📎'
+  const fileInput = doc.createElement('input')
+  fileInput.type = 'file'
+  fileInput.className = 'cs-file'
+  fileInput.setAttribute('data-testid', 'cs-file-input')
+  fileInput.setAttribute('aria-label', locale === 'zh-CN' ? '选择要发送的文件' : 'Choose a file to send')
+  fileInput.addEventListener('change', () => {
+    const file = fileInput.files?.[0]
+    if (file !== undefined) handlers.onAttachment(file)
+    fileInput.value = ''
+  })
+  attachBtn.addEventListener('click', () => fileInput.click())
   const input = doc.createElement('input')
   input.type = 'text'
   input.setAttribute('data-testid', 'cs-input')
@@ -120,8 +155,10 @@ export function createChatUi(root: HTMLElement, locale: string, handlers: ChatUi
   input.addEventListener('keydown', (event) => {
     if (event.key === 'Enter') submitInput()
   })
+  composer.appendChild(attachBtn)
   composer.appendChild(input)
   composer.appendChild(sendBtn)
+  composer.appendChild(fileInput)
   body.appendChild(center)
   body.appendChild(log)
   body.appendChild(banner)
@@ -149,6 +186,25 @@ export function createChatUi(root: HTMLElement, locale: string, handlers: ChatUi
     renderLog(state.messages, last !== undefined && last.role === 'agent')
   }
 
+  function attachmentRow(message: ChatMessage): HTMLElement | null {
+    const attachment = message.attachment
+    if (attachment === null) return null
+    const wrap = doc.createElement('span')
+    wrap.className = 'cs-att'
+    const name = doc.createElement('span')
+    name.className = 'cs-att-name'
+    name.textContent = `📄 ${attachment.name}`
+    wrap.appendChild(name)
+    const stateEl = doc.createElement('span')
+    stateEl.className = 'cs-att-state'
+    stateEl.setAttribute('data-testid', 'cs-att-state')
+    // 状态用文字承载（不只靠颜色）；linked 是唯一成功态（§3.7）。
+    stateEl.setAttribute('data-state', attachment.state)
+    stateEl.textContent = ATTACHMENT_STATE_LABELS[attachment.state]
+    wrap.appendChild(stateEl)
+    return wrap
+  }
+
   function renderLog(messages: ChatMessage[], scrollToEnd: boolean): void {
     const frag = doc.createDocumentFragment()
     for (const message of messages) {
@@ -157,8 +213,11 @@ export function createChatUi(root: HTMLElement, locale: string, handlers: ChatUi
       bubble.setAttribute('data-role', message.role)
       bubble.setAttribute('data-status', message.status)
       bubble.setAttribute('data-test-key', message.key)
+      // 附件消息：气泡主体 = 附件行（名称+状态文字）；正文（caption）可空。
+      const attachment = attachmentRow(message)
       bubble.textContent = message.body
-      if (message.status === 'failed') {
+      const retryAfter = (): void => {
+        if (message.status !== 'failed') return
         const retry = doc.createElement('button')
         retry.type = 'button'
         retry.className = 'cs-retry'
@@ -169,6 +228,11 @@ export function createChatUi(root: HTMLElement, locale: string, handlers: ChatUi
         bubble.appendChild(doc.createElement('br'))
         bubble.appendChild(retry)
       }
+      if (attachment !== null) {
+        if (message.body.length > 0) bubble.appendChild(doc.createElement('br'))
+        bubble.appendChild(attachment)
+      }
+      retryAfter()
       frag.appendChild(bubble)
     }
     log.replaceChildren(frag)

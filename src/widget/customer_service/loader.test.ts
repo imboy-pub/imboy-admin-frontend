@@ -18,6 +18,7 @@ import {
   isFromWidgetFrame,
   mountCustomerServiceWidget,
   readLoaderConfig,
+  resolveWidgetOrigin,
   type LoaderConfig,
   type LoaderHandle,
 } from './loader'
@@ -269,5 +270,50 @@ describe('isFromWidgetFrame / 宿主异常零外泄（A05）', () => {
     } finally {
       console.warn = originalWarn
     }
+  })
+})
+
+describe('origin 推导与严格规范化（FE-W01 / ADM-01-A05）', () => {
+  it('resolveWidgetOrigin：显式值优先且严格规范化（大小写/默认端口/尾斜杠）', () => {
+    expect(resolveWidgetOrigin('https://CS.Example.com:443/', null)).toBe('https://cs.example.com')
+    expect(resolveWidgetOrigin('  https://cs.example.com  ', 'https://other.example/loader.js')).toBe('https://cs.example.com')
+    // 显式值非法 → fail-closed（绝不回退到推导，绝不猜测）
+    expect(resolveWidgetOrigin('javascript:alert(1)', 'https://cs.example.com/loader.js')).toBeNull()
+    expect(resolveWidgetOrigin('https://cs.example.com/path', null)).toBeNull()
+    expect(resolveWidgetOrigin('https://*.example.com', null)).toBeNull()
+  })
+
+  it('缺显式 origin 时从自身 script.src 推导（含路径剥离）', () => {
+    expect(resolveWidgetOrigin('', 'https://cs.example.com/static/loader.js?v=3')).toBe('https://cs.example.com')
+    expect(resolveWidgetOrigin('', 'http://localhost:8080/loader.js')).toBe('http://localhost:8080')
+    expect(resolveWidgetOrigin('', null)).toBeNull()
+    expect(resolveWidgetOrigin('', '')).toBeNull()
+    expect(resolveWidgetOrigin('', 'not-a-url')).toBeNull()
+  })
+
+  it('mount：无 data-widget-origin 时按 script src 推导并成功挂载', () => {
+    document.body.innerHTML = ''
+    const win = window as unknown as Record<string, unknown>
+    delete win.__IMBOY_CS_WIDGET_V1__
+    const script = makeScript(document, { 'data-org-id': '1234567890123456789', 'data-widget-id': 'wgt_pub_unit' })
+    script.setAttribute('src', 'https://cs.example.com/static/loader.js')
+    const created = mountCustomerServiceWidget(document, script, window)
+    expect(created).not.toBeNull()
+    expect(created?.config.widgetOrigin).toBe('https://cs.example.com')
+    expect(buildWidgetUrl(created!.config)).toBe('https://cs.example.com/widget/index.html')
+    created?.destroy()
+    document.body.innerHTML = ''
+    delete win.__IMBOY_CS_WIDGET_V1__
+  })
+
+  it('mount：无显式 origin 且无可用 src → fail-closed 不挂载', () => {
+    document.body.innerHTML = ''
+    const win = window as unknown as Record<string, unknown>
+    delete win.__IMBOY_CS_WIDGET_V1__
+    const script = makeScript(document, { 'data-org-id': '1', 'data-widget-id': 'w' })
+    script.removeAttribute('src')
+    expect(mountCustomerServiceWidget(document, script, window)).toBeNull()
+    document.body.innerHTML = ''
+    delete win.__IMBOY_CS_WIDGET_V1__
   })
 })

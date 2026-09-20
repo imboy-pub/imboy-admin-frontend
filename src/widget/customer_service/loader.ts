@@ -114,6 +114,32 @@ export function buildWidgetUrl(config: LoaderConfig): string | null {
   }
 }
 
+/**
+ * 规范化 origin：显式 data-widget-origin 优先（非法即 fail-closed，绝不回退）；
+ * 缺省时从 loader 自身 `script.src` 推导（计划 FE-W01 / ADM-01-A05：
+ * Widget origin 来自 loader src）。两路都经 normalizeOriginInput 严格规范化。
+ */
+export function resolveWidgetOrigin(explicit: string, scriptSrc: string | null): string | null {
+  if (explicit.length > 0) return normalizeOriginInput(explicit)
+  if (scriptSrc === null || scriptSrc.length === 0) return null
+  try {
+    return normalizeOriginInput(new URL(scriptSrc).origin)
+  } catch {
+    return null
+  }
+}
+
+/** script.src 绝对化（相对路径按文档 baseURI 解析）；无 src 返回 null。 */
+function absoluteScriptSrc(scriptEl: Element, doc: Document): string | null {
+  const raw = scriptEl.getAttribute('src')
+  if (raw === null || raw.length === 0) return null
+  try {
+    return new URL(raw, doc.baseURI).toString()
+  } catch {
+    return null
+  }
+}
+
 /** postMessage 逐字校验：origin 必须等于期望值，source 必须就是我们的 iframe。 */
 export function isFromWidgetFrame(
   event: MessageEvent,
@@ -319,6 +345,17 @@ function sendHostContext(win: Window, config: LoaderConfig, state: WidgetState):
   }
 }
 
+/** 面板可见性通知（iframe 据此计未读；协议白名单 HostToWidgetMessage.panel）。 */
+function sendPanelState(config: LoaderConfig, state: WidgetState, open: boolean): void {
+  try {
+    const target = state.iframe?.contentWindow
+    if (!target) return
+    target.postMessage({ source: MESSAGE_SOURCE, type: 'panel', open }, config.widgetOrigin)
+  } catch {
+    /* 宿主异常零外泄 */
+  }
+}
+
 function handleWidgetMessage(
   event: MessageEvent,
   config: LoaderConfig,
@@ -384,13 +421,22 @@ export function mountCustomerServiceWidget(
     warn(win, `忽略未知的 script data-* 配置键：${read.ignoredKeys.join(', ')}`)
   }
   if (alreadyInstalled(doc)) return null
-  const widgetUrl = buildWidgetUrl(read.config)
+  // origin 解析：显式 data-widget-origin 优先；缺省从 script.src 推导
+  // （FE-W01：loader 缺显式 origin 时从自身 script.src 推导；相对 src 按
+  // 文档 baseURI 解析为绝对 URL）。
+  const scriptSrc = absoluteScriptSrc(scriptEl, doc)
+  const resolvedOrigin = resolveWidgetOrigin(read.config.widgetOrigin, scriptSrc)
+  if (resolvedOrigin === null) {
+    warn(win, 'widget origin 缺失或非法（data-widget-origin 与 script.src 均不可用），客服 Widget 未挂载')
+    return null
+  }
+  const config: LoaderConfig = { ...read.config, widgetOrigin: resolvedOrigin }
+  const widgetUrl = buildWidgetUrl(config)
   if (widgetUrl === null || !win || !doc.body) {
-    warn(win, 'data-widget-origin 缺失或非法，客服 Widget 未挂载')
+    warn(win, 'widget URL 拼接失败，客服 Widget 未挂载')
     return null
   }
 
-  const config = read.config
   const state: WidgetState = { open: false, unread: 0, connection: 'online', iframe: null, frameReady: false }
   const { shadow, ui } = buildUi(doc, config.position, config.locale)
 
@@ -400,6 +446,7 @@ export function mountCustomerServiceWidget(
       state.open = true
       state.unread = 0
       renderWidgetState(ui, state, config.locale)
+      sendPanelState(config, state, true)
       try {
         state.iframe?.focus()
       } catch {
@@ -413,6 +460,7 @@ export function mountCustomerServiceWidget(
     try {
       state.open = false
       renderWidgetState(ui, state, config.locale)
+      sendPanelState(config, state, false)
       try {
         ui.button.focus()
       } catch {
