@@ -8,6 +8,7 @@
  *   RolePermissionPage:   parsePermissionKeys
  */
 import { describe, expect, it } from 'bun:test'
+import { ADMIN_ROLE_LABELS } from '../../components/shared/adminRoles'
 
 // ---------------------------------------------------------------------------
 // truncateToken (PushTokenListPage.tsx)
@@ -43,38 +44,29 @@ describe('truncateToken', () => {
 })
 
 // ---------------------------------------------------------------------------
-// roleLabel (SettingsHomePage.tsx)
+// roleLabel (SettingsHomePage.tsx) — 标签真源引用 shared/adminRoles，防镜像漂移
 // ---------------------------------------------------------------------------
 
 function roleLabel(roleId?: number): string {
-  switch (roleId) {
-    case 1: return '超级管理员'
-    case 2: return '运营管理员'
-    case 3: return '审计管理员'
-    default: return `角色 #${roleId ?? 0}`
-  }
+  return ADMIN_ROLE_LABELS[String(roleId)] ?? `角色 #${roleId ?? ''}`
 }
 
 describe('roleLabel', () => {
-  it('returns "超级管理员" for role 1', () => {
+  it('returns built-in labels for roles 1..6 from shared adminRoles', () => {
     expect(roleLabel(1)).toBe('超级管理员')
-  })
-
-  it('returns "运营管理员" for role 2', () => {
     expect(roleLabel(2)).toBe('运营管理员')
-  })
-
-  it('returns "审计管理员" for role 3', () => {
     expect(roleLabel(3)).toBe('审计管理员')
+    expect(roleLabel(4)).toBe('审核管理员')
+    expect(roleLabel(5)).toBe('安全管理员')
+    expect(roleLabel(6)).toBe('客服管理员')
   })
 
   it('returns generic label for unknown role id', () => {
-    expect(roleLabel(5)).toBe('角色 #5')
     expect(roleLabel(99)).toBe('角色 #99')
   })
 
-  it('returns "角色 #0" when roleId is undefined', () => {
-    expect(roleLabel(undefined)).toBe('角色 #0')
+  it('matches production fallback for missing id', () => {
+    expect(roleLabel(undefined)).toBe('角色 #')
   })
 })
 
