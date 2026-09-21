@@ -95,6 +95,8 @@ const CsWidgetInstallationsPage = lazy(() => import('@/modules/customer_service'
 const SeatWorkspacePage = lazy(() => import('@/modules/customer_service').then((m) => ({ default: m.SeatWorkspacePage })))
 const OffboardingCasesPage = lazy(() => import('@/modules/enterprise_business').then((m) => ({ default: m.OffboardingCasesPage })))
 const OffboardingCaseDetailPage = lazy(() => import('@/modules/enterprise_business').then((m) => ({ default: m.OffboardingCaseDetailPage })))
+// CS-03：客服开通向导（业务实现属 A5 lease；此处仅挂正式路由，不改页面逻辑）
+const CsProvisioningWizardPage = lazy(() => import('@/modules/customer_service').then((m) => ({ default: m.CsProvisioningWizardPage })))
 // Product Experience 安装级配置只读页（双体验 v2.5.2 WP7/T11）
 const ProductExperiencePage = lazy(() => import('@/pages/settings/ProductExperiencePage').then((m) => ({ default: m.ProductExperiencePage })))
 // 企业组织 V1 治理面（ORG-14，/api/adm/organizations 平台面 + member_role 事实矩阵）
@@ -723,6 +725,15 @@ function App() {
                   element={(
                     <PermissionRoute permission="customer_service:read" roles={['1', '2']}>
                       <CsWidgetInstallationsPage />
+                    </PermissionRoute>
+                  )}
+                />
+                {/* CS-03：客服开通向导（customer_service:write 门；业务实现属 A5 lease） */}
+                <Route
+                  path="/customer-service/provisioning"
+                  element={(
+                    <PermissionRoute permission="customer_service:write" roles={['1', '2']}>
+                      <CsProvisioningWizardPage />
                     </PermissionRoute>
                   )}
                 />
