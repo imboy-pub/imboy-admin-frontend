@@ -644,3 +644,105 @@ export function formatEpochSeconds(seconds: number | null): string {
   if (seconds == null || !Number.isFinite(seconds) || seconds <= 0) return '-'
   return new Date(seconds * 1000).toLocaleString('zh-CN')
 }
+
+// ===========================================================================
+// 创建组织（EADM-04 / C2 集合路由 POST /api/adm/organizations）
+//
+// 关键约束（与后端 org_create_write/4 对齐）：
+//   * 请求体严格三键：name / owner_user_id / default_workspace_name；
+//     owner_user_id 必须为非空 string（TSID）——**禁止**前端手填裸 TSID 之外的
+//     任意形态；owner 必须经由用户搜索选择（见 OrganizationCreateDialog）。
+//   * 响应 {organization, default_workspace, created}；created=false 是幂等命中
+//     （同 owner + 归一化同名已有 active 组织），UI 必须区别于"真实新建"，
+//     且不得呈现为失败态。
+//   * Owner 选择：User 类型无 account_type 字段，前端**无法判定 human**——
+//     仅能按可见 status 过滤 active（1=正常）；后端 fail-closed 拒绝非 human，
+//     UI 不假装能判定（已知限制，记录于 RESULT）。
+// ===========================================================================
+
+/** 用户 status 约定（src/types/logoutApplication.ts: user_status 1=正常）。 */
+export const ACTIVE_USER_STATUS = 1
+
+/**
+ * Owner 可见可选性判定：仅过滤 active（status=1）。
+ * 注意：无 account_type 字段，human 无法由 UI 判定，此为已知盲区。
+ */
+export function isUserSelectableForOwner(user: { status: number }): boolean {
+  return user.status === ACTIVE_USER_STATUS
+}
+
+export type CreateOrganizationInput = {
+  name: string
+  /** Owner 用户 TSID（string）。必须来自用户搜索选择，不得手填裸 TSID。 */
+  ownerUserId: EntityId
+  /** 默认 Workspace 名称；UI 默认取 name。 */
+  defaultWorkspaceName: string
+}
+
+/**
+ * 严格构造创建请求体：仅三键；owner_user_id 必须为非空 string（TSID）。
+ * 任意缺字段 / 空白均抛错——充当契约回归护栏（测试据此断言形状）。
+ */
+export function buildCreateOrganizationBody(input: CreateOrganizationInput): {
+  name: string
+  owner_user_id: string
+  default_workspace_name: string
+} {
+  const name = input.name.trim()
+  const ownerUserId = typeof input.ownerUserId === 'string' ? input.ownerUserId.trim() : ''
+  const defaultWorkspaceName = input.defaultWorkspaceName.trim()
+  if (name.length === 0) throw new Error('组织名称不能为空')
+  if (ownerUserId.length === 0) throw new Error('必须选择 Owner（禁止手动填写 TSID）')
+  if (defaultWorkspaceName.length === 0) throw new Error('默认工作区名称不能为空')
+  // 严格三键，且 owner_user_id 保持 string（TSID）。
+  return {
+    name,
+    owner_user_id: ownerUserId,
+    default_workspace_name: defaultWorkspaceName,
+  }
+}
+
+/** 创建成功响应出站投影（与 C2 响应对齐；TSID 全 string）。 */
+export type CreateOrganizationResult = {
+  organization: OrganizationSummary
+  defaultWorkspace: WorkspaceRow
+  created: boolean
+}
+
+/**
+ * 区分"真实新建"与"幂等命中"（created=false）：二者都应导向同一详情页，
+ * 但呈现金字塔不同——UI 不得把幂等命中当失败。
+ */
+export type CreateOrganizationOutcome =
+  | { kind: 'created'; organizationId: EntityId; workspaceId: EntityId }
+  | { kind: 'idempotent'; organizationId: EntityId; workspaceId: EntityId }
+
+export function classifyCreateOutcome(result: CreateOrganizationResult): CreateOrganizationOutcome {
+  const organizationId = result.organization?.id
+  const workspaceId = result.defaultWorkspace?.id
+  if (result.created) {
+    return { kind: 'created', organizationId, workspaceId }
+  }
+  return { kind: 'idempotent', organizationId, workspaceId }
+}
+
+/**
+ * 创建错误分类文案（400/403/404/409/500 各自可行动提示）。
+ * 直接复用 classifyOrgError 的稳定归类，再补充创建旅程特有的行动指引。
+ */
+export function createOrgErrorHint(failure: OrgFailure): string {
+  switch (failure.kind) {
+    case 'validation':
+      return `创建失败（400 校验）：${failure.message}。请检查组织名 / Owner / 默认工作区名称；Owner 必须是正整数 TSID。`
+    case 'forbidden':
+      return `无权限（403）：当前管理员缺少 organizations:write，无法创建组织（授权由服务端 fail-closed 判定，前端入口仅作提示）。`
+    case 'not_found':
+      return `Owner 不存在（404）：所选用户无法作为组织 Owner，请重新选择一个有效且 active 的用户。`
+    case 'conflict':
+      return `冲突（409）：${failure.message}。可能已存在同名组织，请刷新后重试或改用既有组织。`
+    case 'server':
+      return `服务端事务失败（500）：${failure.message}。事务已整体回滚，可稍后重试。`
+    default:
+      return failure.message
+  }
+}

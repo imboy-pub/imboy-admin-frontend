@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ConfirmDialog, DataTable, DataTablePagination, EmptyState, ErrorState, PageHeader } from '@/components/shared'
+import { serializeOrgWorkspaceQuery } from '@/components/shared/orgWorkspaceQuery'
 import { useAdminPermission } from '@/hooks/useAdminPermission'
 import { useListQueryState } from '@/hooks/useListQueryState'
 import { DEFAULT_PAGE_SIZE } from '@/lib/pagination'
@@ -18,6 +19,8 @@ import {
   getOrganizations,
   restoreOrganization,
 } from '../api/public'
+import { OrganizationCreateDialog } from './OrganizationCreateDialog'
+import type { EntityId } from '@/types/common'
 import {
   classifyOrgError,
   isOrgWriteAllowed,
@@ -54,6 +57,19 @@ export function OrganizationListPage() {
   const [keywordDraft, setKeywordDraft] = useState(state.q)
   const [pendingArchive, setPendingArchive] = useState<OrganizationSummary | null>(null)
   const [pendingRestore, setPendingRestore] = useState<OrganizationSummary | null>(null)
+  const [createOpen, setCreateOpen] = useState(false)
+
+  const handleCreated = useCallback(
+    (organizationId: EntityId, workspaceId: EntityId, _created: boolean) => {
+      // 上下文保持：用 EADM-06 org/ws codec 携带 org/ws，禁止手写字符串拼接。
+      const qs = serializeOrgWorkspaceQuery({ org: organizationId, ws: workspaceId })
+      const target = qs
+        ? `/organizations/${encodeURIComponent(organizationId)}?${qs}`
+        : `/organizations/${encodeURIComponent(organizationId)}`
+      navigate(target, { replace: false })
+    },
+    [navigate]
+  )
 
   const keyword = state.q.trim()
   const query = useQuery({
@@ -229,6 +245,16 @@ export function OrganizationListPage() {
       <Card>
         <CardHeader className="flex-row items-center justify-between space-y-0">
           <CardTitle className="text-base">组织列表</CardTitle>
+          <Button
+            type="button"
+            size="sm"
+            data-testid="org-create-entry"
+            disabled={!canWrite}
+            title={canWrite ? '创建组织' : `无 ${WRITE_PERMISSION} 权限，无法创建（授权由服务端 fail-closed 判定）`}
+            onClick={() => setCreateOpen(true)}
+          >
+            创建组织
+          </Button>
         </CardHeader>
         <CardContent className="space-y-3">
           <form
@@ -255,7 +281,8 @@ export function OrganizationListPage() {
           {body}
           <p className="text-xs text-muted-foreground">
             数据面为 <code className="font-mono">/api/adm/organizations</code>（平台专用端点，adm cookie
-            会话）。组织创建发生在 App 面（用户自助），平台面不提供创建入口。治理详情见组织详情页。
+            会话）。平台管理员可经上方「创建组织」入口新建组织（Owner 必须经用户搜索选择，禁止手填裸 TSID）；
+            创建为幂等命令——同名 + 同 Owner 已有 active 组织时返回既有组织而非报错。治理详情见组织详情页。
           </p>
         </CardContent>
       </Card>
@@ -287,6 +314,12 @@ export function OrganizationListPage() {
         onConfirm={async () => {
           if (pendingRestore) await restoreMutation.mutateAsync(pendingRestore.id)
         }}
+      />
+
+      <OrganizationCreateDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        onCreated={handleCreated}
       />
     </div>
   )

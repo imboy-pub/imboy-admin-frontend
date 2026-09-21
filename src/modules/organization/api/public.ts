@@ -19,9 +19,11 @@
  *   invitations/:iid/revoke → invitations/:iid/cancel；
  *   创建邀请 body 键 user_id → target_user_id。
  *
- * 冻结合同未提供的 App 面旅程（createOrganization / 改名 / deletion-preflight /
- * default-workspace / 成员角色调整 / 部门成员挂载域）在平台面不存在，
- * 相应 client 方法已移除——平台治理语义只覆盖合同 18 条端点。
+ * 冻结合同未提供的 App 面旅程（改名 / deletion-preflight / default-workspace /
+ * 成员角色调整 / 部门成员挂载域）在平台面不存在，相应 client 方法已移除——
+ * 平台治理语义只覆盖合同端点。唯一的例外是 createOrganization：合同以
+ * `POST /organizations` 集合路由提供（非 App 面 v1 旅程语义），故保留并
+ * 按 adm 面口径实现（body 三键 + created 幂等标志，见 buildCreateOrganizationBody）。
  */
 import client from '@/services/api/client'
 import { requireApiPayload } from '@/services/api/responseAdapter'
@@ -37,6 +39,9 @@ import {
   toOrganizationSummary,
   toWorkspaceRow,
   normalizeOrgPage,
+  buildCreateOrganizationBody,
+  type CreateOrganizationInput,
+  type CreateOrganizationResult,
   type DepartmentRow,
   type InvitationCreatedReveal,
   type InvitationStatus,
@@ -96,6 +101,26 @@ export async function getOrganizations(
 export async function getOrganizationDetail(organizationId: EntityId): Promise<OrganizationSummary> {
   const response = await client.get<ApiResponse<unknown>>(orgPath(organizationId))
   return toOrganizationSummary(requireApiPayload(response.data, 'GET organization detail'))
+}
+
+/**
+ * POST /api/adm/organizations —— 创建组织（C2 集合路由分流；复用既有 collection route）。
+ * body 严格三键：{name, owner_user_id(string TSID), default_workspace_name}。
+ * 响应 {organization, default_workspace, created}：created=false 表示幂等命中
+ * （同 owner + 归一化同名已有 active 组织），此时返回既有 org/workspace。
+ * 权限：adm cookie + adm_acl organizations:write（fail-closed）。
+ */
+export async function createOrganization(input: CreateOrganizationInput): Promise<CreateOrganizationResult> {
+  const body = buildCreateOrganizationBody(input)
+  const response = await client.post<ApiResponse<unknown>>('/organizations', body)
+  const data = requireApiPayload(response.data, 'POST organization create') as Record<string, unknown>
+  const organization = toOrganizationSummary(data['organization'])
+  const defaultWorkspace = toWorkspaceRow(data['default_workspace'])
+  return {
+    organization,
+    defaultWorkspace,
+    created: data['created'] === true,
+  }
 }
 
 /**
