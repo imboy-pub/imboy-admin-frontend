@@ -42,6 +42,37 @@ describe('toSeatContexts（A05 TSID string 投影）', () => {
     expect(result.contexts[0]?.capabilities).toEqual(['conversation.read'])
   })
 
+  it('DF-7：seatless 组织行（business_identity_id=null, seat_enabled=false）与正常行混合 → 解析不抛，active 选路只含启用行', () => {
+    // 后端 /cs/me/seat-contexts 按 organization_member 逐组织发行：
+    // 未开坐席的组织行 business_identity_id=null、seat_enabled=false、capabilities=[]。
+    const seatlessRow = {
+      organization_id: '9223372036854775000',
+      organization_name: '未开坐席的组织',
+      workspaces: [{ id: '9876543210987654000', name: '普通工作区' }],
+      business_identity_id: null,
+      seat_enabled: false,
+      capabilities: [],
+    }
+    let thrown: unknown = null
+    let result: ReturnType<typeof toSeatContexts> | null = null
+    try {
+      result = toSeatContexts({ user_id: '1', contexts: [seatlessRow, VALID_CONTEXT] })
+    } catch (error) {
+      thrown = error
+    }
+    expect(thrown).toBeNull()
+    expect(result).not.toBeNull()
+    // seatless 行投影为 businessIdentityId=null，不整体 invalid_response。
+    expect(result?.contexts).toHaveLength(2)
+    expect(result?.contexts[0]?.businessIdentityId).toBeNull()
+    expect(result?.contexts[0]?.seatEnabled).toBe(false)
+    expect(result?.contexts[0]?.capabilities).toEqual([])
+    // A04 过滤语义不变：停用/seatless 行被剔除，仅启用行进入可用上下文。
+    const active = selectActiveSeatContexts(result!)
+    expect(active).toHaveLength(1)
+    expect(active[0]?.organizationId).toBe(VALID_CONTEXT.organization_id)
+  })
+
   it('缺字段/形状非法 → 整体 invalid_response（不部分采纳）', () => {
     const bad = (payload: unknown): void => {
       let thrown: unknown = null

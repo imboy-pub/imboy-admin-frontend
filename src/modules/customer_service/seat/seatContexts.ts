@@ -6,6 +6,8 @@
  *  business_identity_id, seat_enabled, capabilities}；外层 {contexts, user_id}。
  * 客户端不手填 TSID（合同），全部字段经 toEntityId 收敛为 string；
  * 任一必需字段非法 → 整体抛 invalid_response（fail-closed，SEAT-01-A04/A05）。
+ * DF-7 例外：未开坐席组织行的 business_identity_id=null 容忍为 null 投影
+ * （organization_id 非法仍整体拒绝）；A04 过滤语义不变。
  */
 import { seatInvalidResponse } from './errors'
 import type { SeatApiClient } from './seatApiClient'
@@ -44,8 +46,17 @@ function toWorkspaces(value: unknown): SeatContext['workspaces'] {
 function toContextRow(row: unknown): SeatContext {
   if (!isRecord(row)) throw seatInvalidResponse('seat-contexts row is not an object')
   const organizationId = toEntityId(row.organization_id)
-  const businessIdentityId = toEntityId(row.business_identity_id)
-  if (organizationId === null || businessIdentityId === null) {
+  if (organizationId === null) {
+    throw seatInvalidResponse('seat-contexts row TSID shape is invalid')
+  }
+  // DF-7：后端按 organization_member 逐组织发行——未开坐席的组织行
+  // business_identity_id 线缆上是 null（cs_seat_app:context_row 投影），
+  // 容忍为 null 投影，不得整体 invalid_response（否则多组织用户工作台恒不可用）。
+  // 非 null 但非法 TSID 仍 fail-closed；A04 过滤语义（seatEnabled && workspaces>0）
+  // 不变——seatless 行 seat_enabled=false 自然被剔除。
+  const rawIdentity = row.business_identity_id
+  const businessIdentityId = rawIdentity === null ? null : toEntityId(rawIdentity)
+  if (rawIdentity !== null && businessIdentityId === null) {
     throw seatInvalidResponse('seat-contexts row TSID shape is invalid')
   }
   if (!nonEmptyString(row.organization_name)) {

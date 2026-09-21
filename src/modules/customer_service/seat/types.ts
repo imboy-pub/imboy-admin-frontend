@@ -4,7 +4,9 @@
  * 合同真源：
  * - GET /api/v1/cs/me/seat-contexts（BE-S01a，cs_seat_app:seat_contexts 投影）：
  *   每行 {organization_id, organization_name, workspaces:[{id,name}],
- *   business_identity_id, seat_enabled, capabilities}；
+ *   business_identity_id, seat_enabled, capabilities}；其中未开坐席的
+ *   organization_member 行 business_identity_id=null、seat_enabled=false
+ *   （DF-7：客户端容忍 null 投影，A04 过滤语义不变）；
  * - TSID 线缆上是 JSON integer，本模块一律收敛为 EntityId string（SEAT-01-A05）；
  * - capabilities 冻结镜像：conversation.read/write、message.write、asset.read/write
  *   （seat_enabled=false 时为空数组——fail-closed，SEAT-01-A04）。
@@ -34,7 +36,11 @@ export type SeatContext = {
   organizationId: EntityId
   organizationName: string
   workspaces: SeatWorkspaceRef[]
-  businessIdentityId: EntityId
+  /**
+   * DF-7：后端按 organization_member 逐组织发行，未开坐席的组织行此键为
+   * null（seat_enabled=false）；启用坐席的行非 null（坐席 PK = identity）。
+   */
+  businessIdentityId: EntityId | null
   seatEnabled: boolean
   capabilities: SeatCapability[]
 }
