@@ -72,6 +72,7 @@ export function CsProvisioningWizardPage() {
   const [orgId, setOrgId] = useState('')
   const [workspaceId, setWorkspaceId] = useState('')
   const [memberId, setMemberId] = useState('')
+  const [maxConcurrent, setMaxConcurrent] = useState<number>(3)
   const [provisioningResult, setProvisioningResult] = useState<CsProvisioningResult | null>(null)
   const [installation, setInstallation] = useState<WidgetInstallation | null>(null)
 
@@ -103,11 +104,24 @@ export function CsProvisioningWizardPage() {
   const selectedWorkspace = workspaces.find((item) => item.id === effectiveWorkspaceId) ?? null
 
   const provisionMutation = useMutation({
-    mutationFn: () =>
-      provisionCustomerServiceSeat({ organizationId: orgId, workspaceId: effectiveWorkspaceId, businessIdentityId: memberId }),
+    mutationFn: () => {
+      const member = members.find((item) => item.userId === memberId) ?? null
+      const displayName = member?.nickname?.trim() || member?.account?.trim() || ''
+      return provisionCustomerServiceSeat({
+        organizationId: orgId,
+        workspaceId: effectiveWorkspaceId,
+        userId: memberId,
+        displayName,
+        maxConcurrent,
+      })
+    },
     onSuccess: (result) => {
       setProvisioningResult(result)
-      toast.success(result.repaired ? '客服坐席已存在，本次为幂等修复' : '客服坐席开通成功')
+      toast.success(
+        result.identity_created
+          ? '客服坐席开通成功'
+          : '客服坐席已存在，本次为幂等修复'
+      )
       setStep('installation')
     },
     onError: (error) => toast.error(`开通失败：${getErrorMessage(error)}`),
@@ -214,6 +228,11 @@ export function CsProvisioningWizardPage() {
           memberId={memberId}
           onMemberChange={(next) => {
             setMemberId(next)
+            setProvisioningResult(null)
+          }}
+          maxConcurrent={maxConcurrent}
+          onMaxConcurrentChange={(next) => {
+            setMaxConcurrent(next)
             setProvisioningResult(null)
           }}
           pending={provisionMutation.isPending}
@@ -435,12 +454,16 @@ function IdentityStep(props: {
   selectedWorkspace: WorkspaceRow | null
   memberId: string
   onMemberChange: (_memberId: string) => void
+  maxConcurrent: number
+  onMaxConcurrentChange: (_value: number) => void
   pending: boolean
   onProvision: () => void
   onBack: () => void
   onRetry: () => void
 }) {
   if (!props.visible) return null
+  // C3：UI 必须过滤非 active 成员（archived/其它状态不得成为开通目标）。
+  const activeMembers = props.members.filter((member) => member.status === 'active')
   return (
     <section aria-label={STEP_LABELS.identity} className="space-y-3">
       <p className="text-sm text-muted-foreground">
@@ -450,32 +473,53 @@ function IdentityStep(props: {
         <LoadingState message="加载组织成员…" />
       ) : props.error !== null && props.error !== undefined ? (
         <ErrorState message={`加载组织成员失败：${getErrorMessage(props.error)}`} onRetry={props.onRetry} />
-      ) : props.members.length === 0 ? (
+      ) : activeMembers.length === 0 ? (
         <EmptyState
           icon={<Headphones className="h-10 w-10" />}
-          title="该组织暂无成员"
-          description="空组织需先在组织治理面邀请成员，再回到本向导完成首个客服坐席自举。"
+          title="该组织暂无可开通成员"
+          description="仅 active 成员可被开通为客服坐席；空组织或非 active 成员需先在组织治理面处理后回到本向导。"
         />
       ) : (
-        <div className="space-y-1.5">
-          <Label htmlFor="cs-provision-member-select">选择开通为客服坐席的成员</Label>
-          <select
-            id="cs-provision-member-select"
-            data-testid="cs-provision-member-select"
-            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
-            value={props.memberId}
-            onChange={(event) => props.onMemberChange(event.target.value)}
-          >
-            <option value="">请选择成员…</option>
-            {props.members.map((member) => (
-              <option key={member.userId} value={member.userId}>
-                {member.nickname || member.account}（{member.account}）
-              </option>
-            ))}
-          </select>
-          <p className="text-xs text-muted-foreground">
-            提交后由 Admin provisioning API 事务化创建/修复 customer_service identity、assignment 与启用坐席，并写 actor/target/before/after 审计。
-          </p>
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="cs-provision-member-select">选择开通为客服坐席的成员</Label>
+            <select
+              id="cs-provision-member-select"
+              data-testid="cs-provision-member-select"
+              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+              value={props.memberId}
+              onChange={(event) => props.onMemberChange(event.target.value)}
+            >
+              <option value="">请选择成员…</option>
+              {activeMembers.map((member) => (
+                <option key={member.userId} value={member.userId}>
+                  {member.nickname || member.account}（{member.account}）
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-muted-foreground">
+              提交后由 Admin provisioning API 事务化创建/修复 customer_service identity、assignment 与启用坐席（成员以 user_id 派生身份，禁止 business_identity_id）。
+            </p>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="cs-provision-max-concurrent">并发上限（max_concurrent，1..20）</Label>
+            <select
+              id="cs-provision-max-concurrent"
+              data-testid="cs-provision-max-concurrent"
+              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+              value={String(props.maxConcurrent)}
+              onChange={(event) => props.onMaxConcurrentChange(Number(event.target.value))}
+            >
+              {Array.from({ length: 20 }, (_unused, index) => index + 1).map((value) => (
+                <option key={value} value={String(value)}>
+                  {value}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-muted-foreground">
+              默认 3；以数值发送，合法域 1..20（超出由前端与后端双双 fail-closed）。
+            </p>
+          </div>
         </div>
       )}
       <div className="flex flex-col gap-2 sm:flex-row">

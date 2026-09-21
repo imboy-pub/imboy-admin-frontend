@@ -36,29 +36,58 @@ function requireNonEmptyId(value: EntityId, label: string): EntityId {
 export type ProvisionCustomerServiceSeatInput = {
   organizationId: EntityId
   workspaceId: EntityId
-  /** 将被开通为 customer_service identity 的组织成员（business_identity 主体）。 */
-  businessIdentityId: EntityId
+  /** 目标开通为客服坐席的「成员」user_id（该 org 的 active Human member）。 */
+  userId: EntityId
+  /** 成员昵称或账号（后端 display_name 必填）。 */
+  displayName: string
+  /** 并发上限；前端默认 3，合法域 1..20；必须以 number 发送（非 string）。 */
+  maxConcurrent: number
 }
+
+const MAX_CONCURRENT_MIN = 1
+const MAX_CONCURRENT_MAX = 20
 
 /**
  * POST 事务化开通：identity + assignment + enabled seat 一次提交；
- * 幂等重放由后端保证（重复提交返回 repaired 投影而非报错）。
+ * 幂等重放由后端保证（重复提交返回 identity_created=false 而非报错）。
+ *
+ * 冻结合同（C3）：body 仅含 workspace_id（TSID string）/ user_id（TSID string）/
+ * display_name（binary）/ max_concurrent（int 1..20）；**禁止**发送
+ * business_identity_id（漂移根因，后端以 user_id 派生 identity）。
  */
 export async function provisionCustomerServiceSeat(
   input: ProvisionCustomerServiceSeatInput
 ): Promise<CsProvisioningResult> {
   const organizationId = requireNonEmptyId(input.organizationId, 'organization_id')
+  const workspaceId = requireNonEmptyId(input.workspaceId, 'workspace_id')
+  const userId = requireNonEmptyId(input.userId, 'user_id')
+  const displayName = input.displayName.trim()
+  if (displayName.length === 0) {
+    throw new Error('缺少必填 display_name（成员昵称/账号）')
+  }
+  const maxConcurrent = input.maxConcurrent
+  if (
+    !Number.isInteger(maxConcurrent) ||
+    maxConcurrent < MAX_CONCURRENT_MIN ||
+    maxConcurrent > MAX_CONCURRENT_MAX
+  ) {
+    throw new Error(
+      `max_concurrent 非法：必须在 ${MAX_CONCURRENT_MIN}..${MAX_CONCURRENT_MAX} 整数域`
+    )
+  }
   const response = await client.post<ApiResponse<unknown>>(
     `${CS_ORGS_BASE}/${encodeURIComponent(organizationId)}/provisioning`,
     {
-      workspace_id: requireNonEmptyId(input.workspaceId, 'workspace_id'),
-      business_identity_id: requireNonEmptyId(input.businessIdentityId, 'business_identity_id'),
+      workspace_id: workspaceId,
+      user_id: userId,
+      display_name: displayName,
+      max_concurrent: maxConcurrent,
     }
   )
   const payload = requireApiPayload(response.data, 'POST cs provisioning')
   const result = toCsProvisioningResult(payload)
   if (result === null) {
-    throw new Error('provisioning 响应形状非法（缺少 organization/workspace/identity 事实）')
+    throw new Error('provisioning 响应形状非法（缺少 organization/workspace/business_identity 事实）')
   }
   return result
 }

@@ -26,23 +26,35 @@ export type CsProvisioningAuditEntry = {
   after: string | null
 }
 
-/** 开通结果中的 seat 投影（enabled seat 是自举成功的判定事实）。 */
+/**
+ * 开通结果中的 seat 投影。真实后端 store `provision_seat`/`finish_provision`
+ * 出站键（cs_pg_seat.erl:622）仅 `enabled` 与 `max_concurrent`（非 TSID 标量，
+ * 出站保持原值）；`business_identity_id`/`workspace_id`/`status` 不在 seat 子对象内。
+ */
 export type CsProvisioningSeat = {
-  business_identity_id: string
-  workspace_id: string
   enabled: boolean
-  status: string
+  max_concurrent: number
 }
 
-/** POST provisioning 的成功响应投影（白名单；fail-closed）。 */
+/**
+ * POST provisioning 的成功响应投影（白名单；fail-closed）。
+ *
+ * 真实后端出站字段（cs_seat_app:provision_seat → cs_pg_seat:finish_provision，
+ * cs_seat_app.erl:409 复写 `seat_enabled`）：
+ *   - organization_id / workspace_id / business_identity_id：TSID（出站编 string）；
+ *   - identity_created：boolean（true=新建 identity/seat；false=幂等命中既有事实/已存在修复）；
+ *   - seat：{enabled:bool, max_concurrent:int}；
+ *   - seat_enabled：bool（等价于 seat.enabled 的便捷键）。
+ * 后端**不**出站 assignment_id / repaired / audits（审计已落后端事件表，不出站）。
+ */
 export type CsProvisioningResult = {
   organization_id: string
   workspace_id: string
-  identity_id: string
-  assignment_id: string | null
+  business_identity_id: string
+  /** 是否全新开通：true=新建；false=幂等命中既有事实（已存在修复）。 */
+  identity_created: boolean
   seat: CsProvisioningSeat | null
-  /** 是否为既有资源的修复（幂等重放/repair），后端缺失时按 false 呈现。 */
-  repaired: boolean
+  /** 后端不出站审计数组；恒定空（避免 UI 误判有审计事实）。 */
   audits: CsProvisioningAuditEntry[]
 }
 
@@ -100,14 +112,14 @@ function toSeatProjection(raw: unknown): CsProvisioningSeat | null {
   for (const key of Object.keys(raw)) {
     if (isSensitive(key)) return null
   }
-  const identityId = idOrEmpty(raw['business_identity_id'])
-  if (identityId.length === 0) return null
   const enabledRaw = raw['enabled']
+  const maxConcurrentRaw = raw['max_concurrent']
   return {
-    business_identity_id: identityId,
-    workspace_id: idOrEmpty(raw['workspace_id']),
     enabled: enabledRaw === true || enabledRaw === 'true',
-    status: str(raw['status']) || 'unknown',
+    max_concurrent:
+      typeof maxConcurrentRaw === 'number' && Number.isFinite(maxConcurrentRaw)
+        ? maxConcurrentRaw
+        : 0,
   }
 }
 
@@ -124,25 +136,17 @@ export function toCsProvisioningResult(raw: unknown): CsProvisioningResult | nul
   const organizationId = idOrEmpty(raw['organization_id'])
   const workspaceId = idOrEmpty(raw['workspace_id'])
   if (organizationId.length === 0 || workspaceId.length === 0) return null
-  const identityRaw = isRecord(raw['identity']) ? raw['identity'] : {}
-  const identityId =
-    idOrEmpty(identityRaw['id']).length > 0
-      ? idOrEmpty(identityRaw['id'])
-      : idOrEmpty(raw['identity_id'])
+  // 真实后端身份键是 business_identity_id（cs_pg_seat:finish_provision），
+  // 非 identity_id；缺失即 fail-closed（不伪成功）。
+  const identityId = idOrEmpty(raw['business_identity_id'])
   if (identityId.length === 0) return null
-  const assignmentRaw = isRecord(raw['assignment']) ? raw['assignment'] : {}
-  const assignmentId =
-    idOrEmpty(assignmentRaw['id']).length > 0
-      ? idOrEmpty(assignmentRaw['id'])
-      : idOrEmpty(raw['assignment_id'])
   return {
     organization_id: organizationId,
     workspace_id: workspaceId,
-    identity_id: identityId,
-    assignment_id: assignmentId.length > 0 ? assignmentId : null,
+    business_identity_id: identityId,
+    identity_created: raw['identity_created'] === true,
     seat: toSeatProjection(raw['seat']),
-    repaired: raw['repaired'] === true,
-    audits: toCsProvisioningAuditList(raw['audit'] ?? raw['audit_entries'] ?? raw['audits']),
+    audits: [],
   }
 }
 
