@@ -245,16 +245,24 @@ export function OrganizationListPage() {
       <Card>
         <CardHeader className="flex-row items-center justify-between space-y-0">
           <CardTitle className="text-base">组织列表</CardTitle>
-          <Button
-            type="button"
-            size="sm"
-            data-testid="org-create-entry"
-            disabled={!canWrite}
-            title={canWrite ? '创建组织' : `无 ${WRITE_PERMISSION} 权限，无法创建（授权由服务端 fail-closed 判定）`}
-            onClick={() => setCreateOpen(true)}
-          >
-            创建组织
-          </Button>
+          {/*
+            §9-2 合同（EADM-07）：read-only 账号「只见只读页、无写入口」。
+            「无写入口」= 该入口不进 DOM，而不是渲染一个 disabled 按钮——disabled 仍是
+            可见的写入口，且会被无障碍树暴露为可聚焦控件。授权真源仍是服务端
+            adm_acl fail-closed（本页直调写 API 亦恒 403，见同用例断言 4），
+            这里只负责「不给不该写的人看见入口」。
+          */}
+          {canWrite && (
+            <Button
+              type="button"
+              size="sm"
+              data-testid="org-create-entry"
+              title="创建组织"
+              onClick={() => setCreateOpen(true)}
+            >
+              创建组织
+            </Button>
+          )}
         </CardHeader>
         <CardContent className="space-y-3">
           <form
