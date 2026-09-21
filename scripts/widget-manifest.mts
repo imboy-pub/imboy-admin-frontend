@@ -13,18 +13,20 @@
  * 可重复性口径（CSD-IMG-01-A04）：相同输入的两次构建，files 内全部 sha256 与
  * health.txt 完全一致；generated_at_utc 允许不同（每次构建时刻），单独字段注明。
  *
- * CSD-IMG-01R：在 manifest 生成前，把 widget/index.html 引用的内容 hash 入口
- * chunk（assets/cs-widget-<hash>.js）原样复制为稳定版本名 assets/cs-widget.v1.js
- * ——/w/ frame HTML 固定引用该稳定名（后端 BE-01R 同步口径 /assets/cs-widget.v1.js），
- * 内容随版本更新、文件名不变；升级 = 改名 v2。别名照常进入 manifest.files
+ * CSD-IMG-01R + R2-F1/F3：在 manifest 生成前，把 widget/index.html 引用的内容
+ * hash 入口 chunk（assets/cs-widget-<hash>.js）原样复制为版本化稳定名
+ * widget-assets/cs-widget.v2.js——/w/ frame HTML 固定引用该版本化路径（合同 S4
+ * 字面形状；v1 归旧 frame 面，新面取 v2 避免同名互踩）。内容随发布原位更新，
+ * 部署层对该 location 下发 no-cache 重验证：热修对已缓存访客立即可达，不依赖
+ * 跨仓改名纪律；升级改名 v3 只是可选优化。别名照常进入 manifest.files
  * （含 sha256/bytes），verify:widget 校验其存在且与入口 chunk 内容一致。
  *
  * 只读业务源码、只写 dist-widget/{manifest.json,manifest.sha256,health.txt}
- * 与稳定别名 assets/cs-widget.v1.js。
+ * 与版本化别名 widget-assets/cs-widget.v2.js。
  */
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { readdir, readFile, stat, writeFile } from 'node:fs/promises'
+import { mkdir, readdir, readFile, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..')
@@ -35,16 +37,18 @@ const MANIFEST_NAME = 'manifest.json'
 const CHECKSUM_NAME = 'manifest.sha256'
 const HEALTH_NAME = 'health.txt'
 
-/** CSD-IMG-01R：稳定版本名 frame 资产别名（升级 = 改名 v2，合同 S4「版本化脚本」口径）。 */
-const STABLE_ASSET_ALIAS = 'assets/cs-widget.v1.js'
+/** CSD-IMG-01R + R2-F1/F3：版本化 frame 资产别名（合同 S4 字面路径；v1 归旧 frame 面）。 */
+const STABLE_ASSET_ALIAS = 'widget-assets/cs-widget.v2.js'
 
 /** widget/index.html 引用的 iframe 应用入口 chunk（内容 hash 文件名）。 */
 const HASHED_JS_REF = /assets\/cs-widget-[A-Za-z0-9_-]+\.js/g
 
-/** S6 缓存策略（照冻结表落 manifest，部署层 nginx 按同表执行）。 */
+/** S6 缓存策略（照冻结表落 manifest，部署层 nginx 按同表执行）；widget_assets
+ * 为 R2-F1/F3 增补：版本化入口资产 no-cache 重验证，热修对已缓存访客立即可达。 */
 const CACHE_POLICY = {
   loader: 'no-cache',
   assets: 'public,max-age=31536000,immutable',
+  widget_assets: 'no-cache',
   html: 'no-store',
 } as const
 
@@ -105,7 +109,9 @@ async function writeStableAssetAlias(): Promise<void> {
     process.exit(1)
   }
   const sourceBytes = await readFile(path.join(DIST, sourceRel))
-  await writeFile(path.join(DIST, STABLE_ASSET_ALIAS), sourceBytes)
+  const aliasAbs = path.join(DIST, STABLE_ASSET_ALIAS)
+  await mkdir(path.dirname(aliasAbs), { recursive: true })
+  await writeFile(aliasAbs, sourceBytes)
   console.log(
     `[widget-manifest] stable alias: ${STABLE_ASSET_ALIAS} ← ${sourceRel} ` +
       `(sha256=${sha256Hex(sourceBytes).slice(0, 12)}…, bytes=${sourceBytes.byteLength})`,

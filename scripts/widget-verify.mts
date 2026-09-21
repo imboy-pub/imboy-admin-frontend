@@ -3,9 +3,9 @@
  * CSD-IMG-01：dist-widget 产物门禁验证器（`bun run verify:widget`，build 后可重复执行）。
  *
  * 门禁（S6 + CSD-IMG-01-A02/A04 + CSD-IMG-01R）：
- * 1. 必需产物齐全：loader.js / widget/index.html / assets/cs-widget.v1.js / manifest.json / manifest.sha256 / health.txt；
- * 2. assets/ 全部内容 hash 文件名（cs-widget-<hash>.js|css），稳定版本名别名
- *    cs-widget.v*.js 白名单放行（CSD-IMG-01R），零无 hash 文件、零 .map；
+ * 1. 必需产物齐全：loader.js / widget/index.html / widget-assets/cs-widget.v2.js / manifest.json / manifest.sha256 / health.txt；
+ * 2. assets/ 全部内容 hash 文件名（cs-widget-<hash>.js|css），零无 hash 文件、
+ *    零 .map；widget-assets/ 只收版本化稳定名 cs-widget.v<N>.js（R2-F1/F3）；
  * 3. 全树零 source map（.map 文件与 sourceMappingURL 注释均不得出现）；
  * 4. widget/index.html 引用闭合（引用的相对资源必须存在于 dist-widget）；
  * 5. 零 Admin chunk：文件名不得出现 Admin 命名（index / admin / vendor- 前缀），JS 内容零 `/api/adm`；
@@ -14,9 +14,10 @@
  *    请求头名为已知良性词面，不是值泄露）；
  * 7. manifest 自洽：manifest.sha256 == sha256(manifest.json)；files 与磁盘逐一比对
  *    （path/sha256/bytes）；cache_policy 三键齐全；health.txt 指纹行可复算。
- * 8. CSD-IMG-01R：稳定版本名别名 assets/cs-widget.v1.js 与 widget/index.html 引用的
- *    唯一 cs-widget-<hash>.js 入口 chunk 内容一致（sha256 相等）——/w/ frame HTML
- *    引用的稳定名文件必须与当次构建 iframe app JS 同字节。
+ * 8. CSD-IMG-01R + R2-F1/F3：版本化别名 widget-assets/cs-widget.v2.js 与
+ *    widget/index.html 引用的唯一 cs-widget-<hash>.js 入口 chunk 内容一致
+ *    （sha256 相等）——/w/ frame HTML 引用的版本化文件必须与当次构建
+ *    iframe app JS 同字节。
  *
  * 任一门禁失败 exit 1；全部通过打印 PASS。
  */
@@ -68,9 +69,9 @@ const SECRET_PATTERNS: Array<[string, RegExp]> = [
 const REVIEW_PATTERN = /api[_-]?key|secret|token/gi
 
 const ASSET_HASH_NAME = /^assets\/cs-widget-[A-Za-z0-9_-]{8,}\.(js|css)$/
-/** CSD-IMG-01R：稳定版本名 frame 资产别名（升级 = v2），hash 文件名门禁的显式白名单。 */
-const STABLE_ASSET_NAME = /^assets\/cs-widget\.v\d+\.js$/
-const STABLE_ASSET_ENTRY = 'assets/cs-widget.v1.js'
+/** CSD-IMG-01R + R2-F1/F3：版本化 frame 资产（v1 归旧 frame 面，新面自 v2 起）。 */
+const STABLE_ASSET_NAME = /^widget-assets\/cs-widget\.v\d+\.js$/
+const STABLE_ASSET_ENTRY = 'widget-assets/cs-widget.v2.js'
 /** widget/index.html 引用的 iframe 应用入口 chunk（内容 hash 文件名）。 */
 const HASHED_JS_REF = /assets\/cs-widget-[A-Za-z0-9_-]+\.js/g
 const ADMIN_CHUNK_NAME = /(^|\/)(index|admin|vendor-|main)\.[A-Za-z0-9]/
@@ -95,11 +96,15 @@ async function main(): Promise<void> {
     process.exit(1)
   }
 
-  // 2) assets 全部 hash 文件名（稳定版本名别名走白名单）
+  // 2) assets 全部 hash 文件名；widget-assets/ 只收版本化稳定名（R2-F1/F3）
   const assets = all.filter((f) => f.rel.startsWith('assets/'))
   if (assets.length === 0) fail('assets/ 为空：iframe 应用产物缺失')
   for (const f of assets) {
-    if (!ASSET_HASH_NAME.test(f.rel) && !STABLE_ASSET_NAME.test(f.rel)) fail(`assets 文件名非内容 hash 形态: ${f.rel}`)
+    if (!ASSET_HASH_NAME.test(f.rel)) fail(`assets 文件名非内容 hash 形态: ${f.rel}`)
+  }
+  const versionedAssets = all.filter((f) => f.rel.startsWith('widget-assets/'))
+  for (const f of versionedAssets) {
+    if (!STABLE_ASSET_NAME.test(f.rel)) fail(`widget-assets 文件名非版本化稳定形态: ${f.rel}`)
   }
 
   // 3) 零 source map
@@ -148,7 +153,7 @@ async function main(): Promise<void> {
   for (const f of all.filter((x) => x.rel.startsWith('assets/'))) {
     if (ADMIN_CHUNK_NAME.test(f.rel)) fail(`产物文件名疑似 Admin chunk: ${f.rel}`)
   }
-  for (const f of assets.filter((x) => x.rel.endsWith('.js'))) {
+  for (const f of assets.filter((x) => x.rel.endsWith('.js')).concat(versionedAssets.filter((x) => x.rel.endsWith('.js')))) {
     const text = await readFile(f.abs, 'utf8')
     if (text.includes('/api/adm')) fail(`JS 含 Admin API 面 /api/adm: ${f.rel}`)
   }
@@ -187,6 +192,7 @@ async function main(): Promise<void> {
   const policy = manifest.cache_policy ?? {}
   if (policy.loader !== 'no-cache') fail(`cache_policy.loader 应为 no-cache，实际=${String(policy.loader)}`)
   if (policy.assets !== 'public,max-age=31536000,immutable') fail(`cache_policy.assets 与 S6 不符，实际=${String(policy.assets)}`)
+  if (policy.widget_assets !== 'no-cache') fail(`cache_policy.widget_assets 应为 no-cache（R2-F1：版本化入口重验证），实际=${String(policy.widget_assets)}`)
   if (policy.html !== 'no-store') fail(`cache_policy.html 应为 no-store，实际=${String(policy.html)}`)
 
   // manifest.files 与磁盘比对（manifest.files 覆盖除 manifest.json/manifest.sha256 外全部产物）
