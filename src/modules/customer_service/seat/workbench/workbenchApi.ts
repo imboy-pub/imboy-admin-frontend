@@ -100,11 +100,19 @@ export class SeatWorkbenchApi {
     return toSeatSessionDetail(payload)
   }
 
-  /** 消息历史（键集 after_id/limit；载荷=裸数组，兼容 {messages} 旧形）。 */
-  async fetchMessages(orgId: EntityId, conversationId: EntityId, query: SeatPageQuery = {}): Promise<SeatMessage[]> {
-    void orgId
+  /**
+   * 消息历史（DF-9R：query 必带 workspace_id + organization_id——cs_actions
+   * conversation_messages org_source=param、workspace 门必填，缺失真实后端
+   * 422；分页键集 after_id/limit；载荷=裸数组，兼容 {messages} 旧形）。
+   */
+  async fetchMessages(
+    orgId: EntityId,
+    conversationId: EntityId,
+    workspaceId: EntityId,
+    query: SeatPageQuery = {},
+  ): Promise<SeatMessage[]> {
     const payload = await this.client.request(buildConversationMessagesPath(conversationId), {
-      query: pageQuery(query),
+      query: { workspace_id: workspaceId, organization_id: orgId, ...pageQuery(query) },
     })
     return toSeatMessageList(payload)
   }

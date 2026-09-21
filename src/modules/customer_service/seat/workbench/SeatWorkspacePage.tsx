@@ -119,7 +119,7 @@ function SeatWorkspaceInner() {
   const detail = detailQuery.data ?? null;
 
   const conversationId = detail?.conversationId ?? null;
-  const messagesQuery = useSeatMessages(scope.organizationId, conversationId);
+  const messagesQuery = useSeatMessages(scope.organizationId, conversationId, scope.workspaceId);
   const send = useSeatSend(
     scope.organizationId,
     conversationId,

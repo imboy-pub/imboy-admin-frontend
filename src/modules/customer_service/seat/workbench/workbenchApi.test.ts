@@ -163,11 +163,13 @@ describe('CAS 写合同（claim / transfer / close）', () => {
 })
 
 describe('消息合同（历史 + 幂等发送）', () => {
-  it('历史：GET enterprise conversations 路径族 + 裸数组载荷', async () => {
+  it('历史：GET enterprise conversations 路径族 + 必带 workspace_id/organization_id（DF-9R）+ 裸数组载荷', async () => {
     const message = `{"id":9000000000000000009,"sender_type":"contact","body":"你好","client_msg_id":"cm-1","read_at":null}`
     const { calls, api } = makeFetch(() => envelope(`[${message}]`))
-    const list = await api.fetchMessages(ORG, CONV, { limit: 50 })
-    expect(calls[0]?.url).toBe(`/api/v1/enterprise/conversations/${CONV}/messages?limit=50`)
+    const list = await api.fetchMessages(ORG, CONV, WS, { limit: 50 })
+    expect(calls[0]?.url).toBe(
+      `/api/v1/enterprise/conversations/${CONV}/messages?workspace_id=${WS}&organization_id=${ORG}&limit=50`,
+    )
     expect(list).toHaveLength(1)
     expect(list[0]?.id).toBe('9000000000000000009')
   })

@@ -354,12 +354,22 @@ export function useSeatSessionDetail(
   })
 }
 
-export function useSeatMessages(orgId: EntityId | null, conversationId: EntityId | null) {
+/**
+ * 消息历史（DF-9R：query 必带 workspace_id + organization_id，缺失真实后端 422）。
+ */
+export function useSeatMessages(
+  orgId: EntityId | null,
+  conversationId: EntityId | null,
+  workspaceId: EntityId | null,
+) {
   const { api } = useSeatWorkbenchGateway()
   return useQuery({
-    queryKey: [SEAT_QUERY_ROOT_KEY, 'messages', conversationId],
-    enabled: orgId !== null && conversationId !== null,
-    queryFn: () => api.fetchMessages(orgId as EntityId, conversationId as EntityId, { limit: SEAT_MESSAGE_PAGE_LIMIT }),
+    queryKey: [SEAT_QUERY_ROOT_KEY, 'messages', conversationId, workspaceId],
+    enabled: orgId !== null && conversationId !== null && workspaceId !== null,
+    queryFn: () =>
+      api.fetchMessages(orgId as EntityId, conversationId as EntityId, workspaceId as EntityId, {
+        limit: SEAT_MESSAGE_PAGE_LIMIT,
+      }),
   })
 }
 
