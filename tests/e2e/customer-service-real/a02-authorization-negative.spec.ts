@@ -9,7 +9,7 @@
  *    （凭证拒绝链收紧，DF-4 已由 07195ae1 修复：fail-open 不再存在），
  *    访客 UI 收敛为失败/重试态。
  */
-import { spawnSync, spawn, type ChildProcess } from 'node:child_process'
+import { spawn, type ChildProcess } from 'node:child_process'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { expect, test } from '@playwright/test'

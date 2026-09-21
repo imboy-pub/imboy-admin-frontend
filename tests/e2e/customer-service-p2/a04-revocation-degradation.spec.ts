@@ -10,8 +10,8 @@
  * - 坐席面 offboarding：坐席行移除（assignment ended 落库等价物）→ 权限
  *   拒绝可解释态（用例结束恢复种子行）。
  */
-import { expect, test, type Browser } from '@playwright/test'
-import { SeatAgent, visitorApi } from '../customer-service-real/helpers/agent-api'
+import { expect, test } from '@playwright/test'
+import { SeatAgent } from '../customer-service-real/helpers/agent-api'
 import { SEAT_A, SEAT_B } from '../customer-service-real/helpers/env'
 import { createCollector, watchPage } from './helpers/browser-gate'
 import { fetchSeatState, latestVisitTokenRowSince, removeSeatRow, restoreSeatRow, setSeatEnabled } from './helpers/db-proof'

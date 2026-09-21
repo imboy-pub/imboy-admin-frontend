@@ -28,12 +28,22 @@ export interface QueueSession {
 }
 
 export class SeatAgent {
+  readonly label: string
+  readonly account: string
+  readonly identityId: string
+  private readonly token: string
+
   private constructor(
-    readonly label: string,
-    readonly account: string,
-    readonly identityId: string,
-    private readonly token: string
-  ) {}
+    label: string,
+    account: string,
+    identityId: string,
+    token: string
+  ) {
+    this.label = label
+    this.account = account
+    this.identityId = identityId
+    this.token = token
+  }
 
   static async login(label: string, account: string, identityId: string): Promise<SeatAgent> {
     const { token } = await seatLogin(account)

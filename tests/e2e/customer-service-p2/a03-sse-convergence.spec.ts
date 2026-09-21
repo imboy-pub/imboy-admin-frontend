@@ -18,7 +18,7 @@
 import { spawn, spawnSync } from 'node:child_process'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { expect, test, type Browser, type Page } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 import { SeatAgent } from '../customer-service-real/helpers/agent-api'
 import { SEAT_A } from '../customer-service-real/helpers/env'
 import { createCollector, watchPage } from './helpers/browser-gate'
