@@ -107,6 +107,9 @@ export default defineConfig(({ mode }) => {
     rollupOptions: {
       output: {
         manualChunks(id) {
+          // SEAT-03-A02：Web 坐席独立 chunk（seat/** 不含 Admin client/Cookie 域
+          // 代码，产物可单独安全审计；依赖方向单向：customer_service 模块 → 坐席）。
+          if (id.includes('/src/modules/customer_service/seat/')) return 'seat-workbench'
           if (!id.includes('node_modules')) return undefined
           if (id.includes('/react-dom/') || id.includes('/scheduler/') || id.includes('/react/')) return 'vendor-react'
           if (id.includes('react-router')) return 'vendor-router'

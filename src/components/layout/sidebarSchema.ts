@@ -163,6 +163,7 @@ export const defaultConfig: SidebarMenuConfig = {
         { path: '/enterprise-business/offboarding', icon: 'ListChecks', label: '离岗交接', roles: ['1', '2'], permission: 'enterprise_business:read' },
         { path: '/customer-service', icon: 'Headphones', label: '客服运营', roles: ['1', '2'], permission: 'customer_service:read' },
         { path: '/customer-service/sessions', icon: 'Headphones', label: '客服会话列表', roles: ['1', '2'], permission: 'customer_service:read' },
+        { path: '/customer-service/workspace', icon: 'Headphones', label: '坐席工作台', roles: ['1', '2'], permission: 'customer_service:read' },
         { path: '/customer-service/widgets', icon: 'MessageSquare', label: 'Widget 接入', roles: ['1', '2'], permission: 'customer_service:read' },
       ],
     },

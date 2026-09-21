@@ -56,3 +56,9 @@ tests/auto_test/evidence/
 
 # Claude local-scope 本机配置不入库（共享配置为 tracked 的 .claude/settings.json）
 .claude/settings.local.json
+
+# P1-E2E-01 客服真实链 E2E 运行产物（trace/报告/运行时自签证书）
+tests/e2e/customer-service-real/.artifacts/
+
+# P2-E2E-01 客服四域 P2 E2E 运行产物（trace/报告/运行时自签证书）
+tests/e2e/customer-service-p2/.artifacts/

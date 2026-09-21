@@ -14,6 +14,7 @@
  */
 import { describe, expect, it } from 'bun:test'
 import { WidgetApiClient, WidgetApiError, assertNoTokenInUrl } from './widgetApi'
+import { toWidgetMessage } from './contract'
 
 type RecordedRequest = { url: string; init: RequestInit }
 
@@ -227,5 +228,34 @@ describe('凭证传输纪律（CSD-FE-01-A04 / 合同 S5）', () => {
       expect(request.url.startsWith('/api/v1/cs/widget')).toBe(true)
       expect(request.init.credentials).toBe('omit')
     }
+  })
+})
+
+/** P1-E2E-01 实证缺陷修复回归：单发响应 {message:{...}} 嵌套与裸消息两形兼容。 */
+describe('toWidgetMessage 载荷形状', () => {
+  const NAKED = {
+    id: '72057594037928010',
+    sender_type: 'contact',
+    sender_contact_id: '72057594037928002',
+    client_msg_id: 'cm-1',
+    body: '你好',
+    created_at: '1789600000',
+  }
+
+  it('裸消息形状（历史行）解析成功', () => {
+    expect(toWidgetMessage(NAKED)).not.toBeNull()
+    expect(toWidgetMessage(NAKED)?.id).toBe(NAKED.id)
+  })
+
+  it('嵌套形状（POST 单发响应 payload={message:{...}}）解析成功', () => {
+    const nested = { message: NAKED }
+    expect(toWidgetMessage(nested)).not.toBeNull()
+    expect(toWidgetMessage(nested)?.body).toBe('你好')
+    expect(toWidgetMessage(nested)?.clientMsgId).toBe('cm-1')
+  })
+
+  it('两形之外（缺 id / 非对象）一律 null（fail-closed）', () => {
+    expect(toWidgetMessage({ message: { sender_type: 'contact' } })).toBeNull()
+    expect(toWidgetMessage(null)).toBeNull()
   })
 })
