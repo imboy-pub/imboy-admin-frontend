@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { OrganizationWorkspacePicker } from '@/components/shared/OrganizationWorkspacePicker'
 import {
   DataTable,
   DataTablePagination,
@@ -38,6 +39,7 @@ import {
   suspendCsSeat,
   transferCsSession,
 } from '../api/public'
+import { useOrgWorkspaceScope } from './useOrgWorkspaceScope'
 import {
   actionFailureMessage,
   classifyActionFailure,
@@ -64,20 +66,16 @@ export function CustomerServiceOpsPage() {
   const { state, setState } = useListQueryState<{
     page: number
     size: number
-    org: string
-    ws: string
-  }>({ page: 1, size: 10, org: '', ws: '' })
+  }>({ page: 1, size: 10 })
+  const csScope = useOrgWorkspaceScope()
   const scope = useMemo(
-    () => ({ organizationId: state.org.trim(), workspaceId: state.ws.trim() }),
-    [state.org, state.ws]
+    () => ({ organizationId: csScope.organizationId ?? '', workspaceId: csScope.workspaceId ?? '' }),
+    [csScope.organizationId, csScope.workspaceId]
   )
   const scopeReady = scope.organizationId.length > 0 && scope.workspaceId.length > 0
 
   const { allowed: canRead, loading: readPermLoading } = useAdminPermission({ permission: READ_PERMISSION })
   const { allowed: canWrite } = useAdminPermission({ permission: WRITE_PERMISSION })
-
-  // 筛选（org/ws）变化一律重置 page=1
-  const updateScope = (patch: { org?: string; ws?: string }) => setState({ ...patch, page: 1 })
 
   const seatsQuery = useQuery({
     queryKey: ['customer_service', 'seats', scope.organizationId, scope.workspaceId],
@@ -142,20 +140,23 @@ export function CustomerServiceOpsPage() {
           <CardTitle className="text-base">租户范围（必填）</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-3 md:grid-cols-3">
-          <ScopeField
-            id="cs-org-id"
-            label="组织 ID（organization_id）"
-            value={state.org}
-            onChange={(value) => updateScope({ org: value })}
-            placeholder="TSID，例如 1234567890123456789"
-          />
-          <ScopeField
-            id="cs-ws-id"
-            label="工作区 ID（workspace_id）"
-            value={state.ws}
-            onChange={(value) => updateScope({ ws: value })}
-            placeholder="TSID，例如 1234567890123456789"
-          />
+          <div className="space-y-1.5">
+            <Label>组织 / 工作区</Label>
+            <OrganizationWorkspacePicker
+              organizationId={csScope.organizationId}
+              workspaceId={csScope.workspaceId}
+              organizations={csScope.organizations}
+              workspaces={csScope.workspaces}
+              loading={csScope.loading}
+              onChange={(next) => {
+                csScope.onChange(next)
+                setState({ page: 1 })
+              }}
+            />
+            <p className="text-xs text-muted-foreground">
+              组织/工作区来自共享选择器，上下文写入 URL（org/ws），刷新与分享后不丢失；禁止手填 TSID。
+            </p>
+          </div>
         </CardContent>
       </Card>
 
@@ -227,27 +228,6 @@ export function CustomerServiceOpsPage() {
         confirmText="恢复"
         loading={resumeMutation.isPending}
         onConfirm={() => resumeMutation.mutate()}
-      />
-    </div>
-  )
-}
-
-function ScopeField(props: {
-  id: string
-  label: string
-  value: string
-  onChange: (_value: string) => void
-  placeholder?: string
-}) {
-  return (
-    <div className="space-y-1.5">
-      <Label htmlFor={props.id}>{props.label}</Label>
-      <Input
-        id={props.id}
-        value={props.value}
-        inputMode="numeric"
-        onChange={(event) => props.onChange(event.target.value)}
-        placeholder={props.placeholder}
       />
     </div>
   )

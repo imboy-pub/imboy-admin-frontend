@@ -10,6 +10,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import {
+  OrganizationWorkspacePicker,
+  type OrgWorkspaceOption,
+} from '@/components/shared/OrganizationWorkspacePicker'
+import {
   EmptyState,
   ErrorState,
   LoadingState,
@@ -17,29 +21,29 @@ import {
 } from '@/components/shared'
 import { useAdminPermission } from '@/hooks/useAdminPermission'
 import { getErrorMessage } from '@/lib/errorUtils'
-import {
-  getOrganizationMembers,
-  getOrganizations,
-  listOrganizationWorkspaces,
-} from '@/modules/organization/api'
-import type {
-  OrganizationMemberRow,
-  OrganizationSummary,
-  WorkspaceRow,
-} from '@/modules/organization/api/pureFunctions'
+import type { EntityId } from '@/types/common'
+import { getOrganizationMembers } from '@/modules/organization/api'
+import type { OrganizationMemberRow } from '@/modules/organization/api/pureFunctions'
 import type { WidgetInstallation } from '../api/widgetInstallationsPure'
 import { parseAllowedOriginsInput } from '../api/widgetInstallationsPure'
 import { buildProvisionSnippet } from '../api/provisioningPure'
 import type { CsProvisioningResult } from '../api/provisioningPure'
 import { provisionCustomerServiceSeat } from '../api/provisioning'
 import { createWidgetInstallation } from '../api/widgetInstallations'
+import { useOrgWorkspaceScope } from './useOrgWorkspaceScope'
 
 const READ_PERMISSION = 'customer_service:read'
 const WRITE_PERMISSION = 'customer_service:write'
 
 type WizardStep = 'organization' | 'workspace' | 'identity' | 'installation' | 'snippet'
 
-const STEP_ORDER: WizardStep[] = ['organization', 'workspace', 'identity', 'installation', 'snippet']
+const STEP_ORDER: WizardStep[] = [
+  'organization',
+  'workspace',
+  'identity',
+  'installation',
+  'snippet',
+]
 
 const STEP_LABELS: Record<WizardStep, string> = {
   organization: '选择组织',
@@ -53,6 +57,11 @@ const STEP_LABELS: Record<WizardStep, string> = {
  * 客服开通向导（ADM-01）：选择组织 → default 工作区 → customer_service
  * identity/assignment/enabled seat（Admin provisioning API 事务化）→ Widget
  * installation（含 allowed host origins）→ 复制 snippet。
+ *
+ * 组织/工作区上下文（EADM-05 W2 接线）：统一由 EADM-06 共享件
+ * `OrganizationWorkspacePicker` + `useOrgWorkspaceScope` 提供，真源是 URL 的
+ * `org`/`ws` 查询参数（codec 读写，禁止手写拼接），刷新/分享不丢上下文。
+ * C3 硬约束：提交的 `workspace_id` 即 `ws` 参数值，绝不把 `org` 当工作区。
  *
  * 权限面（ADM-01-A02）：
  * - 无 customer_service:read → 整页 fail-closed，不渲染任何步骤；
@@ -69,39 +78,38 @@ export function CsProvisioningWizardPage() {
   const [step, setStep] = useState<WizardStep>('organization')
   const [orgKeyword, setOrgKeyword] = useState('')
   const [orgQuery, setOrgQuery] = useState('')
-  const [orgId, setOrgId] = useState('')
-  const [workspaceId, setWorkspaceId] = useState('')
   const [memberId, setMemberId] = useState('')
   const [maxConcurrent, setMaxConcurrent] = useState<number>(3)
   const [provisioningResult, setProvisioningResult] = useState<CsProvisioningResult | null>(null)
   const [installation, setInstallation] = useState<WidgetInstallation | null>(null)
 
-  const orgsQuery = useQuery({
-    queryKey: ['customer_service', 'provisioning', 'organizations', orgQuery],
-    queryFn: () => getOrganizations(1, 50, 'active', orgQuery),
-    enabled: canRead && !readPermLoading,
-  })
-  const workspacesQuery = useQuery({
-    queryKey: ['customer_service', 'provisioning', 'workspaces', orgId],
-    queryFn: () => listOrganizationWorkspaces(orgId, 1, 50),
-    enabled: canRead && !readPermLoading && orgId.length > 0,
-  })
+  /**
+   * 组织/工作区上下文的唯一真源 = URL 的 `org`/`ws` 查询参数（EADM-06 codec，
+   * 由 useOrgWorkspaceScope 读写；禁止手写 `?org=` 拼接）。刷新/分享不丢上下文。
+   * C3：`workspace_id` 即 `ws` 参数值——绝不把 `org`（Organization TSID）当 workspace 用。
+   */
+  const scope = useOrgWorkspaceScope({ orgKeyword: orgQuery })
+  const orgId = scope.organizationId ?? ''
+  // default workspace：未显式选中时渲染期取该组织第一个工作区（不进 effect，避免级联渲染）
+  const effectiveWorkspaceId = scope.workspaceId ?? scope.workspaces[0]?.id ?? ''
+
+  const selectedOrg = scope.organizations.find((item) => item.id === orgId) ?? null
+  const selectedWorkspace =
+    scope.workspaces.find((item) => item.id === effectiveWorkspaceId) ?? null
+
   const membersQuery = useQuery({
     queryKey: ['customer_service', 'provisioning', 'members', orgId],
     queryFn: () => getOrganizationMembers(orgId, 1, 50),
     enabled: canRead && !readPermLoading && orgId.length > 0,
   })
 
-  const organizations = useMemo(() => orgsQuery.data?.items ?? [], [orgsQuery.data])
-  const workspaces = useMemo(() => workspacesQuery.data?.items ?? [], [workspacesQuery.data])
   const members = useMemo(() => membersQuery.data?.items ?? [], [membersQuery.data])
 
-  // default workspace：未显式选择时渲染期派生为第一个工作区（不进 effect，避免级联渲染）
-  const effectiveWorkspaceId =
-    workspaceId.length > 0 ? workspaceId : (workspaces[0]?.id ?? '')
-
-  const selectedOrg = organizations.find((item) => item.id === orgId) ?? null
-  const selectedWorkspace = workspaces.find((item) => item.id === effectiveWorkspaceId) ?? null
+  const clearDownstream = () => {
+    setMemberId('')
+    setProvisioningResult(null)
+    setInstallation(null)
+  }
 
   const provisionMutation = useMutation({
     mutationFn: () => {
@@ -146,12 +154,35 @@ export function CsProvisioningWizardPage() {
   })
 
   const selectOrganization = (nextOrgId: string) => {
-    setOrgId(nextOrgId)
-    setWorkspaceId('')
-    setMemberId('')
+    // 组织变化 → 重置 ws（旧 workspace 不属于新组织），由 hook 写回 URL
+    scope.onChange({ organizationId: nextOrgId, workspaceId: null })
+    clearDownstream()
+    setStep('workspace')
+  }
+
+  const selectWorkspace = (nextWorkspaceId: string) => {
+    scope.onChange({ organizationId: orgId, workspaceId: nextWorkspaceId })
     setProvisioningResult(null)
     setInstallation(null)
-    setStep('workspace')
+  }
+
+  const goToIdentityStep = () => {
+    // 进入下一步前把当前生效的 default workspace 落到 `ws` 参数：提交时的
+    // workspace_id 与 URL 上下文严格一致（刷新/分享可复现同一次开通）。
+    if (effectiveWorkspaceId.length > 0 && scope.workspaceId !== effectiveWorkspaceId) {
+      scope.onChange({ organizationId: orgId, workspaceId: effectiveWorkspaceId })
+    }
+    setStep('identity')
+  }
+
+  const handleScopeChange = (next: {
+    organizationId: EntityId | null
+    workspaceId: EntityId | null
+  }) => {
+    scope.onChange(next)
+    clearDownstream()
+    if (next.workspaceId !== null) setStep('identity')
+    else if (next.organizationId !== null) setStep('workspace')
   }
 
   if (readPermLoading) {
@@ -186,6 +217,27 @@ export function CsProvisioningWizardPage() {
           </CardContent>
         </Card>
       )}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">当前上下文（组织 / 工作区）</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-1.5">
+          <OrganizationWorkspacePicker
+            organizationId={scope.organizationId}
+            workspaceId={scope.workspaceId}
+            organizations={scope.organizations}
+            workspaces={scope.workspaces}
+            loading={scope.loading}
+            disabled={!canWrite}
+            onChange={handleScopeChange}
+            onOrganizationChange={clearDownstream}
+          />
+          <p className="text-xs text-muted-foreground">
+            共享选择器（EADM-06）：上下文写入 URL 的 org/ws 参数，刷新与分享后不丢失；
+            开通请求的 workspace_id 即 ws 参数值（组织 TSID 绝不充当工作区）。
+          </p>
+        </CardContent>
+      </Card>
       <WizardFrame title="客服开通向导">
         <StepIndicator current={step} reachedIndex={stepIndexFor(step)} />
         <OrgStep
@@ -194,29 +246,26 @@ export function CsProvisioningWizardPage() {
           keyword={orgKeyword}
           onKeywordChange={setOrgKeyword}
           onSearch={() => setOrgQuery(orgKeyword.trim())}
-          loading={orgsQuery.isLoading}
-          error={orgsQuery.error}
-          organizations={organizations}
+          loading={scope.loading}
+          error={scope.orgsError}
+          organizations={scope.organizations}
           selectedOrgId={orgId}
           onSelect={selectOrganization}
-          onRetry={() => void orgsQuery.refetch()}
+          onNext={() => setStep('workspace')}
+          onRetry={scope.refetchOrganizations}
         />
         <WorkspaceStep
           visible={step === 'workspace'}
           canWrite={canWrite}
-          loading={workspacesQuery.isLoading}
-          error={workspacesQuery.error}
-          workspaces={workspaces}
+          loading={scope.workspacesLoading}
+          error={scope.workspacesError}
+          workspaces={scope.workspaces}
           selectedOrg={selectedOrg}
           workspaceId={effectiveWorkspaceId}
-          onWorkspaceChange={(next) => {
-            setWorkspaceId(next)
-            setProvisioningResult(null)
-            setInstallation(null)
-          }}
-          onNext={() => setStep('identity')}
+          onWorkspaceChange={selectWorkspace}
+          onNext={goToIdentityStep}
           onBack={() => setStep('organization')}
-          onRetry={() => void workspacesQuery.refetch()}
+          onRetry={scope.refetchWorkspaces}
         />
         <IdentityStep
           visible={step === 'identity'}
@@ -315,9 +364,10 @@ function OrgStep(props: {
   onSearch: () => void
   loading: boolean
   error: unknown
-  organizations: OrganizationSummary[]
+  organizations: OrgWorkspaceOption[]
   selectedOrgId: string
   onSelect: (_orgId: string) => void
+  onNext: () => void
   onRetry: () => void
 }) {
   if (!props.visible) return null
@@ -371,6 +421,16 @@ function OrgStep(props: {
           <p className="text-xs text-muted-foreground">组织 ID 由选择器带入，禁止手工输入。</p>
         </div>
       )}
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <Button
+          className="w-full sm:w-auto"
+          data-testid="cs-provision-org-next"
+          disabled={props.selectedOrgId.length === 0}
+          onClick={props.onNext}
+        >
+          下一步：选择工作区
+        </Button>
+      </div>
     </section>
   )
 }
@@ -384,8 +444,8 @@ function WorkspaceStep(props: {
   canWrite: boolean
   loading: boolean
   error: unknown
-  workspaces: WorkspaceRow[]
-  selectedOrg: OrganizationSummary | null
+  workspaces: OrgWorkspaceOption[]
+  selectedOrg: OrgWorkspaceOption | null
   workspaceId: string
   onWorkspaceChange: (_workspaceId: string) => void
   onNext: () => void
@@ -451,7 +511,7 @@ function IdentityStep(props: {
   loading: boolean
   error: unknown
   members: OrganizationMemberRow[]
-  selectedWorkspace: WorkspaceRow | null
+  selectedWorkspace: OrgWorkspaceOption | null
   memberId: string
   onMemberChange: (_memberId: string) => void
   maxConcurrent: number

@@ -6,9 +6,9 @@ import { Headphones } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
+import { OrganizationWorkspacePicker } from '@/components/shared/OrganizationWorkspacePicker'
 import {
   CursorPaginationBar,
   DataTable,
@@ -21,6 +21,7 @@ import { useListQueryState } from '@/hooks/useListQueryState'
 import { getErrorMessage } from '@/lib/errorUtils'
 import type { EntityId } from '@/types/common'
 import { getPlatformCsSessions } from '../api/public'
+import { useOrgWorkspaceScope } from './useOrgWorkspaceScope'
 import {
   classifyListFailure,
   csSessionListStatusLabel,
@@ -32,8 +33,6 @@ import {
 const READ_PERMISSION = 'customer_service:read'
 
 type ListState = {
-  org: string
-  ws: string
   status: string
   limit: number
 }
@@ -46,13 +45,16 @@ type ListState = {
  * 列表投影走 C1 白名单（session summary）：visit_token_id / close_reason /
  * 任何 digest·secret·cipher 不渲染（CS-03-A05 列表级）。
  * 点击行进入会话详情路由（/customer-service/sessions/:id，详情走既有平台端点）。
+ *
+ * 租户范围（org/ws）统一用 EADM-06 共享选择器 + URL codec 管理（见 useOrgWorkspaceScope）。
  */
 export function PlatformCsSessionsPage() {
   const navigate = useNavigate()
-  const { state, setState } = useListQueryState<ListState>({ org: '', ws: '', status: 'all', limit: 50 })
+  const { state, setState } = useListQueryState<ListState>({ status: 'all', limit: 50 })
 
-  const organizationId = state.org.trim()
-  const workspaceId = state.ws.trim()
+  const scope = useOrgWorkspaceScope()
+  const organizationId = scope.organizationId ?? ''
+  const workspaceId = scope.workspaceId ?? ''
   const scopeReady = organizationId.length > 0 && workspaceId.length > 0
   const status = parseCsSessionStatusFilter(state.status)
   const limit = state.limit
@@ -82,6 +84,12 @@ export function PlatformCsSessionsPage() {
     resetCursor()
   }
 
+  // 租户范围变化一律重置游标（org/ws 由共享选择器经 URL codec 管理）
+  const setScope = (next: { organizationId: EntityId | null; workspaceId: EntityId | null }) => {
+    scope.onChange(next)
+    resetCursor()
+  }
+
   const goToNext = () => {
     const next = query.data?.next_after_id ?? null
     if (next === null) return
@@ -103,7 +111,7 @@ export function PlatformCsSessionsPage() {
   const openDetail = useCallback(
     (session: CsSessionSummary) => {
       navigate(
-        `/customer-service/sessions/${encodeURIComponent(session.id)}?org_id=${encodeURIComponent(organizationId)}&workspace_id=${encodeURIComponent(workspaceId)}`
+        `/customer-service/sessions/${encodeURIComponent(session.id)}?org=${encodeURIComponent(organizationId)}&ws=${encodeURIComponent(workspaceId)}`
       )
     },
     [navigate, organizationId, workspaceId]
@@ -209,24 +217,18 @@ export function PlatformCsSessionsPage() {
         </CardHeader>
         <CardContent className="grid gap-3 md:grid-cols-3">
           <div className="space-y-1.5">
-            <Label htmlFor="cs-sessions-org">组织 ID（organization_id）</Label>
-            <Input
-              id="cs-sessions-org"
-              value={state.org}
-              inputMode="numeric"
-              onChange={(event) => updateScope({ org: event.target.value })}
-              placeholder="TSID，例如 1234567890123456789"
+            <Label>组织 / 工作区</Label>
+            <OrganizationWorkspacePicker
+              organizationId={scope.organizationId}
+              workspaceId={scope.workspaceId}
+              organizations={scope.organizations}
+              workspaces={scope.workspaces}
+              loading={scope.loading}
+              onChange={setScope}
             />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="cs-sessions-ws">工作区 ID（workspace_id）</Label>
-            <Input
-              id="cs-sessions-ws"
-              value={state.ws}
-              inputMode="numeric"
-              onChange={(event) => updateScope({ ws: event.target.value })}
-              placeholder="TSID，例如 1234567890123456789"
-            />
+            <p className="text-xs text-muted-foreground">
+              组织/工作区来自共享选择器，上下文写入 URL（org/ws），刷新与分享后不丢失；禁止手填 TSID。
+            </p>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="cs-sessions-status">状态过滤（status）</Label>
