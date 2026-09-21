@@ -19,7 +19,8 @@ import {
   getOrganizations,
   restoreOrganization,
 } from '../api/public'
-import { OrganizationCreateDialog } from './OrganizationCreateDialog'
+// GZAPP-08：建企走 V2 双模式（registered 复用 EADM-01；pending_phone 建待激活 Owner）
+import { OrganizationCreateDialogV2 } from './OrganizationCreateDialogV2'
 import type { EntityId } from '@/types/common'
 import {
   classifyOrgError,
@@ -324,7 +325,7 @@ export function OrganizationListPage() {
         }}
       />
 
-      <OrganizationCreateDialog
+      <OrganizationCreateDialogV2
         open={createOpen}
         onOpenChange={setCreateOpen}
         onCreated={handleCreated}

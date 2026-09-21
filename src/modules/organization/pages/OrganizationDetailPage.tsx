@@ -21,6 +21,8 @@ import {
   orgStatusLabel,
 } from '../api/pureFunctions'
 import { OrganizationOwnerTransferDialog } from './OrganizationOwnerTransferDialog'
+// GZAPP-08 集成接线：把 GZAPP-06 的待激活 Owner 治理面板挂进组织详情页。
+import { PendingOwnerPanel } from './PendingOwnerPanel'
 
 const READ_PERMISSION = 'organizations:read'
 const WRITE_PERMISSION = 'organizations:write'
@@ -325,6 +327,10 @@ export function OrganizationDetailPage() {
           </p>
         </CardContent>
       </Card>
+
+      {/* 待激活 Owner（GZAPP-06/J02）：状态 + 重发 + 重新激活 + 按手机号换 Owner。
+          面板自带 organizations:write 门（无权限只读），无需父级再判一次。 */}
+      {organizationId.length > 0 ? <PendingOwnerPanel organizationId={organizationId} /> : null}
 
       <Card>
         <CardHeader>
