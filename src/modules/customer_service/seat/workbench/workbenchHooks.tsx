@@ -277,14 +277,14 @@ export function useSeatSessionViews(orgId: EntityId | null, workspaceId: EntityI
 
 export type SeatCasConflict = { sessionId: EntityId } | null
 
-export function useSeatClaim(orgId: EntityId | null) {
+export function useSeatClaim(orgId: EntityId | null, workspaceId: EntityId | null) {
   const { api } = useSeatWorkbenchGateway()
   const invalidate = useInvalidateSeatQueries()
   const [conflict, setConflict] = useState<SeatCasConflict>(null)
   const mutation = useMutation({
     mutationFn: async (input: { sessionId: EntityId; expectedVersion: number }) => {
-      if (orgId === null) throw new Error('seat claim requires organization')
-      await api.claim(orgId, input.sessionId, input.expectedVersion)
+      if (orgId === null || workspaceId === null) throw new Error('seat claim requires scope')
+      await api.claim(orgId, input.sessionId, workspaceId, input.expectedVersion)
       return input.sessionId
     },
     onSettled: (_data, error, variables) => {
@@ -300,14 +300,14 @@ export function useSeatClaim(orgId: EntityId | null) {
   return { ...mutation, conflict, clearConflict: () => setConflict(null) }
 }
 
-export function useSeatTransfer(orgId: EntityId | null, sessionId: EntityId | null) {
+export function useSeatTransfer(orgId: EntityId | null, sessionId: EntityId | null, workspaceId: EntityId | null) {
   const { api } = useSeatWorkbenchGateway()
   const invalidate = useInvalidateSeatQueries()
   const [conflict, setConflict] = useState(false)
   const mutation = useMutation({
     mutationFn: async (input: { toIdentityId: EntityId; expectedVersion: number }) => {
-      if (orgId === null || sessionId === null) throw new Error('seat transfer requires scope')
-      await api.transfer(orgId, sessionId, input)
+      if (orgId === null || sessionId === null || workspaceId === null) throw new Error('seat transfer requires scope')
+      await api.transfer(orgId, sessionId, workspaceId, input)
     },
     onSettled: (_data, error) => {
       invalidate('sessions', 'detail')
@@ -317,14 +317,14 @@ export function useSeatTransfer(orgId: EntityId | null, sessionId: EntityId | nu
   return { ...mutation, conflict }
 }
 
-export function useSeatClose(orgId: EntityId | null, sessionId: EntityId | null) {
+export function useSeatClose(orgId: EntityId | null, sessionId: EntityId | null, workspaceId: EntityId | null) {
   const { api } = useSeatWorkbenchGateway()
   const invalidate = useInvalidateSeatQueries()
   const [conflict, setConflict] = useState(false)
   const mutation = useMutation({
     mutationFn: async (input: { expectedVersion: number; reason?: string }) => {
-      if (orgId === null || sessionId === null) throw new Error('seat close requires scope')
-      await api.close(orgId, sessionId, input)
+      if (orgId === null || sessionId === null || workspaceId === null) throw new Error('seat close requires scope')
+      await api.close(orgId, sessionId, workspaceId, input)
     },
     onSettled: (_data, error) => {
       invalidate('sessions', 'detail')
@@ -338,12 +338,19 @@ export function useSeatClose(orgId: EntityId | null, sessionId: EntityId | null)
 // 详情 / 消息 / 发送（client_msg_id 幂等复用）/ 转接目标
 // ---------------------------------------------------------------------------
 
-export function useSeatSessionDetail(orgId: EntityId | null, sessionId: EntityId | null) {
+/**
+ * 详情（DF-9：query 必带 workspace_id——handler 级必填，缺失真实后端 422）。
+ */
+export function useSeatSessionDetail(
+  orgId: EntityId | null,
+  sessionId: EntityId | null,
+  workspaceId: EntityId | null,
+) {
   const { api } = useSeatWorkbenchGateway()
   return useQuery({
-    queryKey: [SEAT_QUERY_ROOT_KEY, 'detail', orgId, sessionId],
-    enabled: orgId !== null && sessionId !== null,
-    queryFn: () => api.fetchDetail(orgId as EntityId, sessionId as EntityId),
+    queryKey: [SEAT_QUERY_ROOT_KEY, 'detail', orgId, sessionId, workspaceId],
+    enabled: orgId !== null && sessionId !== null && workspaceId !== null,
+    queryFn: () => api.fetchDetail(orgId as EntityId, sessionId as EntityId, workspaceId as EntityId),
   })
 }
 
@@ -366,8 +373,15 @@ export type SeatSendState = {
 /**
  * 发送状态机：client_msg_id 在「草稿 → 成功」区间内复用——失败后 retry()
  * 用同一 id 重发（服务端同 id 幂等返回同一 message），成功后清空。
+ * DF-9：真实合同（企业真源写路径）要求 workspace_id + 本人 identity_id
+ * （缺失 identity_id 真链 500 identity_required）——二者来自坐席上下文 scope。
  */
-export function useSeatSend(orgId: EntityId | null, conversationId: EntityId | null): SeatSendState {
+export function useSeatSend(
+  orgId: EntityId | null,
+  conversationId: EntityId | null,
+  workspaceId: EntityId | null,
+  myIdentityId: EntityId | null,
+): SeatSendState {
   const { api } = useSeatWorkbenchGateway()
   const invalidate = useInvalidateSeatQueries()
   const clientMsgIdRef = useRef<string | null>(null)
@@ -377,13 +391,18 @@ export function useSeatSend(orgId: EntityId | null, conversationId: EntityId | n
 
   const mutate = useCallback(
     (body: string, clientMsgId: string) => {
-      if (orgId === null || conversationId === null) {
+      if (orgId === null || conversationId === null || workspaceId === null || myIdentityId === null) {
         setSendError(new Error('seat send requires scope'))
         return
       }
       setPending(true)
       setSendError(null)
-      api.sendMessage(orgId, conversationId, { body, clientMsgId })
+      api.sendMessage(orgId, conversationId, {
+        body,
+        clientMsgId,
+        workspaceId,
+        identityId: myIdentityId,
+      })
         .then(() => {
           clientMsgIdRef.current = null
           draftRef.current = null
@@ -396,7 +415,7 @@ export function useSeatSend(orgId: EntityId | null, conversationId: EntityId | n
         })
         .finally(() => setPending(false))
     },
-    [api, orgId, conversationId, invalidate],
+    [api, orgId, conversationId, workspaceId, myIdentityId, invalidate],
   )
 
   const send = useCallback(

@@ -21,10 +21,19 @@ import { isRecord, nonEmptyString, parseSeatJson } from './tsid'
 export const SEAT_API_BASE = '/api/v1'
 
 /** Seat 域允许的路径前缀：客服坐席面 + QR 登录免登录合同面。
- * SEAT-02 增补 `/api/v1/enterprise/conversations/`：坐席消息历史/发送合同路径族
- * （cs_actions conversation_messages：auth_context=cs_seat + conversation.read，
- * 与访客/治理面无关）；仍走同前缀精确 allowlist，`/api/adm` 等一律拒绝（A01 不变）。 */
-const SEAT_PATH_PREFIXES = ['/api/v1/cs/', '/api/v1/passport/qr_login/', '/api/v1/enterprise/conversations/'] as const
+ * SEAT-02 增补 `/api/v1/enterprise/conversations/`：坐席消息历史合同路径族
+ * （cs_actions conversation_messages GET：auth_context=cs_seat + conversation.read，
+ * 与访客/治理面无关）；
+ * DF-9 增补 `/api/v1/enterprise/organizations/`：坐席发送消息的企业真源写路径族
+ * （POST /enterprise/organizations/:org/conversations/:id/messages，
+ * eb_tenant_handler conversation_messages；职能白名单 sales|customer_service）。
+ * 均走前缀精确 allowlist，`/api/adm` 等一律拒绝（A01 不变）。 */
+const SEAT_PATH_PREFIXES = [
+  '/api/v1/cs/',
+  '/api/v1/passport/qr_login/',
+  '/api/v1/enterprise/conversations/',
+  '/api/v1/enterprise/organizations/',
+] as const
 
 /** 一次性 QR session_token 唯一允许进查询串的合同路径（status/subscribe）。 */
 export const QR_SESSION_TOKEN_QUERY_PATHS = [

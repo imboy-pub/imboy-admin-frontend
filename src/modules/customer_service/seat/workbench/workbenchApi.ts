@@ -10,6 +10,7 @@
  */
 import {
   buildConversationMessagesPath,
+  buildConversationSendPath,
   buildSeatQueuePath,
   buildSeatSessionActionPath,
   buildSeatSessionDetailPath,
@@ -30,6 +31,7 @@ export type { SeatSessionCounts, SeatSessionPage } from './contract'
 import type { SeatApiClient } from '../seatApiClient'
 import type { EntityId, SeatContextsResult } from '../types'
 import { fetchSeatContexts } from '../seatContexts'
+import { isRecord } from '../tsid'
 
 export type SeatPageQuery = {
   afterId?: EntityId | null
@@ -86,9 +88,15 @@ export class SeatWorkbenchApi {
     return toSeatSessionPage(payload)
   }
 
-  /** 会话详情（权威事实源；版本/CAS 基准从这里来）。 */
-  async fetchDetail(orgId: EntityId, sessionId: EntityId): Promise<SeatSessionDetail> {
-    const payload = await this.client.request(buildSeatSessionDetailPath(orgId, sessionId))
+  /**
+   * 会话详情（权威事实源；版本/CAS 基准从这里来）。
+   * DF-9：session_detail 的 workspace_id 是 handler 级必填（cs_http：缺失
+   * 422 missing_workspace_id，不取默认值）——query 必带 workspace_id。
+   */
+  async fetchDetail(orgId: EntityId, sessionId: EntityId, workspaceId: EntityId): Promise<SeatSessionDetail> {
+    const payload = await this.client.request(buildSeatSessionDetailPath(orgId, sessionId), {
+      query: { workspace_id: workspaceId },
+    })
     return toSeatSessionDetail(payload)
   }
 
@@ -103,46 +111,73 @@ export class SeatWorkbenchApi {
 
   /**
    * 发送坐席消息（client_msg_id 幂等：重试复用同 id，同 id 返回同一 message）。
+   * DF-9 对齐真实合同（eb_tenant_handler conversation_messages POST）：
+   * - 路径必带 /organizations/:org 段（cs 段 /enterprise/conversations/:id/messages
+   *   只登记 GET，POST 真实后端 405）；
+   * - body = {body, client_msg_id, workspace_id, sender_type, identity_id}
+   *   （workspace_id handler 级必填 422；sender_type 表内必填 422；
+   *   identity_id 缺失真链 500 identity_required——取自坐席上下文本人身份）；
+   * - 响应载荷 = {message:{...}}，解包后投影。
    * body 非空校验在调用方（UI composer）；空 body 不发请求。
    */
   async sendMessage(
     orgId: EntityId,
     conversationId: EntityId,
-    input: { body: string; clientMsgId: string },
+    input: { body: string; clientMsgId: string; workspaceId: EntityId; identityId: EntityId },
   ): Promise<SeatMessage> {
-    void orgId
-    const payload = await this.client.request(buildConversationMessagesPath(conversationId), {
+    const payload = await this.client.request(buildConversationSendPath(orgId, conversationId), {
       method: 'POST',
-      body: { body: input.body, client_msg_id: input.clientMsgId },
+      body: {
+        body: input.body,
+        client_msg_id: input.clientMsgId,
+        workspace_id: input.workspaceId,
+        sender_type: 'business_identity',
+        identity_id: input.identityId,
+      },
     })
-    const message = toSeatMessage(payload)
+    // 真实载荷 {message:{...}}（agent-api.ts reply：envelope<{message:{id}}>）。
+    const row = isRecord(payload) ? payload.message : null
+    const message = toSeatMessage(row)
     if (message === null) throw new TypeError('seat send message payload invalid')
     return message
   }
 
-  /** CAS 接单：expected_version 不匹配 → 409 conflict（调用方刷新真实状态）。 */
-  async claim(orgId: EntityId, sessionId: EntityId, expectedVersion: number): Promise<void> {
+  /**
+   * CAS 接单：expected_version 不匹配 → 409 conflict（调用方刷新真实状态）。
+   * DF-9：workspace_id 是 handler 级必填（缺失真实后端 422 missing_workspace_id）。
+   */
+  async claim(orgId: EntityId, sessionId: EntityId, workspaceId: EntityId, expectedVersion: number): Promise<void> {
     await this.client.request(buildSeatSessionActionPath(orgId, sessionId, 'claim'), {
       method: 'POST',
-      body: { expected_version: expectedVersion },
+      body: { workspace_id: workspaceId, expected_version: expectedVersion },
     })
   }
 
-  /** CAS 转接（to_identity_id 来自 transfer-targets 投影）。 */
+  /** CAS 转接（to_identity_id 来自 transfer-targets 投影；workspace_id 必填）。 */
   async transfer(
     orgId: EntityId,
     sessionId: EntityId,
+    workspaceId: EntityId,
     input: { toIdentityId: EntityId; expectedVersion: number },
   ): Promise<void> {
     await this.client.request(buildSeatSessionActionPath(orgId, sessionId, 'transfer'), {
       method: 'POST',
-      body: { to_identity_id: input.toIdentityId, expected_version: input.expectedVersion },
+      body: {
+        to_identity_id: input.toIdentityId,
+        expected_version: input.expectedVersion,
+        workspace_id: workspaceId,
+      },
     })
   }
 
-  /** CAS 关闭（reason 可选；closed 视图随后由权威刷新收敛）。 */
-  async close(orgId: EntityId, sessionId: EntityId, input: { expectedVersion: number; reason?: string }): Promise<void> {
-    const body: Record<string, unknown> = { expected_version: input.expectedVersion }
+  /** CAS 关闭（reason 可选；closed 视图随后由权威刷新收敛；workspace_id 必填）。 */
+  async close(
+    orgId: EntityId,
+    sessionId: EntityId,
+    workspaceId: EntityId,
+    input: { expectedVersion: number; reason?: string },
+  ): Promise<void> {
+    const body: Record<string, unknown> = { expected_version: input.expectedVersion, workspace_id: workspaceId }
     if (typeof input.reason === 'string' && input.reason.length > 0) body.reason = input.reason
     await this.client.request(buildSeatSessionActionPath(orgId, sessionId, 'close'), {
       method: 'POST',

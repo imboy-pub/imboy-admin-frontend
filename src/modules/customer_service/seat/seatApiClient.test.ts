@@ -67,10 +67,13 @@ describe('A01 域隔离（路径门）', () => {
     expect(() => assertSeatApiPath('/api/v1/cs/me/seat-contexts')).not.toThrow()
   })
 
-  it('Seat 域路径（cs + qr_login 合同面）全部放行', () => {
+  it('Seat 域路径（cs + qr_login + enterprise 合同面）全部放行', () => {
     expect(() => assertSeatApiPath('/api/v1/cs/me/seat-contexts')).not.toThrow()
     expect(() => assertSeatApiPath('/api/v1/cs/organizations/123/seats/me/events')).not.toThrow()
     expect(() => assertSeatApiPath('/api/v1/passport/qr_login/status')).not.toThrow()
+    expect(() => assertSeatApiPath('/api/v1/enterprise/conversations/456/messages')).not.toThrow()
+    // DF-9：坐席发送消息走企业真源写路径（带 /organizations/:org 段）。
+    expect(() => assertSeatApiPath('/api/v1/enterprise/organizations/123/conversations/456/messages')).not.toThrow()
   })
 
   it('请求不带 Cookie（credentials: omit）且 Bearer 只进 Authorization 头', async () => {

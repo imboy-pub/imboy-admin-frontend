@@ -12,6 +12,7 @@ import { describe, expect, it } from 'bun:test'
 import {
   SEAT_ASSET_CONTENT_PATH_TEMPLATE,
   buildConversationMessagesPath,
+  buildConversationSendPath,
   buildSeatQueuePath,
   buildSeatSessionActionPath,
   buildSeatSessionDetailPath,
@@ -182,6 +183,10 @@ describe('路径构造（Seat 域 + A03 附件代理不变量）', () => {
     expect(buildSeatSessionActionPath(ORG, SESSION, 'claim')).toBe(`/cs/organizations/${ORG}/sessions/${SESSION}/claim`)
     expect(buildSeatSessionDetailPath(ORG, SESSION)).toBe(`/cs/organizations/${ORG}/sessions/${SESSION}`)
     expect(buildConversationMessagesPath(CONV)).toBe(`/enterprise/conversations/${CONV}/messages`)
+    // DF-9：发送走企业真源写路径（必带 /organizations/:org 段；cs 段 POST 405）。
+    expect(buildConversationSendPath(ORG, CONV)).toBe(
+      `/enterprise/organizations/${ORG}/conversations/${CONV}/messages`,
+    )
     expect(buildTransferTargetsPath(ORG)).toBe(`/cs/organizations/${ORG}/transfer-targets`)
   })
 

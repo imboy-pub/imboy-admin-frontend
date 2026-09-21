@@ -20,9 +20,11 @@ import { SeatWorkspacePage } from './SeatWorkspacePage'
 import {
   CONV,
   FakeSseStream,
+  IDENTITY,
   ORG,
   SeatFakeBackend,
   SESSION,
+  WS,
   envelopeFrame,
   makeGateway,
   sleep,
@@ -284,14 +286,26 @@ describe('SeatWorkspacePage 工作台（A01/A02/A03/A04/A05/A06）', () => {
     await waitFor(() => expect(view.getByTestId('seat-send-error')).toBeDefined())
     fireEvent.click(view.getByTestId('seat-send-retry'))
     // 幂等：两次 POST（一失败一成功）是同一 client_msg_id（失败请求也进 calls 日志）。
+    // DF-9：发送走企业真源写路径（/enterprise/organizations/:org/conversations/:id/messages）。
     await waitFor(() => {
       const bodies = backend.calls
-        .filter((call) => call.method === 'POST' && call.path.includes(`/enterprise/conversations/${CONV}/messages`))
+        .filter((call) => call.method === 'POST' && call.path.includes(`/conversations/${CONV}/messages`))
         .map((call) => (JSON.parse(call.body || '{}') as { client_msg_id?: string }).client_msg_id ?? '')
       expect(bodies.length).toBe(2)
       expect(bodies[0]).toBe(bodies[1])
       expect(bodies[0]?.length).toBeGreaterThan(0)
     })
+    // DF-9 真实合同逐键：发送 body 必带 workspace_id / sender_type / identity_id。
+    const sendCalls = backend.calls.filter(
+      (call) => call.method === 'POST' && call.path === `/api/v1/enterprise/organizations/${ORG}/conversations/${CONV}/messages`,
+    )
+    expect(sendCalls.length).toBe(2)
+    const firstSend = JSON.parse(sendCalls[0]?.body ?? '{}') as Record<string, unknown>
+    expect(firstSend.workspace_id).toBe(WS)
+    expect(firstSend.sender_type).toBe('business_identity')
+    expect(firstSend.identity_id).toBe(IDENTITY)
+    // 假后端按真实合同受理：重试那次通过逐键校验并进入幂等登记。
+    expect(backend.sentClientMsgIds).toHaveLength(1)
   })
 
   it('A05：tablist/tab 语义 + 会话列表键盘可达（原生 button 焦点路径）', async () => {

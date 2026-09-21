@@ -6,16 +6,23 @@
  * - GET  /api/v1/cs/organizations/:org_id/seats/sessions?status=    active/closed 两视图
  *   响应 {sessions:[seat_session_view], total, total_by_status, next_after_id}
  *   ——分页计数是服务端事实，客户端禁止本地推断；
- * - POST /api/v1/cs/organizations/:org_id/sessions/:id/claim        {expected_version} CAS
- * - POST /api/v1/cs/organizations/:org_id/sessions/:id/transfer     {to_identity_id, expected_version}
- * - POST /api/v1/cs/organizations/:org_id/sessions/:id/close        {expected_version, reason?}
- * - GET  /api/v1/cs/organizations/:org_id/sessions/:id              detail（权威事实源）
+ * - POST /api/v1/cs/organizations/:org_id/sessions/:id/claim        {workspace_id, expected_version} CAS
+ * - POST /api/v1/cs/organizations/:org_id/sessions/:id/transfer     {to_identity_id, expected_version, workspace_id}
+ * - POST /api/v1/cs/organizations/:org_id/sessions/:id/close        {expected_version, workspace_id, reason?}
+ *   （DF-9：workspace_id 是 cs_http handler 级必填——缺失 422 missing_workspace_id；
+ *   值来自坐席上下文 scope，不取默认值）
+ * - GET  /api/v1/cs/organizations/:org_id/sessions/:id?workspace_id=  detail（权威事实源；query 必带 workspace_id）
  * - GET  /api/v1/enterprise/conversations/:conv_id/messages         历史（键集 after_id/limit）
  *   响应载荷 = 裸数组（eb list_messages_after → {ok, [map()]}；兼容 {messages} 旧形）
- * - POST /api/v1/enterprise/conversations/:conv_id/messages         {body, client_msg_id}
+ * - POST /api/v1/enterprise/organizations/:org_id/conversations/:conv_id/messages
+ *   {body, client_msg_id, workspace_id, sender_type:'business_identity', identity_id}
+ *   响应载荷 = {message:{...}}（DF-9：坐席发送走企业真源写路径，带 /organizations/:org 段；
+ *   cs 段 /enterprise/conversations/:conv_id/messages 仅登记 GET——POST 真实后端 405；
+ *   workspace_id 为 handler 级必填——缺失 422 missing_workspace_id）
  *   ——client_msg_id 幂等：同 id 重试返回同一 message；
- *   （该路径族 auth_context=cs_seat + conversation.read/write，属 Seat 域合同面；
- *   SeatApiClient 域 allowlist 已按前缀精确放行，A01 的 /api/adm 拒绝不变。）
+ *   （该路径族 auth_context=cs_seat/enterprise_member + conversation.read/write，
+ *   属 Seat 域合同面；SeatApiClient 域 allowlist 已按前缀精确放行，
+ *   A01 的 /api/adm 拒绝不变。）
  * - GET  /api/v1/cs/organizations/:org_id/transfer-targets          {targets, next_after_id}
  * - 附件只经 content 代理路径展示；全链不出现 object key / upload URL / JWT。
  */
@@ -302,6 +309,17 @@ export function buildSeatSessionDetailPath(orgId: EntityId, sessionId: EntityId)
 /** 会话历史/发送路径族（合同：/api/v1/enterprise/conversations/:conv_id/messages；org 由 seat 事实派生）。 */
 export function buildConversationMessagesPath(conversationId: EntityId): string {
   return `/enterprise/conversations/${encodeURIComponent(conversationId)}/messages`
+}
+
+/**
+ * DF-9：坐席发送消息走企业真源写路径（eb_tenant_handler conversation_messages
+ * POST append_message；cs 段 /enterprise/conversations/:conv/messages 只登记
+ * GET list_messages——POST 该路径真实后端 405）。路径必带 /organizations/:org 段。
+ * 实调形状（e2e agent-api.ts reply，9802 真链实测）：
+ * POST {body, client_msg_id, workspace_id, sender_type:'business_identity', identity_id}。
+ */
+export function buildConversationSendPath(orgId: EntityId, conversationId: EntityId): string {
+  return `/enterprise/organizations/${encodeURIComponent(orgId)}/conversations/${encodeURIComponent(conversationId)}/messages`
 }
 
 export function buildTransferTargetsPath(orgId: EntityId): string {

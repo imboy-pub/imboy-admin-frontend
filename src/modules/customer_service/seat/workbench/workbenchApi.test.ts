@@ -3,8 +3,11 @@
  *
  * 覆盖：
  * - 队列/两视图键集分页查询串（after_id/limit/workspace_id）与响应投影；
- * - claim/transfer/close：CAS 请求体（expected_version）+ 409 → conflict 分类；
- * - 消息历史裸数组载荷 + 发送 client_msg_id 幂等请求体；
+ * - claim/transfer/close：CAS 请求体（expected_version + workspace_id 必填，
+ *   DF-9 真实合同）+ 409 → conflict 分类；
+ * - 会话详情 query 必带 workspace_id（DF-9：缺失真实后端 422）；
+ * - 消息历史裸数组载荷 + 发送企业真源写路径（{message:{...}} 载荷、
+ *   workspace_id/sender_type/identity_id 逐键，DF-9）；
  * - TSID 大整数精度保护（原始 JSON 文本经 parseSeatJson）；
  * - 域隔离不变量（/api/adm 仍被拒，A01 不因 enterprise 前缀增补而松动）。
  */
@@ -15,9 +18,11 @@ import { isSeatApiError } from '../errors'
 import { seatTokenVault } from '../seatAuthStore'
 
 const ORG = '2000000000000000002'
+const WS = '3000000000000000003'
 const SESSION = '72057594037927937'
 const CONV = '5000000000000000005'
 const TARGET = '6000000000000000006'
+const IDENTITY = '6000000000000000006'
 
 type RecordedCall = { url: string; init: RequestInit | undefined }
 
@@ -85,12 +90,12 @@ describe('列表合同（queue / active / closed）', () => {
 })
 
 describe('CAS 写合同（claim / transfer / close）', () => {
-  it('claim：POST {expected_version}；请求体逐键', async () => {
+  it('claim：POST {workspace_id, expected_version}；请求体逐键（DF-9）', async () => {
     const { calls, api } = makeFetch(() => envelope('{}'))
-    await api.claim(ORG, SESSION, 7)
+    await api.claim(ORG, SESSION, WS, 7)
     expect(calls[0]?.url).toBe(`/api/v1/cs/organizations/${ORG}/sessions/${SESSION}/claim`)
     expect(calls[0]?.init?.method).toBe('POST')
-    expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({ expected_version: 7 })
+    expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({ workspace_id: WS, expected_version: 7 })
   })
 
   it('A01：两坐席并发 claim 同版本，恰一成功、另一方 409 conflict', async () => {
@@ -109,7 +114,7 @@ describe('CAS 写合同（claim / transfer / close）', () => {
       }
       return envelope('{}')
     })
-    const results = await Promise.allSettled([api.claim(ORG, SESSION, 7), api2.claim(ORG, SESSION, 7)])
+    const results = await Promise.allSettled([api.claim(ORG, SESSION, WS, 7), api2.claim(ORG, SESSION, WS, 7)])
     expect(claims).toBe(2)
     const fulfilled = results.filter((r) => r.status === 'fulfilled')
     const rejected = results.filter((r) => r.status === 'rejected')
@@ -120,19 +125,40 @@ describe('CAS 写合同（claim / transfer / close）', () => {
     expect((error as { kind: string }).kind).toBe('conflict')
   })
 
-  it('transfer：{to_identity_id, expected_version} 逐键', async () => {
+  it('transfer：{to_identity_id, expected_version, workspace_id} 逐键（DF-9）', async () => {
     const { calls, api } = makeFetch(() => envelope('{}'))
-    await api.transfer(ORG, SESSION, { toIdentityId: TARGET, expectedVersion: 9 })
+    await api.transfer(ORG, SESSION, WS, { toIdentityId: TARGET, expectedVersion: 9 })
     expect(calls[0]?.url).toBe(`/api/v1/cs/organizations/${ORG}/sessions/${SESSION}/transfer`)
-    expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({ to_identity_id: TARGET, expected_version: 9 })
+    expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({
+      to_identity_id: TARGET,
+      expected_version: 9,
+      workspace_id: WS,
+    })
   })
 
-  it('close：{expected_version, reason?}；缺 reason 不带键', async () => {
+  it('close：{expected_version, workspace_id, reason?}；缺 reason 不带键（DF-9）', async () => {
     const { calls, api } = makeFetch(() => envelope('{}'))
-    await api.close(ORG, SESSION, { expectedVersion: 11, reason: 'visitor_left' })
-    await api.close(ORG, SESSION, { expectedVersion: 12 })
-    expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({ expected_version: 11, reason: 'visitor_left' })
-    expect(JSON.parse(String(calls[1]?.init?.body))).toEqual({ expected_version: 12 })
+    await api.close(ORG, SESSION, WS, { expectedVersion: 11, reason: 'visitor_left' })
+    await api.close(ORG, SESSION, WS, { expectedVersion: 12 })
+    expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({
+      expected_version: 11,
+      workspace_id: WS,
+      reason: 'visitor_left',
+    })
+    expect(JSON.parse(String(calls[1]?.init?.body))).toEqual({ expected_version: 12, workspace_id: WS })
+  })
+
+  it('detail：GET query 必带 workspace_id（DF-9：缺失真实后端 422）', async () => {
+    const { calls, api } = makeFetch(() =>
+      envelope(
+        `{"id":${SESSION},"organization_id":"${ORG}","workspace_id":"${WS}","status":"queued","version":7,` +
+          `"contact":{"masked_name":"李***","display_name":"李***"},"source":"widget"}`,
+      ),
+    )
+    const detail = await api.fetchDetail(ORG, SESSION, WS)
+    expect(calls[0]?.url).toBe(`/api/v1/cs/organizations/${ORG}/sessions/${SESSION}?workspace_id=${WS}`)
+    expect(detail.id).toBe(SESSION)
+    expect(detail.version).toBe(7)
   })
 })
 
@@ -146,11 +172,28 @@ describe('消息合同（历史 + 幂等发送）', () => {
     expect(list[0]?.id).toBe('9000000000000000009')
   })
 
-  it('发送：POST {body, client_msg_id}（幂等键在请求体，不在 URL）', async () => {
-    const { calls, api } = makeFetch(() => envelope('{"id":9000000000000000010,"sender_type":"seat","body":"您好"}'))
-    const message = await api.sendMessage(ORG, CONV, { body: '您好', clientMsgId: 'seat-cm-1' })
+  it('发送：POST 企业真源写路径（/organizations/:org 段 + 全键 body + {message} 载荷，DF-9）', async () => {
+    const { calls, api } = makeFetch(() =>
+      envelope(
+        `{"message":{"id":9000000000000000010,"sender_type":"business_identity","body":"您好","client_msg_id":"seat-cm-1"}}`,
+      ),
+    )
+    const message = await api.sendMessage(ORG, CONV, {
+      body: '您好',
+      clientMsgId: 'seat-cm-1',
+      workspaceId: WS,
+      identityId: IDENTITY,
+    })
     expect(calls[0]?.init?.method).toBe('POST')
-    expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({ body: '您好', client_msg_id: 'seat-cm-1' })
+    // DF-9：真实路径必带 /organizations/:org 段（cs 段旧路径 POST 真实后端 405）。
+    expect(calls[0]?.url).toBe(`/api/v1/enterprise/organizations/${ORG}/conversations/${CONV}/messages`)
+    expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({
+      body: '您好',
+      client_msg_id: 'seat-cm-1',
+      workspace_id: WS,
+      sender_type: 'business_identity',
+      identity_id: IDENTITY,
+    })
     expect(message.id).toBe('9000000000000000010')
     expect(calls[0]?.url).not.toContain('seat-cm-1')
   })

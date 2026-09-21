@@ -2,8 +2,11 @@
  * SEAT-02 组件层测试替身（仅测试引用；非生产代码）。
  *
  * 设计约束（与 SEAT-01 合同测试同款口径）：
- * - 不 mock 合同形状——假后端按 cs_actions 冻结动作表的真实 wire 形状回包
- *   （{code,msg,payload} 信封 / TSID 大整数字面量 / 键集分页 / CAS 409）；
+ * - 不 mock 合同形状——假后端按 cs_actions / eb_enterprise_actions 冻结动作表的
+ *   真实 wire 形状回包（{code,msg,payload} 信封 / TSID 大整数字面量 / 键集分页 /
+ *   CAS 409 / workspace_id handler 级必填 422 / 发送走企业真源 {message:{...}} 载荷）
+ *   ——DF-9 修订：此前固化的是错误合同（发送 POST 405 路径、写动作缺 workspace_id），
+ *   正是缺陷根因，本替身现在逐处镜像真实后端；
  * - SSE 用可编程 ReadableStream 持流，测试逐帧推 §3.6 合同信封；
  * - 全部形状校验走生产投影（fail-closed），替身只负责「像后端一样回包」。
  */
@@ -54,6 +57,11 @@ function ok(payloadText: string): Response {
 
 function conflict(): Response {
   return new Response('{"code":409,"msg":"session version conflict","payload":{}}', { status: 409 })
+}
+
+/** DF-9 真实合同：workspace_id 为 handler 级必填，缺失 → 422 missing_workspace_id。 */
+function missingWorkspace(): Response {
+  return new Response('{"code":422,"msg":"missing_workspace_id","payload":{}}', { status: 422 })
 }
 
 function serverError(): Response {
@@ -158,31 +166,68 @@ export class SeatFakeBackend {
       return ok(pageText(view, rowVersion))
     }
     if (path === `/api/v1/cs/organizations/${ORG}/sessions/${SESSION}`) {
+      // DF-9 真实合同：session detail 的 workspace_id 走 query 且必填
+      // （cs_actions session_detail 无 workspace=>optional 宽松项 → 缺失 422）。
+      const ws = new URL(url, 'http://localhost').searchParams.get('workspace_id')
+      if (ws !== WS) return missingWorkspace()
       return ok(sessionRowText(this.state.sessionStatus, this.state.version))
     }
     if (path === `/api/v1/cs/organizations/${ORG}/sessions/${SESSION}/claim`) {
       this.state.claimAttempts += 1
-      const body = JSON.parse(String(init?.body ?? '{}')) as { expected_version?: number }
+      const body = JSON.parse(String(init?.body ?? '{}')) as { expected_version?: number; workspace_id?: string }
+      // DF-9 真实合同：写动作 body 必带 workspace_id（cs_http 缺失 422，不取默认值）。
+      if (body.workspace_id !== WS) return missingWorkspace()
       if (this.state.claimAlwaysConflict || body.expected_version !== this.state.version) return conflict()
       this.state.version += 1
       this.state.sessionStatus = 'active'
       return ok('{}')
     }
-    if (path === `/api/v1/cs/organizations/${ORG}/sessions/${SESSION}/transfer`) return ok('{}')
+    if (path === `/api/v1/cs/organizations/${ORG}/sessions/${SESSION}/transfer`) {
+      const body = JSON.parse(String(init?.body ?? '{}')) as { workspace_id?: string }
+      if (body.workspace_id !== WS) return missingWorkspace()
+      return ok('{}')
+    }
     if (path === `/api/v1/cs/organizations/${ORG}/sessions/${SESSION}/close`) {
+      const body = JSON.parse(String(init?.body ?? '{}')) as { workspace_id?: string }
+      if (body.workspace_id !== WS) return missingWorkspace()
       this.state.version += 1
       this.state.sessionStatus = 'closed'
       return ok('{}')
     }
     if (path === `/api/v1/enterprise/conversations/${CONV}/messages`) {
       if (method === 'POST') {
-        const body = JSON.parse(String(init?.body ?? '{}')) as { client_msg_id?: string }
-        this.sentClientMsgIds.push(body.client_msg_id ?? '')
-        // 幂等：同 client_msg_id 返回同一 message。
-        return ok(`{"id":9000000000000000011,"sender_type":"seat","body":"收到","client_msg_id":"${body.client_msg_id ?? ''}"}`)
+        // DF-9 真实合同：cs 段 /enterprise/conversations/:conv/messages 只登记
+        // GET（cs_actions conversation_messages 无 POST case）→ POST 405。
+        // 旧前端把发送 POST 到此路径即 DF-9 缺陷本体（固化错误合同的实证）。
+        return new Response('{"code":405,"msg":"method not allowed","payload":{}}', { status: 405 })
       }
       this.messageFetchCount += 1
       return ok(MESSAGES_TEXT)
+    }
+    if (path === `/api/v1/enterprise/organizations/${ORG}/conversations/${CONV}/messages` && method === 'POST') {
+      // DF-9 真实合同（eb_tenant_handler conversation_messages POST append_message；
+      // e2e agent-api.ts reply 实调形状，9802 真链实测）：
+      // body 必带 {body, client_msg_id, workspace_id, sender_type, identity_id}，
+      // 缺一即 422（identity_id 缺失真链 500 identity_required）；
+      // 响应载荷 = {message:{...}}。
+      const parsed = JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>
+      const clientMsgId = typeof parsed.client_msg_id === 'string' ? parsed.client_msg_id : ''
+      if (
+        parsed.workspace_id !== WS ||
+        clientMsgId.length === 0 ||
+        typeof parsed.body !== 'string' ||
+        parsed.body.length === 0 ||
+        parsed.sender_type !== 'business_identity' ||
+        typeof parsed.identity_id !== 'string' ||
+        parsed.identity_id.length === 0
+      ) {
+        return new Response('{"code":422,"msg":"missing required message fields","payload":{}}', { status: 422 })
+      }
+      this.sentClientMsgIds.push(clientMsgId)
+      // 幂等：同 client_msg_id 返回同一 message（载荷 {message:{...}}）。
+      return ok(
+        `{"message":{"id":9000000000000000011,"sender_type":"business_identity","body":"收到","client_msg_id":"${clientMsgId}"}}`,
+      )
     }
     if (path === `/api/v1/cs/organizations/${ORG}/transfer-targets`) return ok(TRANSFER_TARGETS_TEXT)
     return new Response('{"code":404,"msg":"not found","payload":{}}', { status: 404 })

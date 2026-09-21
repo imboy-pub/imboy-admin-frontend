@@ -114,15 +114,29 @@ function SeatWorkspaceInner() {
   const detailQuery = useSeatSessionDetail(
     scope.organizationId,
     selectedSessionId,
+    scope.workspaceId,
   );
   const detail = detailQuery.data ?? null;
 
   const conversationId = detail?.conversationId ?? null;
   const messagesQuery = useSeatMessages(scope.organizationId, conversationId);
-  const send = useSeatSend(scope.organizationId, conversationId);
-  const claim = useSeatClaim(scope.organizationId);
-  const transfer = useSeatTransfer(scope.organizationId, selectedSessionId);
-  const close = useSeatClose(scope.organizationId, selectedSessionId);
+  const send = useSeatSend(
+    scope.organizationId,
+    conversationId,
+    scope.workspaceId,
+    scope.myIdentityId,
+  );
+  const claim = useSeatClaim(scope.organizationId, scope.workspaceId);
+  const transfer = useSeatTransfer(
+    scope.organizationId,
+    selectedSessionId,
+    scope.workspaceId,
+  );
+  const close = useSeatClose(
+    scope.organizationId,
+    selectedSessionId,
+    scope.workspaceId,
+  );
   const transferTargetsQuery = useSeatTransferTargets(
     scope.organizationId,
     scope.canWrite &&
