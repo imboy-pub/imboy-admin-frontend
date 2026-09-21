@@ -2,8 +2,17 @@
  * EADM-04 创建组织对话框组件级单测。
  *
  * ⚠️ 替身：client.get/post 用内存 responder（形状必须与真实 client 一致：`{data: 信封}`
- * ——否则 requireApiPayload 取不到 payload，搜索链路假红）；RBAC 权限源用
- * bun mock.module 替换，授予 organizations:write。
+ * ——否则 requireApiPayload 取不到 payload，搜索链路假红）。权限门**不使用** mock.module：
+ * 真实 useAdminPermission 的权威权限源是 `GET /rbac/me`（见 services/api/rbac.ts:101），
+ * 本文件直接给该端点供料（organizations:read/write），sidebar 模板走全局 fetch stub。
+ *
+ * ⚠️ 反污染（W3 修复，勿退回）：此前本文件用 `mock.module('@/services/api/rbac')` 替换
+ * 权限源，并在 afterAll 里把 `import * as realRbacModule` 得到的**命名空间对象**当作还原
+ * 工厂传回。但 bun 的 mock.module 会**就地改写**该模块命名空间，mock 生效后该对象已指向
+ * mock 自身，于是"还原"实际是把 mock 又注册了一遍 —— mock 永久驻留进程，泄漏给同进程
+ * 后续测试文件（EnterpriseBusinessPage / OffboardingCasesPage / OffboardingCaseDetailPage
+ * 的 org/ws 接线用例因权限被误判 fail-closed 而批量假红：非隔离 `bun test` 1858 pass /
+ * 7 fail）。本文件已彻底不再触碰 mock.module，跨文件污染面归零。
  *
  * ⚠️ 输入必须走 @testing-library/user-event：本仓 RTL(16.3) + React 19.2 组合下
  * fireEvent.change / fireEvent.input 无法触发受控输入的 onChange（最小受控输入
@@ -17,14 +26,12 @@
  */
 import '../../../test/setupDom'
 
-import { afterAll, afterEach, beforeEach, describe, expect, it, mock } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import React from 'react'
 import client from '@/services/api/client'
-import * as realRbacModule from '@/services/api/rbac'
-import * as realAdminConfigModule from '@/services/api/adminConfig'
 import { OrganizationCreateDialog } from './OrganizationCreateDialog'
 import type { EntityId } from '@/types/common'
 
@@ -32,6 +39,7 @@ type AnyFn = (..._args: unknown[]) => unknown
 const mutableClient = client as unknown as { get: AnyFn; post: AnyFn }
 const realGet = mutableClient.get
 const realPost = mutableClient.post
+const realFetch = globalThis.fetch
 
 const OWNER = {
   id: '7700487999999999999',
@@ -41,6 +49,40 @@ const OWNER = {
 }
 const ORG_ID = '8800487111111111111'
 const WS_ID = '8800487222222222222'
+
+/** 权威权限源（GET /rbac/me）：授予 organizations:read/write，替代 mock.module 的 RBAC 替身。 */
+const RBAC_PROFILE = {
+  role_id: '1',
+  role_ids: ['1'],
+  permissions: ['organizations:read', 'organizations:write'],
+  menu_paths: [],
+}
+
+/** sidebar 模板 stub：权限判定实际由 /rbac/me 决定，这里只为让兜底查询快速落地。 */
+function stubSidebarFetch() {
+  globalThis.fetch = (async () =>
+    new Response(
+      JSON.stringify({
+        code: 0,
+        msg: 'ok',
+        payload: {
+          menus: [],
+          version: '1.0',
+          rbac: {
+            roles: [
+              {
+                id: '1',
+                name: 'super_admin',
+                description: '',
+                permissions: ['organizations:read', 'organizations:write'],
+              },
+            ],
+          },
+        },
+      }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    )) as typeof globalThis.fetch
+}
 
 let postResponder: (_url: string, _body: unknown) => unknown = () => ({
   code: 0,
@@ -52,28 +94,19 @@ let postResponder: (_url: string, _body: unknown) => unknown = () => ({
   },
 })
 
-mock.module('@/services/api/rbac', () => ({
-  getMyRbacProfilePayload: () => Promise.resolve({ permissions: ['organizations:read', 'organizations:write'], role_ids: [1] }),
-}))
-mock.module('@/services/api/adminConfig', () => ({
-  fetchSidebarMenuConfig: () =>
-    Promise.resolve({ rbac: { roles: [{ id: 1, name: 'super_admin', description: '', permissions: ['organizations:read', 'organizations:write'] }] } }),
-}))
-
-afterAll(() => {
-  mock.module('@/services/api/rbac', () => realRbacModule)
-  mock.module('@/services/api/adminConfig', () => realAdminConfigModule)
-})
-
 beforeEach(() => {
-  mutableClient.get = (_url: string) => {
-    if (_url === '/user/search') {
+  stubSidebarFetch()
+  mutableClient.get = ((url: string) => {
+    if (url === '/rbac/me') {
+      return Promise.resolve({ data: { code: 0, msg: 'ok', payload: RBAC_PROFILE } })
+    }
+    if (url === '/user/search') {
       return Promise.resolve({
         data: { code: 0, msg: 'ok', payload: { list: [OWNER], page: 1, size: 20, total: 1, total_page: 1 } },
       })
     }
     return Promise.resolve({ data: { code: 0, msg: 'ok', payload: {} } })
-  }
+  }) as AnyFn
   mutableClient.post = ((_url: string, _body: unknown) =>
     Promise.resolve({ data: postResponder(_url, _body) })) as AnyFn
 })
@@ -81,6 +114,7 @@ beforeEach(() => {
 afterEach(() => {
   mutableClient.get = realGet
   mutableClient.post = realPost
+  globalThis.fetch = realFetch
   cleanup()
 })
 
@@ -109,6 +143,8 @@ async function pickOwner(view: View, user: ReturnType<typeof userEvent.setup>) {
 async function walkToConfirm(view: View, user: ReturnType<typeof userEvent.setup>) {
   await user.type(view.getByTestId('org-create-name'), 'imboy')
   await pickOwner(view, user)
+  // 权限源（GET /rbac/me）是异步的：等「下一步」真正可点（canWrite 已落地）再点。
+  await waitFor(() => expect((view.getByTestId('org-create-next') as HTMLButtonElement).disabled).toBe(false))
   await user.click(view.getByTestId('org-create-next'))
   await waitFor(() => expect(view.queryByTestId('create-summary')).not.toBeNull())
 }
