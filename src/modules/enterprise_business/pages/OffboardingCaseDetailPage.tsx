@@ -17,6 +17,7 @@ import {
   LoadingState,
   PageHeader,
 } from '@/components/shared'
+import { parseOrgWorkspaceQuery, serializeOrgWorkspaceQuery } from '@/components/shared/orgWorkspaceQuery'
 import { useAdminPermission } from '@/hooks/useAdminPermission'
 import { getErrorMessage } from '@/lib/errorUtils'
 import { executeEbOffboardingCase, getEbOffboardingCaseDetail } from '../api/public'
@@ -49,9 +50,11 @@ export function OffboardingCaseDetailPage() {
   const { caseId = '' } = useParams()
   const [searchParams] = useSearchParams()
   const queryClient = useQueryClient()
-  const organizationId = (searchParams.get('org_id') ?? '').trim()
-  const workspaceId = (searchParams.get('workspace_id') ?? '').trim()
-  const scopeReady = organizationId.length > 0 && workspaceId.length > 0 && caseId.length > 0
+  // URL 是上下文真源：org/ws 由共享 codec 解析（安全降级），刷新/分享后不丢失。
+  const { org, ws } = parseOrgWorkspaceQuery(searchParams)
+  const organizationId = org ?? ''
+  const workspaceId = ws ?? ''
+  const scopeReady = org !== null && ws !== null && caseId.length > 0
 
   const { allowed: canRead, loading: permLoading } = useAdminPermission({ permission: READ_PERMISSION })
   const { allowed: canWrite } = useAdminPermission({ permission: WRITE_PERMISSION })
@@ -113,10 +116,10 @@ export function OffboardingCaseDetailPage() {
   let body: ReactElement
   if (!scopeReady) {
     body = (
-      <EmptyState
-        title="缺少租户参数"
-        description="本页需要 org_id 与 workspace_id（从列表页进入会自动携带），且路径必须有 case ID。"
-      />
+        <EmptyState
+          title="缺少租户参数"
+          description="本页需要 org 与 ws 查询参数（从列表页进入会自动携带），且路径必须有 case ID。"
+        />
     )
   } else if (!readReady) {
     body = <EmptyState title="无查看权限" description="查看离岗交接详情需要 enterprise_business:read 权限。" />
@@ -187,7 +190,7 @@ export function OffboardingCaseDetailPage() {
 
       <div>
         <Link
-          to={`/enterprise-business/offboarding?org_id=${encodeURIComponent(organizationId)}&workspace_id=${encodeURIComponent(workspaceId)}`}
+          to={`/enterprise-business/offboarding${serializeOrgWorkspaceQuery({ org, ws }) ? `?${serializeOrgWorkspaceQuery({ org, ws })}` : ''}`}
           className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
           data-testid="eb-offboarding-back"
         >
