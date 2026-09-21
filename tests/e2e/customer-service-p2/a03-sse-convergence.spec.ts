@@ -22,7 +22,8 @@ import { expect, test, type Browser, type Page } from '@playwright/test'
 import { SeatAgent } from '../customer-service-real/helpers/agent-api'
 import { SEAT_A } from '../customer-service-real/helpers/env'
 import { createCollector, watchPage } from './helpers/browser-gate'
-import { ADMIN_ORIGIN, ORG_ID, SHOP_ORIGIN } from './helpers/env'
+import { closeStaleActiveSessions } from './helpers/db-proof'
+import { ADMIN_ORIGIN, ORG_ID, SHOP_ORIGIN, WORKSPACE_ID } from './helpers/env'
 import { qrLoginSeat } from './helpers/qr-login'
 
 const RUN_UNIQ = `${Date.now()}-${Math.random() * 1e6}`
@@ -76,6 +77,9 @@ test('A03 SSE 收敛：断开重连+重复通知+游标超窗resync 后 DOM 与�
   const visitorCtx = await browser.newContext()
   const seatCtx = await browser.newContext()
   try {
+    // 幂等夹具：历次失败运行可能残留 active 会话——坐席 max_concurrent=1，
+    // 存量会让本轮 claim 409（seat_at_capacity）。claim 前清场。
+    closeStaleActiveSessions(ORG_ID, WORKSPACE_ID)
     // —— 坐席 A 页面（QR 登录；视图收敛观察面）——
     const seatPage = await seatCtx.newPage()
     watchPage(collector, seatPage)

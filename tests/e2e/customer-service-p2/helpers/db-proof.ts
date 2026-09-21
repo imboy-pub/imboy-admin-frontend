@@ -83,19 +83,42 @@ export function sessionRatingPresent(sessionId: string): boolean {
   return out.trim() !== ''
 }
 
-/** A04 夹具：移除坐席行（offboarding/assignment ended 落库等价物）。 */
+/** A04 夹具：移除坐席行（offboarding/assignment ended 落库等价物）。
+ * 先终接该坐席的 active 会话（ck_csss_active_requires_identity 要求
+ * active 必有 seat 引用——先 closed 再置空），再解除剩余引用（fk_csss_seat
+ * RESTRICT），最后删坐席行。结果以「行不存在」复核为准——docker exec 偶发
+ * status 0 但 stdout 空，单看 returning 输出会把成功误报为失败。 */
 export function removeSeatRow(orgId: string, identityId: string): boolean {
-  const out = psql(
-    `delete from customer_service_seat where organization_id = ${orgId} and business_identity_id = ${identityId} returning 1`
+  psql(
+    `update customer_service_session set status='closed', closed_at=now() at time zone 'utc'` +
+      ` where organization_id = ${orgId} and business_identity_id = ${identityId} and status='active'`
   )
-  return out.trim() === '1'
+  psql(
+    `update customer_service_session set business_identity_id = null` +
+      ` where organization_id = ${orgId} and business_identity_id = ${identityId} and status<>'active'`
+  )
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    psql(
+      `delete from customer_service_seat where organization_id = ${orgId} and business_identity_id = ${identityId}`
+    )
+    const gone =
+      psql(
+        `select count(*) from customer_service_seat where organization_id = ${orgId} and business_identity_id = ${identityId}`
+      ).trim() === '0'
+    if (gone) return true
+  }
+  return false
 }
 
-/** A04 夹具恢复：坐席行重建（幂等）并置回启用。 */
+/** A04 夹具恢复：坐席行重建（幂等）并置回启用。
+ * created_by 必须是 user 表真实 id（fk_css_created_by）；种子里是首启 admin
+ * 用户，从 org 内现存坐席行动态解析，传参仅作无行可依时的兜底。 */
 export function restoreSeatRow(orgId: string, identityId: string, createdByUserId: string): void {
   psql(
     `insert into customer_service_seat(organization_id,business_identity_id,function_key,enabled,max_concurrent,created_by_user_id)` +
-      ` select ${orgId},${identityId},'customer_service',true,1,${createdByUserId} where not exists` +
+      ` select ${orgId},${identityId},'customer_service',true,1,` +
+      ` coalesce((select created_by_user_id from customer_service_seat where organization_id=${orgId} order by created_at limit 1), ${createdByUserId})` +
+      ` where not exists` +
       ` (select 1 from customer_service_seat where organization_id=${orgId} and business_identity_id=${identityId})`
   )
   setSeatEnabled(orgId, identityId, true)
