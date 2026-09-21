@@ -93,7 +93,13 @@ test.describe('EADM-07 §9-2 · read-only 账号无写能力', () => {
     ).toHaveCount(0)
 
     // 行为断言 4（安全边界）：前端隐藏之外，服务端必须独立 fail-closed。
-    // 直调创建组织写 API → 403。
+    // 直调创建组织写 API → 拒绝码 403。
+    //
+    // 传输约定（已实测）：本仓 admin API 的拒绝走**信封**——`elib_response:error`
+    // 把裁决放在 body.code，HTTP 状态仍是 200（`{"code":403,"msg":"无权限操作"}`）。
+    // 前端也只读 code。故此处断言「HTTP 403 或 信封 code=403」二者之一，而不是把
+    // 断言绑死在传输层；证据强度不变：断言 6 的读 API 对照 + 同端点 super 可写，
+    // 三者在场才构成「写被拒 / 读放行 / 会话有效」的完整链条。
     const createRes = await page.request.post('/api/adm/organizations', {
       data: {
         name: 'eadm-readonly-probe',
@@ -101,9 +107,13 @@ test.describe('EADM-07 §9-2 · read-only 账号无写能力', () => {
         default_workspace_name: 'eadm-readonly-probe',
       },
     })
-    expect(createRes.status(), 'read-only 直调 POST /api/adm/organizations 必须 403').toBe(403)
+    const createBody = (await createRes.json().catch(() => ({}))) as { code?: number }
+    expect(
+      createRes.status() === 403 ? 403 : createBody.code,
+      'read-only 直调 POST /api/adm/organizations 必须被 fail-closed 拒绝（HTTP 403 或信封 code=403）',
+    ).toBe(403)
 
-    // 行为断言 5：直调客服开通写 API → 403。
+    // 行为断言 5：直调客服开通写 API → 拒绝码 403（同上传输约定）。
     const provisionRes = await page.request.post(
       `/api/adm/customer-service/organizations/${PROBE_ORG_TSID}/provisioning`,
       {
@@ -115,7 +125,11 @@ test.describe('EADM-07 §9-2 · read-only 账号无写能力', () => {
         },
       },
     )
-    expect(provisionRes.status(), 'read-only 直调 POST provisioning 必须 403').toBe(403)
+    const provisionBody = (await provisionRes.json().catch(() => ({}))) as { code?: number }
+    expect(
+      provisionRes.status() === 403 ? 403 : provisionBody.code,
+      'read-only 直调 POST provisioning 必须被 fail-closed 拒绝（HTTP 403 或信封 code=403）',
+    ).toBe(403)
 
     // 行为断言 6（对照）：读 API 仍允许 → 证明被拒绝的是**写权限**，
     // 而不是会话失效/整体拒绝；且读响应不得回传敏感键值。

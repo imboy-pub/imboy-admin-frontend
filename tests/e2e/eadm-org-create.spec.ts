@@ -100,6 +100,9 @@ test.describe('EADM-07 §9-3 · 创建 Organization 仅能从 active Human 选�
     await expect(ownerSearch).toHaveAttribute('placeholder', '按账号 / 昵称搜索用户')
 
     await ownerSearch.fill(OWNER_SEARCH_KEYWORD)
+    // 搜索是**显式触发**的（输入框只在 Enter 时调 runOwnerSearch，另有「搜索」按钮；
+    // 没有 onChange 自动查询）⇒ 只 fill 不触发，结果区永远不会出现。
+    await ownerSearch.press('Enter')
 
     // 行为断言 4：搜索结果里只把 active 用户做成可选项（非 active 项被 disabled）。
     const ownerOptions = page.getByTestId('owner-option')
@@ -114,6 +117,9 @@ test.describe('EADM-07 §9-3 · 创建 Organization 仅能从 active Human 选�
     // 证明正常流程无法手填/改写 Owner TSID。
     const ownerSelected = page.getByTestId('owner-selected')
     await expect(ownerSelected).toBeVisible()
+    // Owner TSID 只在「已选 Owner」块内的**折叠**排障区里展示（<details> 默认收起）
+    // ⇒ 先展开，再断言其只读形态；断言内容不变，只是把 UI 走到那个状态。
+    await ownerSelected.getByText('高级排障（只读）：Owner TSID').click()
     const ownerTsidInput = page.getByTestId('owner-tsid-readonly')
     await expect(ownerTsidInput, 'Owner TSID 仅只读展示').toBeVisible()
     expect(
@@ -154,7 +160,10 @@ test.describe('EADM-07 §9-3 · 创建 Organization 仅能从 active Human 选�
       if (res.request().method() !== 'POST' || !CREATE_ORG_URL_RE.test(res.url())) return
       void (async () => {
         try {
-          const payload = (await res.json()) as Record<string, unknown>
+          // admin API 一律走统一信封（elib_response:success）⇒ 业务投影在
+          // `.payload` 里；直接读顶层会恒为 undefined，让后续 expect.poll 超时。
+          const raw = (await res.json()) as Record<string, unknown>
+          const payload = (raw['payload'] ?? raw) as Record<string, unknown>
           const org = payload['organization'] as Record<string, unknown> | null
           const ws = payload['default_workspace'] as Record<string, unknown> | null
           const orgId = org?.['id']
