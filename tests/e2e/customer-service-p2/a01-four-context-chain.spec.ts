@@ -7,22 +7,20 @@
  *    context），经真实 QR create →（预认证 API context scan/confirm）→
  *    QR subscribe SSE 收 JWT → 工作台挂载。
  *
- * 链路：访客发文本（页面）→ 坐席 A queue 渲染（页面）→ 页面接单【UI 写动作
- * 命中 DF-9：422 missing_workspace_id 实录】→ 等价通道 API claim → active 视
- * 图经 SSE 失效刷新渲染（页面）→ 会话详情请求同样 422（DF-9 实录，会话内容
- * 面不可用）→ 坐席回复经企业真源 API → 访客页面经 SSE message 帧实时渲染 →
- * ACK（企业真源 API）→ 附件（访客页面 widget 管线 presign/PUT/confirm）→
- * transfer A→B（API 等价）→ close（API 等价）→ 访客 SSE state 帧触发评分 UI
- * → 页面星级提交 → 治理面平台会话列表 + DB 双面证实 rating。
+ * 链路：访客发文本（页面）→ 坐席 A queue 渲染（页面）→ 页面接单【UI claim
+ * 200，DF-9 修复后实证】→ active 视图渲染（页面）→ 会话选择 → detail/消息
+ * 历史 GET 200（DF-9/DF-9R 修复后，会话内容面可用）→ 坐席回复经 UI 发送 →
+ * 访客页面经 SSE message 帧实时渲染 → ACK（企业真源 API）→ 附件（访客页面
+ * widget 管线 presign/PUT/confirm）→ transfer A→B（API 等价）→ close（API
+ * 等价）→ 访客 SSE state 帧触发评分 UI → 页面星级提交 → 治理面平台会话列表
+ * + DB 双面证实 rating。
  *
- * DF-9（本 run 发现，证据=测试内实录的 422/405 响应；修复建议见报告）：
- * 工作台 API 层合同缺键 —— fetchDetail 缺 workspace_id query、claim/transfer/
- * close 缺 workspace_id body（后端 422 missing_workspace_id）、sendMessage 路
- * 径缺 /organizations/:org 段（后端 405）。生产源码对本任务 read-only，按等价
- * 通道覆盖并如实记录，不掩盖不伪绿。
- * DF-8（环境夹具绕开）：队列视图 total_by_status 在 active=0 时缺 active 键 →
- * toCounts fail-closed → 队列视图「请求失败」。预置 active 会话（真实 claim）
- * 使三键齐全。
+ * DF-9/DF-9R/DF-7/DF-8（本 run 发现并已修复；候选提交 5854d08/8046213/
+ * 7cb7bfa/f0670f1c）：工作台 API 层合同缺键（claim/transfer/close 缺
+ * workspace_id body、sendMessage 路径缺 /organizations/:org 段、fetchDetail/
+ * fetchMessages 缺必填 query）、seatContexts 对 seatless 组织行整体拒绝、队列
+ * total_by_status 零计数缺键。本用例现断言修复后行为：UI claim 200、detail
+ * 与消息历史 200、UI 发送零错误、队列视图可解析。
  *
  * mock 禁令：无任何响应伪造；所有认证/写路径打真实后端。
  */
@@ -138,7 +136,7 @@ test('A01 主链：四独立context（访客/Admin/坐席A/坐席B）QR登录→
     .poll(async () => aItem.count(), { timeout: 30_000, intervals: [500, 1_000, 2_000] })
     .toBeGreaterThan(0)
 
-  // —— 页面接单：UI claim 实发 422（DF-9 证据 #1）——
+  // —— 页面接单：UI claim 200（DF-9 修复后实证）→ active 视图渲染 ——
   const claimButton = seatA.getByTestId(`seat-claim-${visitorSessionId}`)
   await expect(claimButton).toBeEnabled()
   await claimButton.click()
@@ -146,36 +144,41 @@ test('A01 主链：四独立context（访客/Admin/坐席A/坐席B）QR登录→
     .poll(() => df9WriteStatuses.filter((item) => item.op.includes('/claim')).length, { timeout: 10_000 })
     .toBeGreaterThan(0)
   const claimWrite = df9WriteStatuses.find((item) => item.op.includes('/claim'))
-  expect(claimWrite!.status, `DF-9: UI claim must fail 422, got ${JSON.stringify(df9WriteStatuses)}`).toBe(422)
+  expect(claimWrite!.status, `DF-9 修复后 UI claim must succeed 200, got ${JSON.stringify(df9WriteStatuses)}`).toBe(200)
 
-  // —— 等价通道：API claim → active 视图经 SSE 失效刷新渲染（页面收敛）——
-  await fixtureAgentA.claim(ORG_ID, visitorSessionId, 1)
   await seatA.getByTestId('seat-tab-active').click()
   await expect(seatA.getByTestId(`seat-session-item-${visitorSessionId}`)).toBeVisible({ timeout: 30_000 })
 
-  // —— 会话详情：UI 选择会话 → detail GET 422（DF-9 证据 #2，会话内容面不可用）
-  // —— 页面如实呈现「未选择」空态（detail=null 分支），不掩盖缺陷 ——
-  const detail422: Array<number> = []
+  // —— 会话详情 + 消息历史：UI 选择会话 → GET 200（DF-9/DF-9R 修复后）→
+  // —— 会话内容面渲染（消息列表含访客文本）——
+  const detailStatuses: Array<number> = []
   seatA.on('response', (res) => {
-    if (/\/sessions\/\d+\?*$/.test(res.url()) || (res.url().includes(visitorSessionId) && res.request().method() === 'GET' && res.url().includes('/sessions/'))) {
-      detail422.push(res.status())
+    if (res.url().includes(visitorSessionId) && res.request().method() === 'GET' && res.url().includes('/sessions/')) {
+      detailStatuses.push(res.status())
     }
   })
   await aItem.click()
+  await expect(seatA.getByTestId('seat-message-list')).toBeVisible({ timeout: 30_000 })
+  await expect(seatA.getByTestId('seat-message-list')).toContainText(visitorText, { timeout: 15_000 })
   await expect
-    .poll(() => detail422.filter((status) => status === 422).length, { timeout: 15_000 })
+    .poll(() => detailStatuses.length, { timeout: 5_000 })
     .toBeGreaterThan(0)
-  await expect(seatA.getByTestId('seat-conversation-empty')).toBeVisible()
+  expect(
+    detailStatuses.every((status) => status === 200),
+    `detail GET statuses=${JSON.stringify(detailStatuses)}`
+  ).toBe(true)
 
-  // —— 坐席回复：等价通道企业真源 API → 访客页面经 SSE message 帧实时渲染 ——
+  // —— 坐席回复：UI 发送（DF-9 修复后）→ 访客页面经 SSE message 帧实时渲染 ——
   const agentReplyText = `p2 坐席回复 ${RUN_UNIQ}`
-  const conversationId = (await fixtureAgentA.detail(ORG_ID, visitorSessionId)).conversation_id
-  await fixtureAgentA.reply(ORG_ID, conversationId, `p2-reply-${RUN_UNIQ}`, agentReplyText)
+  await seatA.getByTestId('seat-composer').fill(agentReplyText)
+  await seatA.getByTestId('seat-send').click()
+  await expect(seatA.getByTestId('seat-send-error')).toHaveCount(0)
   await expect(
     frame.locator('[data-testid="cs-message-list"] [data-role="agent"]').filter({ hasText: agentReplyText })
   ).toBeVisible({ timeout: 45_000 })
 
   // —— ACK（企业真源 API；DB 侧 read 事实由 canonical 行佐证）——
+  const conversationId = (await fixtureAgentA.detail(ORG_ID, visitorSessionId)).conversation_id
   const conversationMessages = await fixtureAgentA.listMessages(ORG_ID, conversationId)
   const visitorCanonical = conversationMessages.find((row) => row.sender_type === 'contact')
   expect(visitorCanonical, 'visitor canonical message must exist').toBeTruthy()
@@ -236,7 +239,7 @@ test('A01 主链：四独立context（访客/Admin/坐席A/坐席B）QR登录→
     .poll(async () => fetchAssetRows(conversationId).filter((row2) => row2.messageBound).length, { timeout: 20_000 })
     .toBeGreaterThanOrEqual(1)
 
-  // —— A05 浏览器门（本用例 4xx 仅 DF-9 写动作实录；零 5xx；console 零其他 error）——
+  // —— A05 浏览器门（修复后全程零 4xx/5xx；console 零其他 error）——
   expect(collector.serverErrors, JSON.stringify(collector.serverErrors)).toEqual([])
   expect(
     collector.consoleErrors.filter((item) => !/Failed to load resource/.test(item.text)),
