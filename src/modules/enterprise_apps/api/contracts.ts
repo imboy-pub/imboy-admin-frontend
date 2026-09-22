@@ -23,13 +23,20 @@ export const WRITE_PERMISSION = 'enterprise_business:write'
 /**
  * ⚠️ 后端聚合面接线状态开关（**A0 接线完成后改为 true**）。
  *
- * `false`（本 phase 实际状态）：`/api/adm/enterprise/*`（checkpoint §0.5 A-01..A-14）
- * 尚未注册，404 归类为 `aggregationUnavailable`，页面显示「聚合面未接线」的诚实失败。
- * `true`：404 归类为 `notFound`（资源不存在 / 跨组织）。
+ * `false`：`/api/adm/enterprise/*`（checkpoint §0.5 A-01..A-14）尚未注册，404 归类为
+ * `aggregationUnavailable`，页面显示「聚合面未接线」的诚实失败。
+ * `true`（**FULL-08 接线完成后的实际状态**）：后端已在
+ * `imboy_router:enterprise_application_governance_routes/0` 注册 A-01..A-14，
+ * 404 归类为 `notFound`（资源不存在 / 跨组织）。
  *
  * 该开关只影响**错误文案分类**，不影响任何请求路径与权限判定。
+ *
+ * 接线证据（A0，FULL-08）：迁移 00000143 + `adm_enterprise_application_handler`
+ * + `enterprise_admin_governance_logic` + 真库往返测试
+ * `test/repo/enterprise_app_lifecycle_migration_pg_tests.erl`（9/9）、
+ * `test/repo/enterprise_admin_governance_pg_tests.erl`（6/6）。
  */
-export const GOVERNANCE_BACKEND_WIRED = false
+export const GOVERNANCE_BACKEND_WIRED = true
 
 /**
  * 冻结 scope 全集（10 值）。
