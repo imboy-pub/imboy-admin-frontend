@@ -434,7 +434,7 @@ test.describe('CSW-01-A06：Admin Widget 接入页直链门（需后端凭据）
       test.info().annotations.push({ type: 'note', description: '当前账号无 customer_service:read，直链门生效' })
       return
     }
-    await expect(page.getByRole('heading', { name: 'Widget 接入' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: '网站接入' })).toBeVisible()
     const bodyText = await page.locator('body').innerText()
     expect(bodyText).not.toMatch(SECRET_SHAPE)
   })

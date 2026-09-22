@@ -42,6 +42,7 @@ import {
   listWidgetInstallations,
   revokeWidgetInstallation,
 } from '../api/widgetInstallations'
+import { CUSTOMER_SERVICE_WIDGET_ORIGIN } from '../widgetConfig'
 
 const READ_PERMISSION = 'customer_service:read'
 const WRITE_PERMISSION = 'customer_service:write'
@@ -120,8 +121,8 @@ export function CsWidgetInstallationsPage() {
   return (
     <div className="space-y-4" data-page="cs-widget-installations">
       <PageHeader
-        title="Widget 接入"
-        description="商家客服 Widget 安装配置。查看/复制接入代码需 customer_service:read，创建/撤销需 customer_service:write。"
+        title="网站接入"
+        description="管理显示在线客服入口的网站。"
       />
 
       <Card>
@@ -133,7 +134,7 @@ export function CsWidgetInstallationsPage() {
             title={canWrite ? undefined : '需要 customer_service:write 权限'}
             onClick={() => setCreateOpen(true)}
           >
-            新建接入
+            添加网站
           </Button>
         </CardHeader>
         <CardContent className="grid gap-3 md:grid-cols-3">
@@ -179,7 +180,6 @@ export function CsWidgetInstallationsPage() {
 
       <EmbedCodeDialog
         installation={embedTarget}
-        organizationId={organizationId}
         onClose={() => setEmbedTarget(null)}
       />
 
@@ -188,9 +188,9 @@ export function CsWidgetInstallationsPage() {
         onOpenChange={(open) => {
           if (!open) setRevokeTarget(null)
         }}
-        title="撤销 Widget 接入"
-        description={`撤销后 public_widget_id ${revokeTarget?.public_widget_id ?? ''} 立即失效（宿主页 bootstrap 将被拒绝）。确定撤销？`}
-        confirmText="撤销"
+        title="停用网站接入"
+        description="停用后，对应网站上的客服入口将立即不可用。"
+        confirmText="停用"
         loading={revokeMutation.isPending}
         onConfirm={() => {
           if (revokeTarget !== null) revokeMutation.mutate(revokeTarget)
@@ -293,7 +293,7 @@ function InstallationTable({ rows, page, size, canWrite, onPageChange, onPageSiz
     () => [
       { header: '名称', accessorKey: 'display_name' },
       {
-        header: 'public_widget_id',
+        header: '公开标识',
         cell: ({ row }) => <span className="font-mono text-xs">{row.original.public_widget_id}</span>,
       },
       {
@@ -319,7 +319,7 @@ function InstallationTable({ rows, page, size, canWrite, onPageChange, onPageSiz
         cell: ({ row }) => (
           <div className="flex items-center gap-1">
             <Button variant="ghost" size="sm" onClick={() => onCopyEmbed(row.original)}>
-              复制接入代码
+              复制代码
             </Button>
             <Button
               variant="ghost"
@@ -328,7 +328,7 @@ function InstallationTable({ rows, page, size, canWrite, onPageChange, onPageSiz
               title={canWrite ? undefined : '需要 customer_service:write 权限'}
               onClick={() => onRevoke(row.original)}
             >
-              撤销
+              停用
             </Button>
           </div>
         ),
@@ -345,7 +345,7 @@ function InstallationTable({ rows, page, size, canWrite, onPageChange, onPageSiz
     return (
       <Card>
         <CardContent className="py-8">
-          <EmptyState icon={<MessageSquare className="h-10 w-10" />} title="暂无 Widget 接入" description="点击「新建接入」创建第一个客服 Widget。" />
+          <EmptyState icon={<MessageSquare className="h-10 w-10" />} title="暂无网站接入" description="点击「添加网站」启用第一个网站客服入口。" />
         </CardContent>
       </Card>
     )
@@ -392,9 +392,9 @@ function CreateInstallationDialog(props: {
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>新建 Widget 接入</DialogTitle>
+          <DialogTitle>添加接入网站</DialogTitle>
           <DialogDescription>
-            创建成功后将生成可公开的 public_widget_id，并直接提供接入代码。
+            创建后即可复制代码并添加到网站页面。
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
@@ -437,17 +437,15 @@ function CreateInstallationDialog(props: {
 
 function EmbedCodeDialog(props: {
   installation: WidgetInstallation | null
-  organizationId: string
   onClose: () => void
 }) {
-  const [widgetOrigin, setWidgetOrigin] = useState('https://cs-widget.example.com')
+  const widgetOrigin = CUSTOMER_SERVICE_WIDGET_ORIGIN
   let snippet = ''
   let snippetError: string | null = null
   if (props.installation !== null) {
     try {
       snippet = buildEmbedCode(props.installation.public_widget_id, {
         widgetOrigin,
-        organizationId: props.organizationId,
       })
     } catch (error) {
       snippetError = getErrorMessage(error)
@@ -457,16 +455,12 @@ function EmbedCodeDialog(props: {
     <Dialog open={props.installation !== null} onOpenChange={(open) => { if (!open) props.onClose() }}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>接入代码（仅含公开标识，无任何 secret）</DialogTitle>
+          <DialogTitle>网站接入代码</DialogTitle>
           <DialogDescription>
-            将以下代码粘贴到商家页面 &lt;body&gt; 内。public_widget_id 与 organization_id 为公开申报标识，后端仍以 installation、allowlist 与短期令牌完成校验。
+            将以下代码粘贴到网站页面的 &lt;body&gt; 内。
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
-          <div className="space-y-1.5">
-            <Label htmlFor="csw-widget-origin">Widget 域名（部署 Widget 静态产物的 origin）</Label>
-            <Input id="csw-widget-origin" value={widgetOrigin} onChange={(e) => setWidgetOrigin(e.target.value)} placeholder="https://cs-widget.example.com" />
-          </div>
           {snippetError !== null ? (
             <p className="text-xs text-destructive">{snippetError}</p>
           ) : (

@@ -3,8 +3,7 @@
  *
  * 覆盖验收点：
  *  ① 默认 Workspace 区域渲染（名称 + 状态，来源 = URL 的 ws 成立事实；无 ws 时如实降级）；
- *  ② 直达链接携带正确的 org/ws（开通客服 / 查看坐席 / 查看会话 / Widget / 企业业务 /
- *     成员 / 部门 / 默认 Workspace）；
+ *  ② 直达链接携带正确的 org/ws（在线客服 / 企业业务 / 成员 / 部门 / 默认 Workspace）；
  *  ③ 既有 Owner 展示保留（owner_id / owner 昵称账号）。
  *
  * ⚠️ 反污染：本文件不使用 bun mock.module（进程级全局、无法可靠还原，曾污染同进程
@@ -199,17 +198,14 @@ describe('OrganizationDetailPage — 默认 Workspace 只读事实', () => {
 // ---------------------------------------------------------------------------
 describe('OrganizationDetailPage — 跨面直达链接的 org/ws 上下文', () => {
   const EXPECTED: Array<[string, string]> = [
-    ['org-link-cs-provisioning', '/customer-service/provisioning'],
-    ['org-link-cs-seats', '/customer-service'],
-    ['org-link-cs-sessions', '/customer-service/sessions'],
-    ['org-link-cs-widgets', '/customer-service/widgets'],
+    ['org-link-customer-service', '/customer-service'],
     ['org-link-enterprise-business', '/enterprise-business'],
     ['org-link-members', `/organizations/${ORG_ID}/members`],
     ['org-link-departments', `/organizations/${ORG_ID}/departments`],
     ['org-link-default-workspace', '/enterprise-business'],
   ]
 
-  it('8 个直达入口均存在，且 href 携带 org 与 ws 查询参数', async () => {
+  it('5 个直达入口均存在，且 href 携带 org 与 ws 查询参数', async () => {
     const view = renderPage(`/organizations/${ORG_ID}?org=${ORG_ID}&ws=${WS_ID}`)
     await waitDetailReady(view)
 

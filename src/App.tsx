@@ -85,7 +85,7 @@ const AiHubOverviewPage = lazy(() => import('@/pages/ai-hub/AiHubOverviewPage').
 const BotDeliveriesPage = lazy(() => import('@/pages/ai-hub/BotDeliveriesPage').then((m) => ({ default: m.BotDeliveriesPage })))
 // 企业业务 + 客服平台运营面（CS-03，只调 /api/adm/*）
 const EnterpriseBusinessPage = lazy(() => import('@/modules/enterprise_business').then((m) => ({ default: m.EnterpriseBusinessPage })))
-const CustomerServiceOpsPage = lazy(() => import('@/modules/customer_service').then((m) => ({ default: m.CustomerServiceOpsPage })))
+const CustomerServiceHomePage = lazy(() => import('@/modules/customer_service').then((m) => ({ default: m.CustomerServiceHomePage })))
 // W2：平台 CS 会话列表/详情 + 离岗交接 case 列表/详情（冻结合同 C1 + W2-ADMIN 段）
 const PlatformCsSessionsPage = lazy(() => import('@/modules/customer_service').then((m) => ({ default: m.PlatformCsSessionsPage })))
 const CsSessionDetailPage = lazy(() => import('@/modules/customer_service').then((m) => ({ default: m.CsSessionDetailPage })))
@@ -702,7 +702,7 @@ function App() {
                   path="/customer-service"
                   element={(
                     <PermissionRoute permission="customer_service:read" roles={['1', '2']}>
-                      <CustomerServiceOpsPage />
+                      <CustomerServiceHomePage />
                     </PermissionRoute>
                   )}
                 />

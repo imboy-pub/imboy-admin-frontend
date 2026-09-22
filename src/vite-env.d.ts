@@ -3,6 +3,7 @@
 interface ImportMetaEnv {
   readonly VITE_API_BASE_URL: string
   readonly VITE_APP_NAME: string
+  readonly VITE_CS_WIDGET_ORIGIN?: string
   readonly VITE_SIDEBAR_CONFIG_URL?: string
   readonly VITE_UX_EVENT_REPORT_URL?: string
   readonly VITE_FEEDBACK_WORKFLOW_CONFIG_URL?: string

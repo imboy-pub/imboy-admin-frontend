@@ -5,14 +5,14 @@ import { getAdminCredentials, loginAsAdmin, requireAdminCredentials } from './su
 /**
  * EADM-07 · 计划 §9 第 1 / 5 / 6 条（菜单域集成 E2E）。
  *
- *   §9-1 —— super admin 登录后从菜单进入企业组织，「企业管理」8 个冻结叶子全部可达。
- *   §9-5 —— 客服坐席 / 客服会话 / Widget 接入 / 企业业务数据 / 离岗交接 均从菜单可达，
+ *   §9-1 —— super admin 登录后从菜单进入企业组织，「企业管理」6 个叶子全部可达。
+ *   §9-5 —— 在线客服 / 企业业务数据 / 离岗交接均从菜单可达，
  *           且**刷新后仍保留 URL 的 `org` / `ws` 上下文**（URL 是上下文真源，EADM-06 codec）。
  *   §9-6 —— `/customer-service/workspace` 仍要求 Seat 二维码登录，**不继承 Admin Cookie**
  *           （两认证域绝不混用，合同 C1 尾注 / SEAT-01-A01）。
  *
  * 冻结真源：
- *   - 8 叶子表 = CONTRACTS.md C1（path 为唯一比较键），后端 adm_admin_handler:default_sidebar_config/0；
+ *   - 6 叶子表（path 为唯一比较键），后端 adm_admin_handler:default_sidebar_config/0；
  *   - Admin presentation 映射 = src/components/layout/sidebarSchema.ts（顶级组名「企业管理」）；
  *   - Seat 域独立路由 = src/App.tsx（/customer-service/workspace 在 ProtectedRoute **之外**）。
  *
@@ -51,48 +51,34 @@ const ENTERPRISE_GROUP_LABEL = '企业管理'
 const SEAT_WORKSPACE_PATH = '/customer-service/workspace'
 
 /**
- * §9-1 中可断言「点击 → 落到该 Admin 页面」的 7 个叶子。
- * 第 8 个叶子（坐席工作台）由 §9-6 用例单独验收，见下方 SEAT_LEAF。
+ * §9-1 中可断言「点击 → 落到该 Admin 页面」的 5 个叶子。
+ * 坐席工作台由 §9-6 用例单独验收，见下方 SEAT_LEAF。
  * marker = 该页面自渲染的 data-page 事实标记（证明落到了页面本体，而非只改 URL）。
  */
 const ADMIN_LEAF_MENUS = [
   { label: '企业组织', path: '/organizations', marker: '[data-page="organization-list"]' },
-  { label: '客服开通', path: '/customer-service/provisioning', marker: '[data-page="cs-provisioning-wizard"]' },
-  { label: '客服坐席', path: '/customer-service', marker: '[data-page="customer-service-ops"]' },
-  { label: '客服会话', path: '/customer-service/sessions', marker: '[data-page="cs-platform-sessions"]' },
-  { label: 'Widget 接入', path: '/customer-service/widgets', marker: '[data-page="cs-widget-installations"]' },
   { label: '企业业务数据', path: '/enterprise-business', marker: '[data-page="enterprise-business-readonly"]' },
   { label: '离岗交接', path: '/enterprise-business/offboarding', marker: '[data-page="eb-offboarding-cases"]' },
+  { label: '企业应用治理', path: '/enterprise/applications', marker: '[data-page="enterprise-applications"]' },
+  { label: '在线客服', path: '/customer-service', marker: '[data-page="customer-service-home"]' },
 ] as const
 
-/** 第 8 个冻结叶子：菜单可达，但落地为 Seat 登录门（§9-6）。 */
+/** 独立 Seat 入口：菜单可达，但落地为 Seat 登录门（§9-6）。 */
 const SEAT_LEAF = { label: '坐席工作台', path: SEAT_WORKSPACE_PATH } as const
 
-/** 冻结的 8 个「企业管理」叶子（C1；顺序即 sidebarSchema 下发顺序）。 */
+/** 「企业管理」叶子（顺序即 sidebarSchema 下发顺序）。 */
 const ENTERPRISE_LEAF_MENUS = [...ADMIN_LEAF_MENUS, SEAT_LEAF] as const
 
 /**
- * §9-5：需要 org/ws 上下文的 5 个叶子。
+ * §9-5：需要 org/ws 上下文的 3 个叶子。
  * scopeProbe 存在时 = 该页把 URL 的 org/ws 作为「只读事实域」渲染出来，
  * 可做与 URL 精确比对的强断言（不依赖后端 seed 数据）。
  */
 const ORG_WS_LEAF_MENUS = [
   {
-    label: '客服坐席',
+    label: '在线客服',
     path: '/customer-service',
-    marker: '[data-page="customer-service-ops"]',
-    scopeProbe: null,
-  },
-  {
-    label: '客服会话',
-    path: '/customer-service/sessions',
-    marker: '[data-page="cs-platform-sessions"]',
-    scopeProbe: null,
-  },
-  {
-    label: 'Widget 接入',
-    path: '/customer-service/widgets',
-    marker: '[data-page="cs-widget-installations"]',
+    marker: '[data-page="customer-service-home"]',
     scopeProbe: null,
   },
   {
@@ -125,10 +111,10 @@ function currentPath(page: { url: () => string }): string {
   return new URL(page.url()).pathname
 }
 
-test.describe('EADM-07 §9-1 · 企业管理菜单可达性（8 冻结叶子）', () => {
+test.describe('EADM-07 §9-1 · 企业管理菜单可达性（6 个叶子）', () => {
   test.skip(!getAdminCredentials('super'), SUPER_CREDENTIALS_HINT)
 
-  test('§9-1 super admin 从菜单进入企业组织，7 个 Admin 叶子点击后落到页面本体，Seat 叶子入口可见', async ({ page, request }) => {
+  test('§9-1 super admin 从菜单进入企业组织，5 个 Admin 叶子点击后落到页面本体，Seat 叶子入口可见', async ({ page, request }) => {
     const credentials = requireAdminCredentials('super')
     test.skip(!(await probeFrontend(request)), 'admin 前端(:8082) 未启动（环境阻塞：需 Vite dev server；或设 PLAYWRIGHT_DISABLE_WEBSERVER=1）')
     test.skip(!(await probeBackend(request)), 'imboy 后端(:9800) 不可达（环境阻塞：需本地后端监听，或 .env.e2e 提供 IMBOY_ADMIN_BASE_URL）')
@@ -141,7 +127,7 @@ test.describe('EADM-07 §9-1 · 企业管理菜单可达性（8 冻结叶子）'
       '侧边栏应呈现「企业管理」分组（C1 冻结顶级组名）',
     ).toBeVisible()
 
-    // 行为断言 2：8 个冻结叶子的菜单入口全部存在（含第 8 个坐席工作台）。
+    // 行为断言 2：6 个叶子的菜单入口全部存在（含坐席工作台）。
     for (const menu of ENTERPRISE_LEAF_MENUS) {
       await expect(
         page.getByRole('link', { name: menu.label, exact: true }).first(),
@@ -149,7 +135,7 @@ test.describe('EADM-07 §9-1 · 企业管理菜单可达性（8 冻结叶子）'
       ).toBeVisible()
     }
 
-    // 行为断言 3：7 个 Admin 叶子点击后 both 路由 pathname 与页面 data-page 标记都命中
+    // 行为断言 3：5 个 Admin 叶子点击后 both 路由 pathname 与页面 data-page 标记都命中
     //（只断言 URL 不足以证明页面本体渲染成功）。
     for (const menu of ADMIN_LEAF_MENUS) {
       await page.goto('/dashboard')
@@ -166,10 +152,10 @@ test.describe('EADM-07 §9-1 · 企业管理菜单可达性（8 冻结叶子）'
   })
 })
 
-test.describe('EADM-07 §9-5 · 5 叶子菜单可达 + 刷新保留 org/ws', () => {
+test.describe('EADM-07 §9-5 · 3 个任务入口可达 + 刷新保留 org/ws', () => {
   test.skip(!getAdminCredentials('super'), SUPER_CREDENTIALS_HINT)
 
-  test('§9-5 客服坐席/会话/Widget/企业业务/离岗交接从菜单可达，且刷新后 URL 仍保留 org/ws 并恢复同页上下文', async ({ page, request }) => {
+  test('§9-5 在线客服/企业业务/离岗交接从菜单可达，且刷新后 URL 仍保留 org/ws 并恢复同页上下文', async ({ page, request }) => {
     const credentials = requireAdminCredentials('super')
     test.skip(!(await probeFrontend(request)), 'admin 前端(:8082) 未启动（环境阻塞）')
     test.skip(!(await probeBackend(request)), 'imboy 后端(:9800) 不可达（环境阻塞）')
@@ -230,7 +216,7 @@ test.describe('EADM-07 §9-6 · Seat 域不继承 Admin Cookie', () => {
     await expect(page, '前置：Admin 会话应已就绪（/dashboard）').toHaveURL(/\/dashboard(?:\?.*)?$/)
     await expect(page.getByRole('heading', { name: '仪表盘' })).toBeVisible()
 
-    // 行为断言 1：菜单入口可见（叶子 #8 属「企业管理」冻结表）。
+    // 行为断言 1：菜单入口可见（属于「企业管理」菜单）。
     await page.getByRole('link', { name: SEAT_LEAF.label, exact: true }).first().click()
 
     // 行为断言 2：落到独立 Seat 路由（不在 Admin 保护路由内）。

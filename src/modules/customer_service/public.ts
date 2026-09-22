@@ -1,4 +1,5 @@
 export { CustomerServiceOpsPage } from './pages/CustomerServiceOpsPage'
+export { CustomerServiceHomePage } from './pages/CustomerServiceHomePage'
 export { PlatformCsSessionsPage } from './pages/PlatformCsSessionsPage'
 export { CsSessionDetailPage } from './pages/CsSessionDetailPage'
 export { CsWidgetInstallationsPage } from './pages/CsWidgetInstallationsPage'

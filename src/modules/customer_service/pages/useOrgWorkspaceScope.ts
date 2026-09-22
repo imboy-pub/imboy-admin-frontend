@@ -29,6 +29,8 @@ export interface UseOrgWorkspaceScopeOptions {
    * 不传时行为与共享选择器其他消费者一致（拉取前 50 个 active 组织）。
    */
   orgKeyword?: string
+  /** 仅有一个可选项时自动进入，适合任务型首页；治理列表默认仍由用户选择。 */
+  autoSelectSingle?: boolean
 }
 
 export function useOrgWorkspaceScope(options: UseOrgWorkspaceScopeOptions = {}) {
@@ -55,12 +57,6 @@ export function useOrgWorkspaceScope(options: UseOrgWorkspaceScopeOptions = {}) 
     queryFn: () => getOrganizations(1, 50, 'active', orgKeyword),
   })
 
-  const wssQuery = useQuery({
-    queryKey: ['cs-pages', 'org-workspace-options', 'workspaces', value.organizationId],
-    queryFn: () => listOrganizationWorkspaces(value.organizationId as EntityId, 1, 50),
-    enabled: value.organizationId != null,
-  })
-
   const organizations = useMemo<OrgWorkspaceOption[]>(
     () =>
       (orgsQuery.data?.items ?? []).map((org) => ({
@@ -70,6 +66,15 @@ export function useOrgWorkspaceScope(options: UseOrgWorkspaceScopeOptions = {}) 
       })),
     [orgsQuery.data]
   )
+  const organizationId = value.organizationId ?? (
+    options.autoSelectSingle === true && organizations.length === 1 ? organizations[0].id : null
+  )
+
+  const wssQuery = useQuery({
+    queryKey: ['cs-pages', 'org-workspace-options', 'workspaces', organizationId],
+    queryFn: () => listOrganizationWorkspaces(organizationId as EntityId, 1, 50),
+    enabled: organizationId != null,
+  })
 
   const workspaces = useMemo<OrgWorkspaceOption[]>(
     () =>
@@ -79,10 +84,13 @@ export function useOrgWorkspaceScope(options: UseOrgWorkspaceScopeOptions = {}) 
       })),
     [wssQuery.data]
   )
+  const workspaceId = value.workspaceId ?? (
+    options.autoSelectSingle === true && workspaces.length === 1 ? workspaces[0].id : null
+  )
 
   return {
-    organizationId: value.organizationId,
-    workspaceId: value.workspaceId,
+    organizationId,
+    workspaceId,
     organizations,
     workspaces,
     loading: orgsQuery.isLoading,

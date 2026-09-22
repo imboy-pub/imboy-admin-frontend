@@ -17,12 +17,10 @@ const BACKEND_ENTERPRISE_LEAVES: Array<{
   icon: string
 }> = [
   { path: '/organizations', label: '企业组织', permission: 'organizations:read', roles: [1, 2, 3], icon: 'Building2' },
-  { path: '/customer-service/provisioning', label: '客服开通', permission: 'customer_service:write', roles: [1, 2], icon: 'UserPlus' },
-  { path: '/customer-service', label: '客服坐席', permission: 'customer_service:read', roles: [1, 2], icon: 'Headphones' },
-  { path: '/customer-service/sessions', label: '客服会话', permission: 'customer_service:read', roles: [1, 2], icon: 'MessagesSquare' },
-  { path: '/customer-service/widgets', label: 'Widget 接入', permission: 'customer_service:read', roles: [1, 2], icon: 'MessageSquare' },
   { path: '/enterprise-business', label: '企业业务数据', permission: 'enterprise_business:read', roles: [1, 2], icon: 'BarChart3' },
   { path: '/enterprise-business/offboarding', label: '离岗交接', permission: 'enterprise_business:read', roles: [1, 2], icon: 'ListChecks' },
+  { path: '/enterprise/applications', label: '企业应用治理', permission: 'enterprise_business:read', roles: [1, 2], icon: 'ShieldCheck' },
+  { path: '/customer-service', label: '在线客服', permission: 'customer_service:read', roles: [1, 2], icon: 'Headphones' },
   { path: '/customer-service/workspace', label: '坐席工作台', permission: 'customer_service:read', roles: [1, 2], icon: 'MonitorSmartphone' },
 ]
 
@@ -51,11 +49,11 @@ function collectLeaves(items: SidebarMenuItem[]): SidebarMenuItem[] {
 }
 
 describe('EADM-03 企业管理菜单合同 (C1)', () => {
-  it('顶级组名为「企业管理」且包含 8 个叶子', () => {
+  it('顶级组名为「企业管理」且包含 6 个叶子', () => {
     const group = findEnterpriseGroup()
     expect(group, '企业管理 group should exist').toBeDefined()
     expect(group!.children, '企业管理 group should have children').toBeDefined()
-    expect(group!.children!).toHaveLength(8)
+    expect(group!.children!).toHaveLength(6)
   })
 
   it('叶子集合与后端声明双向匹配 (path + permission + roles)', () => {
@@ -93,7 +91,7 @@ describe('EADM-03 企业管理菜单合同 (C1)', () => {
     }
   })
 
-  it('iconMap 能解析后端下发的 8 个图标名', () => {
+  it('iconMap 能解析后端下发的图标名', () => {
     for (const leaf of BACKEND_ENTERPRISE_LEAVES) {
       expect(iconMap[leaf.icon], `iconMap 缺失后端图标: ${leaf.icon}`).toBeDefined()
     }

@@ -165,10 +165,7 @@ export function OrganizationDetailPage() {
   const withScope = (path: string) => (scopedSearch.length > 0 ? `${path}?${scopedSearch}` : path)
 
   const directLinks = [
-    { to: withScope('/customer-service/provisioning'), label: '开通客服', testId: 'org-link-cs-provisioning' },
-    { to: withScope('/customer-service'), label: '查看坐席', testId: 'org-link-cs-seats' },
-    { to: withScope('/customer-service/sessions'), label: '查看会话', testId: 'org-link-cs-sessions' },
-    { to: withScope('/customer-service/widgets'), label: 'Widget 接入', testId: 'org-link-cs-widgets' },
+    { to: withScope('/customer-service'), label: '在线客服', testId: 'org-link-customer-service' },
     { to: withScope('/enterprise-business'), label: '企业业务', testId: 'org-link-enterprise-business' },
     {
       to: withScope(`/organizations/${encodeURIComponent(organizationId)}/members`),
