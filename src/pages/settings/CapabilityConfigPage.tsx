@@ -30,6 +30,12 @@ type SelectOption<T extends string> = {
 }
 
 const STORAGE_MODE_OPTIONS: SelectOption<StorageMode>[] = [
+  {
+    value: 'disabled',
+    label: '禁用（整档关闭 E2EE）',
+    description:
+      '硬闸：密钥端点关闭、明文校验放行、群级加密被忽略；客户端隐藏 E2EE 入口。适合不需要端到端加密的客户交付',
+  },
   { value: 'archived', label: '归档存储', description: '消息归档存储在服务器' },
   { value: 'compliance_e2ee', label: '合规加密存储', description: '合规模式端到端加密存储' },
   { value: 'secure_e2ee', label: '安全存储', description: '端到端加密安全存储' },
@@ -57,6 +63,7 @@ const RETENTION_MODE_OPTIONS: SelectOption<RetentionPolicyMode>[] = [
 // 数值越大表示安全能力越强；新值强度 < 旧值强度即视为「降级」。
 // 仅对在此明确列出的档位判定，无法判定的值一律不阻断（避免误伤）。
 const STORAGE_MODE_RANK: Record<string, number> = {
+  disabled: -1, // E2EE 整档关闭（低于明文归档：同时关闭密钥面）
   archived: 0, // 明文归档（最弱）
   compliance_e2ee: 1,
   secure_e2ee: 2, // 端到端加密（最强）

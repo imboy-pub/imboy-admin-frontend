@@ -22,7 +22,7 @@ export type FeatureName =
   | 'group_schedule'
   | 'group_task'
 
-export type StorageMode = 'archived' | 'compliance_e2ee' | 'secure_e2ee'
+export type StorageMode = 'disabled' | 'archived' | 'compliance_e2ee' | 'secure_e2ee'
 export type E2eeMode = 'disabled' | 'optional' | 'compliance' | 'required'
 export type AuditMode = 'none' | 'metadata' | 'full'
 export type RetentionPolicyMode = 'rolling_days' | 'infinite'
