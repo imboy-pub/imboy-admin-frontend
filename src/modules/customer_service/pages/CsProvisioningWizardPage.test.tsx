@@ -65,17 +65,24 @@ const MEMBER_ROW = {
   nickname: '小客服',
   account: 'cs_agent_01',
 }
+const INACTIVE_MEMBER = {
+  organization_id: ORG_ID,
+  user_id: '222222222222222222',
+  role: 'member',
+  status: 'archived',
+  invited_by: '555555555555555555',
+  joined_at: 1758000000,
+  nickname: '老坐席',
+  account: 'cs_old',
+}
+/** 真实后端出站形状（cs_seat_app:provision_seat → cs_pg_seat:finish_provision）。 */
 const PROVISION_PAYLOAD = {
   organization_id: ORG_ID,
   workspace_id: WS_ID,
-  identity: { id: MEMBER_ID },
-  assignment: { id: '222222222222222222' },
-  seat: { business_identity_id: MEMBER_ID, workspace_id: WS_ID, enabled: true, status: 'enabled' },
-  repaired: false,
-  audit: [
-    { action: 'cs_identity.create', actor: 'adm-1', target: `identity:${MEMBER_ID}`, before: null, after: '{"status":"active"}' },
-    { action: 'cs_seat.enable', actor: 'adm-1', target: `seat:${MEMBER_ID}`, before: '{"enabled":false}', after: '{"enabled":true}' },
-  ],
+  business_identity_id: MEMBER_ID,
+  identity_created: true,
+  seat_enabled: true,
+  seat: { enabled: true, max_concurrent: 3 },
 }
 const INSTALLATION_PAYLOAD = {
   id: '999999999999999999',
@@ -263,16 +270,27 @@ describe('CsProvisioningWizardPage（unit 层替身）', () => {
     const provisionCall = postCalls.find((call) => call.url.endsWith('/provisioning'))
     expect(provisionCall?.url).toBe(`/customer-service/organizations/${ORG_ID}/provisioning`)
     expect(provisionCall?.url.includes('/api/v1')).toBe(false)
+    // 冻结合同（C3）：body 仅含 workspace_id/user_id/display_name/max_concurrent，无 business_identity_id
     expect(Object.keys(provisionCall?.body as Record<string, unknown>).sort()).toEqual([
-      'business_identity_id',
+      'display_name',
+      'max_concurrent',
+      'user_id',
       'workspace_id',
     ])
+    expect((provisionCall?.body as Record<string, unknown>)['business_identity_id']).toBeUndefined()
+    // workspace_id / user_id 一律 string（TSID 传输规范），max_concurrent 为数值
+    expect(typeof (provisionCall?.body as Record<string, unknown>)['workspace_id']).toBe('string')
+    expect(typeof (provisionCall?.body as Record<string, unknown>)['user_id']).toBe('string')
+    expect((provisionCall?.body as Record<string, unknown>)['user_id']).toBe(MEMBER_ID)
+    expect((provisionCall?.body as Record<string, unknown>)['display_name']).toBe('小客服')
+    const mc = (provisionCall?.body as Record<string, unknown>)['max_concurrent']
+    expect(typeof mc).toBe('number')
+    expect(mc).toBeGreaterThanOrEqual(1)
+    expect(mc).toBeLessThanOrEqual(20)
+    expect(mc).toBe(3) // 默认
 
-    // 审计五键投影可见（actor/target/before/after）
-    const auditTable = await waitFor(() => view.getByTestId('cs-provision-audit'))
-    expect(auditTable.textContent).toContain('cs_identity.create')
-    expect(auditTable.textContent).toContain('adm-1')
-    expect(auditTable.textContent).toContain('{"enabled":false}')
+    // 后端不出站审计数组；审计表不应渲染（真实合同对齐）
+    expect(view.queryByTestId('cs-provision-audit')).toBeNull()
 
     // 进入 Widget installation 步骤
     await userEvent.type(await waitFor(() => inputByTestId(view, 'cs-provision-install-name')), '商城在线客服')
@@ -297,6 +315,63 @@ describe('CsProvisioningWizardPage（unit 层替身）', () => {
     expect(snippet.value.includes('data-org-id')).toBe(false)
     expect(snippet.value.includes(ORG_ID)).toBe(false)
     expect(snippet.value.includes('secret')).toBe(false)
+  })
+
+  it('A03：max_concurrent 选择器发送数值（1..20），非字符串', async () => {
+    const postCalls: Array<{ url: string; body: unknown }> = []
+    mutableClient.post = (url: unknown, body: unknown) => {
+      postCalls.push({ url: String(url), body })
+      const payload = defaultPostResponder(String(url))
+      return { data: { code: 0, msg: 'success', payload } }
+    }
+
+    const view = renderWizard()
+    const orgSelect = await waitFor(() => selectByTestId(view, 'cs-provision-org-select'))
+    fireEvent.change(orgSelect, { target: { value: ORG_ID } })
+    const wsSelect = await waitFor(() => selectByTestId(view, 'cs-provision-ws-select'))
+    await waitFor(() => expect(wsSelect.value).toBe(WS_ID))
+    fireEvent.click(view.getByRole('button', { name: '下一步：开通客服坐席' }))
+    const memberSelect = await waitFor(() => selectByTestId(view, 'cs-provision-member-select'))
+    fireEvent.change(memberSelect, { target: { value: MEMBER_ID } })
+
+    const mcSelect = await waitFor(() => selectByTestId(view, 'cs-provision-max-concurrent'))
+    fireEvent.change(mcSelect, { target: { value: '5' } })
+
+    const submit = (await waitFor(() => view.getByTestId('cs-provision-submit'))) as HTMLButtonElement
+    await waitFor(() => expect(submit.disabled).toBe(false))
+    fireEvent.click(submit)
+
+    await waitFor(() => expect(postCalls.some((call) => call.url.endsWith('/provisioning'))).toBe(true))
+    const provisionCall = postCalls.find((call) => call.url.endsWith('/provisioning'))
+    const sent = (provisionCall?.body as Record<string, unknown>)['max_concurrent']
+    // 必须是数值且等于选择值，而非字符串
+    expect(typeof sent).toBe('number')
+    expect(sent).toBe(5)
+  })
+
+  it('A03：成员选择器过滤非 active 成员（archived 不出现）', async () => {
+    getResponder = (url: string) => {
+      if (url === '/organizations') return { list: [ORG_ROW], page: 1, size: 50, total: 1, total_page: 1 }
+      if (url === `/organizations/${ORG_ID}/workspaces`) {
+        return { list: [WS_ROW], page: 1, size: 50, total: 1, total_page: 1 }
+      }
+      if (url === `/organizations/${ORG_ID}/members`) {
+        return { list: [MEMBER_ROW, INACTIVE_MEMBER], page: 1, size: 50, total: 2, total_page: 1 }
+      }
+      throw new Error(`unexpected GET url: ${url}`)
+    }
+
+    const view = renderWizard()
+    const orgSelect = await waitFor(() => selectByTestId(view, 'cs-provision-org-select'))
+    fireEvent.change(orgSelect, { target: { value: ORG_ID } })
+    const wsSelect = await waitFor(() => selectByTestId(view, 'cs-provision-ws-select'))
+    await waitFor(() => expect(wsSelect.value).toBe(WS_ID))
+    fireEvent.click(view.getByRole('button', { name: '下一步：开通客服坐席' }))
+    const memberSelect = (await waitFor(() => selectByTestId(view, 'cs-provision-member-select'))) as HTMLSelectElement
+    const optionTexts = Array.from(memberSelect.options).map((option) => option.textContent ?? '')
+    // active 成员可见，archived 成员被过滤
+    expect(optionTexts.some((text) => text.includes('cs_agent_01'))).toBe(true)
+    expect(optionTexts.some((text) => text.includes('cs_old'))).toBe(false)
   })
 
   it('A05：复制按钮把 snippet 写入剪贴板（无 secret）', async () => {

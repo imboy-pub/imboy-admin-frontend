@@ -176,6 +176,10 @@ export function Sidebar() {
         to={item.path}
         style={indentStyle}
         title={collapsed ? item.label : undefined}
+        // 链接的可访问名显式钉为菜单标签：行内还嵌着「收藏菜单」按钮，若不指定，
+        // 名称会被拼成「企业组织 收藏菜单」，导致 getByRole('link',{name,exact:true})
+        // 全仓菜单项都匹配不到，也让读屏用户听到多余的「收藏菜单」。
+        aria-label={item.label}
         className={({ isActive }) =>
           cn(
             'group flex items-center gap-3 rounded-lg px-3 py-2 text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',

@@ -1,16 +1,18 @@
 import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ConfirmDialog, EmptyState, ErrorState, PageHeader } from '@/components/shared'
+import { parseOrgWorkspaceQuery, serializeOrgWorkspaceQuery } from '@/components/shared/orgWorkspaceQuery'
 import { useAdminPermission } from '@/hooks/useAdminPermission'
 import { cn } from '@/lib/utils'
 import {
   archiveOrganization,
   getOrganizationDetail,
+  listOrganizationWorkspaces,
   restoreOrganization,
 } from '../api/public'
 import {
@@ -22,17 +24,41 @@ import {
 const READ_PERMISSION = 'organizations:read'
 const WRITE_PERMISSION = 'organizations:write'
 
+/** 只读端点分页上限（后端 admin_workspace_page 将 size 收敛到 min(Size,100)）。 */
+const WORKSPACE_PAGE_SIZE = 100
+
+/**
+ * 默认 Workspace 的**成立事实**来源说明（不得编造，故写明依据）。
+ *
+ * 平台面**没有**任何只读端点投影「是否默认」标记：
+ *   - `GET /api/adm/organizations/:id/workspaces` 的 SQL 只选取
+ *     id/name/owner_id/organization_id/status/created_at/updated_at
+ *     （后端 `src/logic/organization_admin_logic.erl:288`）；
+ *   - `GET /api/adm/organizations/:id`（detail）投影同样不含 default_workspace_id
+ *     （同文件 `:160`）。
+ * 默认指针只出现在 `POST /api/adm/organizations` 的**创建响应**里
+ * （`src/adm/adm_organization_handler.erl:859`，`default_workspace` 字段）。
+ *
+ * 因此本页把 URL 的 `ws` 参数（创建成功跳转 / 分享链接所携带，源自该创建响应）
+ * 作为默认 Workspace 的成立事实，并用只读端点解析其名称与状态；
+ * 拿不到 `ws` 时**如实降级**为组织工作区列表 + 依据说明，绝不推导、绝不编造。
+ */
+const DEFAULT_WORKSPACE_EVIDENCE =
+  '依据：平台面只读端点不投影「是否默认」标记（workspaces 投影仅 id/name/owner_id/organization_id/status/created_at/updated_at；detail 无 default_workspace_id），默认指针仅由创建响应 POST /api/adm/organizations 的 default_workspace 返回。故此处以 URL 的 ws 参数（创建成功跳转携带）为成立事实，名称与状态由只读端点解析；不做任何 ID 推导。'
+
 /**
  * 组织详情页（ORG-14 → ORG-ADMIN-ADM-WIRING 平台面）：事实域展示 +
+ * 默认 Workspace 只读事实 + 跨面直达入口（携带 org/ws 上下文）+
  * 危险区（archive / restore，二次确认 + 服务端事实刷新）。
  *
  * 平台面合同未提供：组织改名（PATCH）、删除预检（deletion-preflight）、
- * 默认 Workspace 指针（default-workspace）——相应面板已随 App 面迁移移除；
- * Workspace 关系事实有只读端点（/workspaces），暂无 UI 旅程。
+ * 默认 Workspace 指针（default-workspace）的读端点——相应**写**面板已随 App 面迁移移除；
+ * Workspace 关系事实的只读端点（/workspaces）在本页已接入 UI 旅程。
  */
 export function OrganizationDetailPage() {
   const params = useParams<{ organizationId: string }>()
   const organizationId = params.organizationId ?? ''
+  const [searchParams] = useSearchParams()
   const queryClient = useQueryClient()
   const { allowed: canRead, loading: permLoading } = useAdminPermission({ permission: READ_PERMISSION })
   const readReady = canRead && !permLoading
@@ -41,9 +67,19 @@ export function OrganizationDetailPage() {
   const [pendingArchive, setPendingArchive] = useState(false)
   const [pendingRestore, setPendingRestore] = useState(false)
 
+  // 默认 Workspace 上下文：只经共享 codec 读写，禁止手写字符串拼接。
+  const scopedContext = parseOrgWorkspaceQuery(searchParams)
+  const defaultWorkspaceId = scopedContext.ws
+
   const detailQuery = useQuery({
     queryKey: ['organization', 'detail', organizationId],
     queryFn: () => getOrganizationDetail(organizationId),
+    enabled: readReady && organizationId.length > 0,
+  })
+
+  const workspacesQuery = useQuery({
+    queryKey: ['organization', 'workspaces', organizationId, WORKSPACE_PAGE_SIZE],
+    queryFn: () => listOrganizationWorkspaces(organizationId, 1, WORKSPACE_PAGE_SIZE),
     enabled: readReady && organizationId.length > 0,
   })
 
@@ -112,6 +148,45 @@ export function OrganizationDetailPage() {
     { to: `/organizations/${encodeURIComponent(organizationId)}/departments`, label: '部门管理' },
   ]
 
+  // -------------------------------------------------------------------------
+  // 默认 Workspace：只读事实解析（名称 + 状态），来源 = URL 的 ws 成立事实
+  // -------------------------------------------------------------------------
+  const workspaces = workspacesQuery.data?.items ?? []
+  const defaultWorkspace = defaultWorkspaceId
+    ? workspaces.find((item) => item.id === defaultWorkspaceId) ?? null
+    : null
+  const workspaceFactsLoading = workspacesQuery.isLoading
+  const workspaceFactsFailed = workspacesQuery.isError
+
+  // -------------------------------------------------------------------------
+  // 跨面直达入口：查询串统一经共享 codec 生成（org/ws），禁止手写拼接
+  // -------------------------------------------------------------------------
+  const scopedSearch = serializeOrgWorkspaceQuery({ org: organizationId, ws: defaultWorkspaceId })
+  const withScope = (path: string) => (scopedSearch.length > 0 ? `${path}?${scopedSearch}` : path)
+
+  const directLinks = [
+    { to: withScope('/customer-service/provisioning'), label: '开通客服', testId: 'org-link-cs-provisioning' },
+    { to: withScope('/customer-service'), label: '查看坐席', testId: 'org-link-cs-seats' },
+    { to: withScope('/customer-service/sessions'), label: '查看会话', testId: 'org-link-cs-sessions' },
+    { to: withScope('/customer-service/widgets'), label: 'Widget 接入', testId: 'org-link-cs-widgets' },
+    { to: withScope('/enterprise-business'), label: '企业业务', testId: 'org-link-enterprise-business' },
+    {
+      to: withScope(`/organizations/${encodeURIComponent(organizationId)}/members`),
+      label: '成员',
+      testId: 'org-link-members',
+    },
+    {
+      to: withScope(`/organizations/${encodeURIComponent(organizationId)}/departments`),
+      label: '部门',
+      testId: 'org-link-departments',
+    },
+  ]
+
+  // 「默认 Workspace」直达：只有在拿到 ws 成立事实时才提供入口（不造假按钮）。
+  const defaultWorkspaceLink = defaultWorkspaceId
+    ? { to: withScope('/enterprise-business'), label: '默认 Workspace', testId: 'org-link-default-workspace' }
+    : null
+
   return (
     <div className="space-y-4" data-page="organization-detail">
       <PageHeader
@@ -160,12 +235,127 @@ export function OrganizationDetailPage() {
       </Card>
 
       <Card>
+        <CardHeader className="flex-row items-center justify-between space-y-0">
+          <CardTitle className="text-base">默认 Workspace（只读事实）</CardTitle>
+          <Badge variant={defaultWorkspaceId ? 'secondary' : 'outline'} data-testid="org-default-workspace-source">
+            {defaultWorkspaceId ? '来源：URL 上下文（创建响应携带）' : '来源：不可得，已如实降级'}
+          </Badge>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="rounded-md border bg-muted/30 p-3" data-testid="org-default-workspace">
+            {defaultWorkspaceId ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm text-muted-foreground">默认 Workspace</span>
+                <span className="font-medium" data-testid="org-default-workspace-name">
+                  {defaultWorkspace
+                    ? defaultWorkspace.name || '-'
+                    : workspaceFactsLoading
+                      ? '（解析中…）'
+                      : '（该 ws 不在本组织工作区分页内）'}
+                </span>
+                {defaultWorkspace ? (
+                  <Badge
+                    variant={defaultWorkspace.status === 'active' ? 'default' : 'secondary'}
+                    data-testid="org-default-workspace-status"
+                  >
+                    {defaultWorkspace.status}
+                  </Badge>
+                ) : null}
+                <span className="font-mono text-xs text-muted-foreground" data-testid="org-default-workspace-id">
+                  {defaultWorkspaceId}
+                </span>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground" data-testid="org-default-workspace-degraded">
+                本页 URL 未携带 <span className="font-mono">ws</span> 上下文，无法确证默认 Workspace
+                指针（从创建流程进入或使用带 ws 的分享链接时才有该事实）。下方列出本组织的全部
+                Workspace 关系事实，供人工核对；本面板不推导「哪个是默认」。
+              </p>
+            )}
+            <p className="mt-2 text-xs text-muted-foreground">{DEFAULT_WORKSPACE_EVIDENCE}</p>
+          </div>
+
+          <div data-testid="org-workspace-facts">
+            {workspaceFactsLoading ? (
+              <p className="text-sm text-muted-foreground">正在读取组织 Workspace 事实…</p>
+            ) : workspaceFactsFailed ? (
+              <p className="text-sm text-destructive">
+                Workspace 事实读取失败：{classifyOrgError(workspacesQuery.error).message}
+              </p>
+            ) : workspaces.length === 0 ? (
+              <p className="text-sm text-muted-foreground">该组织下暂无 Workspace 关系事实（只读端点返回空）。</p>
+            ) : (
+              <ul className="space-y-1 text-sm">
+                {workspaces.map((workspace) => (
+                  <li
+                    key={workspace.id}
+                    data-testid="org-workspace-row"
+                    className="flex flex-wrap items-center gap-2 rounded-md border px-3 py-1.5"
+                  >
+                    <span className="font-medium" data-testid="org-workspace-row-name">
+                      {workspace.name || '-'}
+                    </span>
+                    <Badge
+                      variant={workspace.status === 'active' ? 'default' : 'secondary'}
+                      data-testid="org-workspace-row-status"
+                    >
+                      {workspace.status}
+                    </Badge>
+                    <span className="font-mono text-xs text-muted-foreground">{workspace.id}</span>
+                    {workspace.id === defaultWorkspaceId ? (
+                      <Badge variant="outline" data-testid="org-workspace-row-is-default">
+                        默认（URL 上下文）
+                      </Badge>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            共 {workspacesQuery.data?.total ?? workspaces.length} 个 Workspace（只读端点
+            GET /api/adm/organizations/:id/workspaces 分页，最多取 {WORKSPACE_PAGE_SIZE} 条）。
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">跨面直达（携带 org/ws 上下文）</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <div className="flex flex-wrap gap-2" data-testid="org-direct-links">
+            {[...directLinks, ...(defaultWorkspaceLink ? [defaultWorkspaceLink] : [])].map((link) => (
+              <Link
+                key={link.testId}
+                to={link.to}
+                data-testid={link.testId}
+                className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}
+              >
+                {link.label}
+              </Link>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            org/ws 查询参数由共享 codec 生成（{''}
+            <span className="font-mono">parseOrgWorkspaceQuery / serializeOrgWorkspaceQuery</span>），
+            无 ws 成立事实时如实省略该参数，不做推导。
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card>
         <CardHeader>
           <CardTitle className="text-base">治理入口</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2">
           {memberLinks.map((link) => (
-            <Link key={link.to} to={link.to} className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}>
+            <Link
+              key={link.to}
+              to={withScope(link.to)}
+              data-testid={`org-link-${link.label}`}
+              className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}
+            >
               {link.label}
             </Link>
           ))}

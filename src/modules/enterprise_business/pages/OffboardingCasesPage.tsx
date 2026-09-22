@@ -1,12 +1,11 @@
 import { useCallback, useMemo, useState, type ReactElement } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useLegacyTable, getCoreRowModel, type LegacyColumnDef } from '@tanstack/react-table/legacy'
 import { ListChecks } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import {
@@ -16,11 +15,14 @@ import {
   ErrorState,
   PageHeader,
 } from '@/components/shared'
+import { OrganizationWorkspacePicker, type OrganizationWorkspaceValue } from '@/components/shared/OrganizationWorkspacePicker'
+import { parseOrgWorkspaceQuery, serializeOrgWorkspaceQuery } from '@/components/shared/orgWorkspaceQuery'
 import { useAdminPermission } from '@/hooks/useAdminPermission'
 import { useListQueryState } from '@/hooks/useListQueryState'
 import { getErrorMessage } from '@/lib/errorUtils'
 import type { EntityId } from '@/types/common'
 import { getEbOffboardingCases } from '../api/public'
+import { useOrganizationOptions, useWorkspaceOptions } from './useOrgWorkspaceOptions'
 import {
   classifyListFailure,
   hasOffboardingFailures,
@@ -33,8 +35,6 @@ import {
 const READ_PERMISSION = 'enterprise_business:read'
 
 type ListState = {
-  org: string
-  ws: string
   status: string
   limit: number
 }
@@ -46,35 +46,52 @@ type ListState = {
  *   （workspace_id 必填；status 6 态过滤；after_id+limit 键集分页）。
  * 失败聚合（item_failed>0）显示「失败项 N」徽标；case 投影走冻结合同白名单，
  * digest/secret/cipher/object_key 永不渲染（CS-03-A05）。
+ *
+ * 组织/工作区上下文统一走共享的 OrganizationWorkspacePicker，选中值经
+ * parseOrgWorkspaceQuery / serializeOrgWorkspaceQuery 读写进 URL（org / ws 参数），
+ * 刷新与分享后不丢失。
  */
 export function OffboardingCasesPage() {
   const navigate = useNavigate()
-  const { state, setState } = useListQueryState<ListState>({ org: '', ws: '', status: 'all', limit: 50 })
-
-  const organizationId = state.org.trim()
-  const workspaceId = state.ws.trim()
-  const scopeReady = organizationId.length > 0 && workspaceId.length > 0
+  const { state, setState } = useListQueryState<ListState>({ status: 'all', limit: 50 })
+  const [searchParams, setSearchParams] = useSearchParams()
+  // URL 是上下文真源：org/ws 由共享 codec 解析（安全降级），刷新/分享后不丢失。
+  const { org, ws } = parseOrgWorkspaceQuery(searchParams)
+  const organizationId = org ?? ''
+  const workspaceId = ws ?? ''
+  const scopeReady = org !== null && ws !== null
   const status = parseOffboardingStatusFilter(state.status)
   const limit = state.limit
 
   const { allowed: canRead, loading: permLoading } = useAdminPermission({ permission: READ_PERMISSION })
   const readReady = canRead && !permLoading
 
+  // 组织/工作区可选项：消费既有 org API，映射为共享 picker 所需结构。
+  const orgOptionsQuery = useOrganizationOptions(readReady)
+  const wsOptionsQuery = useWorkspaceOptions(org, readReady)
+
   const [cursor, setCursor] = useState<EntityId | null>(null)
   const [cursorStack, setCursorStack] = useState<Array<EntityId | null>>([])
   const [pageNo, setPageNo] = useState(1)
-
-  const query = useQuery({
-    queryKey: ['enterprise_business', 'offboarding-cases', organizationId, workspaceId, status, limit, cursor],
-    queryFn: () => getEbOffboardingCases({ organizationId, workspaceId }, { status, afterId: cursor, limit }),
-    enabled: scopeReady && readReady,
-  })
 
   const resetCursor = () => {
     setCursor(null)
     setCursorStack([])
     setPageNo(1)
   }
+
+  // 选中变化写回 URL（org/ws 由 codec 序列化，其他参数原样保留）并重置游标。
+  const handleScopeChange = (next: OrganizationWorkspaceValue) => {
+    resetCursor()
+    const qs = serializeOrgWorkspaceQuery({ org: next.organizationId, ws: next.workspaceId }, searchParams)
+    setSearchParams(qs ? `?${qs}` : '', { replace: true })
+  }
+
+  const query = useQuery({
+    queryKey: ['enterprise_business', 'offboarding-cases', organizationId, workspaceId, status, limit, cursor],
+    queryFn: () => getEbOffboardingCases({ organizationId, workspaceId }, { status, afterId: cursor, limit }),
+    enabled: scopeReady && readReady,
+  })
 
   const updateScope = (patch: Partial<ListState>) => {
     setState(patch)
@@ -101,11 +118,12 @@ export function OffboardingCasesPage() {
 
   const openDetail = useCallback(
     (caseRow: EbOffboardingCase) => {
+      const qs = serializeOrgWorkspaceQuery({ org, ws })
       navigate(
-        `/enterprise-business/offboarding/${encodeURIComponent(caseRow.id)}?org_id=${encodeURIComponent(organizationId)}&workspace_id=${encodeURIComponent(workspaceId)}`
+        `/enterprise-business/offboarding/${encodeURIComponent(caseRow.id)}${qs ? `?${qs}` : ''}`
       )
     },
-    [navigate, organizationId, workspaceId]
+    [navigate, org, ws]
   )
 
   const columns = useMemo<LegacyColumnDef<EbOffboardingCase>[]>(
@@ -214,27 +232,32 @@ export function OffboardingCasesPage() {
         <CardHeader>
           <CardTitle className="text-base">租户范围（必填）</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-3">
-          <div className="space-y-1.5">
-            <Label htmlFor="eb-off-org">组织 ID（organization_id）</Label>
-            <Input
-              id="eb-off-org"
-              value={state.org}
-              inputMode="numeric"
-              onChange={(event) => updateScope({ org: event.target.value })}
-              placeholder="TSID，例如 1234567890123456789"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="eb-off-ws">工作区 ID（workspace_id）</Label>
-            <Input
-              id="eb-off-ws"
-              value={state.ws}
-              inputMode="numeric"
-              onChange={(event) => updateScope({ ws: event.target.value })}
-              placeholder="TSID，例如 1234567890123456789"
-            />
-          </div>
+        <CardContent className="space-y-3">
+          <OrganizationWorkspacePicker
+            organizationId={org}
+            workspaceId={ws}
+            organizations={orgOptionsQuery.data ?? []}
+            workspaces={wsOptionsQuery.data ?? []}
+            loading={orgOptionsQuery.isLoading || wsOptionsQuery.isLoading}
+            disabled={!readReady}
+            onChange={handleScopeChange}
+            onOrganizationChange={() => {
+              // 工作区维度已在 onChange 中重置为 null；按新 organizationId 重新拉取工作区列表。
+              void wsOptionsQuery.refetch()
+            }}
+          />
+          {scopeReady ? (
+            <div
+              className="rounded-md border bg-muted/40 p-3 text-xs"
+              data-testid="eb-off-scope-troubleshooting"
+            >
+              <div className="mb-1 font-medium text-muted-foreground">高级排障（只读，可复制）</div>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 font-mono">
+                <span>org: {org}</span>
+                <span>ws: {ws}</span>
+              </div>
+            </div>
+          ) : null}
           <div className="space-y-1.5">
             <Label htmlFor="eb-off-status">状态过滤（status）</Label>
             <Select

@@ -18,88 +18,56 @@ import {
 const VALID_RESULT = {
   organization_id: '1234567890123456789',
   workspace_id: '9876543210987654321',
-  identity: { id: '111111111111111111' },
-  assignment: { id: '222222222222222222' },
-  seat: {
-    business_identity_id: '111111111111111111',
-    workspace_id: '9876543210987654321',
-    enabled: true,
-    status: 'enabled',
-  },
-  repaired: false,
-  audit: [
-    {
-      action: 'cs_identity.create',
-      actor: 'adm-1',
-      target: 'identity:111111111111111111',
-      before: null,
-      after: '{"status":"active"}',
-    },
-    {
-      action: 'cs_seat.enable',
-      actor: 'adm-1',
-      target: 'seat:111111111111111111',
-      before: '{"enabled":false}',
-      after: '{"enabled":true}',
-    },
-  ],
+  business_identity_id: '111111111111111111',
+  identity_created: true,
+  seat_enabled: true,
+  seat: { enabled: true, max_concurrent: 3 },
 }
 
-describe('toCsProvisioningResult（A01 投影）', () => {
-  it('解析嵌套形状：identity/assignment/seat/audit 全量投影', () => {
+describe('toCsProvisioningResult（EADM-05 真实后端字段投影）', () => {
+  it('解析真实形状：business_identity_id / identity_created / seat.{enabled,max_concurrent}', () => {
     const result = toCsProvisioningResult(VALID_RESULT)
     expect(result).not.toBeNull()
     expect(result?.organization_id).toBe('1234567890123456789')
-    expect(result?.identity_id).toBe('111111111111111111')
-    expect(result?.assignment_id).toBe('222222222222222222')
+    expect(result?.workspace_id).toBe('9876543210987654321')
+    expect(result?.business_identity_id).toBe('111111111111111111')
+    expect(result?.identity_created).toBe(true)
     expect(result?.seat?.enabled).toBe(true)
-    expect(result?.repaired).toBe(false)
-    expect(result?.audits).toHaveLength(2)
-    expect(result?.audits[0]?.actor).toBe('adm-1')
-    expect(result?.audits[1]?.before).toBe('{"enabled":false}')
-    expect(result?.audits[1]?.after).toBe('{"enabled":true}')
+    expect(result?.seat?.max_concurrent).toBe(3)
+    // 后端不出站审计数组：恒定空
+    expect(result?.audits).toEqual([])
   })
 
-  it('解析平铺 *_id 形状（BE-S01b 未定稿的容错口径）', () => {
+  it('幂等命中（已存在）：identity_created=false 透传', () => {
     const result = toCsProvisioningResult({
       organization_id: '1234567890123456789',
       workspace_id: '9876543210987654321',
-      identity_id: '111111111111111111',
-      assignment_id: '222222222222222222',
-      seat: { business_identity_id: '111111111111111111', enabled: 'true', status: 'enabled' },
-      audit_entries: VALID_RESULT['audit'],
+      business_identity_id: '111111111111111111',
+      identity_created: false,
+      seat: { enabled: 'true', max_concurrent: 3 },
     })
-    expect(result?.identity_id).toBe('111111111111111111')
+    expect(result?.identity_created).toBe(false)
     expect(result?.seat?.enabled).toBe(true)
-    expect(result?.audits).toHaveLength(2)
   })
 
-  it('缺 organization/workspace/identity 事实 → null（fail-closed）', () => {
+  it('缺 organization/workspace/business_identity 事实 → null（fail-closed）', () => {
     expect(toCsProvisioningResult(null)).toBeNull()
     expect(toCsProvisioningResult({})).toBeNull()
     expect(toCsProvisioningResult({ ...VALID_RESULT, organization_id: undefined })).toBeNull()
-    expect(toCsProvisioningResult({ ...VALID_RESULT, identity: {} })).toBeNull()
+    expect(toCsProvisioningResult({ ...VALID_RESULT, business_identity_id: undefined })).toBeNull()
+    expect(toCsProvisioningResult({ ...VALID_RESULT, workspace_id: '' })).toBeNull()
   })
 
-  it('TSID 以 number 传输 → 投影拒绝（TSID-string 纪律）', () => {
+  it('business_identity_id 以 number 传输 → 投影拒绝（TSID-string 纪律）', () => {
     const result = toCsProvisioningResult({
       ...VALID_RESULT,
-      identity: { id: 42 },
-      identity_id: undefined,
+      business_identity_id: 42,
     })
     expect(result).toBeNull()
   })
 
-  it('顶层命中敏感键 → 整体拒绝；audit 条目命中敏感键 → 单条丢弃', () => {
+  it('顶层命中敏感键 → 整体拒绝', () => {
     expect(toCsProvisioningResult({ ...VALID_RESULT, shop_key: 'leak' })).toBeNull()
-    const withLeakyAudit = toCsProvisioningResult({
-      ...VALID_RESULT,
-      audit: [
-        ...VALID_RESULT['audit'],
-        { action: 'x', actor: 'a', target: 't', secret: 'leak' },
-      ],
-    })
-    expect(withLeakyAudit?.audits).toHaveLength(2)
   })
 })
 

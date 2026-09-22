@@ -449,7 +449,6 @@ describe('public 模块导出面（adm 面收敛）', () => {
     expect(mod['offboardOrganizationMember']).toBeUndefined()
     expect(mod['revokeOrganizationInvitation']).toBeUndefined()
     expect(mod['getMyOrganizations']).toBeUndefined()
-    expect(mod['createOrganization']).toBeUndefined()
     expect(mod['updateOrganizationName']).toBeUndefined()
     expect(mod['changeMemberRole']).toBeUndefined()
     expect(mod['getDeletionPreflight']).toBeUndefined()
@@ -464,5 +463,8 @@ describe('public 模块导出面（adm 面收敛）', () => {
     expect(typeof mod['transferOrganizationOwner']).toBe('function')
     expect(typeof mod['getOrganizations']).toBe('function')
     expect(typeof mod['listOrganizationWorkspaces']).toBe('function')
+    // EADM-04：创建组织复用集合路由 POST /api/adm/organizations（adm 面语义，
+    // 非 v1 /organizations/mine 旅程）——导出面必须就位。
+    expect(typeof mod['createOrganization']).toBe('function')
   })
 })

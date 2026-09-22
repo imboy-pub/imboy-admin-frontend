@@ -16,6 +16,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { OrganizationWorkspacePicker } from '@/components/shared/OrganizationWorkspacePicker'
 import {
   ConfirmDialog,
   DataTable,
@@ -30,6 +31,7 @@ import { useAdminPermission } from '@/hooks/useAdminPermission'
 import { useListQueryState } from '@/hooks/useListQueryState'
 import { getErrorMessage } from '@/lib/errorUtils'
 import type { WidgetInstallation } from '../api/widgetInstallationsPure'
+import { useOrgWorkspaceScope } from './useOrgWorkspaceScope'
 import {
   buildEmbedCode,
   parseAllowedOriginsInput,
@@ -56,17 +58,14 @@ export function CsWidgetInstallationsPage() {
   const { state, setState } = useListQueryState<{
     page: number
     size: number
-    org: string
-    ws: string
-  }>({ page: 1, size: 10, org: '', ws: '' })
-  const organizationId = state.org.trim()
-  const workspaceId = state.ws.trim()
+  }>({ page: 1, size: 10 })
+  const scope = useOrgWorkspaceScope()
+  const organizationId = scope.organizationId ?? ''
+  const workspaceId = scope.workspaceId ?? ''
   const scopeReady = organizationId.length > 0 && workspaceId.length > 0
 
   const { allowed: canRead, loading: readPermLoading } = useAdminPermission({ permission: READ_PERMISSION })
   const { allowed: canWrite } = useAdminPermission({ permission: WRITE_PERMISSION })
-
-  const updateScope = (patch: { org?: string; ws?: string }) => setState({ ...patch, page: 1 })
 
   const listQuery = useQuery({
     queryKey: ['customer_service', 'widget_installations', organizationId, workspaceId],
@@ -138,8 +137,20 @@ export function CsWidgetInstallationsPage() {
           </Button>
         </CardHeader>
         <CardContent className="grid gap-3 md:grid-cols-3">
-          <ScopeField id="csw-org" label="组织 ID（organization_id）" value={state.org} placeholder="TSID，例如 1234567890123456789" onChange={(value) => updateScope({ org: value })} />
-          <ScopeField id="csw-ws" label="工作区 ID（workspace_id）" value={state.ws} placeholder="TSID，例如 9876543210987654321" onChange={(value) => updateScope({ ws: value })} />
+          <div className="space-y-1.5">
+            <Label>组织 / 工作区</Label>
+            <OrganizationWorkspacePicker
+              organizationId={scope.organizationId}
+              workspaceId={scope.workspaceId}
+              organizations={scope.organizations}
+              workspaces={scope.workspaces}
+              loading={scope.loading}
+              onChange={scope.onChange}
+            />
+            <p className="text-xs text-muted-foreground">
+              组织/工作区来自共享选择器，上下文写入 URL（org/ws），刷新与分享后不丢失；禁止手填 TSID。
+            </p>
+          </div>
         </CardContent>
       </Card>
 
@@ -196,27 +207,6 @@ async function copyText(text: string): Promise<void> {
   } catch {
     toast.error('复制失败，请手动选择文本复制')
   }
-}
-
-function ScopeField(props: {
-  id: string
-  label: string
-  value: string
-  onChange: (_value: string) => void
-  placeholder?: string
-}) {
-  return (
-    <div className="space-y-1.5">
-      <Label htmlFor={props.id}>{props.label}</Label>
-      <Input
-        id={props.id}
-        value={props.value}
-        inputMode="numeric"
-        onChange={(event) => props.onChange(event.target.value)}
-        placeholder={props.placeholder}
-      />
-    </div>
-  )
 }
 
 type InstallationsSectionProps = {

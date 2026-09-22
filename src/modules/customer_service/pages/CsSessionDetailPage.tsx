@@ -5,6 +5,7 @@ import { ArrowLeft } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState, ErrorState, LoadingState, PageHeader } from '@/components/shared'
+import { parseOrgWorkspaceQuery } from '@/components/shared/orgWorkspaceQuery'
 import { useAdminPermission } from '@/hooks/useAdminPermission'
 import { getErrorMessage } from '@/lib/errorUtils'
 import { getCsSession } from '../api/public'
@@ -24,8 +25,10 @@ const READ_PERMISSION = 'customer_service:read'
 export function CsSessionDetailPage() {
   const { sessionId = '' } = useParams()
   const [searchParams] = useSearchParams()
-  const organizationId = (searchParams.get('org_id') ?? '').trim()
-  const workspaceId = (searchParams.get('workspace_id') ?? '').trim()
+  // 租户范围统一从 URL 的 org/ws 恢复（EADM-06 共享 codec）
+  const { org, ws } = parseOrgWorkspaceQuery(searchParams)
+  const organizationId = org ?? ''
+  const workspaceId = ws ?? ''
   const scopeReady = organizationId.length > 0 && workspaceId.length > 0 && sessionId.length > 0
 
   const { allowed: canRead, loading: permLoading } = useAdminPermission({ permission: READ_PERMISSION })
@@ -37,7 +40,7 @@ export function CsSessionDetailPage() {
     enabled: scopeReady && readReady,
   })
 
-  const listLink = `/customer-service/sessions?org_id=${encodeURIComponent(organizationId)}&workspace_id=${encodeURIComponent(workspaceId)}`
+  const listLink = `/customer-service/sessions?org=${encodeURIComponent(organizationId)}&ws=${encodeURIComponent(workspaceId)}`
 
   const summary = useMemo(() => query.data ?? null, [query.data])
 
@@ -47,6 +50,11 @@ export function CsSessionDetailPage() {
         title="客服会话详情"
         description="平台 CS 会话详情（customer_service:read）。白名单投影：密钥摘要、cipher、object key 等敏感字段永不渲染（CS-03-A05）。"
       />
+
+      <p className="text-xs text-muted-foreground">
+        <span className="font-mono">组织 {organizationId || '-'} · 工作区 {workspaceId || '-'}</span>
+        （只读；租户范围来自 URL 的 org/ws 参数，不可手填）
+      </p>
 
       <div>
         <Link to={listLink} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground" data-testid="cs-session-back">

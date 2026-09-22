@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useSearchParams } from 'react-router-dom'
 import { useLegacyTable, getCoreRowModel, type LegacyColumnDef } from '@tanstack/react-table/legacy'
 import { toast } from 'sonner'
 import { Building2, Download, Search } from 'lucide-react'
@@ -18,11 +19,14 @@ import {
   LoadingState,
   PageHeader,
 } from '@/components/shared'
+import { OrganizationWorkspacePicker, type OrganizationWorkspaceValue } from '@/components/shared/OrganizationWorkspacePicker'
+import { parseOrgWorkspaceQuery, serializeOrgWorkspaceQuery } from '@/components/shared/orgWorkspaceQuery'
 import { useAdminPermission } from '@/hooks/useAdminPermission'
 import { useListQueryState } from '@/hooks/useListQueryState'
 import { coerceEntityId } from '@/lib/entityId'
 import { getErrorMessage } from '@/lib/errorUtils'
 import type { EntityId } from '@/types/common'
+import { useOrganizationOptions, useWorkspaceOptions } from './useOrgWorkspaceOptions'
 import {
   fetchEbAssetContent,
   getEbContacts,
@@ -47,27 +51,35 @@ const READ_PERMISSION = 'enterprise_business:read'
  * 密文、HMAC、object key（CS-03-A05，展示字段白名单见 api/pureFunctions）。
  */
 export function EnterpriseBusinessPage() {
-  const { state, setState } = useListQueryState<{
+  const { state } = useListQueryState<{
     page: number
     size: number
-    org: string
-    ws: string
-  }>({ page: 1, size: 10, org: '', ws: '' })
+  }>({ page: 1, size: 10 })
+  const [searchParams, setSearchParams] = useSearchParams()
+  // URL 是上下文真源：org/ws 由共享 codec 解析（安全降级），刷新/分享后不丢失。
+  const { org, ws } = parseOrgWorkspaceQuery(searchParams)
   const scope = useMemo<EbScopeParams | null>(() => {
-    const organizationId = state.org.trim()
-    const workspaceId = state.ws.trim()
-    if (organizationId.length === 0 || workspaceId.length === 0) return null
-    return { organizationId, workspaceId }
-  }, [state.org, state.ws])
+    if (org == null || ws == null) return null
+    return { organizationId: org, workspaceId: ws }
+  }, [org, ws])
 
   const { allowed: canRead, loading: permLoading } = useAdminPermission({ permission: READ_PERMISSION })
   const readReady = canRead && !permLoading
 
+  // 组织/工作区可选项：消费既有 org API，映射为共享 picker 所需结构。
+  const orgOptionsQuery = useOrganizationOptions(readReady)
+  const wsOptionsQuery = useWorkspaceOptions(org, readReady)
+
+  // 选中变化写回 URL（org/ws 由 codec 序列化，其他参数原样保留；重置 page=1）。
+  const handleScopeChange = (next: OrganizationWorkspaceValue) => {
+    const qs = serializeOrgWorkspaceQuery({ org: next.organizationId, ws: next.workspaceId }, searchParams)
+    const params = new URLSearchParams(qs)
+    params.set('page', '1')
+    setSearchParams(params, { replace: true })
+  }
+
   // Tabs 是受控组件（value + onValueChange）
   const [activeTab, setActiveTab] = useState('identities')
-
-  // 筛选（org/ws）变化一律重置 page=1
-  const updateScope = (patch: { org?: string; ws?: string }) => setState({ ...patch, page: 1 })
 
   return (
     <div className="space-y-4" data-page="enterprise-business-readonly">
@@ -80,21 +92,32 @@ export function EnterpriseBusinessPage() {
         <CardHeader>
           <CardTitle className="text-base">租户范围（必填）</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-3">
-          <ScopeField
-            id="eb-org-id"
-            label="组织 ID（organization_id）"
-            value={state.org}
-            onChange={(value) => updateScope({ org: value })}
-            placeholder="TSID，例如 1234567890123456789"
+        <CardContent className="space-y-3">
+          <OrganizationWorkspacePicker
+            organizationId={org}
+            workspaceId={ws}
+            organizations={orgOptionsQuery.data ?? []}
+            workspaces={wsOptionsQuery.data ?? []}
+            loading={orgOptionsQuery.isLoading || wsOptionsQuery.isLoading}
+            disabled={!readReady}
+            onChange={handleScopeChange}
+            onOrganizationChange={() => {
+              // 工作区维度已在 onChange 中重置为 null；按新 organizationId 重新拉取工作区列表。
+              void wsOptionsQuery.refetch()
+            }}
           />
-          <ScopeField
-            id="eb-ws-id"
-            label="工作区 ID（workspace_id）"
-            value={state.ws}
-            onChange={(value) => updateScope({ ws: value })}
-            placeholder="TSID，例如 1234567890123456789"
-          />
+          {scope ? (
+            <div
+              className="rounded-md border bg-muted/40 p-3 text-xs"
+              data-testid="eb-scope-troubleshooting"
+            >
+              <div className="mb-1 font-medium text-muted-foreground">高级排障（只读，可复制）</div>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 font-mono">
+                <span>org: {org}</span>
+                <span>ws: {ws}</span>
+              </div>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 
@@ -128,27 +151,6 @@ export function EnterpriseBusinessPage() {
           </TabsContent>
         </Tabs>
       )}
-    </div>
-  )
-}
-
-function ScopeField(props: {
-  id: string
-  label: string
-  value: string
-  onChange: (_value: string) => void
-  placeholder?: string
-}) {
-  return (
-    <div className="space-y-1.5">
-      <Label htmlFor={props.id}>{props.label}</Label>
-      <Input
-        id={props.id}
-        value={props.value}
-        inputMode="numeric"
-        onChange={(event) => props.onChange(event.target.value)}
-        placeholder={props.placeholder}
-      />
     </div>
   )
 }
