@@ -1,6 +1,8 @@
 /**
  * Inline mirror tests for private pure functions scattered across settings/auth pages:
- *   PushTokenListPage:    truncateToken
+ *   （FULL-04 追加必修项）pushToken.ts: tokenFingerprint —— 原 PushTokenListPage:truncateToken
+ *     的镜像测试已**删除**：明文截断展示被安全修复移除（设备凭据不得回显），改为直接
+ *     导入真源 `tokenFingerprint` 做断言（不再镜像，避免漂移）。
  *   SettingsHomePage:     roleLabel
  *   MutedUsersPage:       formatRemaining
  *   FeatureConfigPage:    isDependencyBlocked
@@ -9,37 +11,35 @@
  */
 import { describe, expect, it } from 'bun:test'
 import { ADMIN_ROLE_LABELS } from '../../components/shared/adminRoles'
+import { tokenFingerprint } from '../../services/api/pushToken'
 
 // ---------------------------------------------------------------------------
-// truncateToken (PushTokenListPage.tsx)
+// tokenFingerprint (services/api/pushToken.ts) —— 真源直测（不镜像）
+//
+// 说明（FULL-04 追加必修项，A0 裁定）：原 `truncateToken` 的镜像测试断言的是
+// 「明文截断展示」这一**被移除的行为**。安全修复后页面只展示不可逆指纹，故该组
+// 断言整体替换为对真源 `tokenFingerprint` 的直接断言 —— 不是「放宽断言」，
+// 而是断言对象随实现安全化而更换（旧行为的断言已不成立）。
 // ---------------------------------------------------------------------------
 
-function truncateToken(token: string, maxLen = 20): string {
-  if (token.length <= maxLen) return token
-  return `${token.slice(0, maxLen)}...`
-}
-
-describe('truncateToken', () => {
-  it('returns full token when length <= maxLen', () => {
-    expect(truncateToken('short', 20)).toBe('short')
+describe('tokenFingerprint', () => {
+  it('产出 8 位 hex 指纹 + 原长（可判读「是否换过 token」）', () => {
+    const fp = tokenFingerprint('123456789012345678901234')
+    expect(fp).toMatch(/^[0-9a-f]{8}:\d+$/)
+    expect(fp.endsWith(':24')).toBe(true)
   })
 
-  it('returns full token when exactly maxLen', () => {
-    expect(truncateToken('12345678901234567890', 20)).toBe('12345678901234567890')
+  it('空串 → 空指纹（不产出假指纹）', () => {
+    expect(tokenFingerprint('')).toBe('')
   })
 
-  it('truncates and appends ellipsis when length > maxLen', () => {
-    const result = truncateToken('123456789012345678901234', 20)
-    expect(result).toBe('12345678901234567890...')
+  it('确定性：同输入同输出', () => {
+    expect(tokenFingerprint('abc')).toBe(tokenFingerprint('abc'))
   })
 
-  it('uses custom maxLen', () => {
-    const result = truncateToken('hello world', 5)
-    expect(result).toBe('hello...')
-  })
-
-  it('handles empty string', () => {
-    expect(truncateToken('', 10)).toBe('')
+  it('不含明文本身（不可回显）', () => {
+    const token = 'PROBE-TOKEN-VALUE-abcdefghij'
+    expect(tokenFingerprint(token)).not.toContain(token)
   })
 })
 

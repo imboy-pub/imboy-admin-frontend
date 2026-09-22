@@ -32,6 +32,7 @@ import {
   MonitorSmartphone,
   Headphones,
   Briefcase,
+  ShieldCheck,
   type LucideIcon,
 } from 'lucide-react'
 import type { SidebarMenuConfig } from '@/services/api/adminConfig'
@@ -82,6 +83,7 @@ export const iconMap: Record<string, LucideIcon> = {
   MonitorSmartphone,
   Headphones,
   Briefcase,
+  ShieldCheck,
 }
 
 export const defaultConfig: SidebarMenuConfig = {
@@ -161,6 +163,8 @@ export const defaultConfig: SidebarMenuConfig = {
       children: [
         { path: '/enterprise-business', icon: 'Building2', label: '企业业务数据', roles: ['1', '2'], permission: 'enterprise_business:read' },
         { path: '/enterprise-business/offboarding', icon: 'ListChecks', label: '离岗交接', roles: ['1', '2'], permission: 'enterprise_business:read' },
+        // FULL-04：Admin Application 治理（与 /enterprise-business 同权限族；写动作页内另受 :write 门）
+        { path: '/enterprise/applications', icon: 'ShieldCheck', label: '企业应用治理', roles: ['1', '2'], permission: 'enterprise_business:read' },
         { path: '/customer-service', icon: 'Headphones', label: '客服运营', roles: ['1', '2'], permission: 'customer_service:read' },
         { path: '/customer-service/sessions', icon: 'Headphones', label: '客服会话列表', roles: ['1', '2'], permission: 'customer_service:read' },
         { path: '/customer-service/workspace', icon: 'Headphones', label: '坐席工作台', roles: ['1', '2'], permission: 'customer_service:read' },
