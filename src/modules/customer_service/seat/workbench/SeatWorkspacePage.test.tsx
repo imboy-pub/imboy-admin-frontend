@@ -80,6 +80,9 @@ describe('SeatWorkspacePage 登录门（QR 合同 + device_id 持久化）', () 
     const createBody = JSON.parse(createCall?.body ?? '{}') as { device_id?: string }
     expect(createBody.device_id).toBe(persisted)
     expect(view.getByTestId('seat-qr-phase').textContent).toContain('扫码')
+    expect(view.getByTestId('seat-qr-code').querySelector('svg')).not.toBeNull()
+    expect(view.getByTestId('seat-qr-code').getAttribute('data-qr-content')).toContain('imboy://qr_login?qr_token=')
+    expect(view.getByText('坐席登录二维码')).toBeDefined()
   })
 
   it('endReason → 登录门可解释文案（expired/cancelled/401）', () => {

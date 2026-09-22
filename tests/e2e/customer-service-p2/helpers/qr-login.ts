@@ -69,7 +69,8 @@ export async function qrLoginSeat(page: Page, account: string): Promise<void> {
   }
   const seatJwt = await seatPassportLogin(account)
   const qrCode = page.getByTestId('seat-qr-code')
-  await expect(qrCode).toContainText('imboy://qr_login?qr_token=', { timeout: 30_000 })
+  await expect(qrCode.locator('svg')).toBeVisible({ timeout: 30_000 })
+  await expect(qrCode).toHaveAttribute('data-qr-content', /imboy:\/\/qr_login\?qr_token=.+/, { timeout: 30_000 })
 
   // 换码风暴等待：页面重渲染会 dispose+重建 QR 会话（每次渲染一个新 create）。
   // 以「2 秒窗口内无新 qr_login/create 请求」为静默判据，再读当前码。
@@ -93,7 +94,7 @@ export async function qrLoginSeat(page: Page, account: string): Promise<void> {
   for (let attempt = 0; attempt < 4 && !confirmed; attempt += 1) {
     try {
       await waitQuiet()
-      const content = (await qrCode.textContent()) ?? ''
+      const content = (await qrCode.getAttribute('data-qr-content')) ?? ''
       const encoded = /imboy:\/\/qr_login\?qr_token=([^&\s]+)/.exec(content)?.[1]
       if (encoded === undefined || encoded === '') break // 面板已不在（可能已确认成功）
       await scanAndConfirm(seatJwt, decodeURIComponent(encoded))

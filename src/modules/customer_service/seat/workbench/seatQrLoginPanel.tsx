@@ -8,6 +8,7 @@
  * - a11y：阶段文案 aria-live；手动「换一张码」键盘可达。
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { QRCodeSVG } from 'qrcode.react'
 import { QrLoginSession, type QrLoginCallbacks, type QrLoginEndReason, type QrLoginPhase } from '../qrLoginSession'
 import { isSeatApiError } from '../errors'
 import { getOrCreateSeatDeviceId } from './deviceIdentity'
@@ -67,8 +68,11 @@ export function SeatQrLoginPanel({ createSession, onConfirmed, onEnded, notice }
     void session.start({ deviceId: getOrCreateSeatDeviceId(), deviceName: 'Web 坐席工作台', platform: 'web' }).catch(
       (error: unknown) => {
         setPhase('ended')
-        void isSeatApiError(error)
-        setErrorText('二维码生成失败，请重试')
+        setErrorText(
+          isSeatApiError(error) && error.kind === 'network'
+            ? '无法连接登录服务，请检查网络后重试'
+            : '登录服务暂不可用，请稍后重试',
+        )
       },
     )
   }, [createSession, onConfirmed, onEnded])
@@ -104,11 +108,22 @@ export function SeatQrLoginPanel({ createSession, onConfirmed, onEnded, notice }
           )}
           <div className="flex flex-col items-center gap-4">
             <div
-              className="flex h-48 w-48 items-center justify-center break-all rounded border border-border bg-muted p-2 text-[10px] leading-tight text-muted-foreground"
+              className="flex h-52 w-52 items-center justify-center rounded border border-border bg-white p-2 text-sm text-muted-foreground"
               data-testid="seat-qr-code"
+              data-qr-content={qrToken === null ? undefined : qrCodeContent(qrToken)}
               aria-label={qrToken === null ? '二维码生成中' : '登录二维码'}
             >
-              {qrToken === null ? <span>生成中…</span> : <span className="select-all">{qrCodeContent(qrToken)}</span>}
+              {qrToken === null ? (
+                <span>生成中…</span>
+              ) : (
+                <QRCodeSVG
+                  value={qrCodeContent(qrToken)}
+                  size={176}
+                  level="M"
+                  marginSize={4}
+                  title="坐席登录二维码"
+                />
+              )}
             </div>
             <p className="text-sm text-foreground" aria-live="polite" data-testid="seat-qr-phase">
               {PHASE_TEXT[phase]}
