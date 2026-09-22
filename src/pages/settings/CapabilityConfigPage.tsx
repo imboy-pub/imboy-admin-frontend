@@ -13,11 +13,11 @@ import {
   policyQueryKey,
   buildPolicyConfig,
   DEFAULT_CAPABILITIES,
-  STORAGE_MODE_LABELS,
+  ENCRYPTION_TIERS,
+  deriveEncryptionTier,
+  type EncryptionTierId,
   type PolicyConfig,
   type Capabilities,
-  type StorageMode,
-  type E2eeMode,
   type AuditMode,
   type RetentionPolicyMode,
 } from '@/services/api/policy'
@@ -30,38 +30,11 @@ type SelectOption<T extends string> = {
   description: string
 }
 
-// label 一律取自 STORAGE_MODE_LABELS（展示名单一真源，与套餐对比卡共用），
-// 本页只额外补各自的说明文案。
-const STORAGE_MODE_OPTIONS: SelectOption<StorageMode>[] = [
-  {
-    value: 'disabled',
-    label: STORAGE_MODE_LABELS.disabled,
-    description:
-      '硬闸：密钥端点关闭、明文校验放行、群级加密被忽略；客户端隐藏 E2EE 入口。适合不需要端到端加密的客户交付',
-  },
-  {
-    value: 'archived',
-    label: STORAGE_MODE_LABELS.archived,
-    description: '消息归档存储在服务器',
-  },
-  {
-    value: 'compliance_e2ee',
-    label: STORAGE_MODE_LABELS.compliance_e2ee,
-    description: '合规模式端到端加密存储',
-  },
-  {
-    value: 'secure_e2ee',
-    label: STORAGE_MODE_LABELS.secure_e2ee,
-    description: '端到端加密安全存储',
-  },
-]
-
-const E2EE_MODE_OPTIONS: SelectOption<E2eeMode>[] = [
-  { value: 'disabled', label: '禁用', description: '不启用端到端加密' },
-  { value: 'optional', label: '可选（弃用）', description: '预留项：当前实现等价于关闭，客户端不加密，勿选' },
-  { value: 'compliance', label: '合规', description: '合规场景下的端到端加密' },
-  { value: 'required', label: '强制', description: '所有会话强制加密' },
-]
+// 加密档位选项（label/description 真源在 policy.ts ENCRYPTION_TIERS，
+// 本页只负责把它渲染成单选组）。
+const ENCRYPTION_TIER_OPTIONS: SelectOption<EncryptionTierId>[] = ENCRYPTION_TIERS.map(
+  (tier) => ({ value: tier.id, label: tier.label, description: tier.description }),
+)
 
 const AUDIT_MODE_OPTIONS: SelectOption<AuditMode>[] = [
   { value: 'none', label: '关闭', description: '不记录审计数据' },
@@ -164,6 +137,18 @@ export function CapabilityConfigPage() {
     })
   }, [effectiveCapabilities])
 
+  // 加密档位：一次选择同时套用 e2ee_mode + storage_mode（映射真源见 policy.ts
+  // ENCRYPTION_TIERS）。两个字段底层保留，客户端契约与审计联动不受影响。
+  const displayTier = useMemo(() => deriveEncryptionTier(displayCapabilities), [displayCapabilities])
+  const applyTier = useCallback((tierId: EncryptionTierId) => {
+    const tier = ENCRYPTION_TIERS.find((t) => t.id === tierId)
+    if (!tier) return
+    setPendingCapabilities((prev) => {
+      const base = prev ?? { ...effectiveCapabilities }
+      return { ...base, e2ee_mode: tier.e2eeMode, storage_mode: tier.storageMode }
+    })
+  }, [effectiveCapabilities])
+
   const persistCapabilities = useCallback(() => {
     if (!pendingCapabilities) return
     capabilityMutation.mutate(buildPolicyConfig(policyData?.effective, { capabilities: pendingCapabilities }))
@@ -224,28 +209,32 @@ export function CapabilityConfigPage() {
         </div>
       </div>
 
-      {/* 存储模式 */}
+      {/* 加密档位：e2ee_mode（客户端加密规矩）+ storage_mode（服务端存储/审计姿态）
+          的单一选择入口。两字段底层保留（客户端契约/审计联动不动），对应关系由
+          policy.ts ENCRYPTION_TIERS 唯一定义；概念说明见 imboy/docs/concepts/e2ee.md §加密档位。 */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <Settings2 className="h-5 w-5" />
-            存储与加密
+            加密档位
           </CardTitle>
-          <CardDescription>配置消息存储策略和加密模式</CardDescription>
+          <CardDescription>
+            选择一个档位，系统会同时设定客户端加密规矩（e2ee_mode）与服务端存储姿态（storage_mode）
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-3">
           <OptionGroup
-            label="存储模式"
-            options={STORAGE_MODE_OPTIONS}
-            value={displayCapabilities.storage_mode ?? DEFAULT_CAPABILITIES.storage_mode!}
-            onChange={(v) => updateField('storage_mode', v as StorageMode)}
+            label="加密档位"
+            options={ENCRYPTION_TIER_OPTIONS}
+            value={(displayTier?.id ?? '') as EncryptionTierId}
+            onChange={(id) => applyTier(id)}
           />
-          <OptionGroup
-            label="端到端加密模式"
-            options={E2EE_MODE_OPTIONS}
-            value={displayCapabilities.e2ee_mode ?? DEFAULT_CAPABILITIES.e2ee_mode!}
-            onChange={(v) => updateField('e2ee_mode', v as E2eeMode)}
-          />
+          {!displayTier && (displayCapabilities.e2ee_mode || displayCapabilities.storage_mode) && (
+            <p className="text-sm text-amber-600 dark:text-amber-500">
+              当前为非标准组合（e2ee_mode={displayCapabilities.e2ee_mode ?? '—'} / storage_mode={displayCapabilities.storage_mode ?? '—'}）。
+              选择上方任一档位后，两项取值会被同时套用，组合随之标准化。
+            </p>
+          )}
         </CardContent>
       </Card>
 

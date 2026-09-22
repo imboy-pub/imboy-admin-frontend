@@ -42,6 +42,74 @@ export function storageModeLabel(mode: string | undefined | null): string {
   }
   return (STORAGE_MODE_LABELS as Record<string, string | undefined>)[mode] ?? '—'
 }
+
+// --- 加密档位（运营者的单一选择入口）---
+//
+// 底层两个字段各管一头：`e2ee_mode` 是给客户端的加密规矩，`storage_mode` 是
+// 服务端存储/审计姿态。但对运营者来说是**同一个决定**，本表是二者唯一对应
+// 关系的真源：策略页「加密档位」单选据此**同时**套用两个字段。
+// 字段语义与联动的权威说明：imboy/docs/concepts/e2ee.md §加密档位；
+// 服务端枚举真源：imboy/src/lib/imboy_policy_catalog.erl（同一张表）。
+// ⚠️ 新增/调整档位必须三处同步：本表、imboy_policy_catalog 注释、概念文档。
+export type EncryptionTierId = 'closed' | 'optional' | 'compliance' | 'required'
+
+export type EncryptionTier = {
+  id: EncryptionTierId
+  label: string
+  description: string
+  e2eeMode: E2eeMode
+  storageMode: StorageMode
+}
+
+export const ENCRYPTION_TIERS: readonly EncryptionTier[] = [
+  {
+    id: 'closed',
+    label: '关闭（明文交付）',
+    description:
+      '硬闸：整档关闭 E2EE——密钥端点关闭、明文校验放行、群级加密被忽略、客户端隐藏 E2EE 入口。适合不需要端到端加密的客户交付',
+    e2eeMode: 'disabled',
+    storageMode: 'disabled',
+  },
+  {
+    id: 'optional',
+    label: '可选（明文归档）',
+    description: '不强制加密：客户端不加密，服务器明文归档存储（可搜索/导出）',
+    e2eeMode: 'optional',
+    storageMode: 'archived',
+  },
+  {
+    id: 'compliance',
+    label: '合规（可审计）',
+    description: '端到端加密 + 合规密钥托管：消息双加密，审计方可凭合规密钥解密',
+    e2eeMode: 'compliance',
+    storageMode: 'compliance_e2ee',
+  },
+  {
+    id: 'required',
+    label: '强制（纯端到端）',
+    description: '全站强制端到端加密：服务器无法读取消息内容，消息搜索/导出自动关闭',
+    e2eeMode: 'required',
+    storageMode: 'secure_e2ee',
+  },
+] as const
+
+/**
+ * 由当前配置反推档位。仅当 (e2ee_mode, storage_mode) 与档位表**精确成对**才命中；
+ * 历史组合（如企业预设的 disabled+archived）返回 null，由页面提示并让用户重选——
+ * 选择任一档位后两个字段会被同时套用，非标准组合随之消除。
+ */
+export function deriveEncryptionTier(
+  caps: Pick<Capabilities, 'e2ee_mode' | 'storage_mode'> | undefined | null,
+): EncryptionTier | null {
+  if (!caps) {
+    return null
+  }
+  return (
+    ENCRYPTION_TIERS.find(
+      (tier) => tier.e2eeMode === caps.e2ee_mode && tier.storageMode === caps.storage_mode,
+    ) ?? null
+  )
+}
 export type AuditMode = 'none' | 'metadata' | 'full'
 export type RetentionPolicyMode = 'rolling_days' | 'infinite'
 

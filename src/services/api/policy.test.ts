@@ -6,6 +6,8 @@ import {
   previewPolicyChange,
   savePolicyChange,
   storageModeLabel,
+  ENCRYPTION_TIERS,
+  deriveEncryptionTier,
   DEFAULT_CAPABILITIES,
   STORAGE_MODE_LABELS,
   type PolicyConfig,
@@ -215,5 +217,42 @@ describe('storageModeLabel', () => {
     expect(storageModeLabel(null)).toBe('—')
     expect(storageModeLabel('')).toBe('—')
     expect(storageModeLabel('future_mode')).toBe('—')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// ENCRYPTION_TIERS / deriveEncryptionTier
+// ---------------------------------------------------------------------------
+describe('ENCRYPTION_TIERS', () => {
+  // 档位→双字段映射是三处共用真源（本表 / 后端 catalog 注释 / 概念文档），
+  // 此处逐项锁死，防止其中任何一处单方面漂移。
+  it('四个档位与 (e2ee_mode, storage_mode) 的对应关系逐项锁定', () => {
+    expect(ENCRYPTION_TIERS.map((t) => [t.id, t.e2eeMode, t.storageMode])).toEqual([
+      ['closed', 'disabled', 'disabled'],
+      ['optional', 'optional', 'archived'],
+      ['compliance', 'compliance', 'compliance_e2ee'],
+      ['required', 'required', 'secure_e2ee'],
+    ])
+  })
+
+  it('档位两两字段取值组合互不重复（防止档位表写重）', () => {
+    const pairs = ENCRYPTION_TIERS.map((t) => `${t.e2eeMode}:${t.storageMode}`)
+    expect(new Set(pairs).size).toBe(ENCRYPTION_TIERS.length)
+  })
+
+  it('deriveEncryptionTier：标准组合精确命中', () => {
+    expect(deriveEncryptionTier({ e2ee_mode: 'disabled', storage_mode: 'disabled' })?.id).toBe('closed')
+    expect(deriveEncryptionTier({ e2ee_mode: 'optional', storage_mode: 'archived' })?.id).toBe('optional')
+    expect(deriveEncryptionTier({ e2ee_mode: 'compliance', storage_mode: 'compliance_e2ee' })?.id).toBe('compliance')
+    expect(deriveEncryptionTier({ e2ee_mode: 'required', storage_mode: 'secure_e2ee' })?.id).toBe('required')
+  })
+
+  it('deriveEncryptionTier：交叉/历史组合不误判（返回 null 由页面提示）', () => {
+    // 企业预设的历史组合：E2EE 关但无硬闸
+    expect(deriveEncryptionTier({ e2ee_mode: 'disabled', storage_mode: 'archived' })).toBeNull()
+    // 硬闸下旧 e2ee_mode 残留
+    expect(deriveEncryptionTier({ e2ee_mode: 'required', storage_mode: 'disabled' })).toBeNull()
+    expect(deriveEncryptionTier(undefined)).toBeNull()
+    expect(deriveEncryptionTier({})).toBeNull()
   })
 })
