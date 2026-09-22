@@ -209,6 +209,12 @@ export function featureKeyForAdminPath(pathname?: string | null): string | null 
   if (/^\/groups\/[^/]+\/tasks(?:\/|$)/.test(pathname)) {
     return 'group_task'
   }
+  // 项目协作面（计划 §5.3）：正常入口（侧栏「项目管理」）与直达 route
+  // 受同一 feature 配置保护——sidebarFilters 消费本映射来隐藏菜单，
+  // FeatureRoute 消费同一个键来拦截直达，不另立过滤逻辑。
+  if (/^\/projects(?:\/|$)/.test(pathname)) {
+    return 'project'
+  }
   return null
 }
 

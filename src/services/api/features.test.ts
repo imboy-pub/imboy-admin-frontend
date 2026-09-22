@@ -181,6 +181,21 @@ describe('featureKeyForAdminPath', () => {
       expect(featureKeyForAdminPath('/groups/10/tasks/')).toBe('group_task')
     })
   })
+
+  // 计划 §5.3：项目功能的正常入口（侧栏「项目管理」）与直达 route 受同一
+  // feature 配置保护 —— sidebarFilters 与 FeatureRoute 都消费本映射。
+  describe('project paths', () => {
+    it('returns "project" for /projects and its detail sub-path', () => {
+      expect(featureKeyForAdminPath('/projects')).toBe('project')
+      expect(featureKeyForAdminPath('/projects/')).toBe('project')
+      expect(featureKeyForAdminPath('/projects/42')).toBe('project')
+    })
+
+    it('does not swallow unrelated workspace paths', () => {
+      expect(featureKeyForAdminPath('/workspaces')).toBeNull()
+      expect(featureKeyForAdminPath('/workspaces/42')).toBeNull()
+    })
+  })
 })
 
 // ---------------------------------------------------------------------------

@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'sonner'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 import { PermissionRoute } from '@/components/auth/PermissionRoute'
+import { FeatureRoute } from '@/components/auth/FeatureRoute'
 import { AdminLayout } from '@/components/layout/AdminLayout'
 import { LoginPage, SetupPage } from '@/modules/identity'
 import { NotFoundPage } from '@/pages/errors/NotFoundPage'
@@ -358,11 +359,16 @@ function App() {
                     </PermissionRoute>
                   )}
                 />
+                {/* 项目管理（计划 §5.3）：feature=project 关闭时直达 route 也必须
+                    不可达，故在 PermissionRoute 内再套一层 FeatureRoute
+                    （与生成产物 compiledAdminFeatureRoutes 的嵌套次序一致） */}
                 <Route
                   path="/projects"
                   element={(
                     <PermissionRoute permission="workspaces:read" roles={['1', '2']}>
-                      <ProjectListPage />
+                      <FeatureRoute feature="project">
+                        <ProjectListPage />
+                      </FeatureRoute>
                     </PermissionRoute>
                   )}
                 />
@@ -370,7 +376,9 @@ function App() {
                   path="/projects/:id"
                   element={(
                     <PermissionRoute permission="workspaces:read" roles={['1', '2']}>
-                      <ProjectDetailPage />
+                      <FeatureRoute feature="project">
+                        <ProjectDetailPage />
+                      </FeatureRoute>
                     </PermissionRoute>
                   )}
                 />

@@ -28,6 +28,7 @@ export function FeatureDisabledPage({ feature }: { feature: string }) {
     channel_invitation: '频道邀请',
     channel_order: '频道排序',
     channel_discover: '频道发现',
+    project: '项目管理',
   }
 
   const label = featureLabels[feature] ?? feature
