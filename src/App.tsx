@@ -97,6 +97,10 @@ const OffboardingCasesPage = lazy(() => import('@/modules/enterprise_business').
 const OffboardingCaseDetailPage = lazy(() => import('@/modules/enterprise_business').then((m) => ({ default: m.OffboardingCaseDetailPage })))
 // CS-03：客服开通向导（业务实现属 A5 lease；此处仅挂正式路由，不改页面逻辑）
 const CsProvisioningWizardPage = lazy(() => import('@/modules/customer_service').then((m) => ({ default: m.CsProvisioningWizardPage })))
+// FULL-04：Admin Application 治理面（只调 /api/adm/enterprise/*，与 /api/internal/v1/* 前缀不相交）
+const EnterpriseApplicationsPage = lazy(() => import('@/modules/enterprise_apps').then((m) => ({ default: m.EnterpriseApplicationsPage })))
+const EnterpriseApplicationDetailPage = lazy(() => import('@/modules/enterprise_apps').then((m) => ({ default: m.EnterpriseApplicationDetailPage })))
+const EnterpriseDeliveriesPage = lazy(() => import('@/modules/enterprise_apps').then((m) => ({ default: m.EnterpriseDeliveriesPage })))
 // Product Experience 安装级配置只读页（双体验 v2.5.2 WP7/T11）
 const ProductExperiencePage = lazy(() => import('@/pages/settings/ProductExperiencePage').then((m) => ({ default: m.ProductExperiencePage })))
 // 企业组织 V1 治理面（ORG-14，/api/adm/organizations 平台面 + member_role 事实矩阵）
@@ -751,6 +755,34 @@ function App() {
                   element={(
                     <PermissionRoute permission="enterprise_business:read" roles={['1', '2']}>
                       <OffboardingCaseDetailPage />
+                    </PermissionRoute>
+                  )}
+                />
+
+                {/* FULL-04：Admin Application 治理（Application 生命周期/scope/credential/Grant/投递/审计）。
+                    认证 = 既有 Admin Cookie 会话（不引入 OA/Application 凭证）；读门 enterprise_business:read，
+                    写动作在页面内另受 enterprise_business:write 门控制（role 2 只读、role 3-6 全拒）。 */}
+                <Route
+                  path="/enterprise/applications"
+                  element={(
+                    <PermissionRoute permission="enterprise_business:read" roles={['1', '2']}>
+                      <EnterpriseApplicationsPage />
+                    </PermissionRoute>
+                  )}
+                />
+                <Route
+                  path="/enterprise/applications/:id"
+                  element={(
+                    <PermissionRoute permission="enterprise_business:read" roles={['1', '2']}>
+                      <EnterpriseApplicationDetailPage />
+                    </PermissionRoute>
+                  )}
+                />
+                <Route
+                  path="/enterprise/applications/:id/deliveries"
+                  element={(
+                    <PermissionRoute permission="enterprise_business:read" roles={['1', '2']}>
+                      <EnterpriseDeliveriesPage />
                     </PermissionRoute>
                   )}
                 />

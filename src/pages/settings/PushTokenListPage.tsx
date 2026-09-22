@@ -14,13 +14,8 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { listPushTokens, pushTokenQueryKey } from '@/services/api/pushToken'
-import type { PushToken } from '@/services/api/pushToken'
+import type { PushTokenView } from '@/services/api/pushToken'
 import { useListQueryState } from '@/hooks/useListQueryState'
-
-function truncateToken(token: string, maxLen = 20): string {
-  if (token.length <= maxLen) return token
-  return `${token.slice(0, maxLen)}...`
-}
 
 /** 统计卡片组件 */
 function StatsCard({ title, value, icon, description }: {
@@ -46,7 +41,7 @@ function StatsCard({ title, value, icon, description }: {
 }
 
 /** 从列表数据计算统计信息 */
-function useTokenStats(list: PushToken[], total: number) {
+function useTokenStats(list: PushTokenView[], total: number) {
   return useMemo(() => {
     const platforms = new Map<string, number>()
     for (const item of list) {
@@ -120,7 +115,7 @@ export function PushTokenListPage() {
     <div className="space-y-6">
       <PageHeader
         title="推送 Token 管理"
-        description="查看各平台推送 Token 注册信息"
+        description="查看各平台推送 Token 注册信息（仅不可逆指纹；设备凭据明文不回显）"
         actions={
           <Button variant="outline" onClick={() => navigate('/settings')}>
             <ArrowLeft className="mr-2 h-4 w-4" />
@@ -175,7 +170,7 @@ export function PushTokenListPage() {
               <TableHead>用户 ID</TableHead>
               <TableHead>设备类型</TableHead>
               <TableHead>平台</TableHead>
-              <TableHead>Token</TableHead>
+              <TableHead>Token 指纹（不可逆）</TableHead>
               <TableHead>更新时间</TableHead>
             </TableRow>
           </TableHeader>
@@ -196,8 +191,11 @@ export function PushTokenListPage() {
                       {item.platform}
                     </span>
                   </TableCell>
-                  <TableCell className="font-mono text-sm" title={item.token}>
-                    {truncateToken(item.token)}
+                  <TableCell
+                    className="font-mono text-sm"
+                    data-testid={`push-token-fingerprint-${item.device_id}`}
+                  >
+                    {item.token_fingerprint || '—'}
                   </TableCell>
                   <TableCell>{item.updated_at}</TableCell>
                 </TableRow>
