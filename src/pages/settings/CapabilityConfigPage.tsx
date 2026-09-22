@@ -13,6 +13,7 @@ import {
   policyQueryKey,
   buildPolicyConfig,
   DEFAULT_CAPABILITIES,
+  STORAGE_MODE_LABELS,
   type PolicyConfig,
   type Capabilities,
   type StorageMode,
@@ -29,16 +30,30 @@ type SelectOption<T extends string> = {
   description: string
 }
 
+// label 一律取自 STORAGE_MODE_LABELS（展示名单一真源，与套餐对比卡共用），
+// 本页只额外补各自的说明文案。
 const STORAGE_MODE_OPTIONS: SelectOption<StorageMode>[] = [
   {
     value: 'disabled',
-    label: '禁用（整档关闭 E2EE）',
+    label: STORAGE_MODE_LABELS.disabled,
     description:
       '硬闸：密钥端点关闭、明文校验放行、群级加密被忽略；客户端隐藏 E2EE 入口。适合不需要端到端加密的客户交付',
   },
-  { value: 'archived', label: '归档存储', description: '消息归档存储在服务器' },
-  { value: 'compliance_e2ee', label: '合规加密存储', description: '合规模式端到端加密存储' },
-  { value: 'secure_e2ee', label: '安全存储', description: '端到端加密安全存储' },
+  {
+    value: 'archived',
+    label: STORAGE_MODE_LABELS.archived,
+    description: '消息归档存储在服务器',
+  },
+  {
+    value: 'compliance_e2ee',
+    label: STORAGE_MODE_LABELS.compliance_e2ee,
+    description: '合规模式端到端加密存储',
+  },
+  {
+    value: 'secure_e2ee',
+    label: STORAGE_MODE_LABELS.secure_e2ee,
+    description: '端到端加密安全存储',
+  },
 ]
 
 const E2EE_MODE_OPTIONS: SelectOption<E2eeMode>[] = [

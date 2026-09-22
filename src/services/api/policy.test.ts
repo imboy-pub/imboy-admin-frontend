@@ -5,9 +5,12 @@ import {
   getPolicyEffective,
   previewPolicyChange,
   savePolicyChange,
+  storageModeLabel,
   DEFAULT_CAPABILITIES,
+  STORAGE_MODE_LABELS,
   type PolicyConfig,
   type PolicyResponse,
+  type StorageMode,
 } from './policy'
 
 type AnyFn = (..._args: unknown[]) => unknown
@@ -189,5 +192,28 @@ describe('savePolicyChange', () => {
     const result = await savePolicyChange({ profile: 'enterprise' })
     expect(capturedUrl).toBe('/admin/config/policy')
     expect(result.profile).toBe('enterprise')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// storageModeLabel
+// ---------------------------------------------------------------------------
+describe('storageModeLabel', () => {
+  // 回归：展示层曾用 `storage_mode === 'archived' ? '归档存储' : '安全加密存储'` 这种
+  // 二值判断，加入 disabled 档后会把「E2EE 整档关闭」显示成「安全加密存储」——语义相反。
+  it('每个档位各有独立展示名，disabled 不落回加密档文案', () => {
+    const modes: StorageMode[] = ['disabled', 'archived', 'compliance_e2ee', 'secure_e2ee']
+    for (const mode of modes) {
+      expect(storageModeLabel(mode)).toBe(STORAGE_MODE_LABELS[mode])
+    }
+    expect(storageModeLabel('disabled')).not.toBe(storageModeLabel('secure_e2ee'))
+    expect(storageModeLabel('disabled')).not.toBe(storageModeLabel('compliance_e2ee'))
+  })
+
+  it('未知或缺失取值返回占位符，而不是其它档位的名字', () => {
+    expect(storageModeLabel(undefined)).toBe('—')
+    expect(storageModeLabel(null)).toBe('—')
+    expect(storageModeLabel('')).toBe('—')
+    expect(storageModeLabel('future_mode')).toBe('—')
   })
 })

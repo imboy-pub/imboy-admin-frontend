@@ -24,6 +24,24 @@ export type FeatureName =
 
 export type StorageMode = 'disabled' | 'archived' | 'compliance_e2ee' | 'secure_e2ee'
 export type E2eeMode = 'disabled' | 'optional' | 'compliance' | 'required'
+
+// 存储模式展示名的单一真源。策略页下拉与套餐对比卡共用：`Record<StorageMode, string>`
+// 保证新增档位时这里先编译报错，而不是在展示层退化成「非归档 = 加密」的二值判断把
+// 档位显示成相反的语义。
+export const STORAGE_MODE_LABELS: Record<StorageMode, string> = {
+  disabled: '禁用（整档关闭 E2EE）',
+  archived: '归档存储',
+  compliance_e2ee: '合规加密存储',
+  secure_e2ee: '安全存储',
+}
+
+/** 取存储模式展示名。未知/缺省值返回占位符，绝不回落到其它档位的名字。 */
+export function storageModeLabel(mode: string | undefined | null): string {
+  if (!mode) {
+    return '—'
+  }
+  return (STORAGE_MODE_LABELS as Record<string, string | undefined>)[mode] ?? '—'
+}
 export type AuditMode = 'none' | 'metadata' | 'full'
 export type RetentionPolicyMode = 'rolling_days' | 'infinite'
 

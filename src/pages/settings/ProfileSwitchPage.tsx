@@ -11,6 +11,7 @@ import {
   getBootstrapConfig,
   savePolicyChange,
   policyQueryKey,
+  storageModeLabel,
   type Capabilities,
 } from '@/services/api/policy'
 import { getErrorMessage } from '@/lib/errorUtils'
@@ -32,7 +33,7 @@ const PROFILE_META: Record<ProductProfile, { label: string; description: string;
 
 function CapabilityList({ caps }: { caps: Capabilities }) {
   const items: [string, string][] = [
-    ['存储模式', caps.storage_mode === 'archived' ? '归档存储' : '安全加密存储'],
+    ['存储模式', storageModeLabel(caps.storage_mode)],
     ['端到端加密', caps.e2ee_mode === 'disabled' ? '禁用' : caps.e2ee_mode === 'optional' ? '可选' : caps.e2ee_mode === 'compliance' ? '合规模式' : '强制'],
     ['消息搜索', caps.message_search ? '开启' : '关闭'],
     ['消息导出', caps.message_export ? '开启' : '关闭'],
