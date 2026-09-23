@@ -182,24 +182,29 @@ function buildStyle(doc: Document): HTMLStyleElement {
 .cs-launcher {
   position: fixed; bottom: 24px; right: 24px; z-index: 2147483000;
   width: 56px; height: 56px; border-radius: 9999px; border: 0;
-  background: #2563eb; color: #fff; cursor: pointer;
-  box-shadow: 0 10px 25px rgba(0,0,0,.25);
+  background: linear-gradient(135deg, rgba(255,255,255,.2), rgba(0,0,0,.14)), #2563eb;
+  color: #fff; cursor: pointer;
+  box-shadow: 0 10px 30px rgba(37,99,235,.45), 0 2px 6px rgba(15,23,42,.2);
   font-size: 22px; line-height: 1; display: flex; align-items: center; justify-content: center;
+  transition: transform .18s cubic-bezier(.34,1.56,.64,1), box-shadow .18s ease;
 }
+.cs-launcher:hover { transform: scale(1.08); box-shadow: 0 14px 34px rgba(37,99,235,.5), 0 3px 8px rgba(15,23,42,.22); }
+.cs-launcher:active { transform: scale(.94); }
 .cs-launcher[data-position="bottom-left"] { right: auto; left: 24px; }
 .cs-launcher:focus-visible { outline: 3px solid #93c5fd; outline-offset: 2px; }
-.cs-launcher[data-state="error"] { background: #9ca3af; }
-.cs-launcher[data-state="offline"] { background: #6b7280; }
+.cs-launcher[data-state="error"] { background: linear-gradient(135deg, rgba(255,255,255,.2), rgba(0,0,0,.14)), #9ca3af; box-shadow: 0 10px 25px rgba(0,0,0,.25); }
+.cs-launcher[data-state="offline"] { background: linear-gradient(135deg, rgba(255,255,255,.2), rgba(0,0,0,.14)), #6b7280; box-shadow: 0 10px 25px rgba(0,0,0,.25); }
 .cs-badge {
-  position: absolute; top: -4px; right: -4px; min-width: 20px; height: 20px;
-  border-radius: 9999px; background: #dc2626; color: #fff; font-size: 12px;
+  position: absolute; top: -3px; right: -3px; min-width: 20px; height: 20px;
+  border-radius: 9999px; background: #ef4444; color: #fff; font-size: 12px;
   display: none; align-items: center; justify-content: center; padding: 0 5px; font-weight: 700;
+  box-shadow: 0 0 0 2px #fff;
 }
 .cs-panel {
   position: fixed; bottom: 92px; right: 24px; z-index: 2147483000;
   width: min(380px, calc(100vw - 32px)); height: min(560px, calc(100vh - 120px));
-  border-radius: 12px; overflow: hidden; background: #fff;
-  box-shadow: 0 20px 50px rgba(0,0,0,.3);
+  border-radius: 16px; overflow: hidden; background: #fff;
+  box-shadow: 0 24px 64px rgba(15,23,42,.28), 0 4px 12px rgba(15,23,42,.12);
 }
 .cs-panel[data-position="bottom-left"] { right: auto; left: 24px; }
 @media (max-width: 480px) {

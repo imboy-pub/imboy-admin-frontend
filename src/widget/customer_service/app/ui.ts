@@ -32,6 +32,43 @@ const CONNECTION_LABELS: Record<ChatState['connection'], string> = {
   offline: '离线（稍后自动重试）',
 }
 
+/** 附件白名单的扩展名过滤（与后端 eb_asset_content ?ALLOWED_MIMES 同源演进）。
+ * accept 只在文件选择器软过滤；change 时按 MIME 再硬校验一次，双保险。 */
+const ACCEPT_EXTENSIONS =
+  '.txt,.md,.csv,.png,.jpg,.jpeg,.gif,.webp,.bmp,.svg,.pdf,.zip,.7z,.gz,.doc,.docx,.xlsx,.pptx,.mp4,.webm,.mp3'
+
+const ACCEPT_MIMES = new Set([
+  'image/png',
+  'image/jpeg',
+  'image/gif',
+  'image/webp',
+  'image/bmp',
+  'image/svg+xml',
+  'application/pdf',
+  'text/plain',
+  'text/markdown',
+  'text/csv',
+  'application/zip',
+  'application/x-7z-compressed',
+  'application/gzip',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'video/mp4',
+  'video/webm',
+  'audio/mpeg',
+])
+
+/** 浏览器对少数扩展不给 type（空串）：按扩展名兜底判定是否放行。 */
+function mimeAccepted(file: File): boolean {
+  if (file.type.length > 0) return ACCEPT_MIMES.has(file.type)
+  const name = file.name.toLowerCase()
+  return ['.txt', '.md', '.csv', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg',
+    '.pdf', '.zip', '.7z', '.gz', '.doc', '.docx', '.xlsx', '.pptx', '.mp4', '.webm', '.mp3']
+    .some((ext) => name.endsWith(ext))
+}
+
 /** §3.7 UI 映射：只有 linked 显示成功；failed 才给重试入口。 */
 const ATTACHMENT_STATE_LABELS: Record<NonNullable<ChatMessage['attachment']>['state'], string> = {
   pending: '处理中',
@@ -47,42 +84,119 @@ export function createChatUi(root: HTMLElement, locale: string, handlers: ChatUi
   const style = doc.createElement('style')
   style.textContent = `
 * { box-sizing: border-box; }
-.cs-app { display: flex; flex-direction: column; height: 100vh; margin: 0; font-family: system-ui, sans-serif; color: #111827; background: #f9fafb; }
-.cs-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: var(--cs-primary, #2563eb); color: #fff; }
-.cs-header h1 { margin: 0; font-size: 15px; font-weight: 600; }
-.cs-conn { font-size: 11px; opacity: .9; margin-left: 8px; }
-.cs-close { background: transparent; border: 0; color: #fff; font-size: 18px; cursor: pointer; padding: 4px 8px; }
+.cs-app {
+  display: flex; flex-direction: column; height: 100vh; margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  color: #0f172a; background: #f1f5f9;
+}
+.cs-header {
+  display: flex; align-items: center; justify-content: space-between; padding: 14px 16px;
+  background: linear-gradient(135deg, rgba(255,255,255,.14), rgba(0,0,0,.12)), var(--cs-primary, #2563eb);
+  color: #fff; box-shadow: 0 1px 3px rgba(15,23,42,.18);
+}
+.cs-header h1 { margin: 0; font-size: 15px; font-weight: 700; letter-spacing: .2px; }
+.cs-conn { font-size: 11px; opacity: .92; margin-left: 8px; font-weight: 500; }
+.cs-conn::before {
+  content: ''; display: inline-block; width: 6px; height: 6px; border-radius: 999px;
+  margin-right: 5px; vertical-align: 1px; background: currentColor;
+}
+.cs-conn[data-state="online"]::before { background: #4ade80; }
+.cs-conn[data-state="reconnecting"]::before, .cs-conn[data-state="connecting"]::before { background: #fbbf24; }
+.cs-conn[data-state="offline"]::before { background: #f87171; }
+.cs-close {
+  background: transparent; border: 0; color: #fff; font-size: 17px; cursor: pointer;
+  width: 32px; height: 32px; border-radius: 999px; line-height: 1; transition: background .15s ease;
+}
+.cs-close:hover { background: rgba(255,255,255,.16); }
+.cs-close:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
 .cs-body { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
-.cs-center { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 20px; text-align: center; }
-.cs-log { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
-.cs-msg { max-width: 78%; padding: 8px 11px; border-radius: 12px; font-size: 14px; line-height: 1.45; word-break: break-word; }
-.cs-msg[data-role="visitor"] { align-self: flex-end; background: var(--cs-primary, #2563eb); color: #fff; }
-.cs-msg[data-role="agent"] { align-self: flex-start; background: #fff; border: 1px solid #e5e7eb; }
-.cs-msg[data-role="system"] { align-self: center; background: transparent; color: #6b7280; font-size: 12px; }
-.cs-msg[data-status="pending"] { opacity: .6; }
-.cs-msg[data-status="failed"] { opacity: .9; border: 1px solid #dc2626; }
-.cs-retry { margin-top: 4px; font-size: 12px; border: 0; background: #fee2e2; color: #b91c1c; border-radius: 6px; padding: 3px 8px; cursor: pointer; }
-.cs-banner { padding: 6px 12px; font-size: 12px; background: #fef3c7; color: #92400e; text-align: center; }
-.cs-composer { display: flex; gap: 8px; padding: 10px; border-top: 1px solid #e5e7eb; background: #fff; }
-.cs-composer input { flex: 1; border: 1px solid #d1d5db; border-radius: 8px; padding: 9px 10px; font-size: 14px; }
-.cs-composer input:focus-visible { outline: 2px solid var(--cs-primary, #2563eb); }
-.cs-send { border: 0; border-radius: 8px; padding: 9px 14px; background: var(--cs-primary, #2563eb); color: #fff; cursor: pointer; font-size: 14px; }
-.cs-send:disabled { opacity: .5; cursor: default; }
+.cs-center {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 12px; padding: 24px 20px; text-align: center; background: #f8fafc;
+}
+.cs-center h2 { margin: 0; font-size: 16px; font-weight: 700; }
+.cs-center p { margin: 0; font-size: 13px; color: #475569; line-height: 1.6; max-width: 42ch; }
+.cs-log { flex: 1; overflow-y: auto; padding: 16px 14px; display: flex; flex-direction: column; gap: 10px; scroll-behavior: smooth; }
+.cs-log::-webkit-scrollbar { width: 6px; }
+.cs-log::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
+.cs-log::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+.cs-msg {
+  max-width: 80%; padding: 9px 13px; border-radius: 16px; font-size: 14px; line-height: 1.55;
+  word-break: break-word; box-shadow: 0 1px 1px rgba(15,23,42,.05);
+}
+.cs-msg[data-role="visitor"] {
+  align-self: flex-end; background: var(--cs-primary, #2563eb); color: #fff;
+  border-bottom-right-radius: 6px; box-shadow: 0 1px 3px rgba(37,99,235,.3);
+}
+.cs-msg[data-role="agent"] {
+  align-self: flex-start; background: #fff; border: 1px solid #e2e8f0;
+  border-bottom-left-radius: 6px;
+}
+.cs-msg[data-role="system"] {
+  align-self: center; background: rgba(226,232,240,.6); color: #64748b;
+  font-size: 12px; padding: 4px 12px; border-radius: 999px; box-shadow: none;
+}
+.cs-msg[data-status="pending"] { opacity: .55; }
+.cs-msg[data-status="failed"] { border: 2px solid #ef4444; padding: 8px 12px; }
+.cs-retry {
+  margin-top: 6px; font-size: 12px; font-weight: 600; border: 1px solid #fca5a5;
+  background: #fff; color: #dc2626; border-radius: 8px; padding: 3px 10px; cursor: pointer;
+  transition: background .15s ease;
+}
+.cs-retry:hover { background: #fef2f2; }
+.cs-banner {
+  padding: 7px 12px; font-size: 12px; font-weight: 500;
+  background: linear-gradient(180deg, #fefce8, #fef9c3); color: #854d0e;
+  border-top: 1px solid #fde68a; text-align: center;
+}
+.cs-composer {
+  display: flex; gap: 8px; padding: 12px; border-top: 1px solid #e2e8f0; background: #fff;
+  box-shadow: 0 -1px 2px rgba(15,23,42,.04);
+}
+.cs-composer input {
+  flex: 1; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px 12px;
+  font-size: 14px; background: #f8fafc; transition: border-color .15s ease, background .15s ease;
+  font-family: inherit;
+}
+.cs-composer input:focus-visible { outline: none; border-color: var(--cs-primary, #2563eb); background: #fff; }
+.cs-send {
+  border: 0; border-radius: 12px; padding: 10px 16px; background: var(--cs-primary, #2563eb);
+  color: #fff; cursor: pointer; font-size: 14px; font-weight: 600;
+  transition: filter .15s ease, transform .1s ease;
+}
+.cs-send:hover:not(:disabled) { filter: brightness(1.1); }
+.cs-send:active:not(:disabled) { transform: translateY(1px); }
+.cs-send:disabled { opacity: .45; cursor: default; }
 .cs-stars { display: flex; gap: 8px; justify-content: center; }
-.cs-star { font-size: 22px; background: transparent; border: 1px solid #d1d5db; border-radius: 8px; padding: 6px 10px; cursor: pointer; }
-.cs-star:focus-visible { outline: 2px solid var(--cs-primary, #2563eb); }
-.cs-note { font-size: 12px; color: #6b7280; line-height: 1.5; margin: 0; }
+.cs-star {
+  font-size: 22px; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
+  padding: 6px 10px; cursor: pointer; transition: transform .12s ease, border-color .12s ease;
+}
+.cs-star:hover { transform: scale(1.1); border-color: #fbbf24; }
+.cs-star:focus-visible { outline: 2px solid var(--cs-primary, #2563eb); outline-offset: 1px; }
+.cs-note { font-size: 12px; color: #64748b; line-height: 1.5; margin: 0; }
 .cs-actions { display: flex; gap: 10px; justify-content: center; }
-.cs-btn { border: 0; border-radius: 8px; padding: 9px 16px; font-size: 14px; cursor: pointer; }
+.cs-btn {
+  border: 0; border-radius: 10px; padding: 10px 18px; font-size: 14px; font-weight: 600;
+  cursor: pointer; transition: filter .15s ease, transform .1s ease;
+}
+.cs-btn:hover { filter: brightness(1.08); }
+.cs-btn:active { transform: translateY(1px); }
 .cs-btn.primary { background: var(--cs-primary, #2563eb); color: #fff; }
-.cs-btn.plain { background: #e5e7eb; color: #374151; }
-.cs-attach { border: 0; background: transparent; font-size: 18px; cursor: pointer; padding: 6px; }
+.cs-btn.plain { background: #e2e8f0; color: #334155; }
+.cs-attach {
+  border: 0; background: transparent; font-size: 18px; cursor: pointer; padding: 6px;
+  border-radius: 999px; width: 36px; height: 36px; flex: none; transition: background .15s ease;
+}
+.cs-attach:hover:not(:disabled) { background: #f1f5f9; }
 .cs-attach:focus-visible { outline: 2px solid var(--cs-primary, #2563eb); }
 .cs-attach:disabled { opacity: .4; cursor: default; }
 .cs-file { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-.cs-att { margin-top: 4px; font-size: 12px; display: flex; flex-direction: column; gap: 2px; }
+.cs-att { margin-top: 6px; font-size: 12px; display: flex; flex-direction: column; gap: 2px; }
 .cs-att-name { font-weight: 600; word-break: break-all; }
-.cs-att-state[data-state="failed"] { color: #b91c1c; }
+.cs-att-state { color: #64748b; }
+.cs-msg[data-role="visitor"] .cs-att-state { color: rgba(255,255,255,.85); }
+.cs-att-state[data-state="failed"] { color: #fecaca; }
 `
   root.appendChild(style)
 
@@ -133,11 +247,12 @@ export function createChatUi(root: HTMLElement, locale: string, handlers: ChatUi
   const fileInput = doc.createElement('input')
   fileInput.type = 'file'
   fileInput.className = 'cs-file'
+  fileInput.setAttribute('accept', ACCEPT_EXTENSIONS)
   fileInput.setAttribute('data-testid', 'cs-file-input')
   fileInput.setAttribute('aria-label', locale === 'zh-CN' ? '选择要发送的文件' : 'Choose a file to send')
   fileInput.addEventListener('change', () => {
     const file = fileInput.files?.[0]
-    if (file !== undefined) handlers.onAttachment(file)
+    if (file !== undefined && mimeAccepted(file)) handlers.onAttachment(file)
     fileInput.value = ''
   })
   attachBtn.addEventListener('click', () => fileInput.click())
@@ -243,6 +358,7 @@ export function createChatUi(root: HTMLElement, locale: string, handlers: ChatUi
     title.textContent = state.brand.displayName
     if (state.brand.primaryColor !== null) root.style.setProperty('--cs-primary', state.brand.primaryColor)
     conn.textContent = state.phase === 'chat' || state.phase === 'closed-rating' ? CONNECTION_LABELS[state.connection] : ''
+    conn.setAttribute('data-state', state.connection)
     if (state.phase === 'chat') {
       showChat(state)
       return
