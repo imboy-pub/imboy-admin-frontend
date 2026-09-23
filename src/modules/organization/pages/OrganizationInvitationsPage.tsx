@@ -142,7 +142,7 @@ export function OrganizationInvitationsPage() {
     if (!reveal) return
     try {
       await navigator.clipboard.writeText(reveal.token)
-      toast.success('token 已复制；它不会再次显示，请立即交付给被邀请人')
+      toast.success('token 已复制；它不会再次显示。被邀请人通常无需口令，可直接在 App 内接受')
     } catch {
       toast.error('复制失败：请手动选中文本复制（token 关闭后不可再查看）')
     }
@@ -247,7 +247,7 @@ export function OrganizationInvitationsPage() {
     <div className="space-y-4" data-page="organization-invitations">
       <PageHeader
         title="邀请管理"
-        description="邀请（invitation）与直接加人（legacy direct-add）是不同命令：本页只治理邀请——创建、一次性 token 交付、取消（App 面 revoke 的 adm 收敛）。"
+        description="邀请（invitation）与直接加人（legacy direct-add）是不同命令：本页只治理邀请——创建、一次性 token 兼容交付、取消（App 面 revoke 的 adm 收敛）。被邀请人在 App 内免口令直接接受。"
       />
 
       <Card>
@@ -373,7 +373,7 @@ export function OrganizationInvitationsPage() {
               <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
               <span>
                 明文 token 只在本次创建响应出现一次：服务端只存 digest，关闭本窗口后任何界面（包括本页）都无法再次查看。
-                请立即复制并交付给被邀请人。
+                被邀请人无需口令，可直接在 App「组织 · 我的邀请」中确认接受；token 仅用于旧版本客户端兼容或线下交付场景。
               </span>
             </div>
             <div className="space-y-1.5">
