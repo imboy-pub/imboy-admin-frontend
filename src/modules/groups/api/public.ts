@@ -11,6 +11,15 @@ export interface GroupListParams {
   status?: number
   type?: number
   keyword?: string
+  /**
+   * 企业菜单入口（plan §13.1）：仅 UI 状态。服务端强制 scope=workspace
+   * （personal 群企业入口零可见）+ O/W 过滤重验，不接受前端过滤伪装。
+   */
+  preset?: 'enterprise'
+  /** Organization 服务端过滤（workspace.organization_id 真源解析） */
+  organization_id?: EntityId
+  /** Workspace 服务端过滤（与 organization_id 同时出现时服务端复核归属） */
+  workspace_id?: EntityId
 }
 
 /**

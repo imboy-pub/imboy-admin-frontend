@@ -128,6 +128,8 @@ interface WorkspaceListParams {
   size?: number
   status?: string
   keyword?: string
+  /** 企业菜单入口：Organization 服务端过滤（w.organization_id 真源列，plan §13.1） */
+  organization_id?: EntityId
 }
 
 interface ProjectListParams {
@@ -135,6 +137,8 @@ interface ProjectListParams {
   size?: number
   status?: string
   keyword?: string
+  /** 企业菜单入口：Organization 服务端过滤（p.workspace_id ∈ org 工作区集合，plan §13.1） */
+  organization_id?: EntityId
 }
 
 export function workspaceListQueryKey(params?: WorkspaceListParams) {

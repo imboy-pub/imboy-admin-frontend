@@ -4,6 +4,8 @@ import client from './client'
 import { safeParseBigIntJson } from '@/lib/safeParseBigIntJson'
 import { requireApiPayload } from './responseAdapter'
 import {
+  getWorkspaceListPayload,
+  getProjectListPayload,
   getProjectMembersPayload,
   getProjectMilestonesPayload,
   getProjectChannelsPayload,
@@ -252,5 +254,63 @@ describe('workspaces admin project governance API (W2)', () => {
     expect(isForbiddenError(null)).toBe(false)
     expect(isForbiddenError(undefined)).toBe(false)
     expect(isForbiddenError('403')).toBe(false)
+  })
+})
+
+describe('enterprise menu organization filter passthrough (plan §13.1)', () => {
+  afterEach(() => {
+    mutableClient.get = originalGet
+  })
+
+  it('getWorkspaceListPayload forwards organization_id as EntityId string to /workspace/list', async () => {
+    let capturedUrl = ''
+    let capturedParams: Record<string, unknown> | undefined
+    mutableClient.get = async (url: string, config?: { params?: Record<string, unknown> }) => {
+      capturedUrl = url
+      capturedParams = config?.params
+      return makePagedEnvelope([])
+    }
+
+    await getWorkspaceListPayload({
+      page: 1,
+      size: 10,
+      status: 'all',
+      organization_id: BIG_TSID_STR,
+    })
+
+    expect(capturedUrl).toBe('/workspace/list')
+    expect(capturedParams?.organization_id).toBe(BIG_TSID_STR)
+    expect(typeof capturedParams?.organization_id).toBe('string')
+  })
+
+  it('getProjectListPayload forwards organization_id to /project/list（企业项目只读入口）', async () => {
+    let capturedUrl = ''
+    let capturedParams: Record<string, unknown> | undefined
+    mutableClient.get = async (url: string, config?: { params?: Record<string, unknown> }) => {
+      capturedUrl = url
+      capturedParams = config?.params
+      return makePagedEnvelope([])
+    }
+
+    await getProjectListPayload({
+      page: 1,
+      size: 10,
+      status: 'all',
+      organization_id: BIG_TSID_STR,
+    })
+
+    expect(capturedUrl).toBe('/project/list')
+    expect(capturedParams?.organization_id).toBe(BIG_TSID_STR)
+  })
+
+  it('无 organization_id 时不携带该参数（全局运营语义保留）', async () => {
+    let capturedParams: Record<string, unknown> | undefined
+    mutableClient.get = async (_url: string, config?: { params?: Record<string, unknown> }) => {
+      capturedParams = config?.params
+      return makePagedEnvelope([])
+    }
+
+    await getWorkspaceListPayload({ page: 1, size: 10, status: 'all' })
+    expect(capturedParams).not.toHaveProperty('organization_id')
   })
 })

@@ -180,39 +180,53 @@ export function isAdminFeatureEnabled(
   return isAdminFeatureEnabled(featureFlags, parentFeature)
 }
 
+/**
+ * 去掉路径的 query 串再做 feature/admin-entry 匹配。
+ * 企业菜单入口（plan §13.1）的叶子 path 携带 UI 状态 query（如
+ * /groups?preset=enterprise），门禁身份必须是纯 pathname——
+ * '/channels?preset=enterprise' 若不剥 query 会漏出 /^\/channels(?:\/|$)/
+ * 通配，被当作未登记路径放行。
+ */
+function stripPathQuery(pathname: string): string {
+  const qIndex = pathname.indexOf('?')
+  return qIndex >= 0 ? pathname.slice(0, qIndex) : pathname
+}
+
 export function featureKeyForAdminPath(pathname?: string | null): string | null {
   if (!pathname) return null
+  const path = stripPathQuery(pathname)
+  if (path.length === 0) return null
 
-  if (/^\/channels\/[^/]+\/invitations(?:\/|$)/.test(pathname)) {
+  if (/^\/channels\/[^/]+\/invitations(?:\/|$)/.test(path)) {
     return 'channel_invitation'
   }
-  if (/^\/channels\/[^/]+\/orders(?:\/|$)/.test(pathname)) {
+  if (/^\/channels\/[^/]+\/orders(?:\/|$)/.test(path)) {
     return 'channel_order'
   }
   // 付费频道运营页（/channels/paid）与订单子路径同属 channel_order，
   // 不得落入下方 /channels 通配（否则 channel_order 关闭时菜单仍可见）
-  if (/^\/channels\/paid(?:\/|$)/.test(pathname)) {
+  if (/^\/channels\/paid(?:\/|$)/.test(path)) {
     return 'channel_order'
   }
-  if (/^\/channels(?:\/|$)/.test(pathname)) {
+  if (/^\/channels(?:\/|$)/.test(path)) {
     return 'channel'
   }
-  if (/^\/moments(?:\/|$)/.test(pathname) || /^\/reports(?:\/|$)/.test(pathname)) {
+  if (/^\/moments(?:\/|$)/.test(path) || /^\/reports(?:\/|$)/.test(path)) {
     return 'moment'
   }
-  if (/^\/groups\/[^/]+\/votes(?:\/|$)/.test(pathname)) {
+  if (/^\/groups\/[^/]+\/votes(?:\/|$)/.test(path)) {
     return 'group_vote'
   }
-  if (/^\/groups\/[^/]+\/schedules(?:\/|$)/.test(pathname)) {
+  if (/^\/groups\/[^/]+\/schedules(?:\/|$)/.test(path)) {
     return 'group_schedule'
   }
-  if (/^\/groups\/[^/]+\/tasks(?:\/|$)/.test(pathname)) {
+  if (/^\/groups\/[^/]+\/tasks(?:\/|$)/.test(path)) {
     return 'group_task'
   }
   // 项目协作面（计划 §5.3）：正常入口（侧栏「项目管理」）与直达 route
   // 受同一 feature 配置保护——sidebarFilters 消费本映射来隐藏菜单，
   // FeatureRoute 消费同一个键来拦截直达，不另立过滤逻辑。
-  if (/^\/projects(?:\/|$)/.test(pathname)) {
+  if (/^\/projects(?:\/|$)/.test(path)) {
     return 'project'
   }
   return null
@@ -224,12 +238,14 @@ export function featureKeyForAdminPath(pathname?: string | null): string | null 
  */
 export function adminEntryForPath(pathname?: string | null): string | null {
   if (!pathname) return null
+  const path = stripPathQuery(pathname)
+  if (path.length === 0) return null
 
-  if (/^\/channels(?:\/|$)/.test(pathname)) return 'channel'
-  if (/^\/moments(?:\/|$)/.test(pathname) || /^\/reports(?:\/|$)/.test(pathname)) return 'moment'
-  if (/^\/groups\/[^/]+\/votes(?:\/|$)/.test(pathname)) return 'group_vote'
-  if (/^\/groups\/[^/]+\/schedules(?:\/|$)/.test(pathname)) return 'group_schedule'
-  if (/^\/groups\/[^/]+\/tasks(?:\/|$)/.test(pathname)) return 'group_task'
+  if (/^\/channels(?:\/|$)/.test(path)) return 'channel'
+  if (/^\/moments(?:\/|$)/.test(path) || /^\/reports(?:\/|$)/.test(path)) return 'moment'
+  if (/^\/groups\/[^/]+\/votes(?:\/|$)/.test(path)) return 'group_vote'
+  if (/^\/groups\/[^/]+\/schedules(?:\/|$)/.test(path)) return 'group_schedule'
+  if (/^\/groups\/[^/]+\/tasks(?:\/|$)/.test(path)) return 'group_task'
 
   return null
 }

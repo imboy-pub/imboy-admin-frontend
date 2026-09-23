@@ -16,6 +16,8 @@ import {
 } from '@/components/shared'
 import { getProjectListPayload, projectListQueryKey, type ProjectAdminRow } from '@/services/api/workspaces'
 import { useListQueryState } from '@/hooks/useListQueryState'
+import { buildEnterpriseScopeParams } from '@/modules/enterprise_access/preset'
+import { useEnterpriseOrganizationOptions } from '@/modules/enterprise_access/hooks'
 import { trackUxEvent } from '@/lib/uxTelemetry'
 import { formatDate } from '@/lib/utils'
 import { Select } from '@/components/ui/select'
@@ -27,6 +29,8 @@ type ProjectListPageQuery = {
   size: number
   status: string
   keyword: string
+  /** 企业菜单入口：Organization 服务端过滤（plan §13.1；企业项目只读） */
+  organization_id: string
 }
 
 /**
@@ -41,9 +45,12 @@ export function ProjectListPage() {
     size: 10,
     status: 'all',
     keyword: '',
+    organization_id: '',
   })
+  const { data: orgOptions } = useEnterpriseOrganizationOptions(true)
   const [searchKeyword, setSearchKeyword] = useState(params.keyword || '')
   const [statusFilter, setStatusFilter] = useState(params.status)
+  const [orgFilter, setOrgFilter] = useState(params.organization_id || '')
   const [sorting, setSorting] = useState<SortingState>([])
 
   const requestParams = {
@@ -51,6 +58,7 @@ export function ProjectListPage() {
     size: params.size,
     status: params.status,
     keyword: params.keyword.trim() || undefined,
+    ...buildEnterpriseScopeParams(params),
   }
 
   const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
@@ -64,13 +72,19 @@ export function ProjectListPage() {
       keyword: searchKeyword.trim(),
       status: statusFilter,
     })
-    setParams({ page: 1, keyword: searchKeyword.trim(), status: statusFilter })
+    setParams({
+      page: 1,
+      keyword: searchKeyword.trim(),
+      status: statusFilter,
+      organization_id: orgFilter,
+    })
   }
 
   const handleReset = () => {
     setSearchKeyword('')
     setStatusFilter('all')
-    resetParams({ page: 1, size: 10, status: 'all', keyword: '' })
+    setOrgFilter('')
+    resetParams({ page: 1, size: 10, status: 'all', keyword: '', organization_id: '' })
   }
 
   const columns: LegacyColumnDef<ProjectAdminRow>[] = [
@@ -197,6 +211,19 @@ export function ProjectListPage() {
               <option value="all">全部状态</option>
               <option value="active">进行中</option>
               <option value="done">已完成</option>
+            </Select>
+            <Select
+              className="h-10 min-w-44 rounded-md border border-input bg-background px-3 text-sm"
+              value={orgFilter}
+              onChange={(e) => setOrgFilter(e.target.value)}
+              aria-label="按组织筛选"
+            >
+              <option value="">全部组织</option>
+              {(orgOptions ?? []).map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
             </Select>
           </FilterBar>
         </CardHeader>
