@@ -391,12 +391,15 @@ test.describe('平台组织治理面 · 六旅程（/api/adm/organizations）', 
     })
     expect(envelopeCode(outsider.status, outsider.body)).toBe(409)
 
-    // 正向：UI 弹窗冒烟只验证可打开/可填入（不提交）——转移提交由 API 直调断言。
+    // 正向：UI 弹窗冒烟只验证可打开/搜索选择器就位（不提交）——转移提交由 API 直调断言。
     // 教训（run13/14 实测）：UI 提交与 API 直调各转一次，第二次必然自转移 400。
+    // 2026-09-23 起 Owner 转移统一走用户搜索选择对话框（禁止手填 TSID）：
+    // transfer-owner-btn 打开 OrganizationOwnerTransferDialog（owner-transfer-* 选择器）。
     await page.goto(`/organizations/${seedOrgId}/members`)
     await waitPageRoot(page, '[data-page="organization-members"]')
     await page.getByTestId('transfer-owner-btn').click()
-    await page.locator('#transfer-target-input').fill(memberKeptId)
+    await expect(page.getByTestId('owner-transfer-dialog')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId('owner-transfer-search-input')).toBeVisible()
     await page.keyboard.press('Escape')
     await expect(page.getByTestId('transfer-owner-btn')).toBeVisible({ timeout: 15_000 })
 
@@ -482,16 +485,23 @@ test.describe('平台组织治理面 · 六旅程（/api/adm/organizations）', 
     await page.goto(`/organizations/${seedOrgId}/invitations`)
     await waitPageRoot(page, '[data-page="organization-invitations"]')
 
-    // 创建：Dialog 填被邀请人 → 一次性 token reveal（唯一出现点）
+    // 创建：2026-09-23 起被邀请人走用户搜索选择（禁止手填 TSID）。seed 只有
+    // TSID 无已知账号，搜索命中不可控 → UI 段降级为冒烟（对话框 + 搜索选择器
+    // 就位），提交与一次性 token 断言改由 API 直调（reveal UI 链路由组件单测覆盖）。
     await page.getByTestId('invitation-create-btn').click()
-    await page.locator('#invitation-target').fill(invitee)
-    await page.getByTestId('invitation-create-submit').click()
-    await expect(page.getByTestId('invitation-token-reveal')).toBeVisible({ timeout: 15_000 })
-    const tokenValue = await page.locator('#invitation-token-value').inputValue()
-    expect(tokenValue.length).toBeGreaterThan(8)
-    await page.getByTestId('invitation-token-close').click()
+    await expect(page.getByTestId('invitation-target-search-input')).toBeVisible({ timeout: 15_000 })
+    await page.keyboard.press('Escape')
+    await expect(page.getByTestId('invitation-create-btn')).toBeVisible({ timeout: 15_000 })
 
-    // token 明文只出现一次：关闭 reveal 后 body 不再含 token 子串（服务端只存 digest）
+    // API 创建：响应含一次性 token（唯一出现点）
+    const created = await apiPost(page, `/api/adm/organizations/${seedOrgId}/invitations`, {
+      target_user_id: invitee,
+    })
+    expect(envelopeCode(created.status, created.body)).toBe(0)
+    const tokenValue = String((created.body as { payload?: { token?: string } })?.payload?.token ?? '')
+    expect(tokenValue.length).toBeGreaterThan(8)
+
+    // token 明文只出现一次：创建后 body 不含 token 子串（服务端只存 digest）
     const bodyText = await page.locator('body').innerText()
     expect(bodyText).not.toContain(tokenValue)
     expect(bodyText).not.toMatch(SENSITIVE_KEY_VALUE_RE)
