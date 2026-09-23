@@ -20,6 +20,7 @@ import {
   isOrgWriteAllowed,
   orgStatusLabel,
 } from '../api/pureFunctions'
+import { OrganizationOwnerTransferDialog } from './OrganizationOwnerTransferDialog'
 
 const READ_PERMISSION = 'organizations:read'
 const WRITE_PERMISSION = 'organizations:write'
@@ -66,6 +67,7 @@ export function OrganizationDetailPage() {
 
   const [pendingArchive, setPendingArchive] = useState(false)
   const [pendingRestore, setPendingRestore] = useState(false)
+  const [ownerTransferOpen, setOwnerTransferOpen] = useState(false)
 
   // 默认 Workspace 上下文：只经共享 codec 读写，禁止手写字符串拼接。
   const scopedContext = parseOrgWorkspaceQuery(searchParams)
@@ -86,6 +88,9 @@ export function OrganizationDetailPage() {
   const invalidateDetail = () => {
     void queryClient.invalidateQueries({ queryKey: ['organization', 'detail', organizationId] })
     void queryClient.invalidateQueries({ queryKey: ['organization', 'list'] })
+    // Owner 转移后成员行角色同步变化（旧 owner→admin / 新 owner）；archive/restore
+    // 时成员页头部也展示组织状态，一并失效无害且正确。
+    void queryClient.invalidateQueries({ queryKey: ['organization', 'members', organizationId] })
   }
 
   const archiveMutation = useMutation({
@@ -198,6 +203,11 @@ export function OrganizationDetailPage() {
             <Badge variant={org.status === 'active' ? 'default' : 'destructive'} data-status={org.status}>
               {orgStatusLabel(org.status)}
             </Badge>
+            {canWrite && isOrgWriteAllowed(org.status, 'update') && org.ownerId ? (
+              <Button variant="outline" size="sm" data-testid="org-owner-change-btn" onClick={() => setOwnerTransferOpen(true)}>
+                修改 Owner
+              </Button>
+            ) : null}
           </div>
         </CardHeader>
         <CardContent>
@@ -417,6 +427,15 @@ export function OrganizationDetailPage() {
         onConfirm={async () => {
           await restoreMutation.mutateAsync()
         }}
+      />
+
+      <OrganizationOwnerTransferDialog
+        open={ownerTransferOpen}
+        onOpenChange={setOwnerTransferOpen}
+        organizationId={organizationId}
+        organizationName={org.name}
+        currentOwnerId={org.ownerId}
+        onChanged={invalidateDetail}
       />
     </div>
   )

@@ -21,6 +21,7 @@ import {
   isOrgWriteAllowed,
   normalizeOrgPage,
   orgFailureKindFromStatus,
+  ownerTransferErrorHint,
   redactToken,
   safeJsonKeyNames,
   toDepartmentRow,
@@ -405,5 +406,32 @@ describe('部门树构造', () => {
     }
     walk(tree)
     expect(collected.sort()).toEqual(['a', 'b'])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Owner 转移错误分类文案（POST /organizations/:id/owner-transfer）
+// ---------------------------------------------------------------------------
+describe('ownerTransferErrorHint', () => {
+  it('400 自转移/参数：给出「不能转移到当前 Owner 本人」指引', () => {
+    const failure = classifyOrgError({ code: 400, msg: '不能转移给自己' })
+    const hint = ownerTransferErrorHint(failure)
+    expect(hint).toContain('400')
+    expect(hint).toContain('自转移')
+  })
+
+  it('409 非成员/归档冲突：给出成员资格与归档状态指引', () => {
+    const failure = classifyOrgError({ code: 409, msg: '该用户不是组织成员或已被移除' })
+    const hint = ownerTransferErrorHint(failure)
+    expect(hint).toContain('409')
+    expect(hint).toContain('active 成员')
+    expect(hint).toContain('未归档')
+  })
+
+  it('403/404/500 与默认分支各有可行动文案', () => {
+    expect(ownerTransferErrorHint(classifyOrgError({ code: 403, msg: 'denied' }))).toContain('organizations:write')
+    expect(ownerTransferErrorHint(classifyOrgError({ code: 404, msg: '不存在' }))).toContain('404')
+    expect(ownerTransferErrorHint(classifyOrgError({ code: 500, msg: 'boom' }))).toContain('回滚')
+    expect(ownerTransferErrorHint(classifyOrgError(new Error('network down')))).toContain('network down')
   })
 })

@@ -15,6 +15,7 @@ import '../../../test/setupDom'
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import React from 'react'
 import client from '@/services/api/client'
@@ -231,5 +232,40 @@ describe('OrganizationDetailPage — 跨面直达链接的 org/ws 上下文', ()
       expect(url.searchParams.get('org')).toBe(ORG_ID)
       expect(url.searchParams.get('ws')).toBeNull()
     }
+  })
+})
+
+// ---------------------------------------------------------------------------
+// ③ 事实域卡片「修改 Owner」入口（owner-transfer 对话框接线）
+// ---------------------------------------------------------------------------
+describe('OrganizationDetailPage — 修改 Owner 入口接线', () => {
+  it('有写权限 + active 组织：按钮可见，点击打开转移对话框', async () => {
+    const view = renderPage(`/organizations/${ORG_ID}?org=${ORG_ID}&ws=${WS_ID}`)
+    await waitDetailReady(view)
+
+    const btn = view.getByTestId('org-owner-change-btn') as HTMLButtonElement
+    expect(btn).toBeTruthy()
+    const user = userEvent.setup()
+    await user.click(btn)
+    await waitFor(() => expect(view.queryByTestId('owner-transfer-dialog')).not.toBeNull())
+  })
+
+  it('仅只读权限（rbac/me 无 organizations:write）：不渲染修改 Owner 按钮', async () => {
+    mutableClient.get = ((url: string) => {
+      if (url === '/rbac/me') {
+        return Promise.resolve(envelope({ ...RBAC_PROFILE, permissions: ['organizations:read'] }))
+      }
+      if (url === `/organizations/${ORG_ID}`) return Promise.resolve(envelope(ORG_DETAIL))
+      if (url === `/organizations/${ORG_ID}/workspaces`) {
+        return Promise.resolve(
+          envelope({ list: WORKSPACE_ROWS, page: 1, size: 100, total: WORKSPACE_ROWS.length, total_page: 1 })
+        )
+      }
+      throw new Error(`unexpected GET url: ${url}`)
+    }) as AnyFn
+
+    const view = renderPage(`/organizations/${ORG_ID}?org=${ORG_ID}&ws=${WS_ID}`)
+    await waitDetailReady(view)
+    expect(view.queryByTestId('org-owner-change-btn')).toBeNull()
   })
 })

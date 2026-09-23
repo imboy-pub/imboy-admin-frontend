@@ -20,6 +20,7 @@ import {
 } from '@/components/shared'
 import { useAdminPermission } from '@/hooks/useAdminPermission'
 import { useListQueryState } from '@/hooks/useListQueryState'
+import type { User } from '@/types/user'
 import {
   cancelOrganizationInvitation,
   createOrganizationInvitation,
@@ -35,6 +36,7 @@ import {
   type InvitationStatus,
   type InvitationView,
 } from '../api/pureFunctions'
+import { UserSearchSelect } from '../components/UserSearchSelect'
 
 const READ_PERMISSION = 'organizations:read'
 const WRITE_PERMISSION = 'organizations:write'
@@ -80,7 +82,8 @@ export function OrganizationInvitationsPage() {
   const { allowed: canManage } = useAdminPermission({ permission: WRITE_PERMISSION })
 
   const [createOpen, setCreateOpen] = useState(false)
-  const [createUserId, setCreateUserId] = useState('')
+  /** 被邀请人：必须经用户搜索选择（禁止手填裸 TSID，与创建组织同约定）。 */
+  const [createTargetUser, setCreateTargetUser] = useState<User | null>(null)
   const [createExpiresInDays, setCreateExpiresInDays] = useState('')
   /** 一次性 token 展示：组件局部 state，关闭即清空（唯一持有点）。 */
   const [reveal, setReveal] = useState<InvitationCreatedReveal | null>(null)
@@ -113,11 +116,11 @@ export function OrganizationInvitationsPage() {
         Number.isFinite(days) && days > 0 && days <= 365
           ? Math.floor(Date.now() / 1000) + Math.floor(days) * 86400
           : undefined
-      return createOrganizationInvitation(organizationId, createUserId.trim(), expiresAt)
+      return createOrganizationInvitation(organizationId, createTargetUser!.id, expiresAt)
     },
     onSuccess: (result) => {
       setCreateOpen(false)
-      setCreateUserId('')
+      setCreateTargetUser(null)
       setCreateExpiresInDays('')
       setReveal(result)
       invalidateList()
@@ -315,16 +318,20 @@ export function OrganizationInvitationsPage() {
             <DialogTitle>创建邀请</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="invitation-target">被邀请人用户 ID（必须是已注册用户）</Label>
-              <Input
-                id="invitation-target"
-                value={createUserId}
-                inputMode="numeric"
-                onChange={(event) => setCreateUserId(event.target.value)}
-                placeholder="TSID，例如 1234567890123456789"
-              />
-            </div>
+            <UserSearchSelect
+              id="invitation-target"
+              testIdPrefix="invitation-target"
+              label="被邀请人（搜索选择；必须是已注册用户）"
+              value={createTargetUser}
+              onChange={setCreateTargetUser}
+              hint={
+                createTargetUser ? (
+                  <p className="text-xs text-muted-foreground">
+                    已是 active 成员的用户会被服务端以 409 拒绝（立即加人走 legacy direct-add，不是邀请）。
+                  </p>
+                ) : null
+              }
+            />
             <div className="space-y-1.5">
               <Label htmlFor="invitation-expiry">有效期（天，可选；留空 = 服务端默认 7 天）</Label>
               <Input
@@ -335,9 +342,6 @@ export function OrganizationInvitationsPage() {
                 placeholder="例如 3（上限 365）"
               />
             </div>
-            <p className="text-xs text-muted-foreground">
-              已是 active 成员的用户会被服务端以 409 拒绝（立即加人走 legacy direct-add，不是邀请）。
-            </p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={createMutation.isPending}>
@@ -346,7 +350,7 @@ export function OrganizationInvitationsPage() {
             <Button
               data-testid="invitation-create-submit"
               onClick={() => createMutation.mutate()}
-              disabled={createMutation.isPending || createUserId.trim().length === 0}
+              disabled={createMutation.isPending || createTargetUser == null}
             >
               创建
             </Button>

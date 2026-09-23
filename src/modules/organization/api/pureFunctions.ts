@@ -746,3 +746,25 @@ export function createOrgErrorHint(failure: OrgFailure): string {
       return failure.message
   }
 }
+
+/**
+ * Owner 转移错误分类文案（POST /organizations/:id/owner-transfer 旅程特有指引）。
+ * 服务端裁决链：400 自转移/参数、403 adm_acl、404 组织不存在、
+ * 409 组织已归档 / 目标非本组织 active 成员 / 已是 owner；500 事务整体回滚。
+ */
+export function ownerTransferErrorHint(failure: OrgFailure): string {
+  switch (failure.kind) {
+    case 'validation':
+      return `转移被拒绝（400 校验）：${failure.message}。不能转移到当前 Owner 本人（自转移），请重新选择目标用户。`
+    case 'forbidden':
+      return `无权限（403）：当前管理员缺少 organizations:write，无法转移 Owner（授权由服务端 fail-closed 判定）。`
+    case 'not_found':
+      return `组织不存在（404）：${failure.message}。请刷新组织事实后重试。`
+    case 'conflict':
+      return `转移被拒绝（409）：${failure.message}。新 Owner 必须是本组织的 active 成员，且组织未归档。`
+    case 'server':
+      return `服务端事务失败：${failure.message}。事务已整体回滚，可稍后重试。`
+    default:
+      return failure.message
+  }
+}

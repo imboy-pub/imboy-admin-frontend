@@ -6,9 +6,6 @@ import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import {
   ConfirmDialog,
   DataTable,
@@ -26,7 +23,6 @@ import {
   removeOrganizationMember,
   restoreOrganizationMember,
   suspendOrganizationMember,
-  transferOrganizationOwner,
 } from '../api/public'
 import {
   canTargetMemberRow,
@@ -35,6 +31,7 @@ import {
   orgRoleLabel,
   type OrganizationMemberRow,
 } from '../api/pureFunctions'
+import { OrganizationOwnerTransferDialog } from './OrganizationOwnerTransferDialog'
 
 const READ_PERMISSION = 'organizations:read'
 const WRITE_PERMISSION = 'organizations:write'
@@ -78,7 +75,6 @@ export function OrganizationMembersPage() {
   const [pendingRemove, setPendingRemove] = useState<OrganizationMemberRow | null>(null)
   const [suspendedRecords, setSuspendedRecords] = useState<SuspendedRecord[]>([])
   const [transferOpen, setTransferOpen] = useState(false)
-  const [transferTarget, setTransferTarget] = useState('')
 
   // 服务端事实：组织状态（archived 门禁与提示的数据源）
   const detailQuery = useQuery({
@@ -136,17 +132,6 @@ export function OrganizationMembersPage() {
       )
       setPendingRemove(null)
       setSuspendedRecords((prev) => prev.filter((item) => item.userId !== input.row.userId))
-      invalidateMembers()
-    },
-    onError: (err) => toast.error(classifyOrgError(err).message),
-  })
-
-  const transferMutation = useMutation({
-    mutationFn: (userId: string) => transferOrganizationOwner(organizationId, userId),
-    onSuccess: () => {
-      toast.success('Owner 已转移（单事务：旧 Owner 降级为 admin，新 Owner 升级，owner_id 投影同步）')
-      setTransferOpen(false)
-      setTransferTarget('')
       invalidateMembers()
     },
     onError: (err) => toast.error(classifyOrgError(err).message),
@@ -336,41 +321,14 @@ export function OrganizationMembersPage() {
         }}
       />
 
-      <Dialog open={transferOpen} onOpenChange={setTransferOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>转移组织 Owner（危险动作）</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            单事务执行：当前主 Owner 降级为 admin，目标成员升级为 Owner，organization.owner_id 投影同步更新。
-            目标必须是本组织的 active 成员，且不能是当前 Owner 自己（自转移被 400 拒绝）。
-            该动作影响组织控制权归属，请确认目标用户 ID。
-          </p>
-          <div className="space-y-1.5">
-            <Label htmlFor="transfer-target-input">新 Owner 用户 ID（必填）</Label>
-            <Input
-              id="transfer-target-input"
-              value={transferTarget}
-              inputMode="numeric"
-              onChange={(event) => setTransferTarget(event.target.value)}
-              placeholder="TSID，例如 1234567890123456789"
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setTransferOpen(false)} disabled={transferMutation.isPending}>
-              取消
-            </Button>
-            <Button
-              variant="destructive"
-              data-testid="transfer-owner-submit"
-              disabled={transferMutation.isPending || transferTarget.trim().length === 0}
-              onClick={() => transferMutation.mutate(transferTarget.trim())}
-            >
-              确认转移
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <OrganizationOwnerTransferDialog
+        open={transferOpen}
+        onOpenChange={setTransferOpen}
+        organizationId={organizationId}
+        organizationName={org?.name ?? ''}
+        currentOwnerId={org?.ownerId ?? ''}
+        onChanged={invalidateMembers}
+      />
     </div>
   )
 }
