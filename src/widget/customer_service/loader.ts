@@ -343,8 +343,11 @@ function sendHostContext(win: Window, config: LoaderConfig, state: WidgetState):
   }
 }
 
-/** 面板可见性通知（iframe 据此计未读；协议白名单 HostToWidgetMessage.panel）。 */
+/** 面板可见性通知（iframe 据此计未读；协议白名单 HostToWidgetMessage.panel）。
+ * frame 未就绪时初始 about:blank 文档继承宿主 origin，与 widgetOrigin 不匹配，
+ * postMessage 会在宿主控制台报 DOMException；此时跳过，由 onReady 统一补发。 */
 function sendPanelState(config: LoaderConfig, state: WidgetState, open: boolean): void {
+  if (!state.frameReady) return
   try {
     const target = state.iframe?.contentWindow
     if (!target) return
@@ -469,7 +472,12 @@ export function mountCustomerServiceWidget(
   }
   const onMessage = (event: MessageEvent): void => {
     handleWidgetMessage(event, config, state, ui, config.locale, {
-      onReady: () => sendHostContext(win, config, state),
+      // frame 就绪后补发 host-context 与当前面板状态（首次打开时发的 panel 消息
+      // 落在 frame 加载完成前，已被 frameReady 守卫跳过）
+      onReady: () => {
+        sendHostContext(win, config, state)
+        sendPanelState(config, state, state.open)
+      },
       onClose: closePanel,
     })
   }

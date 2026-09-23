@@ -343,6 +343,37 @@ describe('launcher / iframe / postMessage（CSD-FE-01-A03）', () => {
     expect(button.getAttribute('data-state')).toBe('error')
     expect(button.getAttribute('aria-label')).toContain('客服暂不可用')
   })
+
+  it('panel 消息时序：frame 未就绪不投递；ready 后补发当前面板状态（CSD-FE-01-A03 修复）', () => {
+    const created = mount()
+    const calls: Array<{ msg: unknown; origin: string }> = []
+    const recordingWin = {
+      postMessage: (msg: unknown, origin: string) => {
+        calls.push({ msg, origin })
+      },
+    } as unknown as Window
+
+    // 首次点击：iframe 刚创建、frame 未 ready，此时不得向 contentWindow postMessage
+    //（初始 about:blank 文档继承宿主 origin，投递会在宿主控制台报 DOMException）
+    launcherOf(created).click()
+    expect(calls).toHaveLength(0)
+
+    // frame 就绪（发 ready）→ host 补发 host-context + panel(当前 open=true)
+    const iframe = iframeOf(created)
+    if (iframe === null) throw new Error('iframe 未创建')
+    Object.defineProperty(iframe, 'contentWindow', { configurable: true, value: recordingWin })
+    postEvent(window, { origin: 'https://cs.example.com', source: recordingWin, data: { source: 'imboy-cs-widget', type: 'ready' } })
+    const panelMsgs = calls.filter((c) => (c.msg as { type?: string }).type === 'panel')
+    expect(calls.some((c) => (c.msg as { type?: string }).type === 'host-context')).toBe(true)
+    expect(panelMsgs).toHaveLength(1)
+    expect((panelMsgs[0]?.msg as { open?: boolean }).open).toBe(true)
+    expect(panelMsgs[0]?.origin).toBe('https://cs.example.com')
+
+    // frame 已就绪后开关面板：panel 消息正常投递
+    launcherOf(created).click()
+    const panelMsgsAfter = calls.filter((c) => (c.msg as { type?: string }).type === 'panel')
+    expect((panelMsgsAfter.at(-1)?.msg as { open?: boolean }).open).toBe(false)
+  })
 })
 
 describe('isFromWidgetFrame / 宿主异常零外泄（A05）', () => {
