@@ -99,8 +99,8 @@ export const defaultConfig: SidebarMenuConfig = {
       icon: 'Users',
       children: [
         { path: '/users', icon: 'Users', label: '用户管理', roles: ['1', '2'], permission: 'users:read' },
-        { path: '/workspaces', icon: 'Building2', label: '工作区管理', roles: ['1', '2'], permission: 'workspaces:read' },
-        { path: '/projects', icon: 'FolderKanban', label: '项目管理', roles: ['1', '2'], permission: 'workspaces:read' },
+        // 工作区/项目叶子已移入「企业管理」组（§13.1；工作区/项目即企业概念，
+        // seenPaths 去重不允许同 path 双叶子）。群组/频道全局治理入口保留于此。
         { path: '/groups', icon: 'UsersRound', label: '群组管理', roles: ['1', '2'], permission: 'groups:read' },
         { path: '/groups/tasks', icon: 'FileText', label: '群作业管理', roles: ['1', '2'], permission: 'groups:task:read' },
         { path: '/channels', icon: 'Radio', label: '频道管理', roles: ['1', '2'], permission: 'channels:read' },
@@ -164,13 +164,17 @@ export const defaultConfig: SidebarMenuConfig = {
       label: '企业管理',
       icon: 'Building2',
       children: [
-        { path: '/organizations', icon: 'Building2', label: '企业组织', roles: ['1', '2', '3'], permission: 'organizations:read' },
-        { path: '/enterprise-business', icon: 'BarChart3', label: '企业业务数据', roles: ['1', '2'], permission: 'enterprise_business:read' },
+        // §13.1 目标菜单（9 叶子）：全部复用既有路由；企业群/企业频道入口携带
+        // ?preset=enterprise（仅 UI 状态，服务端 adm_enterprise_filter 强制重验）。
+        { path: '/organizations', icon: 'Building2', label: '组织治理', roles: ['1', '2', '3'], permission: 'organizations:read' },
+        { path: '/workspaces', icon: 'Building2', label: '工作区', roles: ['1', '2'], permission: 'workspaces:read' },
+        { path: '/projects', icon: 'FolderKanban', label: '企业项目', roles: ['1', '2'], permission: 'workspaces:read' },
+        { path: '/groups?preset=enterprise', icon: 'UsersRound', label: '企业群', roles: ['1', '2'], permission: 'groups:read' },
+        { path: '/channels?preset=enterprise', icon: 'Radio', label: '企业频道', roles: ['1', '2'], permission: 'channels:read' },
+        { path: '/customer-service', icon: 'Headphones', label: '客服坐席', roles: ['1', '2'], permission: 'customer_service:read' },
+        { path: '/enterprise/applications', icon: 'ShieldCheck', label: '应用与集成', roles: ['1', '2'], permission: 'enterprise_business:read' },
         { path: '/enterprise-business/offboarding', icon: 'ListChecks', label: '离岗交接', roles: ['1', '2'], permission: 'enterprise_business:read' },
-        // FULL-04：Admin Application 治理（与 /enterprise-business 同权限族；写动作页内另受 :write 门）
-        { path: '/enterprise/applications', icon: 'ShieldCheck', label: '企业应用治理', roles: ['1', '2'], permission: 'enterprise_business:read' },
-        { path: '/customer-service', icon: 'Headphones', label: '在线客服', roles: ['1', '2'], permission: 'customer_service:read' },
-        { path: '/customer-service/workspace', icon: 'MonitorSmartphone', label: '坐席工作台', roles: ['1', '2'], permission: 'customer_service:read' },
+        { path: '/enterprise-business', icon: 'BarChart3', label: '企业审计/业务数据', roles: ['1', '2'], permission: 'enterprise_business:read' },
       ],
     },
     {

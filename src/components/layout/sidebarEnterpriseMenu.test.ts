@@ -16,12 +16,17 @@ const BACKEND_ENTERPRISE_LEAVES: Array<{
   roles: number[]
   icon: string
 }> = [
-  { path: '/organizations', label: '企业组织', permission: 'organizations:read', roles: [1, 2, 3], icon: 'Building2' },
-  { path: '/enterprise-business', label: '企业业务数据', permission: 'enterprise_business:read', roles: [1, 2], icon: 'BarChart3' },
+  // §13.1 目标菜单（9 叶子）；企业群/企业频道 path 携带 preset=enterprise
+  //（仅 UI 状态；服务端 adm_enterprise_filter 强制 scope=workspace）。
+  { path: '/organizations', label: '组织治理', permission: 'organizations:read', roles: [1, 2, 3], icon: 'Building2' },
+  { path: '/workspaces', label: '工作区', permission: 'workspaces:read', roles: [1, 2], icon: 'Building2' },
+  { path: '/projects', label: '企业项目', permission: 'workspaces:read', roles: [1, 2], icon: 'FolderKanban' },
+  { path: '/groups?preset=enterprise', label: '企业群', permission: 'groups:read', roles: [1, 2], icon: 'UsersRound' },
+  { path: '/channels?preset=enterprise', label: '企业频道', permission: 'channels:read', roles: [1, 2], icon: 'Radio' },
+  { path: '/customer-service', label: '客服坐席', permission: 'customer_service:read', roles: [1, 2], icon: 'Headphones' },
+  { path: '/enterprise/applications', label: '应用与集成', permission: 'enterprise_business:read', roles: [1, 2], icon: 'ShieldCheck' },
   { path: '/enterprise-business/offboarding', label: '离岗交接', permission: 'enterprise_business:read', roles: [1, 2], icon: 'ListChecks' },
-  { path: '/enterprise/applications', label: '企业应用治理', permission: 'enterprise_business:read', roles: [1, 2], icon: 'ShieldCheck' },
-  { path: '/customer-service', label: '在线客服', permission: 'customer_service:read', roles: [1, 2], icon: 'Headphones' },
-  { path: '/customer-service/workspace', label: '坐席工作台', permission: 'customer_service:read', roles: [1, 2], icon: 'MonitorSmartphone' },
+  { path: '/enterprise-business', label: '企业审计/业务数据', permission: 'enterprise_business:read', roles: [1, 2], icon: 'BarChart3' },
 ]
 
 function normalizeRoles(roles?: Array<number | string>): number[] {
@@ -49,11 +54,18 @@ function collectLeaves(items: SidebarMenuItem[]): SidebarMenuItem[] {
 }
 
 describe('EADM-03 企业管理菜单合同 (C1)', () => {
-  it('顶级组名为「企业管理」且包含 6 个叶子', () => {
+  it('顶级组名为「企业管理」且包含 9 个叶子', () => {
     const group = findEnterpriseGroup()
     expect(group, '企业管理 group should exist').toBeDefined()
     expect(group!.children, '企业管理 group should have children').toBeDefined()
-    expect(group!.children!).toHaveLength(6)
+    expect(group!.children!).toHaveLength(9)
+  })
+
+  it('坐席工作台已移出企业管理组（独立 Seat JWT 域，仅保留 /customer-service）', () => {
+    const group = findEnterpriseGroup()
+    const paths = collectLeaves(group!.children!).map((leaf) => leaf.path)
+    expect(paths).not.toContain('/customer-service/workspace')
+    expect(paths).toContain('/customer-service')
   })
 
   it('叶子集合与后端声明双向匹配 (path + permission + roles)', () => {

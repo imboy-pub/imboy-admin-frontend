@@ -81,8 +81,18 @@ export function findNodeByKey(items: SidebarMenuItem[], key: string): SidebarMen
   return undefined
 }
 
+/**
+ * 菜单路径身份归一：剥掉 query 串（企业菜单叶子携带 ?preset=enterprise 等
+ * UI 状态，plan §13.1；身份匹配只看 pathname）。
+ */
+export function normalizeMenuPath(path?: string): string {
+  if (!path) return ''
+  const qIndex = path.indexOf('?')
+  return qIndex >= 0 ? path.slice(0, qIndex) : path
+}
+
 export function isNodeActive(item: SidebarMenuItem, pathname: string): boolean {
-  if (item.path === pathname) return true
+  if (item.path && normalizeMenuPath(item.path) === normalizeMenuPath(pathname)) return true
   if (!item.children || item.children.length === 0) return false
   return item.children.some((child) => isNodeActive(child, pathname))
 }
