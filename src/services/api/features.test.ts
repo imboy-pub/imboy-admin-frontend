@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'bun:test'
 import {
   isAdminFeatureEnabled,
   featureKeyForAdminPath,
+  adminEntryForPath,
   adminFeatureQueryKey,
   assertAdminFeatureManifest,
   FeatureManifestMismatchError,
@@ -127,6 +128,15 @@ describe('featureKeyForAdminPath', () => {
     expect(featureKeyForAdminPath('/dashboard')).toBeNull()
     expect(featureKeyForAdminPath('/users/123')).toBeNull()
     expect(featureKeyForAdminPath('/settings')).toBeNull()
+  })
+
+  describe('enterprise preset query paths (plan §13.1)', () => {
+    it('菜单叶子携带 ?preset=enterprise 时门禁身份仍按纯 pathname 匹配', () => {
+      expect(featureKeyForAdminPath('/channels?preset=enterprise')).toBe('channel')
+      expect(featureKeyForAdminPath('/groups?preset=enterprise&organization_id=123')).toBeNull()
+      expect(adminEntryForPath('/channels?preset=enterprise')).toBe('channel')
+      expect(featureKeyForAdminPath('/channels/paid?preset=enterprise')).toBe('channel_order')
+    })
   })
 
   describe('channel paths', () => {

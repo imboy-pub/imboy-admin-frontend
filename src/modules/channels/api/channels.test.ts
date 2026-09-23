@@ -29,6 +29,34 @@ afterEach(() => {
 })
 
 // --- normalizeChannel: owner_id falls back to creator_uid ---
+describe('getChannelListPayload — 企业入口 preset 透传（plan §13.1）', () => {
+  it('enterprise preset + organization_id 原样传给 /channel/list（服务端强制 scope=workspace + status=1）', async () => {
+    let capturedParams: Record<string, unknown> | undefined
+    mutableClient.get = async (url: string, config?: { params?: Record<string, unknown> }) => {
+      expect(url).toBe('/channel/list')
+      capturedParams = config?.params
+      return {
+        data: {
+          code: 0, msg: 'ok',
+          payload: { items: [], page: 1, size: 10, total: 0, total_pages: 0 },
+        },
+      }
+    }
+
+    await getChannelListPayload({
+      page: 1,
+      size: 10,
+      preset: 'enterprise',
+      organization_id: '114255223532554240',
+    })
+    expect(capturedParams).toMatchObject({
+      preset: 'enterprise',
+      organization_id: '114255223532554240',
+    })
+    expect(typeof capturedParams?.organization_id).toBe('string')
+  })
+})
+
 describe('getChannelListPayload — normalizeChannel', () => {
   it('uses owner_id when present', async () => {
     const raw = {

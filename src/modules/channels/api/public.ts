@@ -37,6 +37,15 @@ export interface ChannelListParams {
   keyword?: string
   /** 付费属性过滤（0免费 1付费），由后端 /channel/list 服务端分页 */
   access_type?: number
+  /**
+   * 企业菜单入口（plan §13.1）：仅 UI 状态。服务端强制 scope=workspace
+   * + status=1（personal/禁用频道企业入口零可见）+ O/W 过滤重验。
+   */
+  preset?: 'enterprise'
+  /** Organization 服务端过滤（workspace.organization_id 真源解析） */
+  organization_id?: EntityId
+  /** Workspace 服务端过滤（与 organization_id 同时出现时服务端复核归属） */
+  workspace_id?: EntityId
 }
 
 export interface ChannelSearchParams {

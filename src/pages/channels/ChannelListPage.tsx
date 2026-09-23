@@ -15,6 +15,12 @@ import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 import { LegacyColumnDef, useLegacyTable, getCoreRowModel } from '@tanstack/react-table/legacy'
 import { RowSelectionState } from '@tanstack/react-table'
 import { useListQueryState } from '@/hooks/useListQueryState'
+import {
+  buildEnterpriseScopeParams,
+  enterpriseScopeHint,
+  isEnterprisePreset,
+} from '@/modules/enterprise_access/preset'
+import { useEnterpriseOrganizationOptions } from '@/modules/enterprise_access/hooks'
 import { trackUxEvent } from '@/lib/uxTelemetry'
 import { getErrorMessage } from '@/lib/errorUtils'
 import { Select } from '@/components/ui/select'
@@ -24,6 +30,9 @@ type ChannelListPageQuery = {
   size: number
   status: number
   keyword: string
+  /** 企业菜单入口 UI 状态（服务端强制 scope=workspace + status=1 + O/W 重验，plan §13.1） */
+  preset: string
+  organization_id: string
 }
 
 const BLOCKED_CHANNEL_AVATAR_HOSTS = new Set(['s3.imboy.pub'])
@@ -91,9 +100,14 @@ export function ChannelListPage() {
     size: 10,
     status: -1,
     keyword: '',
+    preset: '',
+    organization_id: '',
   })
+  const isEnterprise = isEnterprisePreset(params.preset)
+  const { data: orgOptions } = useEnterpriseOrganizationOptions(isEnterprise)
   const [searchKeyword, setSearchKeyword] = useState(params.keyword || '')
   const [statusFilter, setStatusFilter] = useState(String(params.status))
+  const [orgFilter, setOrgFilter] = useState(params.organization_id || '')
   const [drawerChannelId, setDrawerChannelId] = useState<string | null>(null)
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -105,8 +119,10 @@ export function ChannelListPage() {
   const requestParams: ChannelListParams = {
     page: params.page,
     size: params.size,
-    status: params.status,
     keyword: params.keyword.trim() || undefined,
+    // 企业入口：服务端强制 status=1（覆盖任何 UI 状态）；运营中心保留 status 筛选
+    ...(isEnterprise ? {} : { status: params.status }),
+    ...buildEnterpriseScopeParams(params),
   }
 
   // 获取频道列表
@@ -188,17 +204,22 @@ export function ChannelListPage() {
       page: 1,
       keyword: searchKeyword.trim(),
       status: Number(statusFilter),
+      organization_id: orgFilter,
     })
   }
 
   const handleReset = () => {
     setSearchKeyword('')
     setStatusFilter('-1')
+    setOrgFilter('')
     resetParams({
       page: 1,
       size: 10,
       status: -1,
       keyword: '',
+      // 企业入口语境在重置后保留（preset 是入口语义，不是筛选条件）
+      preset: params.preset,
+      organization_id: '',
     })
   }
 
@@ -423,8 +444,8 @@ export function ChannelListPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="频道管理"
-        description="管理系统频道"
+        title={isEnterprise ? '企业频道' : '频道管理'}
+        description={isEnterprise ? enterpriseScopeHint('channels') : '管理系统频道'}
       />
 
       <Card>
@@ -445,13 +466,30 @@ export function ChannelListPage() {
             </div>
             <Select
               className="h-10 min-w-36 rounded-md border border-input bg-background px-3 text-sm"
-              value={statusFilter}
+              value={isEnterprise ? '1' : statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
+              disabled={isEnterprise}
+              aria-label="状态筛选"
             >
               <option value="-1">全部状态</option>
               <option value="1">正常</option>
               <option value="0">禁用</option>
             </Select>
+            {isEnterprise && (
+              <Select
+                className="h-10 min-w-44 rounded-md border border-input bg-background px-3 text-sm"
+                value={orgFilter}
+                onChange={(e) => setOrgFilter(e.target.value)}
+                aria-label="按组织筛选"
+              >
+                <option value="">全部组织</option>
+                {(orgOptions ?? []).map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </Select>
+            )}
             <Button
               variant="outline"
               size="sm"

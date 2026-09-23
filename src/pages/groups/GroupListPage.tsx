@@ -16,6 +16,12 @@ import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 import { LegacyColumnDef, useLegacyTable, getCoreRowModel, getSortedRowModel } from '@tanstack/react-table/legacy'
 import { RowSelectionState, SortingState, ColumnVisibilityState } from '@tanstack/react-table'
 import { useListQueryState } from '@/hooks/useListQueryState'
+import {
+  buildEnterpriseScopeParams,
+  enterpriseScopeHint,
+  isEnterprisePreset,
+} from '@/modules/enterprise_access/preset'
+import { useEnterpriseOrganizationOptions } from '@/modules/enterprise_access/hooks'
 import { trackUxEvent } from '@/lib/uxTelemetry'
 import { getErrorMessage } from '@/lib/errorUtils'
 import { Select } from '@/components/ui/select'
@@ -25,6 +31,9 @@ type GroupListPageQuery = {
   size: number
   status: number
   keyword: string
+  /** 企业菜单入口 UI 状态（服务端强制 scope=workspace + O/W 重验，plan §13.1） */
+  preset: string
+  organization_id: string
 }
 
 const columnLabels: Record<string, string> = {
@@ -49,9 +58,14 @@ export function GroupListPage() {
     size: 10,
     status: -1,
     keyword: '',
+    preset: '',
+    organization_id: '',
   })
+  const isEnterprise = isEnterprisePreset(params.preset)
+  const { data: orgOptions } = useEnterpriseOrganizationOptions(isEnterprise)
   const [searchKeyword, setSearchKeyword] = useState(params.keyword || '')
   const [statusFilter, setStatusFilter] = useState(String(params.status))
+  const [orgFilter, setOrgFilter] = useState(params.organization_id || '')
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>({})
@@ -69,6 +83,7 @@ export function GroupListPage() {
     size: params.size,
     status: params.status,
     keyword: params.keyword.trim() || undefined,
+    ...buildEnterpriseScopeParams(params),
   }
 
   // 获取群组列表
@@ -152,6 +167,7 @@ export function GroupListPage() {
       page: 1,
       keyword: searchKeyword.trim(),
       status: Number(statusFilter),
+      organization_id: orgFilter,
     })
   }
 
@@ -159,11 +175,15 @@ export function GroupListPage() {
     setRowSelection({})
     setSearchKeyword('')
     setStatusFilter('-1')
+    setOrgFilter('')
     resetParams({
       page: 1,
       size: 10,
       status: -1,
       keyword: '',
+      // 企业入口语境在重置后保留（preset 是入口语义，不是筛选条件）
+      preset: params.preset,
+      organization_id: '',
     })
   }
 
@@ -358,8 +378,8 @@ export function GroupListPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="群组管理"
-        description="管理系统群组"
+        title={isEnterprise ? '企业群' : '群组管理'}
+        description={isEnterprise ? enterpriseScopeHint('groups') : '管理系统群组'}
       />
 
       <Card>
@@ -387,6 +407,21 @@ export function GroupListPage() {
               <option value="1">正常</option>
               <option value="0">已解散</option>
             </Select>
+            {isEnterprise && (
+              <Select
+                className="h-10 min-w-44 rounded-md border border-input bg-background px-3 text-sm"
+                value={orgFilter}
+                onChange={(e) => setOrgFilter(e.target.value)}
+                aria-label="按组织筛选"
+              >
+                <option value="">全部组织</option>
+                {(orgOptions ?? []).map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </Select>
+            )}
             <Button
               variant="outline"
               size="sm"

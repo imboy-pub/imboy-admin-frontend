@@ -71,6 +71,53 @@ describe('getGroupListPayload', () => {
   })
 })
 
+describe('getGroupListPayload — 企业入口 preset 透传（plan §13.1）', () => {
+  it('enterprise preset + organization_id 原样传给 /group/list（服务端强制重验）', async () => {
+    let capturedParams: Record<string, unknown> | undefined
+    mutableClient.get = async (url: string, config?: { params?: Record<string, unknown> }) => {
+      expect(url).toBe('/group/list')
+      capturedParams = config?.params
+      return {
+        data: {
+          code: 0, msg: 'ok',
+          payload: { items: [], page: 1, size: 10, total: 0, total_pages: 0 },
+        },
+      }
+    }
+
+    await getGroupListPayload({
+      page: 1,
+      size: 10,
+      preset: 'enterprise',
+      organization_id: '114255223532554240',
+    })
+    expect(capturedParams).toMatchObject({
+      preset: 'enterprise',
+      organization_id: '114255223532554240',
+    })
+    // 64-bit TSID 保持 string（EntityId 约定，不数值化）
+    expect(typeof capturedParams?.organization_id).toBe('string')
+  })
+
+  it('无 preset 时不产生 scope 伪装参数（运营中心全局语义）', async () => {
+    let capturedParams: Record<string, unknown> | undefined
+    mutableClient.get = async (_url: string, config?: { params?: Record<string, unknown> }) => {
+      capturedParams = config?.params
+      return {
+        data: {
+          code: 0, msg: 'ok',
+          payload: { items: [], page: 1, size: 10, total: 0, total_pages: 0 },
+        },
+      }
+    }
+
+    await getGroupListPayload({ page: 1, size: 10 })
+    expect(capturedParams).not.toHaveProperty('preset')
+    expect(capturedParams).not.toHaveProperty('organization_id')
+    expect(capturedParams).not.toHaveProperty('workspace_id')
+  })
+})
+
 describe('getGroupDetailPayload', () => {
   it('sends gid as query param and returns detail', async () => {
     mutableClient.get = async (url: string, config?: { params?: Record<string, unknown> }) => {
