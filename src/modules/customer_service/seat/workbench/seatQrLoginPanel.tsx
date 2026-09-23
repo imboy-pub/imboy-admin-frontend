@@ -31,7 +31,15 @@ const PHASE_TEXT: Record<QrLoginPhase, string> = {
   ended: '登录未完成',
 }
 
-/** qr_token → 二维码合同字符串（坐席端只做承载；编码渲染由 css/文本展示）。 */
+/**
+ * qr_token → 二维码合同字符串（坐席端只做承载；编码渲染由 css/文本展示）。
+ *
+ * ⚠️ 契约：格式 `imboy://qr_login?qr_token=<encodeURIComponent(token)>` 由
+ * imboyapp `qr_login_intent.dart` 的 detectQrLoginIntent 形式 3 消费（改格式
+ * 两端必须同步）；encodeURIComponent 必须保留——qr_token 是 base64 原文
+ * （含 + / =），App 端 Uri queryParameters 解码时会把裸 `+` 当空格，
+ * 不编码或换编码 token 都会变形导致后端精确匹配失败。
+ */
 function qrCodeContent(qrToken: string): string {
   return `imboy://qr_login?qr_token=${encodeURIComponent(qrToken)}`
 }
