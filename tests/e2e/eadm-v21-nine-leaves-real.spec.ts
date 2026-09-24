@@ -8,7 +8,8 @@ import { getAdminCredentials, loginAsAdmin } from './support/adminAuth'
  * ADM-03 · V2.1 计划 §734 —— 企业管理 9 叶子 × 真实本地后端 E2E。
  *
  * 合同要点（本 spec 的每个断言都对应一条）：
- *   1. Playwright + 真实本地后端（imboy :9800）+ 真实前端（vite :8082）；
+ *   1. Playwright + 真实本地后端（imboy :9800，可用 VITE_PROXY_TARGET 指向
+ *      隔离 run 的端口）+ 真实前端（vite :8082）；
  *   2. 每个菜单叶子进入后必须发生**真实** /api/adm/* 往返（HTTP 200 +
  *      code=0 信封 + `server: Cowboy` 响应头——Playwright mock fulfill 不会
  *      带 Cowboy 头，这是「无 mock」的机械 Oracle）；
@@ -117,9 +118,17 @@ async function realApiRoundTrip(
   return res.url()
 }
 
+/**
+ * 后端探针基址 = 前端 vite dev 代理目标（与真实数据往返同一实例），仓库既有
+ * 约定见 tests/e2e/widget-cs.spec.ts:420。默认本机 :9800；隔离环境（每 run
+ * 独立端口，如 :9811）必须显式传 VITE_PROXY_TARGET，否则探针要么打到别人的
+ * 实例、要么把本 run 健康后端误判为不可达而整套 skip。
+ */
+const BACKEND_BASE = (process.env.VITE_PROXY_TARGET || 'http://127.0.0.1:9800').replace(/\/$/, '')
+
 async function probeBackend(request: APIRequestContext): Promise<boolean> {
   try {
-    const res = await request.get('http://127.0.0.1:9800/api/adm/passport/meta', { timeout: 5_000 })
+    const res = await request.get(`${BACKEND_BASE}/api/adm/passport/meta`, { timeout: 5_000 })
     return res.status() < 500
   } catch {
     return false
@@ -130,7 +139,7 @@ test.describe('ADM-03 企业管理 9 叶子 × 真实本地后端', () => {
   test.skip(() => !getAdminCredentials('super'), '需要 IMBOY_ADMIN_E2E_SUPER_ACCOUNT / PASSWORD')
 
   test.beforeAll(async ({ request }) => {
-    test.skip(!(await probeBackend(request)), '本地 imboy 后端 :9800 不可达（环境阻塞，非用例失败）')
+    test.skip(!(await probeBackend(request)), `本地 imboy 后端 ${BACKEND_BASE} 不可达（环境阻塞，非用例失败）`)
   })
 
   test.beforeEach(async ({ page }) => {
