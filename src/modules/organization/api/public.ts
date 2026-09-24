@@ -158,6 +158,48 @@ export async function getOrganizationMembers(
   )
 }
 
+/**
+ * 成员聚合拉取（ENT-ADM-01 复合筛选数据源）：adm 合同 GET members 无
+ * role/keyword 服务端筛选参数（仅 page/size，且服务端 clamp size ≤ 100），
+ * 筛选激活时页面改为「聚合拉取 → 客户端 filterMemberRows → 本地分页」。
+ *
+ * 以 pageSize=100（服务端上限）逐页循环，直到取满服务端 total 或达
+ * maxPages 上限；返回 loadedCount/complete 供 UI 如实标注覆盖范围
+ * （complete=false 时筛选结果只覆盖已加载行，不伪称全量）。
+ */
+export type OrganizationMembersAggregate = {
+  rows: OrganizationMemberRow[]
+  /** 服务端报告的 active 成员总数（信封 total）。 */
+  total: number
+  /** 实际加载到前端的行数（≤ total；触达 maxPages 时可能小于 total）。 */
+  loadedCount: number
+  /** 是否已加载全部服务端行（loadedCount >= total）。 */
+  complete: boolean
+}
+
+export async function getOrganizationMembersAggregate(
+  organizationId: EntityId,
+  maxPages = 10,
+  pageSize = 100
+): Promise<OrganizationMembersAggregate> {
+  const rows: OrganizationMemberRow[] = []
+  let total = 0
+  let page = 1
+  while (page <= maxPages) {
+    const result = await getOrganizationMembers(organizationId, page, pageSize)
+    total = result.total
+    rows.push(...result.items)
+    if (result.items.length === 0 || rows.length >= result.total) break
+    page += 1
+  }
+  return {
+    rows,
+    total,
+    loadedCount: rows.length,
+    complete: rows.length >= total,
+  }
+}
+
 // ---------------------------------------------------------------------------
 // 成员生命周期命令（EB-D07/EB-D08 平台通道）：suspend / restore / remove
 // 三者都是 POST command（路径绑定 organization_id + user_id，无业务请求体）；
