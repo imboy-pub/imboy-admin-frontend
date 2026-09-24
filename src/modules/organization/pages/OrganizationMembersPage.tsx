@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useLegacyTable, getCoreRowModel, type LegacyColumnDef } from '@tanstack/react-table/legacy'
 import { toast } from 'sonner'
+import { RotateCcw, SlidersHorizontal } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -11,10 +12,13 @@ import {
   DataTable,
   DataTablePagination,
   EmptyState,
+  EntityDrawer,
   ErrorState,
   PageHeader,
+  type EntityDrawerSection,
 } from '@/components/shared'
 import { useAdminPermission } from '@/hooks/useAdminPermission'
+import { useColumnState } from '@/hooks/useColumnState'
 import { useListQueryState } from '@/hooks/useListQueryState'
 import { DEFAULT_PAGE_SIZE } from '@/lib/pagination'
 import {
@@ -30,6 +34,7 @@ import {
   isOrgWriteAllowed,
   orgRoleLabel,
   type OrganizationMemberRow,
+  type OrganizationSummary,
 } from '../api/pureFunctions'
 import { OrganizationOwnerTransferDialog } from './OrganizationOwnerTransferDialog'
 
@@ -40,6 +45,35 @@ type ListState = {
   page: number
   size: number
 }
+
+/**
+ * 列管理（ENT-FND-01）：列 id 稳定化 + useColumnState 持久化 key。
+ * 列 id 变更即存储 schema 变更——旧存储中的未知 id 会被 hook 清洗丢弃。
+ */
+const MEMBER_COLUMN_IDS = [
+  'userId',
+  'nickname',
+  'role',
+  'status',
+  'invitedBy',
+  'joinedAt',
+  'actions',
+] as const
+
+const MEMBER_COLUMN_STORAGE_KEY = 'organization-members'
+
+const MEMBER_COLUMN_LABELS: Record<string, string> = {
+  userId: '用户 ID',
+  nickname: '昵称 / 账号',
+  role: '组织角色',
+  status: '成员状态',
+  invitedBy: '邀请人',
+  joinedAt: '加入时间',
+  actions: '操作',
+}
+
+/** 可由用户隐藏的列（actions 操作列固定可见，防止行级治理入口消失）。 */
+const MEMBER_TOGGLEABLE_COLUMNS = MEMBER_COLUMN_IDS.filter((id) => id !== 'actions')
 
 /** 本会话内被停用（suspended）的成员记录：恢复/移除操作的唯一 UI 入口来源。 */
 type SuspendedRecord = {
@@ -75,6 +109,23 @@ export function OrganizationMembersPage() {
   const [pendingRemove, setPendingRemove] = useState<OrganizationMemberRow | null>(null)
   const [suspendedRecords, setSuspendedRecords] = useState<SuspendedRecord[]>([])
   const [transferOpen, setTransferOpen] = useState(false)
+  // 成员详情关系 Drawer（ENT-FND-01）：行点击打开，sections 呈现事实分区 + 关系导航
+  const [detailMember, setDetailMember] = useState<OrganizationMemberRow | null>(null)
+  const [showColumnPanel, setShowColumnPanel] = useState(false)
+
+  // 列显隐持久化（localStorage + 重置）：columnVisibility 接进 useLegacyTable
+  const {
+    columnVisibility,
+    setColumnVisibility,
+    toggleColumn,
+    isColumnVisible,
+    resetColumns,
+    visibleColumnCount,
+    totalColumnCount,
+  } = useColumnState({
+    storageKey: MEMBER_COLUMN_STORAGE_KEY,
+    columnIds: MEMBER_COLUMN_IDS,
+  })
 
   // 服务端事实：组织状态（archived 门禁与提示的数据源）
   const detailQuery = useQuery({
@@ -142,10 +193,12 @@ export function OrganizationMembersPage() {
   const columns = useMemo<LegacyColumnDef<OrganizationMemberRow>[]>(
     () => [
       {
+        id: 'userId',
         header: '用户 ID',
         cell: ({ row }) => <span className="font-mono text-xs">{row.original.userId}</span>,
       },
       {
+        id: 'nickname',
         header: '昵称 / 账号',
         cell: ({ row }) => (
           <span>
@@ -155,6 +208,7 @@ export function OrganizationMembersPage() {
         ),
       },
       {
+        id: 'role',
         header: '组织角色',
         cell: ({ row }) => {
           const role = row.original.role
@@ -172,18 +226,22 @@ export function OrganizationMembersPage() {
         },
       },
       {
+        id: 'status',
         header: '成员状态',
         cell: ({ row }) => <span className="font-mono text-xs">{row.original.status}</span>,
       },
       {
+        id: 'invitedBy',
         header: '邀请人',
         cell: ({ row }) => <span className="font-mono text-xs">{row.original.invitedBy || '-'}</span>,
       },
       {
+        id: 'joinedAt',
         header: '加入时间',
         cell: ({ row }) => <span className="font-mono text-xs">{row.original.joinedAt || '-'}</span>,
       },
       {
+        id: 'actions',
         header: '操作',
         cell: ({ row }) => {
           if (!canWrite || archived) {
@@ -208,6 +266,8 @@ export function OrganizationMembersPage() {
   const table = useLegacyTable({
     data: rows,
     columns,
+    state: { columnVisibility },
+    onColumnVisibilityChange: setColumnVisibility,
     getCoreRowModel: getCoreRowModel(),
   })
 
@@ -233,7 +293,54 @@ export function OrganizationMembersPage() {
             onRemove={(record) => removeMutation.mutate({ row: record })}
           />
         ) : null}
-        <DataTable table={table} loading={membersQuery.isLoading} emptyMessage="暂无成员" />
+        <div className="flex justify-end">
+          <div className="relative">
+            <Button
+              variant="outline"
+              size="sm"
+              data-testid="members-column-panel-btn"
+              onClick={() => setShowColumnPanel((v) => !v)}
+            >
+              <SlidersHorizontal className="mr-2 h-4 w-4" />
+              列显示（{visibleColumnCount}/{totalColumnCount}）
+            </Button>
+            {showColumnPanel && (
+              <div className="absolute right-0 top-10 z-20 w-56 rounded-md border bg-background p-3 shadow-lg" data-testid="members-column-panel">
+                <div className="mb-2 text-xs text-muted-foreground">自定义列表列显示（本浏览器记忆）</div>
+                <div className="space-y-2">
+                  {MEMBER_TOGGLEABLE_COLUMNS.map((columnId) => (
+                    <label key={columnId} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        data-testid={`members-column-toggle-${columnId}`}
+                        checked={isColumnVisible(columnId)}
+                        onChange={() => toggleColumn(columnId)}
+                      />
+                      <span>{MEMBER_COLUMN_LABELS[columnId] ?? columnId}</span>
+                    </label>
+                  ))}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="mt-2 h-7 w-full justify-start px-2 text-xs"
+                  data-testid="members-column-reset-btn"
+                  onClick={resetColumns}
+                >
+                  <RotateCcw className="mr-1 h-3 w-3" />
+                  重置列显示
+                </Button>
+                <p className="mt-1 text-xs text-muted-foreground">「操作」列固定显示。</p>
+              </div>
+            )}
+          </div>
+        </div>
+        <DataTable
+          table={table}
+          loading={membersQuery.isLoading}
+          emptyMessage="暂无成员"
+          onRowClick={setDetailMember}
+        />
         <DataTablePagination
           page={membersQuery.data?.page ?? state.page}
           pageSize={membersQuery.data?.size ?? state.size}
@@ -329,13 +436,97 @@ export function OrganizationMembersPage() {
         currentOwnerId={org?.ownerId ?? ''}
         onChanged={invalidateMembers}
       />
+
+      <EntityDrawer
+        open={detailMember != null}
+        onOpenChange={(open) => {
+          if (!open) setDetailMember(null)
+        }}
+        title="成员详情"
+        subtitle={
+          detailMember
+            ? `${detailMember.nickname || detailMember.userId}${org ? ` · ${org.name}` : ''}`
+            : undefined
+        }
+        sections={detailMember ? buildMemberDrawerSections(detailMember, org) : []}
+      />
     </div>
   )
 }
 
 /**
+ * 成员详情 Drawer 的分区内容（ENT-FND-01 sections 消费）：
+ * - profile 分区：行内既有事实（只读投影，不新发请求）；
+ * - relationship 分区：合同背书的关系导航（所属组织 / 用户详情 / 邀请人）。
+ * 「所在群 / 频道」按成员维度的关系端点在 adm 面合同中不存在
+ * （adm-org-api-contract 无按 user_id 过滤群/频道的端点）——不伪造数据，
+ * 待 ENT-ADM-01 后续合同落地后在同一 relationship 分区扩展。
+ */
+function buildMemberDrawerSections(
+  row: OrganizationMemberRow,
+  org: OrganizationSummary | undefined
+): EntityDrawerSection[] {
+  const relations: EntityDrawerSection[] = [
+    {
+      id: 'member-relations',
+      kind: 'relationship',
+      title: '关系导航',
+      items: [
+        ...(org
+          ? [
+              {
+                id: 'relation-organization',
+                label: `所属组织：${org.name}`,
+                description: '组织详情',
+                href: `/organizations/${encodeURIComponent(org.id)}`,
+              },
+            ]
+          : []),
+        {
+          id: 'relation-user-detail',
+          label: '用户详情（平台面）',
+          href: `/users/${encodeURIComponent(row.userId)}`,
+        },
+        ...(row.invitedBy
+          ? [
+              {
+                id: 'relation-inviter',
+                label: '邀请人详情',
+                description: row.invitedBy,
+                href: `/users/${encodeURIComponent(row.invitedBy)}`,
+              },
+            ]
+          : []),
+      ],
+      emptyMessage: '暂无关系导航',
+    },
+  ]
+  return [
+    {
+      id: 'member-facts',
+      kind: 'profile',
+      title: '成员事实',
+      fields: [
+        { label: '用户 TSID', value: row.userId, mono: true },
+        { label: '昵称', value: row.nickname || '-' },
+        { label: '账号', value: row.account || '-', mono: true },
+        {
+          label: '组织角色',
+          value: row.role === 'unknown' ? 'unknown' : orgRoleLabel(row.role),
+        },
+        { label: '成员状态', value: row.status, mono: true },
+        { label: '邀请人 TSID', value: row.invitedBy || '-', mono: true },
+        { label: '加入时间', value: row.joinedAt || '-', mono: true },
+      ],
+    },
+    ...relations,
+  ]
+}
+
+/**
  * 行级生命周期按钮（停用 / 移除）：owner 行不出按钮（服务端 409 镜像，
  * 由 canTargetMemberRow 在列级裁决）；平台写权限下的 admin/member 行均放行。
+ * 点击需 stopPropagation——行本身可点击（打开成员详情 Drawer）。
  */
 function MemberLifecycleActions(props: {
   row: OrganizationMemberRow
@@ -349,7 +540,10 @@ function MemberLifecycleActions(props: {
         variant="ghost"
         size="sm"
         data-testid="member-suspend-btn"
-        onClick={() => onSuspend(row)}
+        onClick={(e) => {
+          e.stopPropagation()
+          onSuspend(row)
+        }}
       >
         停用
       </Button>
@@ -357,7 +551,10 @@ function MemberLifecycleActions(props: {
         variant="ghost"
         size="sm"
         data-testid="member-remove-btn"
-        onClick={() => onRemove(row)}
+        onClick={(e) => {
+          e.stopPropagation()
+          onRemove(row)
+        }}
       >
         移除
       </Button>

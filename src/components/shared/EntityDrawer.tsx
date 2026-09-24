@@ -2,6 +2,7 @@ import { ReactNode, useEffect, useId, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { EntityDrawerSections, type EntityDrawerSection } from './EntityDrawerSections'
 
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
@@ -15,6 +16,12 @@ interface EntityDrawerProps {
   error?: string
   actions?: ReactNode
   children?: ReactNode
+  /**
+   * 结构化内容分区（ENT-FND-01）：profile 字段分区 / relationship 关系分区 /
+   * custom 任意内容。与 children 可共存（sections 在前，children 在后）；
+   * 既有仅传 children 的消费者行为不变。
+   */
+  sections?: EntityDrawerSection[]
   className?: string
 }
 
@@ -27,6 +34,7 @@ export function EntityDrawer({
   error,
   actions,
   children,
+  sections,
   className,
 }: EntityDrawerProps) {
   const asideRef = useRef<HTMLElement>(null)
@@ -118,7 +126,12 @@ export function EntityDrawer({
         <div className="flex-1 overflow-y-auto p-5">
           {loading && <p className="text-sm text-muted-foreground">加载中...</p>}
           {!loading && error && <p className="text-sm text-destructive">{error}</p>}
-          {!loading && !error && children}
+          {!loading && !error && (
+            <>
+              {sections && sections.length > 0 && <EntityDrawerSections sections={sections} />}
+              {children}
+            </>
+          )}
         </div>
 
         {actions && (

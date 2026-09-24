@@ -11,6 +11,12 @@ export { CursorPaginationBar } from './CursorPaginationBar'
 export { FilterBar } from './FilterBar'
 export { BatchActionBar } from './BatchActionBar'
 export { EntityDrawer } from './EntityDrawer'
+export { EntityDrawerSections } from './EntityDrawerSections'
+export type {
+  EntityDrawerField,
+  EntityDrawerRelationItem,
+  EntityDrawerSection,
+} from './EntityDrawerSections'
 export { DashboardSkeleton } from './Skeleton'
 export { ErrorBoundary } from './ErrorBoundary'
 export { KeyboardShortcutsDialog } from './KeyboardShortcutsDialog'
