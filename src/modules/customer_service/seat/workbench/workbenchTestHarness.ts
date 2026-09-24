@@ -24,6 +24,9 @@ export const OTHER_IDENTITY = '6000000000000000007'
 export const SESSION = '72057594037927937'
 export const CONV = '5000000000000000005'
 export const CONTACT = '4000000000000000004'
+/** CS-WEB-01 附件 fixture（与 MESSAGES_TEXT 的 assets[].id 对应）。 */
+export const ASSET_PNG_ID = '8000000000000000008'
+export const ASSET_PDF_ID = '8000000000000000011'
 
 export type SeatFakeBackendState = {
   sessionStatus: 'queued' | 'active' | 'closed'
@@ -35,6 +38,8 @@ export type SeatFakeBackendState = {
   /** contexts 永久 403（无坐席上下文）。 */
   contexts403: boolean
   claimAttempts: number
+  /** CS-WEB-01：按 asset id 覆盖 content 响应状态（默认 200）。 */
+  assetContentStatuses: Record<string, number>
 }
 
 export function initialFakeState(): SeatFakeBackendState {
@@ -45,6 +50,7 @@ export function initialFakeState(): SeatFakeBackendState {
     failingResponsesLeft: 0,
     contexts403: false,
     claimAttempts: 0,
+    assetContentStatuses: {},
   }
 }
 
@@ -101,17 +107,23 @@ export const CONTEXTS_TEXT =
   `"workspaces":[{"id":"${WS}","name":"默认工作区"}],"business_identity_id":"${IDENTITY}",` +
   `"seat_enabled":true,"capabilities":["conversation.read","conversation.write","message.write","asset.read"]}]}`
 
-/** 坐席可读消息（含附件三阶段 + ACK read_at）。 */
+/** 坐席可读消息（含附件三阶段 + ACK read_at）。
+ * CS-WEB-01：assets[] 镜像后端冻结投影键 {id,mime,size_bytes,file_name,status}
+ * （eb_pg_message_ext 白名单；旧 `size` 键是断链实证，不再出现）。 */
 export const MESSAGES_TEXT =
   '[' +
   `{"id":9000000000000000009,"sender_type":"contact","sender_contact_id":"${CONTACT}","body":"你好",` +
   `"client_msg_id":"visitor-cm-1","created_at":"2026-09-20T05:30:00Z","read_at":"2026-09-20T05:31:00Z"},` +
   `{"id":9000000000000000010,"sender_type":"seat","body":"您好，请问有什么可以帮您？",` +
   `"client_msg_id":"seat-cm-1","created_at":"2026-09-20T05:30:10Z","read_at":null,` +
-  `"assets":[{"asset_id":"8000000000000000008","status":"active","mime":"image/png","size":2048,"file_name":"截图.png"},` +
-  `{"asset_id":"8000000000000000009","status":"pending_confirm","mime":"image/jpeg","size":10},` +
-  `{"asset_id":"8000000000000000010","status":"deleted"}]}` +
+  `"assets":[{"id":${ASSET_PNG_ID},"status":"active","mime":"image/png","size_bytes":2048,"file_name":"截图.png"},` +
+  `{"id":8000000000000000009,"status":"pending_confirm","mime":"image/jpeg","size_bytes":10},` +
+  `{"id":8000000000000000010,"status":"deleted"},` +
+  `{"id":${ASSET_PDF_ID},"status":"active","mime":"application/pdf","size_bytes":1048576,"file_name":"退款凭证.pdf"}]}` +
   ']'
+
+/** content 端点字节（PNG 魔数头即可——客户端不解析内容）。 */
+const ASSET_CONTENT_BYTES = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
 
 export const TRANSFER_TARGETS_TEXT =
   `{"targets":[{"business_identity_id":"${OTHER_IDENTITY}","display_name":"坐席乙","available":true}],"next_after_id":null}`
@@ -119,10 +131,11 @@ export const TRANSFER_TARGETS_TEXT =
 /** 假后端：按冻结动作表回包；记录调用供断言（权威刷新次数等）。 */
 export class SeatFakeBackend {
   readonly state: SeatFakeBackendState
-  readonly calls: Array<{ method: string; path: string; body: string }> = []
+  readonly calls: Array<{ method: string; path: string; body: string; auth: string | null }> = []
   messageFetchCount = 0
   queueFetchCount = 0
   contextsFetchCount = 0
+  assetContentFetchCount = 0
   sentClientMsgIds: string[] = []
 
   constructor(state: SeatFakeBackendState = initialFakeState()) {
@@ -141,7 +154,8 @@ export class SeatFakeBackend {
     const path = url.split('?')[0] ?? url
     const method = init?.method ?? 'GET'
     const body = typeof init?.body === 'string' ? init.body : ''
-    this.calls.push({ method, path, body })
+    const headers = (init?.headers ?? undefined) as Record<string, string> | undefined
+    this.calls.push({ method, path, body, auth: headers?.Authorization ?? null })
     const failure = this.takeFailure()
     if (failure !== null) return failure
 
@@ -230,6 +244,22 @@ export class SeatFakeBackend {
       )
     }
     if (path === `/api/v1/cs/organizations/${ORG}/transfer-targets`) return ok(TRANSFER_TARGETS_TEXT)
+    // CS-WEB-01：真实 enterprise content 端点（imboy_router.erl:1803）：
+    // GET /api/v1/enterprise/organizations/:org_id/assets/:id/content。
+    // 成功 = 原始字节流（application/octet-stream，非信封）；错误 = HTTP 状态。
+    const assetMatch = path.match(/^\/api\/v1\/enterprise\/organizations\/[^/]+\/assets\/([^/]+)\/content$/)
+    if (assetMatch !== null) {
+      this.assetContentFetchCount += 1
+      const assetId = assetMatch[1] ?? ''
+      const status = this.state.assetContentStatuses[assetId]
+      if (status !== undefined) {
+        return new Response(`{"code":${status},"msg":"asset content rejected","payload":{}}`, { status })
+      }
+      return new Response(ASSET_CONTENT_BYTES.slice(), {
+        status: 200,
+        headers: { 'Content-Type': 'application/octet-stream', 'Content-Length': String(ASSET_CONTENT_BYTES.length) },
+      })
+    }
     return new Response('{"code":404,"msg":"not found","payload":{}}', { status: 404 })
   }
 }

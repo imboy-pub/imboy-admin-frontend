@@ -24,7 +24,9 @@
  *   属 Seat 域合同面；SeatApiClient 域 allowlist 已按前缀精确放行，
  *   A01 的 /api/adm 拒绝不变。）
  * - GET  /api/v1/cs/organizations/:org_id/transfer-targets          {targets, next_after_id}
- * - 附件只经 content 代理路径展示；全链不出现 object key / upload URL / JWT。
+ * - 附件字节只经真实 enterprise content 端点 + Seat Bearer fetch 获取
+ *   （CS-WEB-01；见 SEAT_ASSET_CONTENT_PATH_TEMPLATE）；全链不出现
+ *   object key / upload URL / JWT。
  */
 import { isRecord, nonEmptyString, toEntityId } from '../tsid'
 import type { EntityId } from '../types'
@@ -148,7 +150,9 @@ function toAttachment(raw: unknown): SeatAttachment | null {
     assetId,
     phase: toSeatAttachmentPhase(raw.status),
     mime: optStr(raw.mime),
-    size: optInt(raw.size),
+    // CS-WEB-01 键名对齐：后端冻结投影键是 size_bytes（CSX-01 断链——旧读
+    // size 永远 null；不保留 size 回退，防错位键继续被消费）。
+    size: optInt(raw.size_bytes),
     fileName: optStr(raw.file_name),
   }
 }
@@ -327,15 +331,16 @@ export function buildTransferTargetsPath(orgId: EntityId): string {
 }
 
 /**
- * A03：附件只经 content 代理路径展示（同源 Seat 域，鉴权由服务端链裁决）。
- * 唯一的附件 href 生成点（浏览器导航用，带 /api/v1 前缀）；绝不拼
- * object key / upload URL / 任何 token。
+ * CS-WEB-01：后端真实合同（imboy_router.erl:1803，eb_tenant_handler#asset_content）：
+ * GET /api/v1/enterprise/organizations/:org_id/assets/:id/content
+ * （Seat JWT 认证域 + asset.read；成功 = 原始字节流，非 {code,msg,payload} 信封）。
+ * 旧虚构路由 /cs/organizations/:org/sessions/:sid/assets/:aid/content 后端不存在
+ * （必 404），已删除——附件字节只经 SeatApiClient.requestBlob（Bearer header +
+ * credentials omit），绝不构造裸导航 href。
  */
-export const SEAT_ASSET_CONTENT_PATH_TEMPLATE = '/api/v1/cs/organizations/:org_id/sessions/:session_id/assets/:asset_id/content'
+export const SEAT_ASSET_CONTENT_PATH_TEMPLATE = '/api/v1/enterprise/organizations/:org_id/assets/:id/content'
 
-export function seatAssetContentPath(orgId: EntityId, sessionId: EntityId, assetId: EntityId): string {
-  return (
-    `/api/v1/cs/organizations/${encodeURIComponent(orgId)}` +
-    `/sessions/${encodeURIComponent(sessionId)}/assets/${encodeURIComponent(assetId)}/content`
-  )
+/** 相对 SEAT_API_BASE 的内容路径（落在 /api/v1/enterprise/organizations/ 前缀，Seat 域门放行）。 */
+export function seatAssetContentPath(orgId: EntityId, assetId: EntityId): string {
+  return `/enterprise/organizations/${encodeURIComponent(orgId)}/assets/${encodeURIComponent(assetId)}/content`
 }

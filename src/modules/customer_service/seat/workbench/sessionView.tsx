@@ -1,23 +1,29 @@
 /**
- * SEAT-02：会话视图面板（消息历史 + 发送 + ACK + 附件显示）。
+ * SEAT-02 / CS-WEB-01：会话视图面板（消息历史 + 发送 + ACK + 附件预览下载）。
  *
  * - 消息区 role="log" + aria-live（新消息播报，A02 实时性可感知）；
  * - 正文按 sender_type 分侧：visitor 左、seat 右、system 居中；
  * - ACK：权威刷新投影 read_at（存在即已读）——SSE payload 不是真源；
  * - 发送：client_msg_id 幂等（失败 → 重试按钮复用同 id，A02/A06）；
- * - 附件：只渲染 content 代理路径（seatAssetContentPath）+ §3.7 阶段徽标；
- *   全链不出现 object key / upload URL / JWT（A03）；
+ * - 附件（CS-WEB-01）：字节只经 Seat Bearer fetch（真实 enterprise content
+ *   端点）获取——图片（mime image/*）内联预览（fetch → Blob → ObjectURL），
+ *   其他文件显示 file_name/size_bytes 与下载状态；`status` 非 active 一律
+ *   渲染占位（pending_confirm/deleted）。Blob URL 生命周期全托管：组件卸载 /
+ *   附件更换 / 401/403/404 / 取消（AbortController）时 revoke，无泄漏；
+ *   DOM/href/log 不出现 token / object key / upload URL（A03）。
  * - 写入口关闭（canWrite=false 或非 active）→ composer 替换为可解释说明。
  */
-import { useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { CheckCheck, Paperclip } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { seatAssetContentPath, type SeatAttachment, type SeatMessage, type SeatSessionDetail } from './contract'
+import { isSeatApiError } from '../errors'
+import { type SeatAttachment, type SeatMessage, type SeatSessionDetail } from './contract'
 import { SeatEmptyState, SeatErrorState, SeatLoadingState, seatFailureMessage } from './states'
 import { seatFailureKind } from './workbenchHooks'
 
 export type SeatSessionViewProps = {
-  orgId: string
+  /** 附件内容获取（Seat Bearer fetch；由页面从 gateway 组装，org scope 闭包在内）。 */
+  fetchAssetBlob: SeatAssetFetcher
   detail: SeatSessionDetail | null
   messages: SeatMessage[]
   messagesLoading: boolean
@@ -31,37 +37,277 @@ export type SeatSessionViewProps = {
   sending: boolean
 }
 
+/** 附件字节获取器（org scope 由调用方闭包；signal 供取消/卸载中断）。 */
+export type SeatAssetFetcher = (_assetId: string, _signal: AbortSignal) => Promise<Blob>
+
 const ATTACHMENT_PHASE_LABEL: Record<SeatAttachment['phase'], string> = {
   pending_confirm: '附件处理中',
   active: '附件',
   deleted: '附件已失效',
 }
 
-function AttachmentChip({ orgId, detail, attachment }: { orgId: string; detail: SeatSessionDetail; attachment: SeatAttachment }) {
-  if (attachment.phase !== 'active') {
-    return (
-      <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground" data-testid="seat-attachment-chip">
-        <Paperclip aria-hidden="true" className="h-3 w-3" />
-        {ATTACHMENT_PHASE_LABEL[attachment.phase]}
-      </span>
-    )
+/** 下载用 ObjectURL 的有界回收延迟（浏览器取得 blob 引用后回收，不中断下载）。 */
+const DOWNLOAD_URL_REVOKE_DELAY_MS = 60_000
+
+function attachmentErrorText(error: unknown): string {
+  if (isSeatApiError(error)) {
+    if (error.kind === 'unauthorized') return '登录已失效，请重新扫码后重试'
+    if (error.kind === 'forbidden') return '没有该附件的访问权限'
+    if (error.kind === 'not_found') return '附件不存在或已删除'
+    if (error.kind === 'network') return '网络异常，请重试'
   }
-  // A03：href 只能由 content 代理路径生成；无 object key / upload URL / token。
-  const href = seatAssetContentPath(orgId, detail.id, attachment.assetId)
+  return '附件加载失败'
+}
+
+/** size_bytes 人类可读（B/KB/MB；null → 不显示）。 */
+function formatBytes(size: number | null): string | null {
+  if (size === null || size < 0) return null
+  if (size < 1024) return `${size} B`
+  const kb = size / 1024
+  if (kb < 1024) return `${kb < 10 ? kb.toFixed(1) : Math.round(kb)} KB`
+  const mb = kb / 1024
+  if (mb < 1024) return `${mb < 10 ? mb.toFixed(1) : Math.round(mb)} MB`
+  return `${(mb / 1024).toFixed(1)} GB`
+}
+
+function isImageAttachment(attachment: SeatAttachment): boolean {
+  return attachment.mime !== null && attachment.mime.toLowerCase().startsWith('image/')
+}
+
+/** 触发浏览器保存：Blob → ObjectURL → 隐藏 a[download]（返回待回收的 URL）。 */
+function triggerBrowserDownload(blob: Blob, fileName: string | null): string {
+  const objectUrl = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = objectUrl
+  anchor.download = fileName ?? 'imboy-attachment'
+  anchor.rel = 'noopener'
+  anchor.style.display = 'none'
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
+  return objectUrl
+}
+
+type SeatAssetPreviewState =
+  | { phase: 'loading' }
+  | { phase: 'ready'; objectUrl: string; blob: Blob }
+  | { phase: 'failed'; error: unknown }
+
+/**
+ * 图片内联预览：挂载即 fetch → Blob → ObjectURL。
+ * 生命周期：卸载/附件更换/重试重取时 abort in-flight 并 revoke 旧 URL——
+ * 401/403/404 走 failed 分支（不持有任何 URL），无泄漏。
+ * loading 态按键派生（key 不匹配即 loading），setState 只发生在异步回调。
+ */
+function useSeatAssetPreview(fetchAssetBlob: SeatAssetFetcher, assetId: string, retryToken: number): SeatAssetPreviewState {
+  const key = `${assetId}#${retryToken}`
+  const [snapshot, setSnapshot] = useState<{ key: string; state: SeatAssetPreviewState }>({
+    key,
+    state: { phase: 'loading' },
+  })
+  useEffect(() => {
+    const controller = new AbortController()
+    let objectUrl: string | null = null
+    let cancelled = false
+    fetchAssetBlob(assetId, controller.signal)
+      .then((blob: Blob) => {
+        if (cancelled) return
+        objectUrl = URL.createObjectURL(blob)
+        setSnapshot({ key, state: { phase: 'ready', objectUrl, blob } })
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return
+        setSnapshot({ key, state: { phase: 'failed', error } })
+      })
+    return () => {
+      cancelled = true
+      controller.abort()
+      if (objectUrl !== null) URL.revokeObjectURL(objectUrl)
+    }
+  }, [fetchAssetBlob, assetId, retryToken, key])
+  return snapshot.key === key ? snapshot.state : { phase: 'loading' }
+}
+
+type SeatAssetDownloadState = 'idle' | 'loading' | 'failed'
+
+/**
+ * 附件下载状态机：Blob → ObjectURL → a[download]，URL 定时回收；
+ * 卸载时 abort in-flight 并兜底 revoke 未回收 URL。
+ */
+function useSeatAssetDownload(fetchAssetBlob: SeatAssetFetcher, assetId: string) {
+  const [state, setState] = useState<SeatAssetDownloadState>('idle')
+  const [error, setError] = useState<unknown>(null)
+  const controllerRef = useRef<AbortController | null>(null)
+  const revokeTimersRef = useRef<Array<{ url: string; timer: ReturnType<typeof setTimeout> }>>([])
+  useEffect(() => {
+    const controllers = controllerRef
+    const timers = revokeTimersRef
+    return () => {
+      controllers.current?.abort()
+      for (const { url, timer } of timers.current) {
+        clearTimeout(timer)
+        URL.revokeObjectURL(url)
+      }
+      timers.current = []
+    }
+  }, [])
+  const download = useCallback(
+    async (fileName: string | null, readyBlob?: Blob) => {
+      if (state === 'loading') return
+      setState('loading')
+      setError(null)
+      try {
+        let blob = readyBlob
+        if (blob === undefined) {
+          const controller = new AbortController()
+          controllerRef.current = controller
+          blob = await fetchAssetBlob(assetId, controller.signal)
+        }
+        const url = triggerBrowserDownload(blob, fileName)
+        const timer = setTimeout(() => URL.revokeObjectURL(url), DOWNLOAD_URL_REVOKE_DELAY_MS)
+        revokeTimersRef.current.push({ url, timer })
+        setState('idle')
+      } catch (caught: unknown) {
+        setState('failed')
+        setError(caught)
+      }
+    },
+    [fetchAssetBlob, assetId, state],
+  )
+  return { state, error, download }
+}
+
+/** 占位徽标：status 非 active（pending_confirm/deleted）不可下载。 */
+function AttachmentPlaceholder({ attachment }: { attachment: SeatAttachment }) {
   return (
-    <a
-      href={href}
-      className="inline-flex items-center gap-1 rounded border border-border px-1.5 py-0.5 text-xs text-primary underline-offset-2 hover:underline"
+    <span
+      className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"
       data-testid="seat-attachment-chip"
-      download
     >
       <Paperclip aria-hidden="true" className="h-3 w-3" />
-      {attachment.fileName ?? ATTACHMENT_PHASE_LABEL.active}
-    </a>
+      {ATTACHMENT_PHASE_LABEL[attachment.phase]}
+    </span>
   )
 }
 
-function MessageRow({ message, side, orgId, detail }: { message: SeatMessage; side: 'visitor' | 'seat' | 'system'; orgId: string; detail: SeatSessionDetail }) {
+/** 图片附件：内联预览（blob: URL）+ 下载（复用预览 Blob，不重复请求）。 */
+function AttachmentImage({ fetchAssetBlob, attachment }: { fetchAssetBlob: SeatAssetFetcher; attachment: SeatAttachment }) {
+  const [retryToken, setRetryToken] = useState(0)
+  const preview = useSeatAssetPreview(fetchAssetBlob, attachment.assetId, retryToken)
+  const download = useSeatAssetDownload(fetchAssetBlob, attachment.assetId)
+
+  if (preview.phase === 'loading') {
+    return (
+      <span
+        className="inline-flex h-20 w-28 items-center justify-center rounded border border-dashed border-border bg-muted/50 text-xs text-muted-foreground"
+        data-testid="seat-attachment-image-loading"
+        aria-label="图片加载中"
+      >
+        图片加载中…
+      </span>
+    )
+  }
+  if (preview.phase === 'failed') {
+    return (
+      <span
+        className="inline-flex items-center gap-1 rounded border border-destructive/40 bg-destructive/10 px-1.5 py-0.5 text-xs text-destructive"
+        data-testid="seat-attachment-image-error"
+      >
+        <Paperclip aria-hidden="true" className="h-3 w-3" />
+        {attachmentErrorText(preview.error)}
+        <button
+          type="button"
+          className="underline underline-offset-2"
+          onClick={() => setRetryToken((token) => token + 1)}
+          data-testid="seat-attachment-retry"
+        >
+          重试
+        </button>
+      </span>
+    )
+  }
+  return (
+    <span className="inline-flex flex-col items-start gap-1" data-testid="seat-attachment-image-group">
+      <img
+        src={preview.objectUrl}
+        alt={attachment.fileName ?? '图片附件'}
+        data-testid="seat-attachment-image"
+        className="max-h-40 max-w-[12rem] rounded border border-border object-cover"
+      />
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        disabled={download.state === 'loading'}
+        onClick={() => void download.download(attachment.fileName, preview.blob)}
+        data-testid="seat-attachment-download"
+      >
+        {download.state === 'loading' ? '下载中…' : '下载图片'}
+      </Button>
+      {download.state === 'failed' && (
+        <span className="text-[10px] text-destructive" data-testid="seat-attachment-download-error">
+          {attachmentErrorText(download.error)}
+        </span>
+      )}
+    </span>
+  )
+}
+
+/** 文件附件：file_name + size_bytes + 下载状态（点击才取字节）。 */
+function AttachmentFile({ fetchAssetBlob, attachment }: { fetchAssetBlob: SeatAssetFetcher; attachment: SeatAttachment }) {
+  const download = useSeatAssetDownload(fetchAssetBlob, attachment.assetId)
+  const sizeText = formatBytes(attachment.size)
+  return (
+    <span
+      className="inline-flex max-w-full items-center gap-2 rounded border border-border px-2 py-1 text-xs"
+      data-testid="seat-attachment-file"
+    >
+      <Paperclip aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+      <span className="min-w-0">
+        <span className="block max-w-[10rem] truncate text-foreground" data-testid="seat-attachment-file-name">
+          {attachment.fileName ?? '未命名文件'}
+        </span>
+        {sizeText !== null && (
+          <span className="block text-[10px] text-muted-foreground" data-testid="seat-attachment-file-size">
+            {sizeText}
+          </span>
+        )}
+      </span>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        disabled={download.state === 'loading'}
+        onClick={() => void download.download(attachment.fileName)}
+        data-testid="seat-attachment-download"
+      >
+        {download.state === 'loading' ? '下载中…' : download.state === 'failed' ? '重试下载' : '下载'}
+      </Button>
+      {download.state === 'failed' && (
+        <span className="text-[10px] text-destructive" data-testid="seat-attachment-download-error">
+          {attachmentErrorText(download.error)}
+        </span>
+      )}
+    </span>
+  )
+}
+
+/** 附件统一入口：消费 status（active 才可预览/下载；否则占位）。 */
+function AttachmentItem({ fetchAssetBlob, attachment }: { fetchAssetBlob: SeatAssetFetcher; attachment: SeatAttachment }) {
+  if (attachment.phase !== 'active') return <AttachmentPlaceholder attachment={attachment} />
+  if (isImageAttachment(attachment)) return <AttachmentImage fetchAssetBlob={fetchAssetBlob} attachment={attachment} />
+  return <AttachmentFile fetchAssetBlob={fetchAssetBlob} attachment={attachment} />
+}
+
+function MessageRow({
+  message,
+  side,
+  fetchAssetBlob,
+}: {
+  message: SeatMessage
+  side: 'visitor' | 'seat' | 'system'
+  fetchAssetBlob: SeatAssetFetcher
+}) {
   if (side === 'system') {
     return (
       <li className="text-center text-xs text-muted-foreground" data-testid="seat-message-system">
@@ -77,7 +323,7 @@ function MessageRow({ message, side, orgId, detail }: { message: SeatMessage; si
         {message.attachments.length > 0 && (
           <div className="mt-1 flex flex-wrap gap-1">
             {message.attachments.map((attachment) => (
-              <AttachmentChip key={attachment.assetId} orgId={orgId} detail={detail} attachment={attachment} />
+              <AttachmentItem key={attachment.assetId} fetchAssetBlob={fetchAssetBlob} attachment={attachment} />
             ))}
           </div>
         )}
@@ -102,7 +348,7 @@ function sideOf(message: SeatMessage): 'visitor' | 'seat' | 'system' {
 
 export function SeatSessionView(props: SeatSessionViewProps) {
   const {
-    orgId,
+    fetchAssetBlob,
     detail,
     messages,
     messagesLoading,
@@ -157,7 +403,7 @@ export function SeatSessionView(props: SeatSessionViewProps) {
         ) : (
           <ul role="log" aria-live="polite" aria-label="消息记录" className="flex flex-col gap-2">
             {messages.map((message) => (
-              <MessageRow key={message.id} message={message} side={sideOf(message)} orgId={orgId} detail={detail} />
+              <MessageRow key={message.id} message={message} side={sideOf(message)} fetchAssetBlob={fetchAssetBlob} />
             ))}
           </ul>
         )}

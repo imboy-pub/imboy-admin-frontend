@@ -6,7 +6,9 @@
  *   Bearer 只进 Authorization 头；
  * - A03 token 卫生：JWT 不进 URL；session_token 仅 status/subscribe 查询串
  *   allowlist；错误消息/URL 脱敏；
- * - A05 合同：{code,msg,payload} 信封、TSID 精度保护解析、错误分类。
+ * - A05 合同：{code,msg,payload} 信封、TSID 精度保护解析、错误分类；
+ * - CS-WEB-01：requestBlob 附件内容端点（原始字节流非信封；Bearer 头 +
+ *   credentials omit；401/403/404 分类；域外路径拒绝）。
  */
 import { afterEach, describe, expect, it } from 'bun:test'
 import {
@@ -222,5 +224,77 @@ describe('A05 信封与 TSID 解析', () => {
     expect(init.method).toBe('POST')
     expect(init.body).toBe(JSON.stringify({ qr_token: 'q1' }))
     expect((init.headers as Record<string, string>)['Content-Type']).toBe('application/json')
+  })
+})
+
+describe('CS-WEB-01 requestBlob（附件 content 端点；二进制非信封）', () => {
+  const CONTENT_PATH = '/enterprise/organizations/123/assets/456/content'
+  const PNG_BYTES = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+
+  function blobResponder(status: number, body?: BodyInit): ReturnType<typeof makeFetch> {
+    return makeFetch(() => new Response(body ?? PNG_BYTES.slice(), { status }))
+  }
+
+  it('成功 → Blob；Bearer 只进 Authorization 头；credentials omit；URL 不含 token', async () => {
+    seatTokenVault.setToken('aa.bb.cc')
+    const { calls, fetchImpl } = blobResponder(200)
+    const client = new SeatApiClient({ fetchImpl, getToken: () => seatTokenVault.getToken() })
+    const blob = await client.requestBlob(CONTENT_PATH)
+    expect(blob.size).toBe(PNG_BYTES.length)
+    expect(calls).toHaveLength(1)
+    const init = calls[0]?.init as RequestInit
+    expect(init.method).toBe('GET')
+    expect(init.credentials).toBe('omit')
+    expect((init.headers as Record<string, string>).Authorization).toBe('Bearer aa.bb.cc')
+    expect(calls[0]?.url).toBe(`/api/v1${CONTENT_PATH}`)
+    expect(calls[0]?.url).not.toContain('aa.bb.cc')
+  })
+
+  it('401/403/404 → 对应分类（HTTP 状态即权威；message 不带 URL）', async () => {
+    for (const [status, kind] of [
+      [401, 'unauthorized'],
+      [403, 'forbidden'],
+      [404, 'not_found'],
+    ] as const) {
+      const { fetchImpl } = blobResponder(status, `{"code":${status},"msg":"rejected","payload":{}}`)
+      const client = new SeatApiClient({ fetchImpl })
+      let thrown: unknown = null
+      try {
+        await client.requestBlob(CONTENT_PATH)
+      } catch (error) {
+        thrown = error
+      }
+      expect(isSeatApiError(thrown)).toBe(true)
+      expect((thrown as { kind: string }).kind).toBe(kind)
+      expect((thrown as Error).message).not.toContain(CONTENT_PATH)
+    }
+  })
+
+  it('网络失败 / blob 读取失败 → network 分类', async () => {
+    const client = new SeatApiClient({
+      fetchImpl: async () => {
+        throw new TypeError('failed to fetch')
+      },
+    })
+    let thrown: unknown = null
+    try {
+      await client.requestBlob(CONTENT_PATH)
+    } catch (error) {
+      thrown = error
+    }
+    expect((thrown as { kind: string }).kind).toBe('network')
+  })
+
+  it('域外路径（/api/adm）拒绝且不发请求', async () => {
+    const { calls, fetchImpl } = blobResponder(200)
+    const client = new SeatApiClient({ fetchImpl })
+    let thrown: unknown = null
+    try {
+      await client.requestBlob('/adm/organizations')
+    } catch (error) {
+      thrown = error
+    }
+    expect(isSeatApiError(thrown)).toBe(true)
+    expect(calls).toHaveLength(0)
   })
 })

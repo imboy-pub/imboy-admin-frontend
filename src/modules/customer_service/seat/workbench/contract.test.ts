@@ -5,8 +5,8 @@
  * - seat_session_view / detail / 消息 / 转接目标投影（TSID string 收敛、
  *   fail-closed、未知键丢弃——包括存储侧键，A03 防泄漏的第一道闸）；
  * - 服务端计数 total_by_status 合同（禁本地推断）；
- * - 路径构造全部落在 Seat 域；附件 href 唯一来源是 content 代理路径
- *   （无 object key / upload URL / JWT，A03）。
+ * - 路径构造全部落在 Seat 域；附件内容路径唯一来源是真实 enterprise
+ *   content 端点（CS-WEB-01；无 object key / upload URL / JWT，A03）。
  */
 import { describe, expect, it } from 'bun:test'
 import {
@@ -115,6 +115,7 @@ describe('会话页投影（服务端计数合同）', () => {
 })
 
 describe('消息投影（含 ACK 与附件）', () => {
+  // CS-WEB-01：assets[] 镜像后端冻结投影键 {id,mime,size_bytes,file_name,status}。
   const MESSAGE_ROW = {
     id: HUGE_TSID,
     sender_type: 'contact',
@@ -124,9 +125,9 @@ describe('消息投影（含 ACK 与附件）', () => {
     created_at: '2026-09-20T05:30:00Z',
     read_at: '2026-09-20T05:31:00Z',
     assets: [
-      { asset_id: '8000000000000000008', status: 'active', mime: 'image/png', size: 2048, file_name: 'shot.png' },
-      { asset_id: '8000000000000000009', status: 'pending_confirm', mime: 'image/jpeg', size: 10 },
-      { asset_id: '8000000000000000010', status: 'deleted' },
+      { id: '8000000000000000008', status: 'active', mime: 'image/png', size_bytes: 2048, file_name: 'shot.png' },
+      { id: '8000000000000000009', status: 'pending_confirm', mime: 'image/jpeg', size_bytes: 10 },
+      { id: '8000000000000000010', status: 'deleted' },
     ],
   }
 
@@ -137,6 +138,18 @@ describe('消息投影（含 ACK 与附件）', () => {
     expect(list[0]?.readAt).toBe('2026-09-20T05:31:00Z')
     expect(list[0]?.attachments).toHaveLength(3)
     expect(list[0]?.attachments[0]?.phase).toBe('active')
+  })
+
+  it('CS-WEB-01 键名对齐：size_bytes/file_name 被消费；错位旧键 size 不再被读', () => {
+    const [message] = toSeatMessageList([MESSAGE_ROW])
+    expect(message?.attachments[0]?.size).toBe(2048)
+    expect(message?.attachments[0]?.fileName).toBe('shot.png')
+    expect(message?.attachments[0]?.mime).toBe('image/png')
+    // 旧错位键（CSX-01 断链实证）：只发 size 的行 size 投影为 null（fail-closed）。
+    const [legacy] = toSeatMessageList([
+      { ...MESSAGE_ROW, assets: [{ id: '8000000000000000012', status: 'active', mime: 'image/png', size: 999 }] },
+    ])
+    expect(legacy?.attachments[0]?.size).toBeNull()
   })
 
   it('兼容 {messages} 旧形载荷', () => {
@@ -190,15 +203,19 @@ describe('路径构造（Seat 域 + A03 附件代理不变量）', () => {
     expect(buildTransferTargetsPath(ORG)).toBe(`/cs/organizations/${ORG}/transfer-targets`)
   })
 
-  it('附件 href 唯一来源 = content 代理路径；模板与实现一致', () => {
+  it('CS-WEB-01：附件内容路径 = 真实 enterprise content 端点（模板一致，无虚构 cs 段）', () => {
     const assetId = '8000000000000000008'
-    const path = seatAssetContentPath(ORG, SESSION, assetId)
-    expect(path).toBe(`/api/v1/cs/organizations/${ORG}/sessions/${SESSION}/assets/${assetId}/content`)
-    expect(SEAT_ASSET_CONTENT_PATH_TEMPLATE).toBe('/api/v1/cs/organizations/:org_id/sessions/:session_id/assets/:asset_id/content')
+    const path = seatAssetContentPath(ORG, assetId)
+    expect(path).toBe(`/enterprise/organizations/${ORG}/assets/${assetId}/content`)
+    expect(SEAT_ASSET_CONTENT_PATH_TEMPLATE).toBe('/api/v1/enterprise/organizations/:org_id/assets/:id/content')
+    // 旧虚构路由（/cs/organizations/:org/sessions/:sid/assets/…/content）已删除：
+    // 构造器不再产出 sessions 段（该路由后端不存在，必 404——CSX-01 断链）。
+    expect(path).not.toContain('/sessions/')
+    expect(SEAT_ASSET_CONTENT_PATH_TEMPLATE).not.toContain('/cs/organizations/')
   })
 
   it('路径编码：TSID 特殊字符输入不产生注入面（防御性）', () => {
-    const path = seatAssetContentPath('1', '2', encodeURIComponent('../../evil') as never)
+    const path = seatAssetContentPath('1', encodeURIComponent('../../evil') as never)
     expect(path).not.toContain('../../evil')
   })
 })

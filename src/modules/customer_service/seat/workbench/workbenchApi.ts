@@ -16,6 +16,7 @@ import {
   buildSeatSessionDetailPath,
   buildSeatSessionsPath,
   buildTransferTargetsPath,
+  seatAssetContentPath,
   toSeatMessage,
   toSeatMessageList,
   toSeatSessionDetail,
@@ -197,5 +198,16 @@ export class SeatWorkbenchApi {
   async fetchTransferTargets(orgId: EntityId, query: SeatPageQuery = {}): Promise<SeatTransferTargetPage> {
     const payload = await this.client.request(buildTransferTargetsPath(orgId), { query: pageQuery(query) })
     return toTransferTargetList(payload)
+  }
+
+  /**
+   * CS-WEB-01：附件内容字节（后端真实合同，imboy_router.erl:1803：
+   * GET /api/v1/enterprise/organizations/:org_id/assets/:id/content →
+   * eb_tenant_handler#asset_content；Seat JWT 认证域 + asset.read）。
+   * 成功 = 原始字节流 Blob（非 {code,msg,payload} 信封）；失败按 HTTP
+   * 状态/信封 code 分类（401/403/404…）。调用方负责 ObjectURL 生命周期。
+   */
+  async fetchAssetContent(orgId: EntityId, assetId: EntityId, signal?: AbortSignal): Promise<Blob> {
+    return this.client.requestBlob(seatAssetContentPath(orgId, assetId), { signal })
   }
 }

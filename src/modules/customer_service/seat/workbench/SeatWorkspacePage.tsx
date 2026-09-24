@@ -9,7 +9,7 @@
  * - aria-live 区域播报 claim 冲突/接单结果/写入口收回（A05 可达性）；
  * - 全部读取是权威刷新（react-query），SSE 只触发失效（A02 无重复渲染）。
  */
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { LogOut, Radio } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SeatQrLoginPanel } from "./seatQrLoginPanel";
@@ -207,6 +207,19 @@ function SeatWorkspaceInner() {
     }
     return null;
   }, [stream.writeRevoked, scope.canWrite, scope.myIdentityId, detail]);
+
+  // CS-WEB-01：附件字节获取（真实 enterprise content 端点；Seat Bearer 由
+  // SeatApiClient 注入，org scope 闭包在内——视图层只见 assetId + signal）。
+  const fetchAssetBlob = useCallback(
+    (assetId: string, signal: AbortSignal): Promise<Blob> => {
+      const orgId = scope.organizationId;
+      if (orgId === null) {
+        return Promise.reject(new Error("seat asset requires org scope"));
+      }
+      return api.fetchAssetContent(orgId, assetId, signal);
+    },
+    [api, scope.organizationId],
+  );
 
   const canWriteNow = writeClosedReason === null;
 
@@ -408,7 +421,7 @@ function SeatWorkspaceInner() {
             data-testid="seat-pane-conversation"
           >
             <SeatSessionView
-              orgId={scope.organizationId ?? ""}
+              fetchAssetBlob={fetchAssetBlob}
               detail={detail}
               messages={messagesQuery.data ?? []}
               messagesLoading={messagesQuery.isLoading}

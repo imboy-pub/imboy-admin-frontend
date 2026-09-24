@@ -6,7 +6,9 @@
  * - A01 两坐席并发 claim 恰一成功 + 失败方自动刷新（api 层并发在
  *   workbenchApi.test；此处验证 409 → 失效刷新 → UI 收敛 + aria-live 播报）；
  * - A02 SSE 信封去重只触发一次权威刷新；resync → 全量刷新；无重复渲染；
- * - A03 附件只经 content 代理路径；全链无 object key / upload URL / JWT；
+ * - A03 附件只经真实 enterprise content 端点 + Seat Bearer fetch 获取
+ *   （CS-WEB-01：图片 blob: 内联预览、文件 a[download] 下载、Blob URL
+ *   卸载即 revoke）；全链无 object key / upload URL / JWT / 虚构路由；
  * - A04 suspend/offboarding（seat.changed revoked）→ 写入口立即收回且可解释；
  * - A05 aria-live 消息区 / role=log / 键盘可达（按钮原生 focus）/ tablist；
  * - A06 loading / error / empty / offline / retry / permission denied 六态。
@@ -18,6 +20,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/react'
 import { SeatWorkspacePage } from './SeatWorkspacePage'
 import {
+  ASSET_PDF_ID,
+  ASSET_PNG_ID,
   CONV,
   FakeSseStream,
   IDENTITY,
@@ -94,15 +98,46 @@ describe('SeatWorkspacePage 登录门（QR 合同 + device_id 持久化）', () 
 })
 
 describe('SeatWorkspacePage 工作台（A01/A02/A03/A04/A05/A06）', () => {
+  // CS-WEB-01：jsdom/运行时可能缺原生 ObjectURL——桩化并记录创建/回收，
+  // 供附件 Blob URL 生命周期断言（恢复原实现，不污染其他文件）。
+  type UrlObjectApi = {
+    createObjectURL?: (_blob: Blob) => string
+    revokeObjectURL?: (_url: string) => void
+  }
+  const urlApi = URL as unknown as UrlObjectApi
+  let originalCreateObjectUrl: UrlObjectApi['createObjectURL']
+  let originalRevokeObjectUrl: UrlObjectApi['revokeObjectURL']
+  let objectUrlSeq = 0
+  let createdObjectUrls: string[] = []
+  let revokedObjectUrls: string[] = []
+
   beforeEach(() => {
     spyOn(console, 'error').mockImplementation(() => {})
     spyOn(console, 'warn').mockImplementation(() => {})
     loginSeat()
+    objectUrlSeq = 0
+    createdObjectUrls = []
+    revokedObjectUrls = []
+    originalCreateObjectUrl = urlApi.createObjectURL
+    originalRevokeObjectUrl = urlApi.revokeObjectURL
+    urlApi.createObjectURL = (_blob: Blob) => {
+      objectUrlSeq += 1
+      const url = `blob:mock-${objectUrlSeq}`
+      createdObjectUrls.push(url)
+      return url
+    }
+    urlApi.revokeObjectURL = (url: string) => {
+      revokedObjectUrls.push(url)
+    }
   })
   afterEach(() => {
     cleanup()
     seatTokenVault.clear()
     useSeatAuthStore.setState({ status: 'anonymous', userId: null, endReason: null })
+    if (originalCreateObjectUrl === undefined) delete urlApi.createObjectURL
+    else urlApi.createObjectURL = originalCreateObjectUrl
+    if (originalRevokeObjectUrl === undefined) delete urlApi.revokeObjectURL
+    else urlApi.revokeObjectURL = originalRevokeObjectUrl
   })
 
   it('工作台骨架：org/ws 切换器 + 服务端计数 Tab + queued 列表 + claim 入口', async () => {
@@ -115,7 +150,7 @@ describe('SeatWorkspacePage 工作台（A01/A02/A03/A04/A05/A06）', () => {
     expect(view.getByTestId(`seat-claim-${SESSION}`)).toBeDefined()
   })
 
-  it('A03：接单后 composer 出现；附件只渲染 content 代理路径，无 object key/JWT', async () => {
+  it('A03/CS-WEB-01：附件经 Seat Bearer fetch 预览（blob: URL）；无裸 href/object key/JWT/虚构路由', async () => {
     const backend = new SeatFakeBackend()
     const view = renderWorkspace(backend, new FakeSseStream())
     const item = await waitFor(() => view.getByTestId(`seat-session-item-${SESSION}`))
@@ -126,18 +161,89 @@ describe('SeatWorkspacePage 工作台（A01/A02/A03/A04/A05/A06）', () => {
     await waitFor(() => expect(view.getByTestId('seat-message-list').textContent).toContain('您好'))
     // ACK：read_at 存在 → 已读标记；read_at 为 null → 无。
     expect(view.getAllByTestId('seat-message-acked').length).toBe(1)
-    // 附件：active 阶段渲染 content 代理链接；href 精确等于代理路径。
-    const chips = view.getAllByTestId('seat-attachment-chip')
-    expect(chips.length).toBeGreaterThanOrEqual(3)
-    const hrefs = chips.map((chip) => chip.getAttribute('href'))
-    expect(hrefs[0]).toBe(`/api/v1/cs/organizations/${ORG}/sessions/${SESSION}/assets/8000000000000000008/content`)
-    // A03 全链负例：DOM 不出现 object key / upload URL / JWT 形状。
+    // 图片附件（image/*）：内联预览 = Seat Bearer fetch → Blob → ObjectURL。
+    const image = await waitFor(() => view.getByTestId('seat-attachment-image'))
+    expect(image.getAttribute('src')).toMatch(/^blob:/)
+    // 文件附件：file_name + size_bytes（键名对齐后）+ 下载入口。
+    expect(view.getByTestId('seat-attachment-file-name').textContent).toContain('退款凭证.pdf')
+    expect(view.getByTestId('seat-attachment-file-size').textContent).toContain('MB')
+    // status 字段消费：pending_confirm/deleted → 占位（不可下载）。
+    expect(view.getAllByTestId('seat-attachment-chip').length).toBe(2)
+    // 内容请求：真实 enterprise 路由（非虚构 cs 段）+ Seat Bearer + 无 Cookie。
+    await waitFor(() => expect(backend.assetContentFetchCount).toBe(1))
+    const contentCall = backend.calls.find(
+      (call) => call.path === `/api/v1/enterprise/organizations/${ORG}/assets/${ASSET_PNG_ID}/content`,
+    )
+    expect(contentCall).toBeDefined()
+    expect(contentCall?.auth).toBe('Bearer eyJh.eyJi.c2ln')
+    // A03 全链负例：DOM 不出现 object key / upload URL / JWT / 虚构 CS 段路由。
     const html = view.container.innerHTML
     expect(html).not.toMatch(/storage|upload_url|object_key|objectKey/i)
     expect(html).not.toContain('eyJ')
+    expect(html).not.toContain('/api/v1/cs/organizations/')
     // composer：active 会话 + 会话写能力 → 可回复。
     expect(view.getByTestId('seat-composer')).toBeDefined()
     expect(view.getByTestId('seat-send')).toBeDefined()
+  })
+
+  it('CS-WEB-01：Blob URL 生命周期——消息刷新不重取，卸载即 revoke（无泄漏）', async () => {
+    const backend = new SeatFakeBackend()
+    const sse = new FakeSseStream()
+    const view = renderWorkspace(backend, sse)
+    const item = await waitFor(() => view.getByTestId(`seat-session-item-${SESSION}`))
+    fireEvent.click(item)
+    fireEvent.click(await waitFor(() => view.getByTestId(`seat-claim-${SESSION}`)))
+    const image = await waitFor(() => view.getByTestId('seat-attachment-image'))
+    const previewUrl = image.getAttribute('src')
+    expect(previewUrl).toMatch(/^blob:/)
+    expect(createdObjectUrls).toHaveLength(1)
+    expect(revokedObjectUrls).not.toContain(previewUrl)
+    // 消息权威刷新（resync → 全量）：同附件不重取、不换 URL、无泄漏。
+    sse.push(envelopeFrame('9900000000000000021', 'resync.required', 'queue', null))
+    await waitFor(() => expect(backend.messageFetchCount).toBe(2))
+    await sleep(100)
+    expect(createdObjectUrls).toHaveLength(1)
+    expect(backend.assetContentFetchCount).toBe(1)
+    // 卸载（离开会话/换会话）→ 预览 ObjectURL 立即回收。
+    cleanup()
+    expect(revokedObjectUrls).toContain(previewUrl)
+  })
+
+  it('CS-WEB-01：下载走 a[download]（blob URL + file_name）；404 → 可解释错误，恢复后重试成功', async () => {
+    const anchorClicks: Array<{ download: string; href: string | null }> = []
+    const anchorClickSpy = spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function () {
+      const anchor = this as HTMLAnchorElement
+      anchorClicks.push({ download: anchor.download, href: anchor.getAttribute('href') })
+    })
+    try {
+      const backend = new SeatFakeBackend()
+      backend.state.assetContentStatuses[ASSET_PDF_ID] = 404
+      const view = renderWorkspace(backend, new FakeSseStream())
+      const item = await waitFor(() => view.getByTestId(`seat-session-item-${SESSION}`))
+      fireEvent.click(item)
+      fireEvent.click(await waitFor(() => view.getByTestId(`seat-claim-${SESSION}`)))
+      await waitFor(() => view.getByTestId('seat-attachment-image'))
+      const fileBox = await waitFor(() => view.getByTestId('seat-attachment-file'))
+      const fileDownloadButton = fileBox.querySelector("[data-testid='seat-attachment-download']")
+      expect(fileDownloadButton).not.toBeNull()
+      // 404（附件不存在/已删）：可解释错误占位，不产生任何下载 URL。
+      fireEvent.click(fileDownloadButton as HTMLElement)
+      await waitFor(() =>
+        expect(view.getByTestId('seat-attachment-download-error').textContent).toContain('附件不存在'),
+      )
+      expect(anchorClicks).toHaveLength(0)
+      expect(createdObjectUrls).toHaveLength(1)
+      // 恢复后重试 → a[download] 携带 blob: href + file_name（安全下载）。
+      delete backend.state.assetContentStatuses[ASSET_PDF_ID]
+      const retryButton = view.getByTestId('seat-attachment-file').querySelector('[data-testid="seat-attachment-download"]')
+      fireEvent.click(retryButton as HTMLElement)
+      await waitFor(() => expect(anchorClicks.length).toBe(1))
+      expect(anchorClicks[0]?.download).toBe('退款凭证.pdf')
+      expect(anchorClicks[0]?.href).toMatch(/^blob:/)
+      expect(createdObjectUrls).toContain(anchorClicks[0]?.href)
+    } finally {
+      anchorClickSpy.mockRestore()
+    }
   })
 
   it('A01：claim 撞 409 → 冲突播报 + 列表自动权威刷新收敛', async () => {

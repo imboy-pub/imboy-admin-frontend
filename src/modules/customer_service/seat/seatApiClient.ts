@@ -104,6 +104,11 @@ export type SeatRequestOptions = {
   signal?: AbortSignal
 }
 
+/** CS-WEB-01：二进制内容请求（附件 content 端点；成功是原始字节流）。 */
+export type SeatBlobRequestOptions = {
+  signal?: AbortSignal
+}
+
 /**
  * 平台响应信封 {code, msg, payload}（elib_response 约定）：
  * code===0 成功；非 0 按码位分类（HTTP 状态作 fallback）。
@@ -182,5 +187,56 @@ export class SeatApiClient {
     }
     const payload = unwrapEnvelope(raw, response.status)
     return payload as T
+  }
+
+  /**
+   * CS-WEB-01：Seat 域二进制内容请求（附件 content 端点；成功响应是原始
+   * 字节流，不是 {code,msg,payload} 信封）。
+   * - 与 request 同一域门/凭证卫生：Bearer 只进 Authorization 头、
+   *   credentials: 'omit'（A01/A03 不变）、路径必须落 Seat 域 allowlist；
+   * - 非 2xx：优先读 JSON 信封 code（有则按码位分类），否则按 HTTP 状态；
+   * - 错误 message 不含 URL/响应体（token/对象引用不进日志）。
+   * 调用方负责 ObjectURL 生命周期（预览/下载后 revoke）。
+   */
+  async requestBlob(path: string, options: SeatBlobRequestOptions = {}): Promise<Blob> {
+    const full = this.baseUrl + path
+    assertSeatApiPath(full)
+    const headers: Record<string, string> = { Accept: 'application/octet-stream, */*' }
+    const token = this.getToken()
+    if (token !== null) headers.Authorization = `Bearer ${token}`
+
+    let response: Response
+    try {
+      response = await this.fetchImpl(full, {
+        method: 'GET',
+        headers,
+        // A01：Seat 域绝不携带（Admin）Cookie，也不接受 cookie 写入。
+        credentials: 'omit',
+        signal: options.signal,
+      })
+    } catch (error: unknown) {
+      if (error instanceof SeatApiError) throw error
+      throw seatNetworkError(error)
+    }
+
+    if (!response.ok) {
+      throw classifySeatError(response.status, await readEnvelopeCode(response), `seat content http error ${response.status}`)
+    }
+    try {
+      return await response.blob()
+    } catch (error: unknown) {
+      if (error instanceof SeatApiError) throw error
+      throw seatNetworkError(error)
+    }
+  }
+}
+
+/** 错误体若携带 {code} 信封则提取码位（解析失败/非对象 → null，不猜）。 */
+async function readEnvelopeCode(response: Response): Promise<number | null> {
+  try {
+    const raw = parseSeatJson(await response.text())
+    return isRecord(raw) && typeof raw.code === 'number' ? raw.code : null
+  } catch {
+    return null
   }
 }
