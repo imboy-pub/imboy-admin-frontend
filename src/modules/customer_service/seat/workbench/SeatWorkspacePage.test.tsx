@@ -17,6 +17,7 @@ import '../../../../test/setupDom'
 
 import { afterEach, beforeEach, describe, expect, it, spyOn } from 'bun:test'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import userEvent from '@testing-library/user-event'
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/react'
 import { SeatWorkspacePage } from './SeatWorkspacePage'
 import {
@@ -389,8 +390,14 @@ describe('SeatWorkspacePage 工作台（A01/A02/A03/A04/A05/A06）', () => {
     const item = await waitFor(() => view.getByTestId(`seat-session-item-${SESSION}`))
     fireEvent.click(item)
     const composer = await waitFor(() => view.getByTestId('seat-composer'))
-    backend.state.failingResponsesLeft = 1
-    fireEvent.change(composer, { target: { value: '您好' } })
+    // CS-WEB-02：改用 send 专属失败计数——全局 failingResponsesLeft 会被附件
+    // content 预取（异步 blob fetch）吃掉产生竞态；sendFailuresLeft 只作用发送端点。
+    backend.state.sendFailuresLeft = 1
+    // CS-WEB-02：composer 转 React 受控（发送按钮禁用态需跟随草稿），受控输入
+    // 必须用 user-event 驱动（RTL16.3+React19.2 下 fireEvent.change 无效——
+    // PendingOwnerPanel.test 同款结论）。
+    const user = userEvent.setup()
+    await user.type(composer, '您好')
     fireEvent.click(view.getByTestId('seat-send'))
     await waitFor(() => expect(view.getByTestId('seat-send-error')).toBeDefined())
     fireEvent.click(view.getByTestId('seat-send-retry'))
@@ -427,5 +434,223 @@ describe('SeatWorkspacePage 工作台（A01/A02/A03/A04/A05/A06）', () => {
     fireEvent.click(tab)
     expect(tab.getAttribute('aria-selected')).toBe('true')
     expect(view.getByTestId('seat-live-region')).toBeDefined()
+  })
+})
+
+describe('SeatWorkspacePage CS-WEB-02 单文件发送（presign → 裸 PUT → confirm → asset_ids）', () => {
+  const FILE_BYTES = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+
+  /** 进入 active 会话并返回 composer（受控输入由 user-event 驱动）。 */
+  async function openActiveConversation(view: ReturnType<typeof renderWorkspace>) {
+    fireEvent.click(await waitFor(() => view.getByTestId('seat-tab-active')))
+    fireEvent.click(await waitFor(() => view.getByTestId(`seat-session-item-${SESSION}`)))
+    const composer = await waitFor(() => view.getByTestId('seat-composer'))
+    const attachInput = await waitFor(() => view.getByTestId('seat-attach-input'))
+    return { composer, attachInput }
+  }
+
+  /** 上传链 + 发送的调用序列（顺序断言唯一事实源）。 */
+  function pipelineCalls(backend: SeatFakeBackend): string[] {
+    return backend.calls
+      .filter(
+        (call) =>
+          (call.method === 'POST' && call.path.endsWith('/assets/presign')) ||
+          (call.method === 'PUT' && call.path.includes('/assets/upload/')) ||
+          (call.method === 'POST' && call.path.endsWith('/assets/confirm')) ||
+          (call.method === 'POST' && call.path.endsWith(`/conversations/${CONV}/messages`)),
+      )
+      .map((call) => `${call.method} ${call.path}`)
+  }
+
+  beforeEach(() => {
+    spyOn(console, 'error').mockImplementation(() => {})
+    spyOn(console, 'warn').mockImplementation(() => {})
+    loginSeat()
+  })
+  afterEach(() => {
+    cleanup()
+    seatTokenVault.clear()
+    useSeatAuthStore.setState({ status: 'anonymous', userId: null, endReason: null })
+  })
+
+  it('正文+文件：顺序钉死 presign → PUT → confirm → 发送 asset_ids；成功后清空 composer 与附件', async () => {
+    const backend = new SeatFakeBackend()
+    backend.state.sessionStatus = 'active'
+    backend.state.version = 8
+    const view = renderWorkspace(backend, new FakeSseStream())
+    const { composer, attachInput } = await openActiveConversation(view)
+    const user = userEvent.setup()
+    await user.type(composer, '请看截图')
+    await user.upload(attachInput as HTMLInputElement, new File([FILE_BYTES.slice()], '截图.png', { type: 'image/png' }))
+    expect(view.getByTestId('seat-attach-chip-name').textContent).toBe('截图.png')
+    fireEvent.click(view.getByTestId('seat-send'))
+    await waitFor(() => expect(backend.sentClientMsgIds.length).toBe(1))
+    // 顺序唯一事实源：presign → 裸 PUT → confirm → 发送（不可乱序/跳步）。
+    expect(pipelineCalls(backend)).toEqual([
+      `POST /api/v1/enterprise/organizations/${ORG}/assets/presign`,
+      `PUT /api/v1/enterprise/organizations/${ORG}/assets/upload/1`,
+      `POST /api/v1/enterprise/organizations/${ORG}/assets/confirm`,
+      `POST /api/v1/enterprise/organizations/${ORG}/conversations/${CONV}/messages`,
+    ])
+    // 发送 wire：正文 + asset_ids（presign 产出的 asset id 原样上送）。
+    expect(backend.sentBodies[0]).toBe('请看截图')
+    expect(backend.sentAssetIds[0]).toHaveLength(1)
+    // presign 请求冻结字段：object_hash 64 hex + file_name 展示名落线。
+    const presignBody = backend.presignRequests[0] as Record<string, unknown>
+    expect(presignBody.conversation_id).toBe(CONV)
+    expect(presignBody.workspace_id).toBe(WS)
+    expect((presignBody.object_hash as string)).toMatch(/^[0-9a-f]{64}$/)
+    expect(presignBody.file_name).toBe('截图.png')
+    expect(presignBody.mime).toBe('image/png')
+    expect(presignBody.size_bytes).toBe(FILE_BYTES.length)
+    // 裸 PUT 不携带 Seat JWT（目标凭证由服务端签发 URL 自带）。
+    const putCall = backend.calls.find((call) => call.method === 'PUT' && call.path.includes('/assets/upload/'))
+    expect(putCall?.auth).toBeNull()
+    // 成功清空：composer 与附件 chip（发送边沿驱动）。
+    await waitFor(() => expect((view.getByTestId('seat-composer') as HTMLTextAreaElement).value).toBe(''))
+    await waitFor(() => expect(view.queryByTestId('seat-attach-chip')).toBeNull())
+  })
+
+  it('空正文+文件：合法附件消息（wire 无 body 键，asset_ids 单元素）', async () => {
+    const backend = new SeatFakeBackend()
+    backend.state.sessionStatus = 'active'
+    backend.state.version = 8
+    const view = renderWorkspace(backend, new FakeSseStream())
+    const { attachInput } = await openActiveConversation(view)
+    const user = userEvent.setup()
+    await user.upload(attachInput as HTMLInputElement, new File([FILE_BYTES.slice()], '凭证.pdf', { type: 'application/pdf' }))
+    // 空正文但有附件 → 发送按钮可用。
+    expect((view.getByTestId('seat-send') as HTMLButtonElement).disabled).toBe(false)
+    fireEvent.click(view.getByTestId('seat-send'))
+    await waitFor(() => expect(backend.sentClientMsgIds.length).toBe(1))
+    expect(backend.sentBodies[0]).toBeNull()
+    expect(backend.sentAssetIds[0]).toHaveLength(1)
+    const sendBody = JSON.parse(
+      backend.calls.find((call) => call.method === 'POST' && call.path.endsWith(`/conversations/${CONV}/messages`))?.body ?? '{}',
+    ) as Record<string, unknown>
+    expect(sendBody.body).toBeUndefined()
+    expect(sendBody.asset_ids).toHaveLength(1)
+  })
+
+  it('正文与附件同时空 → 发送禁用（前端校验；不发请求）', async () => {
+    const backend = new SeatFakeBackend()
+    backend.state.sessionStatus = 'active'
+    backend.state.version = 8
+    const view = renderWorkspace(backend, new FakeSseStream())
+    await openActiveConversation(view)
+    const sendButton = view.getByTestId('seat-send') as HTMLButtonElement
+    expect(sendButton.disabled).toBe(true)
+    expect(sendButton.getAttribute('aria-disabled')).toBe('true')
+    expect(view.getByTestId('seat-composer-hint')).toBeDefined()
+    // a11y：附件输入可达（sr-only 不移出可聚焦面）+ aria-label。
+    expect(view.getByTestId('seat-attach-input').getAttribute('aria-label')).toBe('添加附件（单文件）')
+    fireEvent.click(sendButton)
+    expect(pipelineCalls(backend)).toHaveLength(0)
+  })
+
+  it('PUT 失败 → 保留正文/文件选择/重试；重试同 client_msg_id（幂等，逻辑消息不重复创建）', async () => {
+    const backend = new SeatFakeBackend()
+    backend.state.sessionStatus = 'active'
+    backend.state.version = 8
+    backend.state.uploadPutFailuresLeft = 1
+    const view = renderWorkspace(backend, new FakeSseStream())
+    const { composer, attachInput } = await openActiveConversation(view)
+    const user = userEvent.setup()
+    await user.type(composer, '重传这份')
+    await user.upload(attachInput as HTMLInputElement, new File([FILE_BYTES.slice()], 'a.png', { type: 'image/png' }))
+    fireEvent.click(view.getByTestId('seat-send'))
+    // 失败：错误条（role=alert）+ 正文保留（draft 恢复）+ 文件 chip 保留。
+    await waitFor(() => expect(view.getByTestId('seat-send-error')).toBeDefined())
+    expect(view.getByTestId('seat-send-error').getAttribute('role')).toBe('alert')
+    await waitFor(() => expect((view.getByTestId('seat-composer') as HTMLTextAreaElement).value).toBe('重传这份'))
+    expect(view.getByTestId('seat-attach-chip-name').textContent).toBe('a.png')
+    expect(backend.sentClientMsgIds).toHaveLength(0)
+    // 重试：PUT 失败 → 未 confirm → 重新 presign 换新 ref 再走全链。
+    fireEvent.click(view.getByTestId('seat-send-retry'))
+    await waitFor(() => expect(backend.sentClientMsgIds.length).toBe(1))
+    expect(backend.presignCount).toBe(2)
+    // harness 的 uploadPutCount 只计成功（失败在计数前 return）；PUT 总尝试
+    // （含第一次 500）以 calls 日志为准 = 2。
+    expect(backend.uploadPutCount).toBe(1)
+    expect(backend.calls.filter((call) => call.method === 'PUT' && call.path.includes('/assets/upload/'))).toHaveLength(2)
+    expect(backend.confirmCount).toBe(1)
+    // 两次发送尝试（一失败一成功）是同一 client_msg_id；最终只成功创建一条。
+    const sendAttempts = backend.calls
+      .filter((call) => call.method === 'POST' && call.path.endsWith(`/conversations/${CONV}/messages`))
+      .map((call) => (JSON.parse(call.body || '{}') as { client_msg_id?: string }).client_msg_id ?? '')
+    expect(sendAttempts.length).toBe(1) // PUT 失败在发送之前，发送只发生一次（成功那次）
+    expect(sendAttempts[0]?.length).toBeGreaterThan(0)
+    expect(backend.sentClientMsgIds.length).toBe(1)
+  })
+
+  it('发送失败 → 重试不重复 presign/PUT/confirm（已 confirm 的 assetId 复用）+ 同 client_msg_id', async () => {
+    const backend = new SeatFakeBackend()
+    backend.state.sessionStatus = 'active'
+    backend.state.version = 8
+    backend.state.sendFailuresLeft = 1
+    const view = renderWorkspace(backend, new FakeSseStream())
+    const { attachInput } = await openActiveConversation(view)
+    const user = userEvent.setup()
+    await user.upload(attachInput as HTMLInputElement, new File([FILE_BYTES.slice()], 'b.png', { type: 'image/png' }))
+    fireEvent.click(view.getByTestId('seat-send'))
+    // 第一次：上传三步完成，发送 500。
+    await waitFor(() => expect(view.getByTestId('seat-send-error')).toBeDefined())
+    expect(backend.presignCount).toBe(1)
+    expect(backend.uploadPutCount).toBe(1)
+    expect(backend.confirmCount).toBe(1)
+    // 重试：直接复用已 confirm 的 assetId 发送——上传链计数不变。
+    fireEvent.click(view.getByTestId('seat-send-retry'))
+    await waitFor(() => expect(backend.sentClientMsgIds.length).toBe(1))
+    expect(backend.presignCount).toBe(1)
+    expect(backend.uploadPutCount).toBe(1)
+    expect(backend.confirmCount).toBe(1)
+    const sendAttempts = backend.calls
+      .filter((call) => call.method === 'POST' && call.path.endsWith(`/conversations/${CONV}/messages`))
+      .map((call) => (JSON.parse(call.body || '{}') as { client_msg_id?: string }).client_msg_id ?? '')
+    expect(sendAttempts.length).toBe(2)
+    expect(sendAttempts[0]).toBe(sendAttempts[1])
+    // 两次发送的 asset_ids 一致（同一 confirm 产物）。
+    expect(backend.sentAssetIds.length).toBe(1)
+    expect(backend.sentAssetIds[0]).toHaveLength(1)
+  })
+
+  it('presign 422 → 服务端语义透传（role=alert 文本含 msg）；失败后可换文件重试', async () => {
+    const backend = new SeatFakeBackend()
+    backend.state.sessionStatus = 'active'
+    backend.state.version = 8
+    backend.state.presignRejection = { code: 422, msg: 'unsupported media type' }
+    const view = renderWorkspace(backend, new FakeSseStream())
+    const { attachInput } = await openActiveConversation(view)
+    const user = userEvent.setup()
+    await user.upload(attachInput as HTMLInputElement, new File([FILE_BYTES.slice()], 'c.exe', { type: 'application/x-msdownload' }))
+    fireEvent.click(view.getByTestId('seat-send'))
+    await waitFor(() => expect(view.getByTestId('seat-send-error-text')).toBeDefined())
+    expect(view.getByTestId('seat-send-error-text').textContent).toContain('unsupported media type')
+    // 前端提示不替代服务端校验：PUT/confirm/发送均未发生（422 在 presign 即拒）。
+    expect(backend.uploadPutCount).toBe(0)
+    expect(backend.confirmCount).toBe(0)
+    expect(backend.sentClientMsgIds).toHaveLength(0)
+    // 恢复后（服务端接受）移除旧文件换新文件重试成功。
+    backend.state.presignRejection = null
+    fireEvent.click(view.getByTestId('seat-attach-remove'))
+    await user.upload(attachInput as HTMLInputElement, new File([FILE_BYTES.slice()], 'd.png', { type: 'image/png' }))
+    fireEvent.click(view.getByTestId('seat-send-retry'))
+    await waitFor(() => expect(backend.sentClientMsgIds.length).toBe(1))
+    expect(backend.presignRequests[1]).toBeDefined()
+  })
+
+  it('移除附件可解释（aria-label 含文件名）；移除后空正文 → 发送禁用', async () => {
+    const backend = new SeatFakeBackend()
+    backend.state.sessionStatus = 'active'
+    backend.state.version = 8
+    const view = renderWorkspace(backend, new FakeSseStream())
+    const { attachInput } = await openActiveConversation(view)
+    const user = userEvent.setup()
+    await user.upload(attachInput as HTMLInputElement, new File([FILE_BYTES.slice()], 'e.png', { type: 'image/png' }))
+    const removeButton = view.getByTestId('seat-attach-remove')
+    expect(removeButton.getAttribute('aria-label')).toContain('e.png')
+    fireEvent.click(removeButton)
+    expect(view.queryByTestId('seat-attach-chip')).toBeNull()
+    expect((view.getByTestId('seat-send') as HTMLButtonElement).disabled).toBe(true)
   })
 })

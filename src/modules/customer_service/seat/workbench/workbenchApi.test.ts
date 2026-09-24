@@ -15,6 +15,7 @@ import { afterEach, describe, expect, it } from 'bun:test'
 import { SeatWorkbenchApi } from './workbenchApi'
 import { SeatApiClient } from '../seatApiClient'
 import { isSeatApiError } from '../errors'
+import { blobSha256Hex, isValidSha256Hex, runSeatAttachmentUpload, SeatUploadTargetMissingError } from './attachmentUpload'
 import { seatTokenVault } from '../seatAuthStore'
 
 const ORG = '2000000000000000002'
@@ -227,5 +228,183 @@ describe('域隔离不回退（A01）', () => {
       expect((thrown as Error).message).toContain('outside seat domain')
     }
     expect(calls).toHaveLength(0)
+  })
+})
+
+describe('CS-WEB-02 附件合同（presign / 裸 PUT / confirm / asset_ids 发送）', () => {
+  const OBJECT_HASH = 'ab'.repeat(32)
+  const UPLOAD_PATH = `/api/v1/enterprise/organizations/${ORG}/assets/upload/1`
+  const PRESIGN_PAYLOAD = `{"asset_id":8100000000000000001,"upload_ref":"ur-1","object_hash":"${OBJECT_HASH}","mime":"image/png","size_bytes":8,"expires_at":1759000000,"upload":{"method":"PUT","url":"${UPLOAD_PATH}","token":"opaque","expires_at":1759000000,"adapter":"local_private_object_store","rule":"opaque_token_no_url_no_object_key"}}`
+  const FILE_BYTES = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+
+  /** 上传三动作 + 发送的按路径分派 responder（断言顺序用 calls）。 */
+  function uploadStackResponder(): { calls: RecordedCall[]; fetchImpl: (_url: string, _init?: RequestInit) => Promise<Response> } {
+    const calls: RecordedCall[] = []
+    const fetchImpl = async (url: string, init?: RequestInit): Promise<Response> => {
+      calls.push({ url, init })
+      const path = url.split('?')[0] ?? url
+      if (path === `/api/v1/enterprise/organizations/${ORG}/assets/presign`) return envelope(PRESIGN_PAYLOAD)
+      if (path === UPLOAD_PATH) return new Response('', { status: 200 })
+      if (path === `/api/v1/enterprise/organizations/${ORG}/assets/confirm`) return envelope('{"asset_id":0,"status":"active"}')
+      if (path === `/api/v1/enterprise/organizations/${ORG}/conversations/${CONV}/messages` && init?.method === 'POST') {
+        return envelope(`{"message":{"id":9000000000000000012,"sender_type":"business_identity","body":"","client_msg_id":"seat-cm-2"}}`)
+      }
+      return new Response('{"code":404,"msg":"not found","payload":{}}', { status: 404 })
+    }
+    return { calls, fetchImpl }
+  }
+
+  it('presign：POST assets/presign + 冻结字段逐键（file_name 空串不落线）+ 响应投影', async () => {
+    const { calls, fetchImpl } = uploadStackResponder()
+    const api = new SeatWorkbenchApi({ client: new SeatApiClient({ fetchImpl, getToken: () => 'tok' }) })
+    const presign = await api.requestAssetPresign(ORG, CONV, WS, {
+      mime: 'image/png',
+      sizeBytes: 8,
+      objectHash: OBJECT_HASH,
+      fileName: '',
+    })
+    expect(calls[0]?.url).toBe(`/api/v1/enterprise/organizations/${ORG}/assets/presign`)
+    expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({
+      conversation_id: CONV,
+      mime: 'image/png',
+      size_bytes: 8,
+      object_hash: OBJECT_HASH,
+      workspace_id: WS,
+    })
+    expect(presign.assetId).toBe('8100000000000000001')
+    expect(presign.uploadRef).toBe('ur-1')
+    expect(presign.uploadUrl).toBe(UPLOAD_PATH)
+
+    // file_name 非空 → 落线（CS-BE-01 可选展示名）。
+    const { calls: calls2, fetchImpl: fetchImpl2 } = uploadStackResponder()
+    const api2 = new SeatWorkbenchApi({ client: new SeatApiClient({ fetchImpl: fetchImpl2, getToken: () => 'tok' }) })
+    await api2.requestAssetPresign(ORG, CONV, WS, { mime: 'image/png', sizeBytes: 8, objectHash: OBJECT_HASH, fileName: '截图.png' })
+    expect((JSON.parse(String(calls2[0]?.init?.body)) as { file_name?: string }).file_name).toBe('截图.png')
+  })
+
+  it('confirm：POST assets/confirm + {upload_ref, workspace_id} 请求体', async () => {
+    const { calls, fetchImpl } = uploadStackResponder()
+    const api = new SeatWorkbenchApi({ client: new SeatApiClient({ fetchImpl, getToken: () => 'tok' }) })
+    await api.confirmAssetUpload(ORG, WS, 'ur-1')
+    expect(calls[0]?.url).toBe(`/api/v1/enterprise/organizations/${ORG}/assets/confirm`)
+    expect(calls[0]?.init?.method).toBe('POST')
+    expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({ upload_ref: 'ur-1', workspace_id: WS })
+  })
+
+  it('发送 asset_ids：空正文省略 body 键 + asset_ids 数组；纯文本不出现 asset_ids', async () => {
+    const { calls, fetchImpl } = uploadStackResponder()
+    const api = new SeatWorkbenchApi({ client: new SeatApiClient({ fetchImpl, getToken: () => 'tok' }) })
+    await api.sendMessage(ORG, CONV, {
+      body: '',
+      clientMsgId: 'seat-cm-2',
+      workspaceId: WS,
+      identityId: IDENTITY,
+      assetIds: ['8100000000000000001'],
+    })
+    const wire = JSON.parse(String(calls[0]?.init?.body)) as Record<string, unknown>
+    expect(wire.body).toBeUndefined()
+    expect(wire.asset_ids).toEqual(['8100000000000000001'])
+    expect(wire.client_msg_id).toBe('seat-cm-2')
+
+    const { calls: calls2, fetchImpl: fetchImpl2 } = uploadStackResponder()
+    const api2 = new SeatWorkbenchApi({ client: new SeatApiClient({ fetchImpl: fetchImpl2, getToken: () => 'tok' }) })
+    await api2.sendMessage(ORG, CONV, { body: '您好', clientMsgId: 'seat-cm-3', workspaceId: WS, identityId: IDENTITY })
+    const wire2 = JSON.parse(String(calls2[0]?.init?.body)) as Record<string, unknown>
+    expect(wire2.body).toBe('您好')
+    expect(wire2.asset_ids).toBeUndefined()
+  })
+
+  it('上传编排顺序钉死（TEST-00）：presign → 裸 PUT → confirm（不可乱序/跳步；hash 先于 presign）', async () => {
+    const { calls, fetchImpl } = uploadStackResponder()
+    const api = new SeatWorkbenchApi({ client: new SeatApiClient({ fetchImpl, getToken: () => 'tok' }) })
+    const result = await runSeatAttachmentUpload({
+      api,
+      orgId: ORG,
+      conversationId: CONV,
+      workspaceId: WS,
+      file: new Blob([FILE_BYTES.slice()], { type: 'image/png' }),
+      fileName: '截图.png',
+    })
+    // 顺序唯一事实源：calls 路径序列。
+    expect(calls.map((call) => call.url.split('?')[0])).toEqual([
+      `/api/v1/enterprise/organizations/${ORG}/assets/presign`,
+      UPLOAD_PATH,
+      `/api/v1/enterprise/organizations/${ORG}/assets/confirm`,
+    ])
+    // PUT 形状：octet-stream、无 Authorization。
+    const putInit = calls[1]?.init as RequestInit
+    expect(putInit.method).toBe('PUT')
+    expect((putInit.headers as Record<string, string>)['Content-Type']).toBe('application/octet-stream')
+    expect((putInit.headers as Record<string, string>).Authorization).toBeUndefined()
+    expect(result.assetId).toBe('8100000000000000001')
+    expect(result.objectHash).toBe(await blobSha256Hex(new Blob([FILE_BYTES.slice()])))
+  })
+
+  it('upload.url 缺失（部署未开放对象 PUT）→ fail-closed：PUT/confirm 均不发生', async () => {
+    const presignNoUrl = PRESIGN_PAYLOAD.replace(`"url":"${UPLOAD_PATH}",`, '')
+    const calls: RecordedCall[] = []
+    const fetchImpl = async (url: string, init?: RequestInit): Promise<Response> => {
+      calls.push({ url, init })
+      return envelope(presignNoUrl)
+    }
+    const api = new SeatWorkbenchApi({ client: new SeatApiClient({ fetchImpl, getToken: () => 'tok' }) })
+    let thrown: unknown = null
+    try {
+      await runSeatAttachmentUpload({
+        api,
+        orgId: ORG,
+        conversationId: CONV,
+        workspaceId: WS,
+        file: new Blob([FILE_BYTES.slice()], { type: 'image/png' }),
+        fileName: '截图.png',
+      })
+    } catch (error) {
+      thrown = error
+    }
+    expect(thrown).toBeInstanceOf(SeatUploadTargetMissingError)
+    expect(calls).toHaveLength(1) // 仅 presign；无 PUT/confirm/发送。
+  })
+
+  it('confirm 409（重复 confirm）→ conflict 分类（不伪成功）', async () => {
+    const calls: RecordedCall[] = []
+    let presignDone = false
+    const fetchImpl = async (url: string, init?: RequestInit): Promise<Response> => {
+      calls.push({ url, init })
+      const path = url.split('?')[0] ?? url
+      if (path.endsWith('/assets/presign')) {
+        presignDone = true
+        return envelope(PRESIGN_PAYLOAD)
+      }
+      if (path === UPLOAD_PATH) return new Response('', { status: 200 })
+      if (path.endsWith('/assets/confirm')) {
+        return new Response('{"code":409,"msg":"asset already confirmed","payload":{}}', { status: 409 })
+      }
+      return new Response('{"code":404,"msg":"not found","payload":{}}', { status: 404 })
+    }
+    const api = new SeatWorkbenchApi({ client: new SeatApiClient({ fetchImpl, getToken: () => 'tok' }) })
+    let thrown: unknown = null
+    try {
+      await runSeatAttachmentUpload({
+        api,
+        orgId: ORG,
+        conversationId: CONV,
+        workspaceId: WS,
+        file: new Blob([FILE_BYTES.slice()], { type: 'image/png' }),
+        fileName: '截图.png',
+      })
+    } catch (error) {
+      thrown = error
+    }
+    expect(presignDone).toBe(true)
+    expect(isSeatApiError(thrown)).toBe(true)
+    expect((thrown as { kind: string }).kind).toBe('conflict')
+  })
+
+  it('SHA-256 形状：blobSha256Hex 64 位小写 hex + isValidSha256Hex 白名单', async () => {
+    const hash = await blobSha256Hex(new Blob(['imboy']))
+    expect(hash).toMatch(/^[0-9a-f]{64}$/)
+    expect(isValidSha256Hex(hash)).toBe(true)
+    expect(isValidSha256Hex('AB'.repeat(32))).toBe(false)
+    expect(isValidSha256Hex('zz')).toBe(false)
   })
 })

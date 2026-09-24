@@ -40,6 +40,15 @@ export type SeatFakeBackendState = {
   claimAttempts: number
   /** CS-WEB-01：按 asset id 覆盖 content 响应状态（默认 200）。 */
   assetContentStatuses: Record<string, number>
+  /** CS-WEB-02：各上传/发送步骤的连续失败计数（500 并递减；供失败保留/重试用例）。 */
+  presignFailuresLeft: number
+  uploadPutFailuresLeft: number
+  confirmFailuresLeft: number
+  sendFailuresLeft: number
+  /** CS-WEB-02：presign 拒绝（422 + msg 透传断言；模拟 mime/size/hash 服务端裁决）。 */
+  presignRejection: { code: number; msg: string } | null
+  /** CS-WEB-02：presign 响应不含 upload.url（部署未开放对象 PUT → fail-closed 用例）。 */
+  presignOmitUploadUrl: boolean
 }
 
 export function initialFakeState(): SeatFakeBackendState {
@@ -51,6 +60,12 @@ export function initialFakeState(): SeatFakeBackendState {
     contexts403: false,
     claimAttempts: 0,
     assetContentStatuses: {},
+    presignFailuresLeft: 0,
+    uploadPutFailuresLeft: 0,
+    confirmFailuresLeft: 0,
+    sendFailuresLeft: 0,
+    presignRejection: null,
+    presignOmitUploadUrl: false,
   }
 }
 
@@ -137,6 +152,15 @@ export class SeatFakeBackend {
   contextsFetchCount = 0
   assetContentFetchCount = 0
   sentClientMsgIds: string[] = []
+  /** CS-WEB-02：上传/发送观测（顺序与重试不重复上传断言的唯一事实源）。 */
+  presignCount = 0
+  uploadPutCount = 0
+  confirmCount = 0
+  confirmedUploadRefs: string[] = []
+  sentBodies: Array<string | null> = []
+  sentAssetIds: string[][] = []
+  /** 每次 presign 请求体（断言冻结字段）。 */
+  presignRequests: Array<Record<string, unknown>> = []
 
   constructor(state: SeatFakeBackendState = initialFakeState()) {
     this.state = state
@@ -221,27 +245,107 @@ export class SeatFakeBackend {
     if (path === `/api/v1/enterprise/organizations/${ORG}/conversations/${CONV}/messages` && method === 'POST') {
       // DF-9 真实合同（eb_tenant_handler conversation_messages POST append_message；
       // e2e agent-api.ts reply 实调形状，9802 真链实测）：
-      // body 必带 {body, client_msg_id, workspace_id, sender_type, identity_id}，
-      // 缺一即 422（identity_id 缺失真链 500 identity_required）；
+      // body 必带 {client_msg_id, workspace_id, sender_type, identity_id}；
+      // CS-WEB-02（附件消息合同）：body 可选化——空正文 + asset_ids（TSID string
+      // 数组）合法；正文与 asset_ids 同时空 → 422（服务端兜底语义）；
       // 响应载荷 = {message:{...}}。
       const parsed = JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>
       const clientMsgId = typeof parsed.client_msg_id === 'string' ? parsed.client_msg_id : ''
+      const messageBody = typeof parsed.body === 'string' && parsed.body.length > 0 ? parsed.body : null
+      const assetIds = Array.isArray(parsed.asset_ids)
+        ? (parsed.asset_ids as unknown[]).filter((v): v is string => typeof v === 'string')
+        : []
       if (
         parsed.workspace_id !== WS ||
         clientMsgId.length === 0 ||
-        typeof parsed.body !== 'string' ||
-        parsed.body.length === 0 ||
         parsed.sender_type !== 'business_identity' ||
         typeof parsed.identity_id !== 'string' ||
-        parsed.identity_id.length === 0
+        parsed.identity_id.length === 0 ||
+        (messageBody === null && assetIds.length === 0)
       ) {
-        return new Response('{"code":422,"msg":"missing required message fields","payload":{}}', { status: 422 })
+        return new Response('{"code":422,"msg":"missing required message fields or empty payload","payload":{}}', { status: 422 })
+      }
+      if (this.state.sendFailuresLeft > 0) {
+        this.state.sendFailuresLeft -= 1
+        return serverError()
       }
       this.sentClientMsgIds.push(clientMsgId)
+      this.sentBodies.push(messageBody)
+      this.sentAssetIds.push(assetIds)
       // 幂等：同 client_msg_id 返回同一 message（载荷 {message:{...}}）。
       return ok(
         `{"message":{"id":9000000000000000011,"sender_type":"business_identity","body":"收到","client_msg_id":"${clientMsgId}"}}`,
       )
+    }
+    // CS-WEB-02：附件 presign（imboy_router.erl:1790，eb_tenant_handler presign →
+    // request_presign）。冻结字段 {conversation_id, mime, size_bytes, object_hash,
+    // file_name?, workspace_id}；mime/size/hash 合法性由服务端裁决（422 透传）。
+    if (path === `/api/v1/enterprise/organizations/${ORG}/assets/presign` && method === 'POST') {
+      const parsed = JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>
+      this.presignRequests.push(parsed)
+      if (
+        parsed.conversation_id !== CONV ||
+        typeof parsed.mime !== 'string' ||
+        typeof parsed.size_bytes !== 'number' ||
+        typeof parsed.object_hash !== 'string' ||
+        parsed.workspace_id !== WS
+      ) {
+        return new Response('{"code":422,"msg":"invalid presign arguments","payload":{}}', { status: 422 })
+      }
+      if (this.state.presignRejection !== null) {
+        const { code, msg } = this.state.presignRejection
+        return new Response(`{"code":${code},"msg":"${msg}","payload":{}}`, { status: code })
+      }
+      if (this.state.presignFailuresLeft > 0) {
+        this.state.presignFailuresLeft -= 1
+        return serverError()
+      }
+      this.presignCount += 1
+      const uploadRef = `ur-${this.presignCount}`
+      const assetId = 8100000000000000000 + this.presignCount
+      const uploadUrl = this.state.presignOmitUploadUrl
+        ? null
+        : `/api/v1/enterprise/organizations/${ORG}/assets/upload/${this.presignCount}`
+      // 镜像 eb_asset_app:presign_view + widget BE-PATCH-01 的 upload.url 投影。
+      const uploadText =
+        uploadUrl === null
+          ? '{"method":"PUT","token":"opaque","expires_at":1759000000,"adapter":"local_private_object_store","rule":"opaque_token_no_url_no_object_key"}'
+          : `{"method":"PUT","url":"${uploadUrl}","token":"opaque","expires_at":1759000000,"adapter":"local_private_object_store","rule":"opaque_token_no_url_no_object_key"}`
+      return ok(
+        `{"asset_id":${assetId},"upload_ref":"${uploadRef}","object_hash":"${parsed.object_hash}","mime":"${parsed.mime}",` +
+          `"size_bytes":${parsed.size_bytes},"file_name":null,"retain_until":null,"expires_at":1759000000,"upload":${uploadText}}`,
+      )
+    }
+    // CS-WEB-02：裸 PUT 上传目标（presign 下发的 upload.url；同源相对路径形态）。
+    // 只带 Content-Type / 无 Authorization——无 token 断言在本端点核对。
+    if (method === 'PUT' && /^\/api\/v1\/enterprise\/organizations\/[^/]+\/assets\/upload\/\d+$/.test(path)) {
+      if (this.state.uploadPutFailuresLeft > 0) {
+        this.state.uploadPutFailuresLeft -= 1
+        return serverError()
+      }
+      this.uploadPutCount += 1
+      if (typeof headers?.Authorization === 'string') {
+        throw new Error('bare upload PUT must not carry Authorization')
+      }
+      return new Response('', { status: 200 })
+    }
+    // CS-WEB-02：附件 confirm（imboy_router.erl:1796，confirm_asset）。
+    if (path === `/api/v1/enterprise/organizations/${ORG}/assets/confirm` && method === 'POST') {
+      const parsed = JSON.parse(String(init?.body ?? '{}')) as { upload_ref?: string; workspace_id?: string }
+      if (typeof parsed.upload_ref !== 'string' || parsed.upload_ref.length === 0 || parsed.workspace_id !== WS) {
+        return new Response('{"code":422,"msg":"invalid confirm arguments","payload":{}}', { status: 422 })
+      }
+      if (this.state.confirmFailuresLeft > 0) {
+        this.state.confirmFailuresLeft -= 1
+        return serverError()
+      }
+      // 重复 confirm 同 ref → 409（不伪成功）。
+      if (this.confirmedUploadRefs.includes(parsed.upload_ref)) {
+        return new Response('{"code":409,"msg":"asset already confirmed","payload":{}}', { status: 409 })
+      }
+      this.confirmCount += 1
+      this.confirmedUploadRefs.push(parsed.upload_ref)
+      return ok('{"asset_id":0,"status":"active"}')
     }
     if (path === `/api/v1/cs/organizations/${ORG}/transfer-targets`) return ok(TRANSFER_TARGETS_TEXT)
     // CS-WEB-01：真实 enterprise content 端点（imboy_router.erl:1803）：

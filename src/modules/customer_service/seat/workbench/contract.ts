@@ -110,6 +110,22 @@ export type SeatTransferTarget = {
   available: boolean
 }
 
+/**
+ * CS-WEB-02：附件 presign 结果（eb_asset_app:presign_view 投影；坐席走
+ * eb_tenant_handler presign → request_presign，职能白名单 sales|customer_service）。
+ * - `upload_ref`：confirm 的不透明凭证（token 双投 presign_view 顶层与 upload.token，
+ *   客户端只消费顶层）；
+ * - `uploadUrl` = `upload.url`（BE-PATCH-01 widget 同款键）：裸 PUT 目标。
+ *   部署未开放对象 PUT（upload 块无 url）→ null，上传编排必须 fail-closed
+ *   （绝不自造端点、绝不落对象 key）。
+ */
+export type SeatPresignResult = {
+  assetId: EntityId
+  uploadRef: string
+  uploadUrl: string | null
+  expiresAt: number | null
+}
+
 export type SeatTransferTargetPage = {
   targets: SeatTransferTarget[]
   nextAfterId: EntityId | null
@@ -343,4 +359,35 @@ export const SEAT_ASSET_CONTENT_PATH_TEMPLATE = '/api/v1/enterprise/organization
 /** 相对 SEAT_API_BASE 的内容路径（落在 /api/v1/enterprise/organizations/ 前缀，Seat 域门放行）。 */
 export function seatAssetContentPath(orgId: EntityId, assetId: EntityId): string {
   return `/enterprise/organizations/${encodeURIComponent(orgId)}/assets/${encodeURIComponent(assetId)}/content`
+}
+
+/**
+ * CS-WEB-02：presign 结果投影（fail-closed）：asset_id/upload_ref 形状非法
+ * 即 throw（上游按错误处理，不猜）；`upload.url` 缺失 → uploadUrl=null
+ * （部署未开放对象 PUT——由上传编排终止，不在此抛）。
+ */
+export function toSeatPresignResult(raw: unknown): SeatPresignResult {
+  if (!isRecord(raw)) throw new TypeError('seat presign payload shape invalid')
+  const assetId = toEntityId(raw.asset_id)
+  if (assetId === null) throw new TypeError('seat presign asset_id invalid')
+  if (!nonEmptyString(raw.upload_ref)) throw new TypeError('seat presign upload_ref invalid')
+  const upload = isRecord(raw.upload) ? raw.upload : {}
+  return {
+    assetId,
+    uploadRef: raw.upload_ref,
+    uploadUrl: optStr(upload.url),
+    expiresAt: optInt(upload.expires_at),
+  }
+}
+
+/**
+ * CS-WEB-02：附件上传三动作路径（imboy_router.erl:1790/1796，eb_tenant_handler
+ * presign / confirm_asset；Seat JWT 认证域 + asset.write，职能 sales|customer_service）。
+ */
+export function buildAssetPresignPath(orgId: EntityId): string {
+  return `/enterprise/organizations/${encodeURIComponent(orgId)}/assets/presign`
+}
+
+export function buildAssetConfirmPath(orgId: EntityId): string {
+  return `/enterprise/organizations/${encodeURIComponent(orgId)}/assets/confirm`
 }

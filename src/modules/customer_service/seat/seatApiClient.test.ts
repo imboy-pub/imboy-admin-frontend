@@ -298,3 +298,90 @@ describe('CS-WEB-01 requestBlob（附件 content 端点；二进制非信封）'
     expect(calls).toHaveLength(0)
   })
 })
+
+describe('CS-WEB-02 putUploadObject（裸 PUT 上传通道；presign 下发目标）', () => {
+  const UPLOAD_URL = '/api/v1/enterprise/organizations/123/assets/upload/1'
+  const FILE_BYTES = new Uint8Array([1, 2, 3, 4, 5])
+
+  function uploadResponder(status: number): ReturnType<typeof makeFetch> {
+    return makeFetch(() => new Response('', { status }))
+  }
+
+  it('成功：PUT + blob body + octet-stream；无 Authorization；credentials omit', async () => {
+    seatTokenVault.setToken('aa.bb.cc')
+    const { calls, fetchImpl } = uploadResponder(200)
+    const client = new SeatApiClient({ fetchImpl, getToken: () => seatTokenVault.getToken() })
+    await client.putUploadObject(UPLOAD_URL, new Blob([FILE_BYTES.slice()]))
+    expect(calls).toHaveLength(1)
+    expect(calls[0]?.url).toBe(UPLOAD_URL)
+    const init = calls[0]?.init as RequestInit
+    expect(init.method).toBe('PUT')
+    expect(init.credentials).toBe('omit')
+    const headers = init.headers as Record<string, string>
+    expect(headers['Content-Type']).toBe('application/octet-stream')
+    // Seat JWT 绝不出现在裸 PUT 通道（目标凭证由 URL 自带）。
+    expect(headers.Authorization).toBeUndefined()
+  })
+
+  it('http(s) 绝对 URL 放行（presign 可下发跨源对象存储目标）', async () => {
+    const { calls, fetchImpl } = uploadResponder(200)
+    const client = new SeatApiClient({ fetchImpl })
+    await client.putUploadObject('https://objects.example.internal/bucket/obj-1', new Blob(['x']))
+    expect(calls).toHaveLength(1)
+    expect(calls[0]?.url).toBe('https://objects.example.internal/bucket/obj-1')
+  })
+
+  it('非 2xx → 按 HTTP/信封分类（500 server / 403 forbidden）', async () => {
+    const { fetchImpl } = uploadResponder(500)
+    const client = new SeatApiClient({ fetchImpl })
+    let thrown: unknown = null
+    try {
+      await client.putUploadObject(UPLOAD_URL, new Blob(['x']))
+    } catch (error) {
+      thrown = error
+    }
+    expect(isSeatApiError(thrown)).toBe(true)
+    expect((thrown as { kind: string }).kind).toBe('server')
+
+    const forbidden = uploadResponder(403)
+    const client2 = new SeatApiClient({ fetchImpl: forbidden.fetchImpl })
+    let thrown2: unknown = null
+    try {
+      await client2.putUploadObject(UPLOAD_URL, new Blob(['x']))
+    } catch (error) {
+      thrown2 = error
+    }
+    expect((thrown2 as { kind: string }).kind).toBe('forbidden')
+  })
+
+  it('协议门：javascript:/data:/协议相对目标 → 发请求前拒绝（validation）', async () => {
+    const { calls, fetchImpl } = uploadResponder(200)
+    const client = new SeatApiClient({ fetchImpl })
+    for (const target of ['javascript:alert(1)', 'data:text/plain,evil', '//evil.example.com/x']) {
+      let thrown: unknown = null
+      try {
+        await client.putUploadObject(target, new Blob(['x']))
+      } catch (error) {
+        thrown = error
+      }
+      expect(isSeatApiError(thrown)).toBe(true)
+      expect((thrown as { kind: string }).kind).toBe('validation')
+    }
+    expect(calls).toHaveLength(0)
+  })
+
+  it('网络失败 → network 分类', async () => {
+    const client = new SeatApiClient({
+      fetchImpl: async () => {
+        throw new TypeError('failed to fetch')
+      },
+    })
+    let thrown: unknown = null
+    try {
+      await client.putUploadObject(UPLOAD_URL, new Blob(['x']))
+    } catch (error) {
+      thrown = error
+    }
+    expect((thrown as { kind: string }).kind).toBe('network')
+  })
+})

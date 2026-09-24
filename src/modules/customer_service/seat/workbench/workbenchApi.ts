@@ -9,6 +9,8 @@
  * - 发送幂等：client_msg_id 由调用方生成并在重试间复用，同 id 返回同一 message。
  */
 import {
+  buildAssetConfirmPath,
+  buildAssetPresignPath,
   buildConversationMessagesPath,
   buildConversationSendPath,
   buildSeatQueuePath,
@@ -19,10 +21,12 @@ import {
   seatAssetContentPath,
   toSeatMessage,
   toSeatMessageList,
+  toSeatPresignResult,
   toSeatSessionDetail,
   toSeatSessionPage,
   toTransferTargetList,
   type SeatMessage,
+  type SeatPresignResult,
   type SeatSessionDetail,
   type SeatSessionPage,
   type SeatTransferTargetPage,
@@ -127,28 +131,84 @@ export class SeatWorkbenchApi {
    *   （workspace_id handler 级必填 422；sender_type 表内必填 422；
    *   identity_id 缺失真链 500 identity_required——取自坐席上下文本人身份）；
    * - 响应载荷 = {message:{...}}，解包后投影。
-   * body 非空校验在调用方（UI composer）；空 body 不发请求。
+   * CS-WEB-02（附件消息）：`body` 可为空串——空正文 + `asset_ids`（TSID string
+   * 数组）是合法附件消息；wire 上空正文省略 body 键（后端 body 由 asset_ids
+   * 可选化）。正文与附件不能同时空由调用方（UI/useSeatSend）校验 + 服务端兜底。
    */
   async sendMessage(
     orgId: EntityId,
     conversationId: EntityId,
-    input: { body: string; clientMsgId: string; workspaceId: EntityId; identityId: EntityId },
+    input: {
+      body: string
+      clientMsgId: string
+      workspaceId: EntityId
+      identityId: EntityId
+      assetIds?: readonly EntityId[]
+    },
   ): Promise<SeatMessage> {
+    const wire: Record<string, unknown> = {
+      client_msg_id: input.clientMsgId,
+      workspace_id: input.workspaceId,
+      sender_type: 'business_identity',
+      identity_id: input.identityId,
+    }
+    if (input.body.length > 0) wire.body = input.body
+    const assetIds = input.assetIds ?? []
+    if (assetIds.length > 0) wire.asset_ids = [...assetIds]
     const payload = await this.client.request(buildConversationSendPath(orgId, conversationId), {
       method: 'POST',
-      body: {
-        body: input.body,
-        client_msg_id: input.clientMsgId,
-        workspace_id: input.workspaceId,
-        sender_type: 'business_identity',
-        identity_id: input.identityId,
-      },
+      body: wire,
     })
     // 真实载荷 {message:{...}}（agent-api.ts reply：envelope<{message:{id}}>）。
     const row = isRecord(payload) ? payload.message : null
     const message = toSeatMessage(row)
     if (message === null) throw new TypeError('seat send message payload invalid')
     return message
+  }
+
+  /**
+   * CS-WEB-02：附件 presign（eb_tenant_handler presign → request_presign）。
+   * 请求体冻结字段 {conversation_id, mime, size_bytes, object_hash, file_name?,
+   * workspace_id}（object_hash = 64 位小写 hex SHA-256，PUT 后服务端复核；
+   * file_name 可选 1..256 字节；workspace_id handler 级必填）。
+   * mime/size/hash 的合法性由服务端裁决（422 语义透传，前端提示不替代）。
+   */
+  async requestAssetPresign(
+    orgId: EntityId,
+    conversationId: EntityId,
+    workspaceId: EntityId,
+    input: { mime: string; sizeBytes: number; objectHash: string; fileName?: string | null },
+  ): Promise<SeatPresignResult> {
+    const wire: Record<string, unknown> = {
+      conversation_id: conversationId,
+      mime: input.mime,
+      size_bytes: input.sizeBytes,
+      object_hash: input.objectHash,
+      workspace_id: workspaceId,
+    }
+    if (typeof input.fileName === 'string' && input.fileName.length > 0) wire.file_name = input.fileName
+    const payload = await this.client.request(buildAssetPresignPath(orgId), { method: 'POST', body: wire })
+    return toSeatPresignResult(payload)
+  }
+
+  /**
+   * CS-WEB-02：附件字节裸 PUT（presign 响应 upload.url；只带 Content-Type、
+   * 无 Authorization/credentials——SeatApiClient.putUploadObject 通道）。
+   */
+  async uploadAssetBytes(uploadUrl: string, file: Blob, signal?: AbortSignal): Promise<void> {
+    await this.client.putUploadObject(uploadUrl, file, { signal })
+  }
+
+  /**
+   * CS-WEB-02：附件 confirm（eb_tenant_handler confirm_asset）：
+   * POST {upload_ref, workspace_id}；服务端复核 hash/size/mime 后落库 active。
+   * 重复 confirm 同 ref → 409（不伪成功，由调用方按失败处理换新 ref）。
+   */
+  async confirmAssetUpload(orgId: EntityId, workspaceId: EntityId, uploadRef: string): Promise<void> {
+    await this.client.request(buildAssetConfirmPath(orgId), {
+      method: 'POST',
+      body: { upload_ref: uploadRef, workspace_id: workspaceId },
+    })
   }
 
   /**

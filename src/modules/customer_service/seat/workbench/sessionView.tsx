@@ -1,20 +1,25 @@
 /**
- * SEAT-02 / CS-WEB-01：会话视图面板（消息历史 + 发送 + ACK + 附件预览下载）。
+ * SEAT-02 / CS-WEB-01 / CS-WEB-02：会话视图面板（消息历史 + 发送 + ACK + 附件）。
  *
  * - 消息区 role="log" + aria-live（新消息播报，A02 实时性可感知）；
  * - 正文按 sender_type 分侧：visitor 左、seat 右、system 居中；
  * - ACK：权威刷新投影 read_at（存在即已读）——SSE payload 不是真源；
  * - 发送：client_msg_id 幂等（失败 → 重试按钮复用同 id，A02/A06）；
- * - 附件（CS-WEB-01）：字节只经 Seat Bearer fetch（真实 enterprise content
- *   端点）获取——图片（mime image/*）内联预览（fetch → Blob → ObjectURL），
- *   其他文件显示 file_name/size_bytes 与下载状态；`status` 非 active 一律
- *   渲染占位（pending_confirm/deleted）。Blob URL 生命周期全托管：组件卸载 /
- *   附件更换 / 401/403/404 / 取消（AbortController）时 revoke，无泄漏；
+ * - 附件预览/下载（CS-WEB-01）：字节只经 Seat Bearer fetch（真实 enterprise
+ *   content 端点）获取——图片（mime image/*）内联预览（fetch → Blob →
+ *   ObjectURL），其他文件显示 file_name/size_bytes 与下载状态；`status` 非
+ *   active 一律渲染占位（pending_confirm/deleted）。Blob URL 生命周期全托管：
+ *   组件卸载 / 附件更换 / 401/403/404 / 取消（AbortController）时 revoke，无泄漏；
  *   DOM/href/log 不出现 token / object key / upload URL（A03）。
+ * - 单文件发送（CS-WEB-02）：composer 可选单文件（presign → 裸 PUT → confirm
+ *   → 发送 asset_ids，编排冻结在 attachmentUpload/useSeatSend）；正文可空但
+ *   正文与附件不能同时空（发送按钮禁用 + hooks 前置校验 + 服务端 422 兜底）；
+ *   失败保留正文与文件选择（草稿真源在 useSeatSend，失败不清、成功才清零），重试
+ *   复用同一 client_msg_id；服务端 422 语义透传到 role=alert 错误条。
  * - 写入口关闭（canWrite=false 或非 active）→ composer 替换为可解释说明。
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { CheckCheck, Paperclip } from 'lucide-react'
+import { CheckCheck, Paperclip, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { isSeatApiError } from '../errors'
 import { type SeatAttachment, type SeatMessage, type SeatSessionDetail } from './contract'
@@ -31,7 +36,12 @@ export type SeatSessionViewProps = {
   onRetryMessages: () => void
   canWrite: boolean
   writeClosedReason: string | null
-  onSend: (_body: string) => void
+  /** CS-WEB-02：草稿真源在 useSeatSend（成功清零/失败保留）；视图只消费投影。 */
+  draft: { body: string; fileName: string | null; fileSize: number | null }
+  onUpdateDraftBody: (_body: string) => void
+  onAttachFile: (_file: File) => void
+  onDetachFile: () => void
+  onSend: () => void
   onRetrySend: () => void
   sendError: unknown
   sending: boolean
@@ -356,12 +366,16 @@ export function SeatSessionView(props: SeatSessionViewProps) {
     onRetryMessages,
     canWrite,
     writeClosedReason,
+    draft,
+    onUpdateDraftBody,
+    onAttachFile,
+    onDetachFile,
     onSend,
     onRetrySend,
     sendError,
     sending,
   } = props
-  const composerRef = useRef<HTMLTextAreaElement | null>(null)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
   const conversationRef = useRef<HTMLDivElement | null>(null)
 
   if (detail === null) {
@@ -373,6 +387,8 @@ export function SeatSessionView(props: SeatSessionViewProps) {
   }
 
   const composerVisible = canWrite && detail.status === 'active'
+  const canSubmit = draft.body.trim().length > 0 || draft.fileName !== null
+  const sendErrorMessage = sendErrorText(sendError)
 
   return (
     <section aria-label="会话内容" className="flex min-h-0 flex-1 flex-col" data-testid="seat-conversation">
@@ -411,34 +427,97 @@ export function SeatSessionView(props: SeatSessionViewProps) {
       <div className="border-t border-border p-3">
         {composerVisible ? (
           <form
-            className="flex items-end gap-2"
+            className="flex flex-col gap-2"
             onSubmit={(event) => {
               event.preventDefault()
-              const composer = composerRef.current
-              if (composer === null) return
-              onSend(composer.value)
-              composer.value = ''
+              onSend()
             }}
           >
-            <textarea
-              ref={composerRef}
-              aria-label="回复访客"
-              data-testid="seat-composer"
-              rows={2}
-              className="min-h-[2.5rem] flex-1 resize-y rounded border border-border bg-background px-2 py-1.5 text-sm outline-none focus:border-primary"
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' && !event.shiftKey) {
-                  event.preventDefault()
-                  const composer = composerRef.current
-                  if (composer === null) return
-                  onSend(composer.value)
-                  composer.value = ''
-                }
-              }}
-            />
-            <Button type="submit" size="sm" disabled={sending} data-testid="seat-send">
-              {sending ? '发送中…' : '发送'}
-            </Button>
+            {draft.fileName !== null && (
+              <span
+                className="inline-flex max-w-full items-center gap-1.5 self-start rounded border border-border bg-muted/50 px-2 py-1 text-xs"
+                data-testid="seat-attach-chip"
+              >
+                <Paperclip aria-hidden="true" className="h-3 w-3 shrink-0 text-muted-foreground" />
+                <span className="max-w-[12rem] truncate" data-testid="seat-attach-chip-name">
+                  {draft.fileName}
+                </span>
+                {formatBytes(draft.fileSize) !== null && (
+                  <span className="text-[10px] text-muted-foreground" data-testid="seat-attach-chip-size">
+                    {formatBytes(draft.fileSize)}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  aria-label={`移除附件 ${draft.fileName}`}
+                  data-testid="seat-attach-remove"
+                  disabled={sending}
+                  onClick={onDetachFile}
+                  className="rounded p-0.5 text-muted-foreground hover:text-foreground"
+                >
+                  <X aria-hidden="true" className="h-3 w-3" />
+                </button>
+              </span>
+            )}
+            <div className="flex items-end gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                className="sr-only"
+                aria-label="添加附件（单文件）"
+                data-testid="seat-attach-input"
+                disabled={sending}
+                onChange={(event) => {
+                  const file = event.target.files?.[0]
+                  if (file !== undefined) onAttachFile(file)
+                  // 允许移除后重选同一文件：受控清空 value。
+                  event.target.value = ''
+                }}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={sending}
+                onClick={() => fileInputRef.current?.click()}
+                data-testid="seat-attach-button"
+                aria-label="添加附件"
+              >
+                <Paperclip aria-hidden="true" className="h-3.5 w-3.5" />
+                附件
+              </Button>
+              <textarea
+                aria-label="回复访客"
+                data-testid="seat-composer"
+                rows={2}
+                placeholder="输入回复，或添加附件发送"
+                className="min-h-[2.5rem] flex-1 resize-y rounded border border-border bg-background px-2 py-1.5 text-sm outline-none focus:border-primary"
+                value={draft.body}
+                disabled={sending}
+                onChange={(event) => onUpdateDraftBody(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' && !event.shiftKey) {
+                    event.preventDefault()
+                    onSend()
+                  }
+                }}
+              />
+              <Button
+                type="submit"
+                size="sm"
+                disabled={sending || !canSubmit}
+                aria-disabled={sending || !canSubmit}
+                aria-label={canSubmit ? '发送' : '请输入正文或添加附件'}
+                data-testid="seat-send"
+              >
+                {sending ? '发送中…' : '发送'}
+              </Button>
+            </div>
+            {!canSubmit && !sending && (
+              <p className="text-[10px] text-muted-foreground" data-testid="seat-composer-hint">
+                正文与附件不能同时为空
+              </p>
+            )}
           </form>
         ) : (
           <p className="text-xs text-muted-foreground" data-testid="seat-write-closed" role="note">
@@ -446,8 +525,15 @@ export function SeatSessionView(props: SeatSessionViewProps) {
           </p>
         )}
         {sendError !== null && sendError !== undefined && (
-          <div className="mt-2 flex items-center justify-between rounded border border-destructive/50 bg-destructive/10 px-2 py-1 text-xs text-destructive" role="alert" data-testid="seat-send-error">
-            <span>发送失败，内容已保留</span>
+          <div
+            className="mt-2 flex items-center justify-between rounded border border-destructive/50 bg-destructive/10 px-2 py-1 text-xs text-destructive"
+            role="alert"
+            data-testid="seat-send-error"
+          >
+            {/* 服务端 422 语义透传（presign mime/size/hash 拒绝等）；无消息时回退通案。 */}
+            <span data-testid="seat-send-error-text">
+              {sendErrorMessage !== null ? `发送失败：${sendErrorMessage}（内容已保留，可重试）` : '发送失败，内容已保留'}
+            </span>
             <Button type="button" variant="outline" size="sm" onClick={onRetrySend} data-testid="seat-send-retry">
               重试发送
             </Button>
@@ -456,4 +542,10 @@ export function SeatSessionView(props: SeatSessionViewProps) {
       </div>
     </section>
   )
+}
+
+/** 发送错误可解释文本（SeatApiError/上传目标缺失等 message 透传；无则通案）。 */
+function sendErrorText(error: unknown): string | null {
+  if (error instanceof Error && error.message.length > 0) return error.message
+  return null
 }

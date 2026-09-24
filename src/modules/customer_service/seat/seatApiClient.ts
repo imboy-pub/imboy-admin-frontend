@@ -109,6 +109,11 @@ export type SeatBlobRequestOptions = {
   signal?: AbortSignal
 }
 
+/** CS-WEB-02：裸 PUT 上传选项（presign 下发的 upload.url；目标由服务端权威签发）。 */
+export type SeatUploadPutOptions = {
+  signal?: AbortSignal
+}
+
 /**
  * 平台响应信封 {code, msg, payload}（elib_response 约定）：
  * code===0 成功；非 0 按码位分类（HTTP 状态作 fallback）。
@@ -229,6 +234,50 @@ export class SeatApiClient {
       throw seatNetworkError(error)
     }
   }
+
+  /**
+   * CS-WEB-02：裸 PUT 上传通道（presign 响应 `upload.url` 的专用出口）。
+   * 与 JSON/内容通道的三点差异（widget uploader 同款纪律）：
+   * - URL 是服务端 presign 权威下发的上传目标，**不经 Seat 域路径门**
+   *   （可能同源相对路径或 http(s) 绝对地址）；协议白名单 http/https + 相对
+   *   路径，其余（javascript:/data:…）发请求前直接抛错；
+   * - 只带 Content-Type: application/octet-stream，**不带 Authorization、
+   *   credentials: 'omit'**（目标凭证由 URL 自带，JWT/cookie 绝不出Seat域）；
+   * - 非 2xx：优先读 JSON 信封 code（有则按码位分类），否则按 HTTP 状态；
+   *   错误 message 不含 URL/响应体（upload 引用不进日志）。
+   */
+  async putUploadObject(url: string, blob: Blob, options: SeatUploadPutOptions = {}): Promise<void> {
+    assertUploadTargetUrl(url)
+    let response: Response
+    try {
+      response = await this.fetchImpl(url, {
+        method: 'PUT',
+        body: blob,
+        headers: { 'Content-Type': 'application/octet-stream' },
+        // A01：裸 PUT 绝不携带（Admin）Cookie 或 Seat JWT。
+        credentials: 'omit',
+        signal: options.signal,
+      })
+    } catch (error: unknown) {
+      if (error instanceof SeatApiError) throw error
+      throw seatNetworkError(error)
+    }
+    if (!response.ok) {
+      throw classifySeatError(response.status, await readEnvelopeCode(response), `seat upload http error ${response.status}`)
+    }
+  }
+}
+
+/** 裸 PUT 目标协议门：http(s) 绝对 URL 或同源相对路径；其余一律拒绝（不发请求）。 */
+function assertUploadTargetUrl(url: string): void {
+  if (url.startsWith('/')) {
+    if (url.startsWith('//')) {
+      throw new SeatApiError('validation', 'seat upload target must not be protocol-relative')
+    }
+    return
+  }
+  if (/^https?:\/\//i.test(url)) return
+  throw new SeatApiError('validation', 'seat upload target must be an http(s) URL or a relative path')
 }
 
 /** 错误体若携带 {code} 信封则提取码位（解析失败/非对象 → null，不猜）。 */

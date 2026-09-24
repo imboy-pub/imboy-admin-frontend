@@ -429,6 +429,10 @@ function SeatWorkspaceInner() {
               onRetryMessages={() => void messagesQuery.refetch()}
               canWrite={canWriteNow}
               writeClosedReason={writeClosedReason}
+              draft={send.draft}
+              onUpdateDraftBody={send.updateDraftBody}
+              onAttachFile={send.attachFile}
+              onDetachFile={send.detachFile}
               onSend={send.send}
               onRetrySend={send.retry}
               sendError={send.error}

@@ -11,6 +11,8 @@
 import { describe, expect, it } from 'bun:test'
 import {
   SEAT_ASSET_CONTENT_PATH_TEMPLATE,
+  buildAssetConfirmPath,
+  buildAssetPresignPath,
   buildConversationMessagesPath,
   buildConversationSendPath,
   buildSeatQueuePath,
@@ -22,6 +24,7 @@ import {
   toSeatAttachmentPhase,
   toSeatMessage,
   toSeatMessageList,
+  toSeatPresignResult,
   toSeatSessionDetail,
   toSeatSessionPage,
   toSeatSessionSummary,
@@ -217,5 +220,67 @@ describe('路径构造（Seat 域 + A03 附件代理不变量）', () => {
   it('路径编码：TSID 特殊字符输入不产生注入面（防御性）', () => {
     const path = seatAssetContentPath('1', encodeURIComponent('../../evil') as never)
     expect(path).not.toContain('../../evil')
+  })
+})
+
+describe('CS-WEB-02 presign 投影与上传路径', () => {
+  it('toSeatPresignResult：完整形状投影（upload.url 消费，token/object key 丢弃）', () => {
+    const result = toSeatPresignResult({
+      asset_id: '8100000000000000001',
+      upload_ref: 'ur-1',
+      object_hash: 'ab'.repeat(32),
+      mime: 'image/png',
+      size_bytes: 2048,
+      file_name: '截图.png',
+      retain_until: null,
+      expires_at: 1759000000,
+      upload: {
+        method: 'PUT',
+        url: '/api/v1/enterprise/organizations/2000000000000000002/assets/upload/1',
+        token: 'opaque-token',
+        expires_at: 1759000000,
+        adapter: 'local_private_object_store',
+        rule: 'opaque_token_no_url_no_object_key',
+      },
+    })
+    expect(result.assetId).toBe('8100000000000000001')
+    expect(result.uploadRef).toBe('ur-1')
+    expect(result.uploadUrl).toBe('/api/v1/enterprise/organizations/2000000000000000002/assets/upload/1')
+    expect(result.expiresAt).toBe(1759000000)
+    // upload.token（= upload_ref 双投）与 adapter/rule 不进投影（A03 最小面）。
+    expect(Object.keys(result).sort()).toEqual(['assetId', 'expiresAt', 'uploadRef', 'uploadUrl'])
+  })
+
+  it('upload.url 缺失（部署未开放对象 PUT）→ uploadUrl=null（fail-closed 由编排终止）', () => {
+    const result = toSeatPresignResult({
+      asset_id: '8100000000000000001',
+      upload_ref: 'ur-1',
+      upload: { method: 'PUT', token: 'opaque', rule: 'opaque_token_no_url_no_object_key' },
+    })
+    expect(result.uploadUrl).toBeNull()
+    expect(result.assetId).toBe('8100000000000000001')
+  })
+
+  it('形状非法 fail-closed：非对象 / asset_id 非法 / upload_ref 缺失 → throw', () => {
+    expect(() => toSeatPresignResult(null)).toThrow()
+    expect(() => toSeatPresignResult([1, 2])).toThrow()
+    expect(() => toSeatPresignResult({ upload_ref: 'ur-1' })).toThrow(/asset_id/)
+    expect(() => toSeatPresignResult({ asset_id: 'abc' })).toThrow(/asset_id/)
+    expect(() => toSeatPresignResult({ asset_id: '8100000000000000001', upload_ref: '' })).toThrow(/upload_ref/)
+    expect(() => toSeatPresignResult({ asset_id: '8100000000000000001' })).toThrow(/upload_ref/)
+  })
+
+  it('TSID 精度：大整数字面量 asset_id 经 parseSeatJson 收敛为 string', () => {
+    // JSON integer 传输 64-bit TSID（wire 合同）：parseSeatJson 精度保护后再投影。
+    const result = toSeatPresignResult({ asset_id: HUGE_TSID, upload_ref: 'ur-9' })
+    expect(result.assetId).toBe(HUGE_TSID)
+  })
+
+  it('上传路径构造：presign/confirm 落真实 enterprise 动作端点（无虚构路由）', () => {
+    expect(buildAssetPresignPath(ORG)).toBe(`/enterprise/organizations/${ORG}/assets/presign`)
+    expect(buildAssetConfirmPath(ORG)).toBe(`/enterprise/organizations/${ORG}/assets/confirm`)
+    // imboy_router.erl:1790/1796 真实路由族（Seat 域门 /api/v1/enterprise/organizations/ 放行）。
+    expect(buildAssetPresignPath(ORG)).not.toContain('/cs/')
+    expect(buildAssetConfirmPath(ORG)).not.toContain('/sessions/')
   })
 })
