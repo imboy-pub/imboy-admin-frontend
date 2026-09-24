@@ -1,19 +1,14 @@
 import { useMemo, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { LegacyColumnDef, getCoreRowModel, useLegacyTable } from '@tanstack/react-table/legacy'
 import { toast } from 'sonner'
-import { ArrowLeft, Download, Trash2 } from 'lucide-react'
+import { Trash2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   ConfirmDialog,
-  DataTable,
-  DataTablePagination,
-  ErrorState,
-  LoadingState,
-  PageHeader,
+  EntityManageListPageLayout,
 } from '@/components/shared'
 import {
   deleteGroupTag,
@@ -33,7 +28,6 @@ type GroupTagManageQuery = {
 
 export function GroupTagManagePage() {
   const { id } = useParams<{ id: string }>()
-  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const gid = id ?? ''
 
@@ -131,50 +125,29 @@ export function GroupTagManagePage() {
     getCoreRowModel: getCoreRowModel(),
   })
 
-  if (isLoading) {
-    return <LoadingState message="加载群标签数据..." />
-  }
-
-  if (error) {
-    return <ErrorState message="加载群标签数据失败" onRetry={() => refetch()} />
-  }
-
   return (
-    <div className="space-y-6">
-      <PageHeader
+    <>
+      <EntityManageListPageLayout
         title="群标签管理"
         description={`群组 ${gid} 的标签列表与治理操作`}
-        actions={(
-          <>
-            <Button variant="outline" size="sm" onClick={handleExportCsv} disabled={tags.length === 0}>
-              <Download className="mr-2 h-4 w-4" />
-              导出当前页 CSV
-            </Button>
-            <Button variant="outline" onClick={() => navigate(`/groups/${gid}`)}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            返回群详情
-          </Button>
-          </>
-        )}
-      />
-
-      <Card>
-        <CardHeader>
-          <CardTitle>标签列表（共 {data?.total ?? tags.length} 项）</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <DataTable table={table} />
-        </CardContent>
-      </Card>
-
-      <DataTablePagination
-        page={params.page}
-        pageSize={params.size}
-        total={data?.total ?? 0}
-        onPageChange={(p) => setParams({ page: p })}
-        onPageSizeChange={(s) => setParams({ size: s, page: 1 })}
-        dataUpdatedAt={dataUpdatedAt}
-        onRefresh={() => void refetch()}
+        exportCsv={{ onClick: handleExportCsv, disabled: tags.length === 0 }}
+        backTo={{ to: `/groups/${gid}`, label: '返回群详情' }}
+        loading={isLoading}
+        loadingMessage="加载群标签数据..."
+        error={error}
+        errorMessage="加载群标签数据失败"
+        onRetry={() => refetch()}
+        listTitle={`标签列表（共 ${data?.total ?? tags.length} 项）`}
+        table={table}
+        pagination={{
+          page: params.page,
+          pageSize: params.size,
+          total: data?.total ?? 0,
+          onPageChange: (p) => setParams({ page: p }),
+          onPageSizeChange: (s) => setParams({ size: s, page: 1 }),
+          dataUpdatedAt,
+          onRefresh: () => void refetch(),
+        }}
       />
 
       <ConfirmDialog
@@ -192,6 +165,6 @@ export function GroupTagManagePage() {
           })
         }
       />
-    </div>
+    </>
   )
 }

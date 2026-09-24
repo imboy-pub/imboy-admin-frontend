@@ -1,19 +1,16 @@
 import { useMemo, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { LegacyColumnDef, getCoreRowModel, useLegacyTable } from '@tanstack/react-table/legacy'
 import { toast } from 'sonner'
-import { ArrowLeft, Download, Eye, Trash2 } from 'lucide-react'
+import { Eye, Trash2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   ConfirmDialog,
-  DataTable,
-  DataTablePagination,
+  EntityManageListPageLayout,
   ErrorState,
   LoadingState,
-  PageHeader,
 } from '@/components/shared'
 import {
   deleteGroupAlbum,
@@ -34,7 +31,6 @@ type GroupAlbumPageQuery = {
 
 export function GroupAlbumManagePage() {
   const { id } = useParams<{ id: string }>()
-  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const gid = id ?? ''
 
@@ -168,108 +164,83 @@ export function GroupAlbumManagePage() {
     getCoreRowModel: getCoreRowModel(),
   })
 
-  if (isLoading && !data) {
-    return <LoadingState message="加载群相册数据..." />
-  }
-
-  if (error) {
-    return <ErrorState message="加载群相册数据失败" onRetry={() => refetch()} />
-  }
-
   return (
-    <div className="space-y-6">
-      <PageHeader
+    <>
+      <EntityManageListPageLayout
         title="群相册管理"
         description={`群组 ${gid} 的相册列表与治理操作`}
-        actions={(
-          <>
-            <Button variant="outline" size="sm" onClick={handleExportCsv} disabled={albums.length === 0}>
-              <Download className="mr-2 h-4 w-4" />
-              导出当前页 CSV
-            </Button>
-            <Button variant="outline" onClick={() => navigate(`/groups/${gid}`)}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              返回群详情
-            </Button>
-          </>
-        )}
+        exportCsv={{ onClick: handleExportCsv, disabled: albums.length === 0 }}
+        backTo={{ to: `/groups/${gid}`, label: '返回群详情' }}
+        loading={isLoading && !data}
+        loadingMessage="加载群相册数据..."
+        error={error}
+        errorMessage="加载群相册数据失败"
+        onRetry={() => refetch()}
+        listTitle="相册列表"
+        table={table}
+        onRowClick={(row) => setSelectedAlbumId(String(row.id))}
+        paginationPlacement="inside-card"
+        pagination={data ? {
+          page: data.page,
+          pageSize: data.size,
+          total: data.total,
+          onPageChange: (p) => setParams({ page: p }),
+          onPageSizeChange: (s) => setParams({ size: s, page: 1 }),
+          dataUpdatedAt,
+          onRefresh: () => refetch(),
+        } : undefined}
+        detail={{
+          title: '相册详情',
+          children: (
+            <>
+              {!selectedAlbumId && (
+                <p className="text-sm text-muted-foreground">点击列表行可查看相册详情</p>
+              )}
+
+              {selectedAlbumId && isDetailLoading && (
+                <LoadingState message="加载相册详情..." />
+              )}
+
+              {selectedAlbumId && detailError && (
+                <ErrorState message="加载相册详情失败" onRetry={() => refetchDetail()} />
+              )}
+
+              {selectedAlbumId && detail && (
+                <dl className="grid grid-cols-2 gap-4">
+                  <div>
+                    <dt className="text-sm text-muted-foreground">主键ID</dt>
+                    <dd className="font-mono">{String(detail.id)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm text-muted-foreground">相册ID</dt>
+                    <dd className="font-mono text-xs">{detail.album_id}</dd>
+                  </div>
+                  <div className="col-span-2">
+                    <dt className="text-sm text-muted-foreground">相册名</dt>
+                    <dd className="font-medium">{detail.album_name || '-'}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm text-muted-foreground">创建者</dt>
+                    <dd className="font-mono">{String(detail.creator_id ?? '-')}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm text-muted-foreground">图片数</dt>
+                    <dd>{detail.photo_count ?? 0}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm text-muted-foreground">创建时间</dt>
+                    <dd>{formatOptionalDate(detail.created_at)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm text-muted-foreground">更新时间</dt>
+                    <dd>{formatOptionalDate(detail.updated_at)}</dd>
+                  </div>
+                </dl>
+              )}
+            </>
+          ),
+        }}
       />
-
-      <Card>
-        <CardHeader>
-          <CardTitle>相册列表</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <DataTable
-            table={table}
-            onRowClick={(row) => setSelectedAlbumId(String(row.id))}
-          />
-
-          {data && (
-            <DataTablePagination
-              page={data.page}
-              pageSize={data.size}
-              total={data.total}
-              onPageChange={(p) => setParams({ page: p })}
-              onPageSizeChange={(s) => setParams({ size: s, page: 1 })}
-              dataUpdatedAt={dataUpdatedAt}
-              onRefresh={() => refetch()}
-            />
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>相册详情</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {!selectedAlbumId && (
-            <p className="text-sm text-muted-foreground">点击列表行可查看相册详情</p>
-          )}
-
-          {selectedAlbumId && isDetailLoading && (
-            <LoadingState message="加载相册详情..." />
-          )}
-
-          {selectedAlbumId && detailError && (
-            <ErrorState message="加载相册详情失败" onRetry={() => refetchDetail()} />
-          )}
-
-          {selectedAlbumId && detail && (
-            <dl className="grid grid-cols-2 gap-4">
-              <div>
-                <dt className="text-sm text-muted-foreground">主键ID</dt>
-                <dd className="font-mono">{String(detail.id)}</dd>
-              </div>
-              <div>
-                <dt className="text-sm text-muted-foreground">相册ID</dt>
-                <dd className="font-mono text-xs">{detail.album_id}</dd>
-              </div>
-              <div className="col-span-2">
-                <dt className="text-sm text-muted-foreground">相册名</dt>
-                <dd className="font-medium">{detail.album_name || '-'}</dd>
-              </div>
-              <div>
-                <dt className="text-sm text-muted-foreground">创建者</dt>
-                <dd className="font-mono">{String(detail.creator_id ?? '-')}</dd>
-              </div>
-              <div>
-                <dt className="text-sm text-muted-foreground">图片数</dt>
-                <dd>{detail.photo_count ?? 0}</dd>
-              </div>
-              <div>
-                <dt className="text-sm text-muted-foreground">创建时间</dt>
-                <dd>{formatOptionalDate(detail.created_at)}</dd>
-              </div>
-              <div>
-                <dt className="text-sm text-muted-foreground">更新时间</dt>
-                <dd>{formatOptionalDate(detail.updated_at)}</dd>
-              </div>
-            </dl>
-          )}
-        </CardContent>
-      </Card>
 
       <ConfirmDialog
         open={canDeleteAlbum && confirmDeleteAlbumId.length > 0}
@@ -281,6 +252,6 @@ export function GroupAlbumManagePage() {
         loading={deleteMutation.isPending}
         onConfirm={() => deleteMutation.mutate(confirmDeleteAlbumId)}
       />
-    </div>
+    </>
   )
 }

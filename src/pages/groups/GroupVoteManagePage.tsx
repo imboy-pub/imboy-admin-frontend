@@ -1,19 +1,16 @@
 import { useMemo, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { LegacyColumnDef, getCoreRowModel, useLegacyTable } from '@tanstack/react-table/legacy'
 import { toast } from 'sonner'
-import { ArrowLeft, Download, Eye, StopCircle } from 'lucide-react'
+import { Eye, StopCircle } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   ConfirmDialog,
-  DataTable,
-  DataTablePagination,
+  EntityManageListPageLayout,
   ErrorState,
   LoadingState,
-  PageHeader,
   StatusBadge,
 } from '@/components/shared'
 import {
@@ -35,7 +32,6 @@ type GroupVoteManageQuery = {
 
 export function GroupVoteManagePage() {
   const { id } = useParams<{ id: string }>()
-  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const gid = id ?? ''
 
@@ -171,134 +167,109 @@ export function GroupVoteManagePage() {
     getCoreRowModel: getCoreRowModel(),
   })
 
-  if (isLoading) {
-    return <LoadingState message="加载群投票数据..." />
-  }
-
-  if (error) {
-    return <ErrorState message="加载群投票数据失败" onRetry={() => refetch()} />
-  }
-
   return (
-    <div className="space-y-6">
-      <PageHeader
+    <>
+      <EntityManageListPageLayout
         title="群投票管理"
         description={`群组 ${gid} 的投票列表与治理操作`}
-        actions={(
-          <>
-            <Button variant="outline" size="sm" onClick={handleExportCsv} disabled={votes.length === 0}>
-              <Download className="mr-2 h-4 w-4" />
-              导出当前页 CSV
-            </Button>
-            <Button variant="outline" onClick={() => navigate(`/groups/${gid}`)}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              返回群详情
-            </Button>
-          </>
-        )}
+        exportCsv={{ onClick: handleExportCsv, disabled: votes.length === 0 }}
+        backTo={{ to: `/groups/${gid}`, label: '返回群详情' }}
+        loading={isLoading}
+        loadingMessage="加载群投票数据..."
+        error={error}
+        errorMessage="加载群投票数据失败"
+        onRetry={() => refetch()}
+        listTitle="投票列表"
+        table={table}
+        onRowClick={(row) => setSelectedVoteId(row.vote_id)}
+        paginationPlacement="inside-card"
+        pagination={data ? {
+          page: params.page,
+          pageSize: params.size,
+          total: data.total,
+          onPageChange: (p) => setParams({ page: p }),
+          onPageSizeChange: (s) => setParams({ size: s, page: 1 }),
+          dataUpdatedAt,
+          onRefresh: () => refetch(),
+        } : undefined}
+        detail={{
+          title: '投票详情',
+          children: (
+            <>
+              {!selectedVoteId && (
+                <p className="text-sm text-muted-foreground">点击列表行可查看投票详情</p>
+              )}
+
+              {selectedVoteId && isDetailLoading && (
+                <LoadingState message="加载投票详情..." />
+              )}
+
+              {selectedVoteId && detailError && (
+                <ErrorState message="加载投票详情失败" onRetry={() => refetchDetail()} />
+              )}
+
+              {selectedVoteId && detail && (
+                <div className="space-y-4">
+                  <dl className="grid grid-cols-2 gap-4">
+                    <div>
+                      <dt className="text-sm text-muted-foreground">投票ID</dt>
+                      <dd className="font-mono text-xs">{detail.vote_id}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-sm text-muted-foreground">状态</dt>
+                      <dd>
+                        <StatusBadge
+                          status={detail.status}
+                          labels={{ 1: '进行中', 2: '已结束', 3: '已取消' }}
+                          variants={{ 1: 'success', 2: 'secondary', 3: 'error' }}
+                        />
+                      </dd>
+                    </div>
+                    <div className="col-span-2">
+                      <dt className="text-sm text-muted-foreground">标题</dt>
+                      <dd className="font-medium">{detail.title}</dd>
+                    </div>
+                    <div className="col-span-2">
+                      <dt className="text-sm text-muted-foreground">描述</dt>
+                      <dd>{detail.description || '-'}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-sm text-muted-foreground">总投票数</dt>
+                      <dd>{detail.total_votes ?? 0}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-sm text-muted-foreground">截止时间</dt>
+                      <dd>{formatOptionalDate(detail.end_at)}</dd>
+                    </div>
+                  </dl>
+
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium">选项统计</h4>
+                    <div className="rounded-md border divide-y">
+                      {(detail.options || []).map((option) => (
+                        <div
+                          key={option.option_id}
+                          className="flex items-center justify-between px-3 py-2 text-sm"
+                        >
+                          <span>{option.option_text}</span>
+                          <span className="font-mono text-muted-foreground">
+                            {option.vote_count ?? 0}
+                          </span>
+                        </div>
+                      ))}
+                      {(detail.options || []).length === 0 && (
+                        <div className="px-3 py-2 text-sm text-muted-foreground">
+                          暂无选项数据
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          ),
+        }}
       />
-
-      <Card>
-        <CardHeader>
-          <CardTitle>投票列表</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <DataTable
-            table={table}
-            onRowClick={(row) => setSelectedVoteId(row.vote_id)}
-          />
-
-          {data && (
-            <DataTablePagination
-              page={params.page}
-              pageSize={params.size}
-              total={data.total}
-              onPageChange={(p) => setParams({ page: p })}
-              onPageSizeChange={(s) => setParams({ size: s, page: 1 })}
-              dataUpdatedAt={dataUpdatedAt}
-              onRefresh={() => refetch()}
-            />
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>投票详情</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {!selectedVoteId && (
-            <p className="text-sm text-muted-foreground">点击列表行可查看投票详情</p>
-          )}
-
-          {selectedVoteId && isDetailLoading && (
-            <LoadingState message="加载投票详情..." />
-          )}
-
-          {selectedVoteId && detailError && (
-            <ErrorState message="加载投票详情失败" onRetry={() => refetchDetail()} />
-          )}
-
-          {selectedVoteId && detail && (
-            <div className="space-y-4">
-              <dl className="grid grid-cols-2 gap-4">
-                <div>
-                  <dt className="text-sm text-muted-foreground">投票ID</dt>
-                  <dd className="font-mono text-xs">{detail.vote_id}</dd>
-                </div>
-                <div>
-                  <dt className="text-sm text-muted-foreground">状态</dt>
-                  <dd>
-                    <StatusBadge
-                      status={detail.status}
-                      labels={{ 1: '进行中', 2: '已结束', 3: '已取消' }}
-                      variants={{ 1: 'success', 2: 'secondary', 3: 'error' }}
-                    />
-                  </dd>
-                </div>
-                <div className="col-span-2">
-                  <dt className="text-sm text-muted-foreground">标题</dt>
-                  <dd className="font-medium">{detail.title}</dd>
-                </div>
-                <div className="col-span-2">
-                  <dt className="text-sm text-muted-foreground">描述</dt>
-                  <dd>{detail.description || '-'}</dd>
-                </div>
-                <div>
-                  <dt className="text-sm text-muted-foreground">总投票数</dt>
-                  <dd>{detail.total_votes ?? 0}</dd>
-                </div>
-                <div>
-                  <dt className="text-sm text-muted-foreground">截止时间</dt>
-                  <dd>{formatOptionalDate(detail.end_at)}</dd>
-                </div>
-              </dl>
-
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium">选项统计</h4>
-                <div className="rounded-md border divide-y">
-                  {(detail.options || []).map((option) => (
-                    <div
-                      key={option.option_id}
-                      className="flex items-center justify-between px-3 py-2 text-sm"
-                    >
-                      <span>{option.option_text}</span>
-                      <span className="font-mono text-muted-foreground">
-                        {option.vote_count ?? 0}
-                      </span>
-                    </div>
-                  ))}
-                  {(detail.options || []).length === 0 && (
-                    <div className="px-3 py-2 text-sm text-muted-foreground">
-                      暂无选项数据
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
 
       <ConfirmDialog
         open={canCloseVote && confirmCloseVoteId.length > 0}
@@ -310,6 +281,6 @@ export function GroupVoteManagePage() {
         loading={closeMutation.isPending}
         onConfirm={() => closeMutation.mutate(confirmCloseVoteId)}
       />
-    </div>
+    </>
   )
 }
