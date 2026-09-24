@@ -40,6 +40,23 @@ function nowMs(): number {
   return Date.now()
 }
 
+/** 非图片附件下载出口（CS-WGT-01）：anchor[download] 承载 blob 字节——
+ * 全程内存对象 URL，无网络地址/token 进 DOM；点击后立即回收。 */
+function downloadViaAnchor(blob: Blob, fileName: string): void {
+  const url = URL.createObjectURL(blob)
+  try {
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = fileName
+    anchor.rel = 'noopener'
+    document.body.appendChild(anchor)
+    anchor.click()
+    anchor.remove()
+  } finally {
+    URL.revokeObjectURL(url)
+  }
+}
+
 function boot(): void {
   const rootElement = document.getElementById('cs-widget-root')
   if (rootElement === null) return
@@ -52,6 +69,7 @@ function boot(): void {
     fetchImpl: (...args) => fetch(...args),
     io: {
       render: (state) => ui.render(state),
+      downloadFile: downloadViaAnchor,
       postToHost: (message) => {
         try {
           // 锁定前（ready 握手）host origin 未知；消息零载荷不含任何敏感数据。
@@ -72,6 +90,8 @@ function boot(): void {
     onRating: (score) => void controller.submitRating(score),
     onClose: () => controller.closeAndCleanup(),
     onAttachment: (file) => void controller.sendAttachment(file),
+    onOpenAttachment: (key, assetId) => void controller.openAttachment(key, assetId),
+    onClosePreview: () => controller.closePreview(),
   })
 
   window.addEventListener(

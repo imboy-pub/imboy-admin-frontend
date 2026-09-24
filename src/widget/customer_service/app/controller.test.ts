@@ -15,10 +15,26 @@ import { WidgetApiClient } from './widgetApi'
 import { subjectStorageKey, type StorageLike } from './visitStorage'
 import type { SseEvent } from './eventStream'
 
-type Recorded = { url: string; method: string; body: unknown }
+type Recorded = { url: string; method: string; body: unknown; headers: Record<string, string> }
 
 const WIDGET_ID = '72057594037928001'
 const SCOPE_KEY = subjectStorageKey({ widgetId: WIDGET_ID })
+
+/** CS-WGT-01：历史消息行（含 CSX-01 冻结契约 assets 投影）。 */
+const HISTORY_WITH_ASSETS = [
+  {
+    id: '72057594037927940',
+    sender_type: 'business_identity',
+    sender_contact_id: null,
+    client_msg_id: null,
+    body: '请看这张截图',
+    created_at: '2026-09-16T00:00:00Z',
+    assets: [
+      { id: '72057594037928101', mime: 'image/png', size_bytes: 20480, file_name: '截图.png', status: 'active' },
+      { id: '72057594037928102', mime: 'application/pdf', size_bytes: 1048576, file_name: '报表.pdf', status: 'active' },
+    ],
+  },
+]
 
 function memoryStorage(): StorageLike & { dump: () => Record<string, string> } {
   const map = new Map<string, string>()
@@ -30,14 +46,23 @@ function memoryStorage(): StorageLike & { dump: () => Record<string, string> } {
   }
 }
 
-function makeEnv(opts: { consentVersion?: string; messagesStatus?: number; sessionsStatus?: string } = {}) {
+function makeEnv(
+  opts: {
+    consentVersion?: string
+    messagesStatus?: number
+    sessionsStatus?: string
+    history?: unknown[]
+    assetContentStatus?: number
+    assetContentBody?: string
+  } = {}
+) {
   const requests: Recorded[] = []
   const fetchImpl = (async (input: string | URL, init?: RequestInit) => {
     const url = String(input)
     const method = init?.method ?? 'GET'
     let body: unknown = null
     if (typeof init?.body === 'string') body = JSON.parse(init.body)
-    requests.push({ url, method, body })
+    requests.push({ url, method, body, headers: (init?.headers ?? {}) as Record<string, string> })
     let payload: unknown = {}
     let ok = true
     let status = 200
@@ -55,6 +80,18 @@ function makeEnv(opts: { consentVersion?: string; messagesStatus?: number; sessi
       }
     } else if (method === 'POST' && url.includes('/sessions') && !url.includes('/messages')) {
       payload = { session_id: '72057594037927936', status: 'queued' }
+    } else if (method === 'GET' && url.includes('/assets/') && url.includes('/content')) {
+      // 授权内容代理：二进制面（不走 JSON 信封）；字节由 blob() 消费。
+      ok = (opts.assetContentStatus ?? 200) < 400
+      status = opts.assetContentStatus ?? 200
+      const bytes = opts.assetContentBody ?? 'asset-bytes'
+      const respond = {
+        ok,
+        status,
+        json: async () => ({ code: 0, msg: 'success', payload: {} }),
+        blob: async () => new Blob([bytes], { type: 'application/octet-stream' }),
+      }
+      return respond as unknown as Response
     } else if (method === 'GET' && url.includes('/sessions') && !url.includes('/messages')) {
       payload = [{ id: '72057594037927936', status: opts.sessionsStatus ?? 'active', version: 3 }]
     } else if (method === 'GET' && url.includes('/messages')) {
@@ -62,7 +99,7 @@ function makeEnv(opts: { consentVersion?: string; messagesStatus?: number; sessi
         ok = false
         status = 401
       } else {
-        payload = []
+        payload = opts.history ?? []
       }
     }
     const respond = { ok, status, json: async () => ({ code: 0, msg: 'success', payload }) }
@@ -73,17 +110,31 @@ function makeEnv(opts: { consentVersion?: string; messagesStatus?: number; sessi
 
 type Harness = ReturnType<typeof makeHarness>
 
-function makeHarness(opts: { consentVersion?: string; messagesStatus?: number } = {}, injectedStorage?: StorageLike) {
+function makeHarness(
+  opts: {
+    consentVersion?: string
+    messagesStatus?: number
+    history?: unknown[]
+    assetContentStatus?: number
+    assetContentBody?: string
+  } = {},
+  injectedStorage?: StorageLike
+) {
   const env = makeEnv(opts)
   const storage = injectedStorage ?? memoryStorage()
   const posted: Record<string, unknown>[] = []
   const rendered: string[] = []
+  const downloads: Array<{ blob: Blob; fileName: string }> = []
+  const objectUrls: string[] = []
+  const revokedUrls: string[] = []
   const streams: Array<{ path: string; token: () => string; onEvent: (_e: SseEvent) => void; onStatus: (_s: string) => void }> = []
   const io: ControllerIo = {
     render: (state) => rendered.push(state.phase),
+    downloadFile: (blob, fileName) => void downloads.push({ blob, fileName }),
     postToHost: (message) => void posted.push(message),
   }
   let clock = 1_000_000
+  let urlSeq = 0
   const streamFactory = (o: (typeof streams)[number]): StreamHandle => {
     streams.push(o)
     return { start: () => undefined, stop: () => undefined }
@@ -97,6 +148,12 @@ function makeHarness(opts: { consentVersion?: string; messagesStatus?: number } 
       return () => `gen-${(n += 1)}`
     })(),
     fetchImpl: env.fetchImpl,
+    createObjectUrl: () => {
+      const url = `blob:stub-${(urlSeq += 1)}`
+      objectUrls.push(url)
+      return url
+    },
+    revokeObjectUrl: (url) => void revokedUrls.push(url),
     io,
     streamFactory,
   })
@@ -132,7 +189,7 @@ function makeHarness(opts: { consentVersion?: string; messagesStatus?: number } 
       ...overrides,
     }),
   })
-  return { controller, env, storage, posted, rendered, streams, settle, hostContext, envelopeFrame }
+  return { controller, env, storage, posted, rendered, streams, downloads, objectUrls, revokedUrls, settle, hostContext, envelopeFrame }
 }
 
 async function reachConsent(harness: Harness): Promise<void> {
@@ -321,5 +378,104 @@ describe('§3.6 SSE 消费（去重 / resync / 权威刷新）', () => {
     await h.controller.handleSseFrame(h.envelopeFrame('e3', 'session.changed', { resource_type: 'session', resource_id: '72057594037927936' }))
     await h.settle()
     expect(h.controller.currentState().phase).toBe('closed-rating')
+  })
+})
+
+/** CS-WGT-01：历史附件与图片体验（断链修复——附件不再只活在乐观态）。 */
+describe('历史附件投影与授权内容（CS-WGT-01）', () => {
+  it('历史消息 assets 进入消息状态；SSE message.appended 重读后附件仍在（id 去重不重复）', async () => {
+    const h = makeHarness({ history: HISTORY_WITH_ASSETS })
+    await reachChat(h)
+    const messages = h.controller.currentState().messages
+    expect(messages).toHaveLength(1)
+    const assets = messages[0]?.attachments
+    expect(assets).toHaveLength(2)
+    expect(assets?.[0]).toMatchObject({ assetId: '72057594037928101', name: '截图.png', mime: 'image/png', sizeBytes: 20480, state: 'linked' })
+    expect(assets?.[1]).toMatchObject({ assetId: '72057594037928102', name: '报表.pdf', state: 'linked' })
+    // SSE 补偿读（message.appended 触发权威刷新）：同 id 去重，附件仍在。
+    await h.controller.handleSseFrame(h.envelopeFrame('e9', 'message.appended'))
+    await h.settle()
+    const after = h.controller.currentState().messages
+    expect(after).toHaveLength(1)
+    expect(after[0]?.attachments).toHaveLength(2)
+  })
+
+  it('纯文本历史消息（assets=[]）attachments 为空数组；状态 JSON 无 token/secret', async () => {
+    const h = makeHarness({
+      history: [{ id: '72057594037927941', sender_type: 'contact', sender_contact_id: '72057594037928002', client_msg_id: 'cm-9', body: '你好', created_at: '2026-09-16T00:00:00Z', assets: [] }],
+    })
+    await reachChat(h)
+    const messages = h.controller.currentState().messages
+    expect(messages[0]?.attachments).toEqual([])
+    expect(JSON.stringify(h.controller.currentState())).not.toContain('visit-token-stub')
+  })
+
+  it('图片缩略自动水合：授权代理 GET /assets/:id/content（token 只走头；URL 零凭证）→ blob: URL', async () => {
+    const h = makeHarness({ history: HISTORY_WITH_ASSETS })
+    await reachChat(h)
+    await h.settle(10)
+    const contentCalls = h.env.requests.filter((r) => r.url.includes('/assets/72057594037928101/content'))
+    expect(contentCalls.length).toBeGreaterThanOrEqual(1)
+    const call = contentCalls[0]
+    expect(call?.url).toContain('installation_id=72057594037928001')
+    expect(call?.url.startsWith('/api/v1/cs/widget/sessions/72057594037927936/assets/')).toBe(true)
+    expect(call?.headers['x-cs-visit-token']).toBe('visit-token-stub-DO-NOT-PERSIST')
+    expect(call?.method).toBe('GET')
+    const image = h.controller.currentState().messages[0]?.attachments[0]
+    expect(image?.thumbnailUrl).toMatch(/^blob:stub-\d+$/)
+    expect(image?.content).toBe('ready')
+    // 非图片附件不预取（只有图片缩略走自动水合）
+    expect(h.env.requests.some((r) => r.url.includes('/assets/72057594037928102/content'))).toBe(false)
+    // 任何请求 URL 都不含 token 形状
+    for (const request of h.env.requests) expect(/token/i.test(request.url)).toBe(false)
+  })
+
+  it('非图片附件下载：openAttachment → 授权 fetch → io.downloadFile 收到 blob+文件名（不经裸 URL）', async () => {
+    const h = makeHarness({ history: HISTORY_WITH_ASSETS })
+    await reachChat(h)
+    await h.settle(10)
+    const message = h.controller.currentState().messages[0]
+    await h.controller.openAttachment(message?.key ?? '', '72057594037928102')
+    await h.settle(4)
+    expect(h.downloads).toHaveLength(1)
+    expect(h.downloads[0]?.fileName).toBe('报表.pdf')
+    expect(await h.downloads[0]?.blob.text()).toBe('asset-bytes')
+    const pdf = h.controller.currentState().messages[0]?.attachments[1]
+    expect(pdf?.content).toBe('ready')
+    expect(h.env.requests.some((r) => r.url.includes('/assets/72057594037928102/content'))).toBe(true)
+  })
+
+  it('图片大图预览：openAttachment（缩略已就绪）→ preview 持 blob: URL；closePreview 清空', async () => {
+    const h = makeHarness({ history: HISTORY_WITH_ASSETS })
+    await reachChat(h)
+    await h.settle(10)
+    const message = h.controller.currentState().messages[0]
+    await h.controller.openAttachment(message?.key ?? '', '72057594037928101')
+    const preview = h.controller.currentState().preview
+    expect(preview).not.toBeNull()
+    expect(preview?.objectUrl).toMatch(/^blob:stub-\d+$/)
+    expect(preview?.fileName).toBe('截图.png')
+    expect(preview?.mime).toBe('image/png')
+    h.controller.closePreview()
+    expect(h.controller.currentState().preview).toBeNull()
+  })
+
+  it('附件内容 404 → content=error（fail-closed 不崩溃、不伪成功）', async () => {
+    const h = makeHarness({ history: HISTORY_WITH_ASSETS, assetContentStatus: 404 })
+    await reachChat(h)
+    await h.settle(10)
+    const image = h.controller.currentState().messages[0]?.attachments[0]
+    expect(image?.content).toBe('error')
+    expect(image?.thumbnailUrl).toBeNull()
+    expect(h.controller.currentState().phase).toBe('chat')
+  })
+
+  it('退出清理：closeAndCleanup 释放全部 blob: URL', async () => {
+    const h = makeHarness({ history: HISTORY_WITH_ASSETS })
+    await reachChat(h)
+    await h.settle(10)
+    expect(h.objectUrls.length).toBeGreaterThanOrEqual(1)
+    h.controller.closeAndCleanup()
+    expect(h.revokedUrls).toEqual(h.objectUrls)
   })
 })

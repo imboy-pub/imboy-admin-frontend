@@ -51,7 +51,22 @@ export type WidgetSession = {
   version: number | null
 }
 
-/** 历史行（message_fields/0；读面是 body_cipher——D5 读面解密为后端缺口）。 */
+/**
+ * 历史附件投影（CS-WGT-01 / CSX-01 冻结契约）：`assets:[{id,mime,size_bytes,
+ * file_name,status}]` 五键白名单；纯文本 `assets=[]`（键存在且为空）。
+ * 投影**不含** object_key/upload_url/token——解析面同样按白名单取键，
+ * 多余键一概丢弃（fail-closed）。
+ */
+export type WidgetAsset = {
+  id: string
+  mime: string
+  sizeBytes: number | null
+  fileName: string | null
+  status: string
+}
+
+/** 历史行（message_fields/0 + CS-BE-01 assets 投影；读面是 body_cipher——
+ * D5 读面解密为后端缺口）。 */
 export type WidgetMessage = {
   id: string
   senderType: 'contact' | 'business_identity' | string
@@ -59,6 +74,7 @@ export type WidgetMessage = {
   clientMsgId: string | null
   body: string | null
   createdAt: string | null
+  assets: WidgetAsset[]
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -136,7 +152,28 @@ export function toSessionList(raw: unknown): WidgetSession[] {
   return list.map(toSession).filter((s): s is WidgetSession => s !== null)
 }
 
-/** 历史行投影（sender_type 决定角色；body_cipher 缺读面明文 = D5）。 */
+/** 单条 assets 元素投影：缺 id 一律丢弃（fail-closed，不猜测占位）。 */
+function toWidgetAsset(raw: unknown): WidgetAsset | null {
+  if (!isRecord(raw)) return null
+  const id = str(raw.id)
+  if (id.length === 0) return null
+  return {
+    id,
+    mime: str(raw.mime),
+    sizeBytes: optInt(raw.size_bytes),
+    fileName: optStr(raw.file_name),
+    status: str(raw.status),
+  }
+}
+
+/** assets 数组投影：非数组（含缺键的纯文本旧形）→ []，逐项过滤非法元素。 */
+function toWidgetAssets(raw: unknown): WidgetAsset[] {
+  if (!Array.isArray(raw)) return []
+  return raw.map(toWidgetAsset).filter((a): a is WidgetAsset => a !== null)
+}
+
+/** 历史行投影（sender_type 决定角色；body_cipher 缺读面明文 = D5；
+ * CS-WGT-01：assets 五键白名单解析，纯文本 assets=[]）。 */
 export function toWidgetMessage(raw: unknown): WidgetMessage | null {
   // P1-E2E-01 实证缺陷修复：单发响应载荷是 {message:{...}} 嵌套（后端 POST
   // /sessions/:id/messages 的真实合同），历史行是裸消息——两形兼容。
@@ -153,6 +190,7 @@ export function toWidgetMessage(raw: unknown): WidgetMessage | null {
     clientMsgId: optStr(row.client_msg_id),
     body: optStr(row.body),
     createdAt: optStr(row.created_at),
+    assets: toWidgetAssets(row.assets),
   }
 }
 

@@ -18,6 +18,13 @@ import { toWidgetMessage } from './contract'
 
 type RecordedRequest = { url: string; init: RequestInit }
 
+/** CSX-01 冻结契约：assets:[{id,mime,size_bytes,file_name,status}]（后端
+ * CS-BE-01 f342ac5b 实证形状；size_bytes 非 _id 整数，保持 number）。 */
+const HISTORY_ASSETS = [
+  { id: '72057594037928101', mime: 'image/png', size_bytes: 20480, file_name: '截图.png', status: 'active' },
+  { id: '72057594037928102', mime: 'application/pdf', size_bytes: 1048576, file_name: '报表.pdf', status: 'active' },
+]
+
 /** 与后端投影一致的最小合同响应（bootstrap_view / create_session / message row）。 */
 const BOOTSTRAP_PAYLOAD = {
   installation_id: '72057594037928001',
@@ -257,5 +264,105 @@ describe('toWidgetMessage 载荷形状', () => {
   it('两形之外（缺 id / 非对象）一律 null（fail-closed）', () => {
     expect(toWidgetMessage({ message: { sender_type: 'contact' } })).toBeNull()
     expect(toWidgetMessage(null)).toBeNull()
+  })
+})
+
+/** CS-WGT-01：历史附件投影（CSX-01 冻结契约）——刷新/SSE 补偿读回的附件
+ * 真源，此前 toWidgetMessage 无 assets 键导致附件只活在乐观态（断链）。 */
+describe('toWidgetMessage 历史附件投影（CS-WGT-01）', () => {
+  const IMAGE_ASSET = HISTORY_ASSETS[0] as { id: string; mime: string; size_bytes: number; file_name: string; status: string }
+
+  function rowWith(assets: unknown): unknown {
+    return {
+      id: '72057594037928010',
+      sender_type: 'business_identity',
+      sender_contact_id: null,
+      client_msg_id: null,
+      body: null,
+      created_at: '1789600000',
+      assets,
+    }
+  }
+
+  it('assets 五键白名单逐键解析（id/mime/size_bytes/file_name/status）', () => {
+    const message = toWidgetMessage(rowWith(HISTORY_ASSETS))
+    expect(message).not.toBeNull()
+    expect(message?.assets).toHaveLength(2)
+    const image = message?.assets[0]
+    expect(image?.id).toBe('72057594037928101')
+    expect(image?.mime).toBe('image/png')
+    expect(image?.sizeBytes).toBe(20480)
+    expect(image?.fileName).toBe('截图.png')
+    expect(image?.status).toBe('active')
+  })
+
+  it('纯文本消息：缺 assets 键与 assets=[] 都投影为 assets=[]（键语义=空列表）', () => {
+    const missing = toWidgetMessage(rowWith(undefined))
+    expect(missing?.assets).toEqual([])
+    const empty = toWidgetMessage(rowWith([]))
+    expect(empty?.assets).toEqual([])
+  })
+
+  it('非法元素 fail-closed 丢弃（缺 id/非对象）；非数组视为 []', () => {
+    const mixed = toWidgetMessage(rowWith([IMAGE_ASSET, { mime: 'image/png' }, 'junk', null]))
+    expect(mixed?.assets).toHaveLength(1)
+    expect(mixed?.assets[0]?.id).toBe(IMAGE_ASSET.id)
+    expect(toWidgetMessage(rowWith('not-array'))?.assets).toEqual([])
+  })
+
+  it('嵌套 {message:{assets}} 形（POST 回显绑定资产）同样解析', () => {
+    const nested = toWidgetMessage({ message: rowWith([IMAGE_ASSET]) })
+    expect(nested?.assets).toHaveLength(1)
+    expect(nested?.assets[0]?.fileName).toBe('截图.png')
+  })
+
+  it('投影输出绝不含 object_key/upload_url/token 形状（安全白名单）', () => {
+    const poisoned = toWidgetMessage(
+      rowWith([
+        {
+          ...IMAGE_ASSET,
+          object_key: 's3/tenant/secret-key.bin',
+          upload_url: 'https://storage.example/signed?token=abc',
+          token: 'must-not-project',
+        },
+      ])
+    )
+    const serialized = JSON.stringify(poisoned?.assets)
+    expect(serialized).not.toContain('object_key')
+    expect(serialized).not.toContain('upload_url')
+    expect(serialized).not.toContain('token')
+  })
+})
+
+/** CS-WGT-01：附件内容授权代理（visit token 只走 header；URL 零凭证）。 */
+describe('fetchAssetContent 授权内容代理（CS-WGT-01）', () => {
+  it('GET /sessions/:id/assets/:asset/content：token 走 x-cs-visit-token 头、URL 零凭证、credentials omit、返回原始 Response', async () => {
+    const { requests, fetchImpl } = makeFetchResponder(withBootstrap(() => ({})))
+    const api = new WidgetApiClient(fetchImpl)
+    await api.bootstrap({ publicWidgetId: '72057594037928001', subjectId: 's1' })
+    const response = await api.fetchAssetContent('72057594037927936', '72057594037928101', SCOPE)
+    const request = requests.at(-1)
+    expect(request?.url).toBe(
+      `/api/v1/cs/widget/sessions/72057594037927936/assets/72057594037928101/content?installation_id=${INSTALLATION_ID}`
+    )
+    expect(request?.init.method).toBe('GET')
+    expect((request?.init.headers as Record<string, string>)['x-cs-visit-token']).toBe('e2e-visit-token-stub')
+    expect(request?.init.credentials).toBe('omit')
+    expect(/token/i.test(String(request?.url))).toBe(false)
+    // 原始 Response 透传（二进制流由调用方消费；不经 JSON 信封面）
+    expect(response.ok).toBe(true)
+  })
+
+  it('非 2xx → WidgetApiError 且携带 HTTP status（fail-closed，不伪成功）', async () => {
+    const fetchImpl = (async () => ({ ok: false, status: 404 })) as unknown as typeof fetch
+    const api = new WidgetApiClient(fetchImpl)
+    await api.bootstrap({ publicWidgetId: '72057594037928001', subjectId: 's1' }).catch(() => undefined)
+    try {
+      await api.fetchAssetContent('72057594037927936', '72057594037928101', SCOPE)
+      throw new Error('should have thrown')
+    } catch (error) {
+      expect(error).toBeInstanceOf(WidgetApiError)
+      expect((error as WidgetApiError).status).toBe(404)
+    }
   })
 })

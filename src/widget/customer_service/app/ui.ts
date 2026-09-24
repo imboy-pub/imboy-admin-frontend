@@ -7,7 +7,7 @@
  *   评分按钮带「N 星」标签、连接状态用文字而非仅颜色；
  * - 窄屏（iframe 已由 loader 铺满视口）下布局纵向自适应。
  */
-import type { ChatMessage, ChatState } from './chatMachine'
+import type { AssetPreview, ChatMessage, ChatState, MessageAsset } from './chatMachine'
 import { isValidRatingScore } from './contract'
 
 export type ChatUiHandlers = {
@@ -19,6 +19,10 @@ export type ChatUiHandlers = {
   onRating: (_score: number) => void
   onClose: () => void
   onAttachment: (_file: File) => void
+  /** CS-WGT-01：点开历史附件（图片预览 / 非图片授权下载）。 */
+  onOpenAttachment: (_key: string, _assetId: string) => void
+  /** CS-WGT-01：关闭图片大图预览 overlay。 */
+  onClosePreview: () => void
 }
 
 export type ChatUi = {
@@ -76,6 +80,27 @@ const ATTACHMENT_STATE_LABELS: Record<NonNullable<ChatMessage['attachment']>['st
   sending: '发送中',
   linked: '已发送',
   failed: '发送失败',
+}
+
+/** CS-WGT-01：历史附件内容获取状态（文字承载，不只靠颜色）。 */
+const ASSET_CONTENT_LABELS: Record<MessageAsset['content'], string> = {
+  idle: '可下载',
+  loading: '获取中…',
+  ready: '已就绪',
+  error: '获取失败，点击重试',
+}
+
+/** 人类可读大小（B/KB/MB；sizeBytes 未知 → 空串）。 */
+function formatSize(sizeBytes: number | null): string {
+  if (sizeBytes === null || !Number.isFinite(sizeBytes) || sizeBytes < 0) return ''
+  if (sizeBytes < 1024) return `${sizeBytes} B`
+  if (sizeBytes < 1024 * 1024) return `${(sizeBytes / 1024).toFixed(1)} KB`
+  return `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function assetLabelSuffix(asset: MessageAsset): string {
+  const size = formatSize(asset.sizeBytes)
+  return size.length > 0 ? `${asset.name}（${size}）` : asset.name
 }
 
 export function createChatUi(root: HTMLElement, locale: string, handlers: ChatUiHandlers): ChatUi {
@@ -197,6 +222,41 @@ export function createChatUi(root: HTMLElement, locale: string, handlers: ChatUi
 .cs-att-state { color: #64748b; }
 .cs-msg[data-role="visitor"] .cs-att-state { color: rgba(255,255,255,.85); }
 .cs-att-state[data-state="failed"] { color: #fecaca; }
+.cs-asset {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px; margin-top: 6px;
+  border: 1px solid rgba(148,163,184,.5); border-radius: 10px; padding: 6px 10px;
+  background: transparent; cursor: pointer; font-size: 12px; max-width: 100%;
+  text-align: left; font-family: inherit; color: inherit;
+}
+.cs-msg[data-role="agent"] .cs-asset { background: #f8fafc; }
+.cs-asset:hover { border-color: var(--cs-primary, #2563eb); }
+.cs-asset:focus-visible { outline: 2px solid var(--cs-primary, #2563eb); outline-offset: 1px; }
+.cs-asset-name { font-weight: 600; word-break: break-all; }
+.cs-asset-state { color: #64748b; }
+.cs-msg[data-role="visitor"] .cs-asset-state { color: rgba(255,255,255,.85); }
+.cs-asset-state[data-state="error"] { color: #ef4444; }
+.cs-msg[data-role="visitor"] .cs-asset-state[data-state="error"] { color: #fecaca; }
+.cs-asset-thumb-img {
+  display: block; max-width: 180px; max-height: 135px; border-radius: 8px;
+  object-fit: cover; margin-top: 4px; border: 1px solid rgba(148,163,184,.4);
+}
+.cs-preview {
+  position: absolute; inset: 0; z-index: 30; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 10px; padding: 16px;
+  background: rgba(15,23,42,.88);
+}
+.cs-preview img {
+  max-width: 100%; max-height: calc(100% - 56px); object-fit: contain;
+  border-radius: 8px; background: #0f172a;
+}
+.cs-preview-close {
+  position: absolute; top: 10px; right: 10px; background: rgba(255,255,255,.12);
+  border: 0; color: #fff; font-size: 16px; cursor: pointer; width: 34px; height: 34px;
+  border-radius: 999px; line-height: 1;
+}
+.cs-preview-close:hover { background: rgba(255,255,255,.24); }
+.cs-preview-close:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
+.cs-preview-name { color: #e2e8f0; font-size: 12px; max-width: 80%; word-break: break-all; }
 `
   root.appendChild(style)
 
@@ -237,6 +297,14 @@ export function createChatUi(root: HTMLElement, locale: string, handlers: ChatUi
   banner.style.display = 'none'
   const composer = doc.createElement('div')
   composer.className = 'cs-composer'
+  // CS-WGT-01：图片大图预览 overlay（挂在 cs-body 内，覆盖消息区/composer）。
+  const previewOverlay = doc.createElement('div')
+  previewOverlay.className = 'cs-preview'
+  previewOverlay.setAttribute('role', 'dialog')
+  previewOverlay.setAttribute('aria-modal', 'true')
+  previewOverlay.setAttribute('data-testid', 'cs-preview')
+  previewOverlay.style.display = 'none'
+  previewOverlay.tabIndex = -1
   const attachBtn = doc.createElement('button')
   attachBtn.type = 'button'
   attachBtn.className = 'cs-attach'
@@ -278,8 +346,15 @@ export function createChatUi(root: HTMLElement, locale: string, handlers: ChatUi
   body.appendChild(log)
   body.appendChild(banner)
   body.appendChild(composer)
+  body.appendChild(previewOverlay)
   root.appendChild(header)
   root.appendChild(body)
+
+  // CS-WGT-01：overlay 打开期间 Esc 关闭（打开时聚焦 overlay 以承接键盘）。
+  let currentPreview: AssetPreview | null = null
+  doc.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && currentPreview !== null) handlers.onClosePreview()
+  })
 
   function submitInput(): void {
     const value = input.value.trim()
@@ -320,6 +395,55 @@ export function createChatUi(root: HTMLElement, locale: string, handlers: ChatUi
     return wrap
   }
 
+  /** CS-WGT-01：历史附件节点——图片=缩略（blob: URL）可点开大图；非图片=
+   * 名称/大小/下载状态按钮（下载同样经授权 fetch，不经裸 URL）。 */
+  function assetNode(message: ChatMessage, asset: MessageAsset): HTMLElement {
+    const button = doc.createElement('button')
+    button.type = 'button'
+    button.className = 'cs-asset'
+    const isImage = asset.mime.toLowerCase().startsWith('image/')
+    button.setAttribute('data-testid', isImage ? 'cs-asset-thumb' : 'cs-asset-download')
+    const suffix = assetLabelSuffix(asset)
+    if (asset.state !== 'linked') {
+      // 防御态：投影非 active（后端不投影，仅兜底）——不可点开内容。
+      button.disabled = true
+      button.setAttribute('aria-label', `附件不可用 ${suffix}`)
+    } else {
+      button.setAttribute('aria-label', isImage ? `查看图片 ${suffix}` : `下载附件 ${suffix}`)
+    }
+    const name = doc.createElement('span')
+    name.className = 'cs-asset-name'
+    name.textContent = `${isImage ? '🖼' : '📄'} ${asset.name}`
+    button.appendChild(name)
+    const stateEl = doc.createElement('span')
+    stateEl.className = 'cs-asset-state'
+    stateEl.setAttribute('data-testid', 'cs-asset-state')
+    stateEl.setAttribute('data-state', asset.content)
+    if (isImage) {
+      stateEl.textContent =
+        asset.thumbnailUrl !== null
+          ? ''
+          : asset.content === 'error'
+            ? '图片加载失败，点击重试'
+            : asset.content === 'loading'
+              ? '图片加载中…'
+              : '图片附件'
+    } else {
+      stateEl.textContent = ASSET_CONTENT_LABELS[asset.content]
+    }
+    if (stateEl.textContent.length > 0) button.appendChild(stateEl)
+    if (asset.thumbnailUrl !== null) {
+      const img = doc.createElement('img')
+      img.className = 'cs-asset-thumb-img'
+      // blob: URL 是内存对象引用（授权 fetch 的字节），路径零凭证。
+      img.src = asset.thumbnailUrl
+      img.alt = asset.name
+      button.appendChild(img)
+    }
+    button.addEventListener('click', () => handlers.onOpenAttachment(message.key, asset.assetId))
+    return button
+  }
+
   function renderLog(messages: ChatMessage[], scrollToEnd: boolean): void {
     const frag = doc.createDocumentFragment()
     for (const message of messages) {
@@ -347,6 +471,10 @@ export function createChatUi(root: HTMLElement, locale: string, handlers: ChatUi
         if (message.body.length > 0) bubble.appendChild(doc.createElement('br'))
         bubble.appendChild(attachment)
       }
+      for (const asset of message.attachments) {
+        if (message.body.length > 0 || attachment !== null) bubble.appendChild(doc.createElement('br'))
+        bubble.appendChild(assetNode(message, asset))
+      }
       retryAfter()
       frag.appendChild(bubble)
     }
@@ -354,11 +482,39 @@ export function createChatUi(root: HTMLElement, locale: string, handlers: ChatUi
     if (scrollToEnd) log.scrollTop = log.scrollHeight
   }
 
+  /** 图片大图预览 overlay（打开时聚焦 overlay 承接键盘；Esc 关闭）。 */
+  function renderPreview(preview: AssetPreview | null): void {
+    currentPreview = preview
+    if (preview === null) {
+      previewOverlay.style.display = 'none'
+      previewOverlay.replaceChildren()
+      return
+    }
+    const close = doc.createElement('button')
+    close.type = 'button'
+    close.className = 'cs-preview-close'
+    close.setAttribute('data-testid', 'cs-preview-close')
+    close.setAttribute('aria-label', '关闭图片预览')
+    close.textContent = '×'
+    close.addEventListener('click', () => handlers.onClosePreview())
+    const img = doc.createElement('img')
+    img.src = preview.objectUrl
+    img.alt = preview.fileName
+    const name = doc.createElement('span')
+    name.className = 'cs-preview-name'
+    name.textContent = preview.fileName
+    previewOverlay.setAttribute('aria-label', `图片预览 ${preview.fileName}`)
+    previewOverlay.replaceChildren(close, img, name)
+    previewOverlay.style.display = 'flex'
+    previewOverlay.focus()
+  }
+
   function render(state: ChatState): void {
     title.textContent = state.brand.displayName
     if (state.brand.primaryColor !== null) root.style.setProperty('--cs-primary', state.brand.primaryColor)
     conn.textContent = state.phase === 'chat' || state.phase === 'closed-rating' ? CONNECTION_LABELS[state.connection] : ''
     conn.setAttribute('data-state', state.connection)
+    renderPreview(state.preview)
     if (state.phase === 'chat') {
       showChat(state)
       return

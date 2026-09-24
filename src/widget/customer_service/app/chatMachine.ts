@@ -45,6 +45,33 @@ export type ChatAttachment = {
   assetId: string | null
 }
 
+/**
+ * 历史/服务端投影附件（CS-WGT-01，来源 = 历史消息 assets 五键白名单）。
+ * 内容一律经 visit-token 授权代理按需拉取；thumbnailUrl 只可能是内存
+ * blob: URL（路径零凭证，无 token/object key 可泄）。
+ */
+export type MessageAsset = {
+  assetId: string
+  name: string
+  mime: string
+  sizeBytes: number | null
+  /** 后端只投影 active；防御性映射非 active → failed（不可点开内容）。 */
+  state: 'linked' | 'failed'
+  /** 图片缩略 blob: URL（授权 fetch 后填充；未加载为 null）。 */
+  thumbnailUrl: string | null
+  /** 内容获取状态（图片缩略与非图片下载共用）。 */
+  content: 'idle' | 'loading' | 'ready' | 'error'
+}
+
+/** 图片大图预览（overlay；objectUrl 为内存 blob: URL）。 */
+export type AssetPreview = {
+  key: string
+  assetId: string
+  objectUrl: string
+  mime: string
+  fileName: string
+}
+
 export type ChatMessage = {
   key: string
   id: string | null
@@ -53,6 +80,8 @@ export type ChatMessage = {
   body: string
   status: 'pending' | 'sent' | 'failed'
   attachment: ChatAttachment | null
+  /** 服务端投影附件（历史刷新 / SSE 补偿读回；刷新后仍在）。 */
+  attachments: MessageAsset[]
 }
 
 export type ChatState = {
@@ -64,6 +93,7 @@ export type ChatState = {
   connection: ChatConnectionState
   ratingScore: number | null
   errorMessage: string | null
+  preview: AssetPreview | null
 }
 
 export type ChatEvent =
@@ -79,6 +109,11 @@ export type ChatEvent =
   | { type: 'message_failed'; key: string }
   | { type: 'attachment_progress'; key: string; state: AttachmentUiState; assetId?: string | null }
   | { type: 'message_received'; message: ChatMessage }
+  | { type: 'asset_content_started'; key: string; assetId: string }
+  | { type: 'asset_content_ready'; key: string; assetId: string; objectUrl: string | null }
+  | { type: 'asset_content_failed'; key: string; assetId: string }
+  | { type: 'asset_preview_opened'; preview: AssetPreview }
+  | { type: 'asset_preview_closed' }
   | { type: 'session_status'; status: string }
   | { type: 'connection'; state: ChatConnectionState }
   | { type: 'rating_submitted'; score: number }
@@ -95,6 +130,7 @@ export function initialChatState(brand: WidgetBrand = { displayName: '在线客�
     connection: 'connecting',
     ratingScore: null,
     errorMessage: null,
+    preview: null,
   }
 }
 
@@ -126,6 +162,31 @@ export function mergeMessage(list: ChatMessage[], incoming: ChatMessage): ChatMe
 
 function mapMessageByKey(list: ChatMessage[], key: string, patch: Partial<ChatMessage>): ChatMessage[] {
   return list.map((m) => (m.key === key ? { ...m, ...patch } : m))
+}
+
+/** 定位 (消息 key, assetId) 双键并打补丁（附件内容获取状态机）；
+ * patch 可为函数（拿到当前 asset 计算补丁，用于条件保留旧值）。 */
+function mapAssetByKey(
+  state: ChatState,
+  key: string,
+  assetId: string,
+  patch: Partial<MessageAsset> | ((_asset: MessageAsset) => Partial<MessageAsset>)
+): ChatState {
+  let changed = false
+  const messages = state.messages.map((message) => {
+    if (message.key !== key) return message
+    const hit = message.attachments.find((asset) => asset.assetId === assetId)
+    if (hit === undefined) return message
+    const resolved = typeof patch === 'function' ? patch(hit) : patch
+    changed = true
+    return {
+      ...message,
+      attachments: message.attachments.map((asset) =>
+        asset.assetId === assetId ? { ...asset, ...resolved } : asset
+      ),
+    }
+  })
+  return changed ? { ...state, messages } : state
 }
 
 export function reduceChat(state: ChatState, event: ChatEvent): ChatState {
@@ -166,6 +227,7 @@ export function reduceChat(state: ChatState, event: ChatEvent): ChatState {
           body: event.body,
           status: 'pending',
           attachment: event.attachment ?? null,
+          attachments: [],
         }),
       }
     case 'message_confirmed':
@@ -190,6 +252,20 @@ export function reduceChat(state: ChatState, event: ChatEvent): ChatState {
       }
     case 'message_received':
       return { ...state, messages: mergeMessage(state.messages, event.message) }
+    case 'asset_content_started':
+      return mapAssetByKey(state, event.key, event.assetId, { content: 'loading' })
+    case 'asset_content_ready':
+      // objectUrl=null（非图片下载成功）只翻状态；图片缩略只在有新 URL 时覆盖。
+      return mapAssetByKey(state, event.key, event.assetId, (asset) => ({
+        content: 'ready' as const,
+        thumbnailUrl: event.objectUrl !== null ? event.objectUrl : asset.thumbnailUrl,
+      }))
+    case 'asset_content_failed':
+      return mapAssetByKey(state, event.key, event.assetId, { content: 'error' })
+    case 'asset_preview_opened':
+      return { ...state, preview: event.preview }
+    case 'asset_preview_closed':
+      return state.preview === null ? state : { ...state, preview: null }
     case 'session_status':
       if (event.status !== 'closed' || state.phase === 'rated') return state
       return { ...state, phase: 'closed-rating' }

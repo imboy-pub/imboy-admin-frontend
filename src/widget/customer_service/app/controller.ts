@@ -13,7 +13,7 @@
  * - 附件：§3.7 流水线（hash/presign/裸 PUT/confirm/asset_ids），重试复用
  *   同一 client_msg_id。
  */
-import type { ChatMessage, ChatState } from './chatMachine'
+import type { ChatMessage, ChatState, MessageAsset } from './chatMachine'
 import { initialChatState, reduceChat } from './chatMachine'
 import {
   buildSsePath,
@@ -51,6 +51,9 @@ export type HostContext = {
 export type ControllerIo = {
   render: (_state: ChatState) => void
   postToHost: (_message: Record<string, unknown>) => void
+  /** CS-WGT-01：非图片附件下载出口（浏览器侧 anchor download；测试注入替身）。
+   * 缺省为 no-op（宿主环境无 DOM 出口时静默跳过，不伪造成功）。 */
+  downloadFile?: (_blob: Blob, _fileName: string) => void
 }
 
 export type StreamHandle = { start: () => void; stop: () => void }
@@ -63,6 +66,11 @@ export type ControllerDeps = {
   io: ControllerIo
   /** 裸 PUT 通道（附件字节直传；测试注入替换）。 */
   fetchImpl: (_input: string, _init?: RequestInit) => Promise<Response>
+  /** CS-WGT-01：blob → 内存对象 URL（缩略/预览用；测试注入，jsdom 无实现）。
+   * 只产生 blob: URL——路径零凭证，token/对象 key 绝不经此通道外泄。 */
+  createObjectUrl?: (_blob: Blob) => string
+  /** 退出清理时释放对象 URL（与 createObjectUrl 配对；测试注入）。 */
+  revokeObjectUrl?: (_url: string) => void
   /** 测试注入；缺省用 WidgetEventStream。 */
   streamFactory?: (_opts: {
     path: string
@@ -90,6 +98,8 @@ export function createWidgetController(deps: ControllerDeps) {
   let subjectId = ''
   const deduper = new SseEventIdDeduper()
   const attachmentFiles = new Map<string, Blob>()
+  /** CS-WGT-01：本会话创建过的 blob: URL（退出时统一 revoke，防累积泄漏）。 */
+  const objectUrls = new Set<string>()
 
   function dispatch(event: Parameters<typeof reduceChat>[1]): void {
     state = reduceChat(state, event)
@@ -233,6 +243,17 @@ export function createWidgetController(deps: ControllerDeps) {
       body: message.body ?? CIPHER_PLACEHOLDER,
       status: 'sent',
       attachment: null,
+      // CS-WGT-01：历史 assets 投影（五键白名单已由 contract 解析）。
+      // 后端只投影 active；防御性把非 active 映射为 failed（不给内容入口）。
+      attachments: message.assets.map((asset): MessageAsset => ({
+        assetId: asset.id,
+        name: asset.fileName ?? `附件 ${asset.id}`,
+        mime: asset.mime,
+        sizeBytes: asset.sizeBytes,
+        state: asset.status === 'active' ? 'linked' : 'failed',
+        thumbnailUrl: null,
+        content: 'idle',
+      })),
     }
   }
 
@@ -252,6 +273,8 @@ export function createWidgetController(deps: ControllerDeps) {
         unread += agentDelta
         reportUnread()
       }
+      // CS-WGT-01：历史图片附件缩略（授权代理拉取 → 内存 blob: URL）。
+      await hydrateImageThumbnails()
     } catch (error) {
       if (isRevoke(error)) onRevoke()
       throw error
@@ -342,6 +365,128 @@ export function createWidgetController(deps: ControllerDeps) {
     } catch (error) {
       if (isRevoke(error)) onRevoke()
     }
+  }
+
+  // -------------------------------------------------------------------------
+  // CS-WGT-01：历史附件内容（授权代理拉取 → 内存 blob: URL）
+  // -------------------------------------------------------------------------
+
+  /** 图片 MIME 判定（image/*；SVG 经 <img> 渲染脚本不执行，预览面安全）。 */
+  function isImageMime(mime: string): boolean {
+    return mime.toLowerCase().startsWith('image/')
+  }
+
+  /** blob → 内存对象 URL（jsdom 无实现 → 测试注入；运行期缺实现返回 null
+   * 并把附件标为 error——绝不退化为裸 URL/存储侧直链）。 */
+  function createObjectUrlSafe(blob: Blob): string | null {
+    const create = deps.createObjectUrl
+    if (typeof create === 'function') return create(blob)
+    if (typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function') {
+      return URL.createObjectURL(blob)
+    }
+    return null
+  }
+
+  function revokeTrackedObjectUrls(): void {
+    const revoke = deps.revokeObjectUrl
+    for (const url of objectUrls) {
+      if (typeof revoke === 'function') revoke(url)
+      else if (typeof URL !== 'undefined' && typeof URL.revokeObjectURL === 'function') {
+        URL.revokeObjectURL(url)
+      }
+    }
+    objectUrls.clear()
+  }
+
+  /** 授权拉取单个附件字节（visit token 只走 header；失败原样抛出）。 */
+  async function fetchAssetBlob(sessionId: string, assetId: string): Promise<Blob> {
+    if (scope === null) throw new WidgetApiError('未完成 bootstrap', 428)
+    const response = await deps.api.fetchAssetContent(sessionId, assetId, scope)
+    return await response.blob()
+  }
+
+  /** 历史图片缩略：对 idle 的 linked 图片附件逐个授权拉取并填 blob: URL。
+   * started 同步派发（content → loading）防并发重复拉取。 */
+  async function hydrateImageThumbnails(): Promise<void> {
+    if (state.session === null) return
+    const sessionId = state.session.id
+    const pending: Array<{ key: string; assetId: string }> = []
+    for (const message of state.messages) {
+      for (const asset of message.attachments) {
+        if (asset.state !== 'linked' || asset.content !== 'idle' || !isImageMime(asset.mime)) continue
+        dispatch({ type: 'asset_content_started', key: message.key, assetId: asset.assetId })
+        pending.push({ key: message.key, assetId: asset.assetId })
+      }
+    }
+    for (const item of pending) {
+      try {
+        const blob = await fetchAssetBlob(sessionId, item.assetId)
+        const objectUrl = createObjectUrlSafe(blob)
+        if (objectUrl === null) {
+          dispatch({ type: 'asset_content_failed', key: item.key, assetId: item.assetId })
+          continue
+        }
+        objectUrls.add(objectUrl)
+        dispatch({ type: 'asset_content_ready', key: item.key, assetId: item.assetId, objectUrl })
+      } catch (error) {
+        if (isRevoke(error)) {
+          onRevoke()
+          return
+        }
+        dispatch({ type: 'asset_content_failed', key: item.key, assetId: item.assetId })
+      }
+    }
+  }
+
+  /** 用户点开附件：图片 → 大图预览 overlay（blob: URL）；非图片 → 经授权
+   * fetch 下载（io.downloadFile，anchor download 承载，不经裸 URL）。 */
+  async function openAttachment(key: string, assetId: string): Promise<void> {
+    const message = state.messages.find((m) => m.key === key)
+    const asset = message?.attachments.find((a) => a.assetId === assetId)
+    if (message === undefined || asset === undefined || asset.state !== 'linked') return
+    if (state.session === null) return
+    // 图片：缩略已就绪 → 直接预览；否则现场授权拉取一次。
+    if (isImageMime(asset.mime)) {
+      let objectUrl = asset.thumbnailUrl
+      if (objectUrl === null) {
+        if (asset.content === 'loading') return
+        dispatch({ type: 'asset_content_started', key, assetId })
+        try {
+          const blob = await fetchAssetBlob(state.session.id, assetId)
+          objectUrl = createObjectUrlSafe(blob)
+        } catch (error) {
+          if (isRevoke(error)) onRevoke()
+          dispatch({ type: 'asset_content_failed', key, assetId })
+          return
+        }
+        if (objectUrl === null) {
+          dispatch({ type: 'asset_content_failed', key, assetId })
+          return
+        }
+        objectUrls.add(objectUrl)
+        dispatch({ type: 'asset_content_ready', key, assetId, objectUrl })
+      }
+      dispatch({
+        type: 'asset_preview_opened',
+        preview: { key, assetId, objectUrl, mime: asset.mime, fileName: asset.name },
+      })
+      return
+    }
+    // 非图片：下载（可重试；loading 中忽略重复点击）。
+    if (asset.content === 'loading') return
+    dispatch({ type: 'asset_content_started', key, assetId })
+    try {
+      const blob = await fetchAssetBlob(state.session.id, assetId)
+      deps.io.downloadFile?.(blob, asset.name)
+      dispatch({ type: 'asset_content_ready', key, assetId, objectUrl: null })
+    } catch (error) {
+      if (isRevoke(error)) onRevoke()
+      dispatch({ type: 'asset_content_failed', key, assetId })
+    }
+  }
+
+  function closePreview(): void {
+    dispatch({ type: 'asset_preview_closed' })
   }
 
   // -------------------------------------------------------------------------
@@ -489,10 +634,11 @@ export function createWidgetController(deps: ControllerDeps) {
     reportUnread()
   }
 
-  /** 退出（关闭聊天）：visit 恢复状态清理（关闭后不可恢复，A05）。 */
+  /** 退出（关闭聊天）：visit 恢复状态清理（关闭后不可恢复，A05）+ blob URL 释放。 */
   function closeAndCleanup(): void {
     if (deps.storage !== null && visitScope !== null) clearVisitSubject(deps.storage, visitScope)
     attachmentFiles.clear()
+    revokeTrackedObjectUrls()
     postToHost({ source: 'imboy-cs-widget', type: 'close' })
   }
 
@@ -521,6 +667,8 @@ export function createWidgetController(deps: ControllerDeps) {
     retryMessage,
     submitRating,
     handleSseFrame,
+    openAttachment,
+    closePreview,
     closeAndCleanup,
     setPanelOpen,
     stopStream,

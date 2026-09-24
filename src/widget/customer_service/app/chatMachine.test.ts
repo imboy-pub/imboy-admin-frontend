@@ -9,7 +9,7 @@
  * - rating：仅 closed 后开放、1..5、提交后幂等（重复事件不改变状态）。
  */
 import { describe, expect, it } from 'bun:test'
-import { initialChatState, mergeMessage, reduceChat, type ChatMessage, type ChatState } from './chatMachine'
+import { initialChatState, mergeMessage, reduceChat, type ChatMessage, type ChatState, type MessageAsset } from './chatMachine'
 
 const BRAND = { displayName: 'E2E 商城客服', primaryColor: '#2563eb' }
 const NOTICE_ACCEPTED = { version: 'v1', state: 'accepted' as const }
@@ -148,5 +148,77 @@ describe('mergeMessage（纯去重）', () => {
     expect(replaced[0]?.body).toBe('a2')
     const appended = mergeMessage(base, { key: 'srv-2', id: '2', clientMsgId: null, role: 'visitor', body: 'b', status: 'sent' })
     expect(appended).toHaveLength(2)
+  })
+})
+
+describe('历史附件与图片预览（CS-WGT-01）', () => {
+  const ASSET: MessageAsset = {
+    assetId: '72057594037928101',
+    name: '截图.png',
+    mime: 'image/png',
+    sizeBytes: 20480,
+    state: 'linked',
+    thumbnailUrl: null,
+    content: 'idle',
+  }
+
+  function chatWithAssetMessage(): ChatState {
+    let state = stateAfterBootstrap(NOTICE_ACCEPTED)
+    state = reduceChat(state, { type: 'session_created', session: SESSION })
+    return reduceChat(state, {
+      type: 'message_received',
+      message: {
+        key: 'srv-9',
+        id: '9',
+        clientMsgId: null,
+        role: 'agent',
+        body: '请看截图',
+        status: 'sent',
+        attachment: null,
+        attachments: [ASSET],
+      },
+    })
+  }
+
+  it('服务端消息携带 attachments 进入状态；乐观消息 attachments=[]（互不串扰）', () => {
+    const state = chatWithAssetMessage()
+    expect(state.messages[0]?.attachments).toHaveLength(1)
+    expect(state.messages[0]?.attachments[0]?.assetId).toBe('72057594037928101')
+    let optimistic = reduceChat(state, { type: 'message_optimistic', key: 'local-1', clientMsgId: 'cm-1', body: 'hi' })
+    optimistic = reduceChat(optimistic, { type: 'message_optimistic', key: 'local-1', clientMsgId: 'cm-1', body: 'hi', attachment: { name: 'a.pdf', mime: 'application/pdf', sizeBytes: 1, state: 'linked', assetId: 'x' } })
+    const local = optimistic.messages.find((m) => m.key === 'local-1')
+    expect(local?.attachments).toEqual([])
+    expect(local?.attachment?.name).toBe('a.pdf')
+  })
+
+  it('附件内容状态机：started → ready（缩略 blob: URL）/ failed；blob URL 不回退', () => {
+    let state = chatWithAssetMessage()
+    state = reduceChat(state, { type: 'asset_content_started', key: 'srv-9', assetId: '72057594037928101' })
+    expect(state.messages[0]?.attachments[0]?.content).toBe('loading')
+    state = reduceChat(state, { type: 'asset_content_ready', key: 'srv-9', assetId: '72057594037928101', objectUrl: 'blob:stub-1' })
+    expect(state.messages[0]?.attachments[0]?.content).toBe('ready')
+    expect(state.messages[0]?.attachments[0]?.thumbnailUrl).toBe('blob:stub-1')
+    // ready(null)（非图片下载成功）不动缩略
+    state = reduceChat(state, { type: 'asset_content_ready', key: 'srv-9', assetId: '72057594037928101', objectUrl: null })
+    expect(state.messages[0]?.attachments[0]?.thumbnailUrl).toBe('blob:stub-1')
+    state = reduceChat(state, { type: 'asset_content_failed', key: 'srv-9', assetId: '72057594037928101' })
+    expect(state.messages[0]?.attachments[0]?.content).toBe('error')
+    // 未知 (key, assetId) 双键不命中 → 原样
+    const before = state.messages
+    const untouched = reduceChat(state, { type: 'asset_content_started', key: 'srv-404', assetId: 'nope' })
+    expect(untouched.messages).toBe(before)
+  })
+
+  it('图片预览：opened 持 blob: URL；closed 清空；retry 复位 preview=null', () => {
+    let state = chatWithAssetMessage()
+    const preview = { key: 'srv-9', assetId: '72057594037928101', objectUrl: 'blob:stub-1', mime: 'image/png', fileName: '截图.png' }
+    state = reduceChat(state, { type: 'asset_preview_opened', preview })
+    expect(state.preview).toEqual(preview)
+    state = reduceChat(state, { type: 'asset_preview_closed' })
+    expect(state.preview).toBeNull()
+    state = reduceChat(state, { type: 'asset_preview_opened', preview })
+    state = reduceChat(state, { type: 'retry' })
+    expect(state.preview).toBeNull()
+    expect(state.messages).toHaveLength(0)
   })
 })
