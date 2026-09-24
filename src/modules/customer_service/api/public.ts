@@ -25,11 +25,13 @@ import {
   toCsSeatList,
   toCsSession,
   toCsSessionListPage,
+  toPlatformSeatListPage,
   type CsScopeParams,
   type CsSeat,
   type CsSession,
   type CsSessionListPage,
   type CsSessionStatusFilter,
+  type PlatformSeatListPage,
 } from './pureFunctions'
 
 const CS_ORGS_BASE = '/customer-service/organizations'
@@ -51,6 +53,42 @@ export async function getCsSeats(scope: CsScopeParams): Promise<CsSeat[]> {
     { params: { workspace_id: requireNonEmptyId(scope.workspaceId, 'workspace_id') } }
   )
   return toCsSeatList(requireApiPayload(response.data, 'GET cs seats'))
+}
+
+export type PlatformSeatListParams = {
+  /** 可选：收窄到该企业；缺失 = 跨企业全局（后端 org_source=param_optional）。 */
+  organizationId?: EntityId | null
+  afterId?: EntityId | null
+  limit?: number
+}
+
+/**
+ * GET 平台运营面坐席分页（跨企业）：/api/adm/customer-service/seats。
+ * 键集分页（after_id + limit）；含已停用坐席（运营面可恢复）；
+ * workspace_id 不需要——坐席是 Org 级事实。
+ */
+export async function getPlatformSeats(params: PlatformSeatListParams): Promise<PlatformSeatListPage> {
+  const query: Record<string, string | number> = {}
+  const organizationId =
+    typeof params.organizationId === 'string' ? params.organizationId.trim() : ''
+  if (organizationId.length > 0) {
+    query.organization_id = organizationId
+  }
+  const afterId = typeof params.afterId === 'string' ? params.afterId.trim() : ''
+  if (afterId.length > 0) {
+    query.after_id = afterId
+  }
+  if (typeof params.limit === 'number' && Number.isSafeInteger(params.limit) && params.limit > 0) {
+    // 客户端防呆钳制到 1..200（服务端越界仍 422）。
+    query.limit = Math.min(params.limit, 200)
+  }
+  const response = await client.get<ApiResponse<unknown>>('/customer-service/seats', {
+    params: query,
+  })
+  return toPlatformSeatListPage(
+    requireApiPayload(response.data, 'GET platform seats'),
+    params.limit ?? 50
+  )
 }
 
 /** POST 停用坐席（body: {reason?}；workspace_id 必填走正文）。 */

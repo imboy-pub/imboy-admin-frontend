@@ -23,6 +23,8 @@ import {
   toCsSeat,
   toCsSeatList,
   toCsSession,
+  toPlatformSeatListPage,
+  toPlatformSeatRow,
   type CsSeat,
 } from './pureFunctions'
 import {
@@ -280,5 +282,53 @@ describe('customer_service sensitive key guard (A05)', () => {
       version: 1,
     })
     expect(JSON.stringify(seatView)).not.toMatch(/secret|cipher|hmac|token|hash/i)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// 平台运营面坐席分页（跨企业）：行投影 fail-closed + 整页 next_after_id 回退
+// ---------------------------------------------------------------------------
+describe('platform seat list page', () => {
+  const row = {
+    organization_id: '900000000000001',
+    organization_name: 'IMBoy',
+    display_name: 'imboy 坐席',
+    business_identity_id: '900000000000002',
+    function_key: 'customer_service',
+    enabled: false,
+    max_concurrent: 3,
+    active_count: 1,
+    workspace_id: '900000000000003',
+  }
+
+  it('行投影保留白名单字段并含企业名/显示名/默认工作区', () => {
+    const view = toPlatformSeatRow(row)
+    expect(view).not.toBeNull()
+    expect(view?.organization_name).toBe('IMBoy')
+    expect(view?.display_name).toBe('imboy 坐席')
+    expect(view?.business_identity_id).toBe('900000000000002')
+    expect(view?.workspace_id).toBe('900000000000003')
+    expect(view?.enabled).toBe(false)
+  })
+
+  it('缺 organization_id / business_identity_id 的行被丢弃（fail-closed）', () => {
+    expect(toPlatformSeatRow({ ...row, organization_id: '' })).toBeNull()
+    expect(toPlatformSeatRow({ ...row, business_identity_id: null })).toBeNull()
+    expect(toPlatformSeatRow(null)).toBeNull()
+  })
+
+  it('显式 next_after_id 优先；缺失且满页时回退页尾 business_identity_id', () => {
+    const page = { seats: [row, { ...row, business_identity_id: '900000000000009' }], next_after_id: '900000000000010' }
+    expect(toPlatformSeatListPage(page, 2).next_after_id).toBe('900000000000010')
+    const fullPage = { seats: [row, { ...row, business_identity_id: '900000000000009' }], next_after_id: null }
+    expect(toPlatformSeatListPage(fullPage, 2).next_after_id).toBe('900000000000009')
+    const shortPage = { seats: [row], next_after_id: null }
+    expect(toPlatformSeatListPage(shortPage, 50).next_after_id).toBeNull()
+  })
+
+  it('TSID 全程 string，64-bit 大数不丢精度（A03）', () => {
+    const bigId = '114022088375011328'
+    const view = toPlatformSeatRow({ ...row, organization_id: bigId })
+    expect(view?.organization_id).toBe(bigId)
   })
 })

@@ -442,3 +442,73 @@ export function listFailureMessage(failure: CsListFailure): string {
       return '加载失败，请稍后重试'
   }
 }
+
+// ===========================================================================
+// 平台运营面坐席分页（跨企业；GET /api/adm/customer-service/seats）
+//   查询：organization_id（可选过滤，缺失=全局）/ after_id / limit（1..200 缺省 50）
+//   响应：{ seats: [...], next_after_id: string|null }
+// 投影白名单（对齐后端 platform_projection，含已停用坐席）：
+//   organization_id, organization_name, display_name, business_identity_id,
+//   function_key, enabled, max_concurrent, active_count, workspace_id
+// ===========================================================================
+
+/** 平台坐席行（跨企业视图；organization_name 展示名，workspace_id 为默认接待工作区）。 */
+export type PlatformSeatRow = {
+  organization_id: EntityId
+  organization_name: string
+  display_name: string | null
+  business_identity_id: EntityId
+  function_key: string
+  enabled: boolean
+  max_concurrent: number
+  active_count: number
+  workspace_id: EntityId | null
+}
+
+/** 原始行 → 平台坐席视图；缺 organization/business_identity 返回 null（fail-closed）。 */
+export function toPlatformSeatRow(raw: unknown): PlatformSeatRow | null {
+  if (!raw || typeof raw !== 'object') return null
+  const row = raw as Record<string, unknown>
+  const organizationId = toIdOrNull(row.organization_id)
+  const identityId = toIdOrNull(row.business_identity_id)
+  if (organizationId === null || identityId === null) return null
+  return {
+    organization_id: organizationId,
+    organization_name:
+      typeof row.organization_name === 'string' && row.organization_name.length > 0
+        ? row.organization_name
+        : '',
+    display_name:
+      typeof row.display_name === 'string' && row.display_name.length > 0 ? row.display_name : null,
+    business_identity_id: identityId,
+    function_key: typeof row.function_key === 'string' ? row.function_key : '',
+    enabled: toBool(row.enabled),
+    max_concurrent: toOptionalInt(row.max_concurrent) ?? 0,
+    active_count: toOptionalInt(row.active_count) ?? 0,
+    workspace_id: toIdOrNull(row.workspace_id),
+  }
+}
+
+export type PlatformSeatListPage = {
+  seats: PlatformSeatRow[]
+  next_after_id: EntityId | null
+}
+
+/**
+ * 平台坐席响应整包解析。next_after_id 优先取响应值；响应未携带且页满 limit
+ * 时回退页尾 business_identity_id；不足一页视为没有更多。
+ */
+export function toPlatformSeatListPage(raw: unknown, fallbackLimit: number): PlatformSeatListPage {
+  if (!raw || typeof raw !== 'object') return { seats: [], next_after_id: null }
+  const payload = raw as Record<string, unknown>
+  const seats = Array.isArray(payload.seats)
+    ? payload.seats.map(toPlatformSeatRow).filter((row): row is PlatformSeatRow => row !== null)
+    : []
+  const explicit = toIdOrNull(payload.next_after_id)
+  if (explicit !== null) return { seats, next_after_id: explicit }
+  const limit = Number.isFinite(fallbackLimit) && fallbackLimit > 0 ? Math.floor(fallbackLimit) : 0
+  if (limit > 0 && seats.length >= limit && seats.length > 0) {
+    return { seats, next_after_id: seats[seats.length - 1].business_identity_id }
+  }
+  return { seats, next_after_id: null }
+}
