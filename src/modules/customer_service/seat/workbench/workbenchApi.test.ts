@@ -51,7 +51,7 @@ function makeFetch(responder: (_url: string, _init: RequestInit | undefined) => 
   return { calls, api, api2 }
 }
 
-const PAGE_TEXT = `{"sessions":[{"id":${SESSION},"organization_id":"${ORG}","workspace_id":"3000000000000000003","contact_id":"4000000000000000004","conversation_id":"${CONV}","business_identity_id":"6000000000000000006","status":"queued","version":7,"queued_at":"2026-09-20T05:14:47Z","claimed_at":null,"closed_at":null,"source":"widget","contact":{"masked_name":"李***"},"last_message":{"id":null,"preview":null,"at":null}}],"total":1,"total_by_status":{"queued":1,"active":0,"closed":0},"next_after_id":null}`
+const PAGE_TEXT = `{"sessions":[{"id":${SESSION},"organization_id":"${ORG}","workspace_id":"3000000000000000003","contact_id":"4000000000000000004","conversation_id":"${CONV}","business_identity_id":"6000000000000000006","status":"queued","version":7,"queued_at":1758999975,"claimed_at":null,"closed_at":null,"source":"widget","contact":{"masked_name":"李***"},"last_message":{"id":7000000000000000007,"sender_type":"contact","created_at":1759000000,"preview":"你好，请问订单 8891 什么时候发货"},"waiting_seconds":125}],"total":1,"total_by_status":{"queued":1,"active":0,"closed":0},"next_after_id":null}`
 
 afterEach(() => {
   seatTokenVault.clear()
@@ -71,6 +71,10 @@ describe('列表合同（queue / active / closed）', () => {
     expect(page.sessions).toHaveLength(1)
     expect(page.sessions[0]?.version).toBe(7)
     expect(page.counts).toEqual({ queued: 1, active: 0, closed: 0 })
+    // CS-WEB-03：队列页消费 CS-BE-02 投影——服务端 preview 摘要与等待时长。
+    expect(page.sessions[0]?.lastMessage.preview).toBe('你好，请问订单 8891 什么时候发货')
+    expect(page.sessions[0]?.lastMessage.createdAt).toBe(1759000000)
+    expect(page.sessions[0]?.waitingSeconds).toBe(125)
   })
 
   it('active/closed 两视图：status 必填进查询串', async () => {

@@ -49,6 +49,10 @@ export type SeatFakeBackendState = {
   presignRejection: { code: number; msg: string } | null
   /** CS-WEB-02：presign 响应不含 upload.url（部署未开放对象 PUT → fail-closed 用例）。 */
   presignOmitUploadUrl: boolean
+  /** CS-WEB-03：queued 行 waiting_seconds（服务端权威值；null = 缺键模拟）。 */
+  queueWaitingSeconds: number | null
+  /** CS-WEB-03：last_message.preview（null = 占位；undefined = 无 last_message 整键）。 */
+  lastMessagePreview: string | null | undefined
 }
 
 export function initialFakeState(): SeatFakeBackendState {
@@ -66,6 +70,8 @@ export function initialFakeState(): SeatFakeBackendState {
     sendFailuresLeft: 0,
     presignRejection: null,
     presignOmitUploadUrl: false,
+    queueWaitingSeconds: 125,
+    lastMessagePreview: '你好，请问订单 8891 什么时候发货',
   }
 }
 
@@ -93,21 +99,33 @@ function forbidden(): Response {
   return new Response('{"code":403,"msg":"not a seat member","payload":{}}', { status: 403 })
 }
 
-/** 会话行（线缆 TSID = JSON integer 字面量，经 parseSeatJson 精度保护）。 */
-export function sessionRowText(status: string, version: number): string {
+/**
+ * 会话行（线缆 TSID = JSON integer 字面量，经 parseSeatJson 精度保护）。
+ * CS-WEB-03：行形状镜像 CS-BE-02 冻结投影——时间字段是 epoch bigint 秒
+ * （cs_pg_session extract(epoch)::bigint），last_message 键集恰为
+ * {id, sender_type, created_at, preview}（preview 为 null 占位），queued 行
+ * 带 waiting_seconds（服务端权威值；active/closed 恒缺键）。
+ */
+export function sessionRowText(status: string, version: number, state: SeatFakeBackendState): string {
+  const lastMessageText =
+    state.lastMessagePreview === undefined
+      ? 'null'
+      : `{"id":7000000000000000007,"sender_type":"contact","created_at":1759000000,"preview":${JSON.stringify(state.lastMessagePreview)}}`
+  const waitingText =
+    status === 'queued' && state.queueWaitingSeconds !== null ? `,"waiting_seconds":${state.queueWaitingSeconds}` : ''
   return (
     `{"id":${SESSION},"organization_id":"${ORG}","workspace_id":"${WS}","contact_id":"${CONTACT}",` +
-    `"conversation_id":"${CONV}","business_identity_id":${status === 'queued' ? 'null' : IDENTITY},` +
+    `"conversation_id":${CONV},"business_identity_id":${status === 'queued' ? 'null' : `"${IDENTITY}"`},` +
     `"status":"${status}","version":${version},` +
-    `"queued_at":"2026-09-20T05:14:47Z","claimed_at":${status === 'queued' ? 'null' : '"2026-09-20T05:20:00Z"'},` +
+    `"queued_at":1758999975,"claimed_at":${status === 'queued' ? 'null' : '1759000025'},` +
     `"closed_at":null,"source":"widget","contact":{"masked_name":"王***"},` +
-    `"last_message":{"id":null,"preview":"你好","at":"2026-09-20T05:14:40Z"}}`
+    `"last_message":${lastMessageText}${waitingText}}`
   )
 }
 
-function pageText(view: 'queued' | 'active' | 'closed', rowVersion: number | null): string {
+function pageText(view: 'queued' | 'active' | 'closed', rowVersion: number | null, state: SeatFakeBackendState): string {
   const count = rowVersion !== null ? 1 : 0
-  const rows = rowVersion !== null ? `[${sessionRowText(view, rowVersion)}]` : '[]'
+  const rows = rowVersion !== null ? `[${sessionRowText(view, rowVersion, state)}]` : '[]'
   const counts =
     view === 'queued'
       ? `{"queued":${count},"active":0,"closed":0}`
@@ -195,20 +213,20 @@ export class SeatFakeBackend {
     if (path === `/api/v1/cs/organizations/${ORG}/sessions/queue`) {
       this.queueFetchCount += 1
       const s = this.state.sessionStatus
-      return ok(pageText(s, s === 'queued' ? this.state.version : null))
+      return ok(pageText(s, s === 'queued' ? this.state.version : null, this.state))
     }
     if (path === `/api/v1/cs/organizations/${ORG}/seats/sessions`) {
       const status = new URL(url, 'http://localhost').searchParams.get('status') ?? 'active'
       const view: 'active' | 'closed' = status === 'closed' ? 'closed' : 'active'
       const rowVersion = this.state.sessionStatus === view ? this.state.version : null
-      return ok(pageText(view, rowVersion))
+      return ok(pageText(view, rowVersion, this.state))
     }
     if (path === `/api/v1/cs/organizations/${ORG}/sessions/${SESSION}`) {
       // DF-9 真实合同：session detail 的 workspace_id 走 query 且必填
       // （cs_actions session_detail 无 workspace=>optional 宽松项 → 缺失 422）。
       const ws = new URL(url, 'http://localhost').searchParams.get('workspace_id')
       if (ws !== WS) return missingWorkspace()
-      return ok(sessionRowText(this.state.sessionStatus, this.state.version))
+      return ok(sessionRowText(this.state.sessionStatus, this.state.version, this.state))
     }
     if (path === `/api/v1/cs/organizations/${ORG}/sessions/${SESSION}/claim`) {
       this.state.claimAttempts += 1

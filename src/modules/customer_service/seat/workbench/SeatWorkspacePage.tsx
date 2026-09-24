@@ -12,6 +12,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { LogOut, Radio } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { EntityDrawer } from "@/components/shared/EntityDrawer";
 import { SeatQrLoginPanel } from "./seatQrLoginPanel";
 import { SeatQueuePanel } from "./queuePanel";
 import { SeatSessionView } from "./sessionView";
@@ -223,6 +224,31 @@ function SeatWorkspaceInner() {
 
   const canWriteNow = writeClosedReason === null;
 
+  // CS-WEB-03：详情面板（xl 第三栏与 md-xl 抽屉共用同一投影/回调）。
+  const [detailDrawerOpen, setDetailDrawerOpen] = useState(false);
+  const detailPanel = (
+    <SeatDetailPanel
+      detail={detail}
+      detailLoading={detailQuery.isLoading}
+      detailError={detailQuery.error}
+      onRetryDetail={() => void detailQuery.refetch()}
+      canWrite={canWriteNow}
+      writeClosedReason={writeClosedReason}
+      transferTargets={transferTargetsQuery.data ?? null}
+      transferTargetsLoading={transferTargetsQuery.isLoading}
+      onTransfer={(toIdentityId, expectedVersion) => {
+        transfer.mutate({ toIdentityId, expectedVersion });
+      }}
+      transferConflict={transfer.conflict}
+      transferPending={transfer.isPending}
+      onClose={(expectedVersion) => {
+        close.mutate({ expectedVersion });
+      }}
+      closeConflict={close.conflict}
+      closePending={close.isPending}
+    />
+  );
+
   if (status !== "authenticated") {
     return (
       <SeatShell notice={liveNotice}>
@@ -393,7 +419,9 @@ function SeatWorkspaceInner() {
           ))}
         </nav>
 
-        <main className="grid min-h-0 flex-1 md:grid-cols-[17rem_minmax(0,1fr)_17rem]">
+        {/* CS-WEB-03 响应式：1280+（xl）三栏（列表宽度不变）；768-1279（md-xl）
+            两栏 + 详情抽屉；<768 沿用 list/conversation 分层导航。 */}
+        <main className="grid min-h-0 flex-1 md:grid-cols-[17rem_minmax(0,1fr)] xl:grid-cols-[17rem_minmax(0,1fr)_17rem]">
           <div
             className={`${pane === "list" ? "flex" : "hidden"} min-h-0 flex-col md:flex`}
             data-testid="seat-pane-list"
@@ -420,6 +448,20 @@ function SeatWorkspaceInner() {
             className={`${pane === "conversation" ? "flex" : "hidden"} min-h-0 flex-col md:flex`}
             data-testid="seat-pane-conversation"
           >
+            {/* CS-WEB-03：768-1279 详情入口（xl 起第三栏常驻，<768 无详情面——
+                与既有分层导航行为一致）。 */}
+            {detail !== null && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="hidden self-end px-2 py-1 text-xs md:inline-flex xl:hidden"
+                data-testid="seat-detail-drawer-trigger"
+                onClick={() => setDetailDrawerOpen(true)}
+              >
+                会话详情
+              </Button>
+            )}
             <SeatSessionView
               fetchAssetBlob={fetchAssetBlob}
               detail={detail}
@@ -440,31 +482,24 @@ function SeatWorkspaceInner() {
             />
           </div>
           <div
-            className="hidden min-h-0 md:flex"
+            className="hidden min-h-0 xl:flex"
             data-testid="seat-pane-detail"
           >
-            <SeatDetailPanel
-              detail={detail}
-              detailLoading={detailQuery.isLoading}
-              detailError={detailQuery.error}
-              onRetryDetail={() => void detailQuery.refetch()}
-              canWrite={canWriteNow}
-              writeClosedReason={writeClosedReason}
-              transferTargets={transferTargetsQuery.data ?? null}
-              transferTargetsLoading={transferTargetsQuery.isLoading}
-              onTransfer={(toIdentityId, expectedVersion) => {
-                transfer.mutate({ toIdentityId, expectedVersion });
-              }}
-              transferConflict={transfer.conflict}
-              transferPending={transfer.isPending}
-              onClose={(expectedVersion) => {
-                close.mutate({ expectedVersion });
-              }}
-              closeConflict={close.conflict}
-              closePending={close.isPending}
-            />
+            {detailPanel}
           </div>
         </main>
+
+        {/* CS-WEB-03：768-1279 详情抽屉（共享 EntityDrawer；焦点圈闭/ESC/
+            关闭归还焦点由 primitive 承担）。 */}
+        <EntityDrawer
+          open={detailDrawerOpen}
+          onOpenChange={setDetailDrawerOpen}
+          title="会话详情"
+          subtitle={detail?.visitorMaskedName ?? undefined}
+          className="max-w-md"
+        >
+          {detailPanel}
+        </EntityDrawer>
       </div>
     </SeatShell>
   );

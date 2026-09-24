@@ -18,7 +18,7 @@ import '../../../../test/setupDom'
 import { afterEach, beforeEach, describe, expect, it, spyOn } from 'bun:test'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import userEvent from '@testing-library/user-event'
-import { cleanup, fireEvent, render, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, waitFor, within } from '@testing-library/react'
 import { SeatWorkspacePage } from './SeatWorkspacePage'
 import {
   ASSET_PDF_ID,
@@ -434,6 +434,101 @@ describe('SeatWorkspacePage 工作台（A01/A02/A03/A04/A05/A06）', () => {
     fireEvent.click(tab)
     expect(tab.getAttribute('aria-selected')).toBe('true')
     expect(view.getByTestId('seat-live-region')).toBeDefined()
+  })
+})
+
+describe('SeatWorkspacePage CS-WEB-03 队列 triage（preview/等待时长/筛选/selection/详情抽屉）', () => {
+  beforeEach(() => {
+    spyOn(console, 'error').mockImplementation(() => {})
+    spyOn(console, 'warn').mockImplementation(() => {})
+    loginSeat()
+  })
+  afterEach(() => {
+    cleanup()
+    seatTokenVault.clear()
+    useSeatAuthStore.setState({ status: 'anonymous', userId: null, endReason: null })
+  })
+
+  it('排队行渲染服务端 preview 摘要与等待时长（服务端权威，无客户端时钟计算）+ 未读占位 slot 不伪造数字', async () => {
+    const backend = new SeatFakeBackend()
+    const view = renderWorkspace(backend, new FakeSseStream())
+    const item = await waitFor(() => view.getByTestId(`seat-session-item-${SESSION}`))
+    // preview 摘要：服务端解密截断文本直渲染。
+    expect(item.textContent).toContain('你好，请问订单 8891 什么时候发货')
+    // 等待时长：waiting_seconds=125 → 「等待 2 分钟」；直渲染服务端值。
+    const waiting = await waitFor(() => view.getByTestId(`seat-session-waiting-${SESSION}`))
+    expect(waiting.textContent).toContain('等待 2 分钟')
+    // 标注服务端权威（不本地计算时钟）。
+    expect(waiting.getAttribute('title')).toContain('服务端')
+    // 未读占位 slot（M2 CS-WEB-05 前无真未读数）：存在但不含任何数字。
+    const unread = view.getByTestId(`seat-session-unread-${SESSION}`)
+    expect(unread.textContent).not.toMatch(/\d/)
+  })
+
+  it('preview null 占位（附件-only/空/撤回）：诚实「暂无摘要」，不编造附件文案；负 waiting 防御为 0', async () => {
+    const backend = new SeatFakeBackend()
+    backend.state.lastMessagePreview = null
+    backend.state.queueWaitingSeconds = -3
+    const view = renderWorkspace(backend, new FakeSseStream())
+    const item = await waitFor(() => view.getByTestId(`seat-session-item-${SESSION}`))
+    expect(item.textContent).toContain('暂无摘要')
+    expect(item.textContent).not.toContain('附件')
+    // 负值防御：显示 max(0) ——「等待 0 秒」，绝不出现负数。
+    const waiting = await waitFor(() => view.getByTestId(`seat-session-waiting-${SESSION}`))
+    expect(waiting.textContent).toContain('等待 0 秒')
+    expect(waiting.textContent).not.toMatch(/-\d/)
+  })
+
+  it('搜索过滤已加载行（掩码名/摘要）：无匹配给筛选空态；Tab 计数保持服务端值', async () => {
+    const backend = new SeatFakeBackend()
+    const view = renderWorkspace(backend, new FakeSseStream())
+    await waitFor(() => expect(view.getByTestId(`seat-session-item-${SESSION}`)).toBeDefined())
+    const search = view.getByTestId('seat-queue-search')
+    const user = userEvent.setup()
+    // 命中摘要关键词 → 行保留；Tab 计数仍是服务端 total_by_status（queued=1）。
+    await user.type(search, '8891')
+    expect(view.getByTestId(`seat-session-item-${SESSION}`)).toBeDefined()
+    expect(view.getByTestId('seat-tab-queued').textContent).toContain('1')
+    // 无匹配 → 筛选空态（区别于服务端空态）。
+    const noMatch = '不存在的关键词'
+    await user.type(search, noMatch.slice('8891'.length))
+    expect(view.getByTestId('seat-queue-filter-empty')).toBeDefined()
+    expect(view.queryByTestId(`seat-session-item-${SESSION}`)).toBeNull()
+    // Tab 计数仍是服务端值（过滤是显示层动作，不改计数）。
+    expect(view.getByTestId('seat-tab-queued').textContent).toContain('1')
+    // 清空 → 恢复全部（React19 受控输入 user.clear 不生效，退格序列清空）。
+    await user.type(search, '{Backspace}'.repeat(noMatch.length))
+    expect(view.getByTestId(`seat-session-item-${SESSION}`)).toBeDefined()
+  })
+
+  it('筛选/切换视图不丢 selection（aria-current 保持）', async () => {
+    const backend = new SeatFakeBackend()
+    const view = renderWorkspace(backend, new FakeSseStream())
+    fireEvent.click(await waitFor(() => view.getByTestId(`seat-session-item-${SESSION}`)))
+    expect(view.getByTestId(`seat-session-item-${SESSION}`).getAttribute('aria-current')).toBe('true')
+    // 搜索（选中行仍命中）→ selection 不丢。
+    const user = userEvent.setup()
+    await user.type(view.getByTestId('seat-queue-search'), '8891')
+    expect(view.getByTestId(`seat-session-item-${SESSION}`).getAttribute('aria-current')).toBe('true')
+    // 切到 active 再切回 queued → selection 不丢。
+    fireEvent.click(view.getByTestId('seat-tab-active'))
+    fireEvent.click(view.getByTestId('seat-tab-queued'))
+    expect(view.getByTestId(`seat-session-item-${SESSION}`).getAttribute('aria-current')).toBe('true')
+  })
+
+  it('768-1279 详情抽屉：触发按钮打开 role=dialog 的详情面板；关闭后回收', async () => {
+    const backend = new SeatFakeBackend()
+    const view = renderWorkspace(backend, new FakeSseStream())
+    fireEvent.click(await waitFor(() => view.getByTestId(`seat-session-item-${SESSION}`)))
+    const trigger = await waitFor(() => view.getByTestId('seat-detail-drawer-trigger'))
+    fireEvent.click(trigger)
+    const dialog = await waitFor(() => view.getByRole('dialog'))
+    expect(dialog.getAttribute('aria-modal')).toBe('true')
+    // 抽屉内是同一 SeatDetailPanel（权威事实源投影）。
+    expect(within(dialog).getByTestId('seat-detail-panel')).toBeDefined()
+    // 共享 EntityDrawer 的关闭入口（aria-label=关闭）。
+    fireEvent.click(within(dialog).getByRole('button', { name: '关闭' }))
+    await waitFor(() => expect(view.queryByRole('dialog')).toBeNull())
   })
 })
 

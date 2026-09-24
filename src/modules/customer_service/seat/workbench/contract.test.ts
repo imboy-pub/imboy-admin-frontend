@@ -192,6 +192,61 @@ describe('transfer-targets 投影', () => {
   })
 })
 
+describe('CS-WEB-03 队列 triage 投影（last_message 键名对齐 + waiting_seconds）', () => {
+  /** CS-BE-02 冻结 wire：时间字段 epoch bigint 秒；last_message 键集恰为
+   * {id, sender_type, created_at, preview}；queued 行带 waiting_seconds。 */
+  const QUEUE_ROW = {
+    ...SESSION_ROW,
+    queued_at: 1758999975,
+    claimed_at: null,
+    closed_at: null,
+    last_message: { id: '7000000000000000007', sender_type: 'contact', created_at: 1759000000, preview: '你好，请问订单 8891 什么时候发货' },
+    waiting_seconds: 125,
+  }
+
+  it('last_message 键名对齐（CSX-01 修正）：preview/created_at/sender_type 被消费', () => {
+    const view = toSeatSessionSummary(QUEUE_ROW)
+    expect(view?.lastMessage.id).toBe('7000000000000000007')
+    expect(view?.lastMessage.senderType).toBe('contact')
+    expect(view?.lastMessage.preview).toBe('你好，请问订单 8891 什么时候发货')
+    expect(view?.lastMessage.createdAt).toBe(1759000000)
+  })
+
+  it('旧错位键 at 不再被读（fail-closed）：只发 at 的行 createdAt 为 null', () => {
+    const legacy = toSeatSessionSummary({
+      ...QUEUE_ROW,
+      last_message: { id: '7000000000000000007', preview: '你好', at: '2026-09-20T05:14:40Z' },
+    })
+    expect(legacy?.lastMessage.preview).toBe('你好')
+    expect(legacy?.lastMessage.createdAt).toBeNull()
+  })
+
+  it('waiting_seconds：queued 行消费服务端权威值；缺键（active/closed）→ null；形状非法 → null', () => {
+    expect(toSeatSessionSummary(QUEUE_ROW)?.waitingSeconds).toBe(125)
+    // wire 事实：active/closed 行恒缺该键（cs_session_app:seat_waiting 只在 queued 出键）。
+    const active = toSeatSessionSummary({ ...QUEUE_ROW, status: 'active', claimed_at: 1759000025, waiting_seconds: undefined })
+    expect(active?.waitingSeconds).toBeNull()
+    expect(toSeatSessionSummary({ ...QUEUE_ROW, waiting_seconds: 'soon' })?.waitingSeconds).toBeNull()
+    expect(toSeatSessionSummary({ ...QUEUE_ROW, waiting_seconds: 1.5 })?.waitingSeconds).toBeNull()
+  })
+
+  it('queued_at/claimed_at/closed_at 是 epoch 秒（PG bigint wire）：整数被消费，ISO 字符串不猜', () => {
+    const view = toSeatSessionSummary(QUEUE_ROW)
+    expect(view?.queuedAt).toBe(1758999975)
+    const active = toSeatSessionSummary({ ...QUEUE_ROW, status: 'active', claimed_at: 1759000025 })
+    expect(active?.claimedAt).toBe(1759000025)
+    expect(toSeatSessionSummary({ ...SESSION_ROW, queued_at: '2026-09-20T05:14:47Z' })?.queuedAt).toBeNull()
+  })
+
+  it('preview 占位语义：null（附件-only/空/撤回/keyring 未装配）原样透传，不猜测不编造', () => {
+    const view = toSeatSessionSummary({ ...QUEUE_ROW, last_message: { id: '7000000000000000007', sender_type: 'contact', created_at: 1759000000, preview: null } })
+    expect(view?.lastMessage.preview).toBeNull()
+    // 无消息：last_message 整键 null → 骨架全空。
+    const empty = toSeatSessionSummary({ ...QUEUE_ROW, last_message: null })
+    expect(empty?.lastMessage).toEqual({ id: null, senderType: null, preview: null, createdAt: null })
+  })
+})
+
 describe('路径构造（Seat 域 + A03 附件代理不变量）', () => {
   it('合同路径族全部落在 /api/v1/cs 或 /api/v1/enterprise 域', () => {
     expect(buildSeatQueuePath(ORG)).toBe(`/cs/organizations/${ORG}/sessions/queue`)

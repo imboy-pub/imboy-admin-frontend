@@ -61,8 +61,12 @@ export type SeatMessage = {
 
 export type SeatLastMessage = {
   id: EntityId | null
+  /** CS-WEB-03 键名对齐（CSX-01 修正）：wire 键是 sender_type / created_at /
+   *  preview（cs_session_app:last_message_with 冻结键集）——旧 parser 读
+   *  `at` 属键名错位，恒 null。created_at 是 epoch 秒（PG bigint wire）。 */
+  senderType: string | null
   preview: string | null
-  at: string | null
+  createdAt: number | null
 }
 
 export type SeatSessionSummary = {
@@ -75,12 +79,19 @@ export type SeatSessionSummary = {
   status: SeatSessionStatus
   /** CAS 版本（claim/transfer/close 的 expected_version）。 */
   version: number
-  queuedAt: string | null
-  claimedAt: string | null
-  closedAt: string | null
+  /** 时间字段是 epoch 秒（cs_pg_session extract(epoch)::bigint wire）。 */
+  queuedAt: number | null
+  claimedAt: number | null
+  closedAt: number | null
   source: string
   contactMaskedName: string | null
   lastMessage: SeatLastMessage
+  /**
+   * CS-WEB-03：服务端权威等待时长（秒）——仅 queued 视图行出键
+   * （max(0, at − queued_at)；active/closed 恒缺键 → null）。客户端直渲染，
+   * 绝不做本地时钟计算（负值防御在渲染层 max(0)）。
+   */
+  waitingSeconds: number | null
 }
 
 /** 服务端计数（禁本地推断）：total_by_status 是三视图 Tab 的唯一数字来源。 */
@@ -203,11 +214,12 @@ export function toSeatMessageList(raw: unknown): SeatMessage[] {
 }
 
 function toLastMessage(raw: unknown): SeatLastMessage {
-  if (!isRecord(raw)) return { id: null, preview: null, at: null }
+  if (!isRecord(raw)) return { id: null, senderType: null, preview: null, createdAt: null }
   return {
     id: optTsid(raw.id),
+    senderType: optStr(raw.sender_type),
     preview: optStr(raw.preview),
-    at: optStr(raw.at),
+    createdAt: optInt(raw.created_at),
   }
 }
 
@@ -230,12 +242,13 @@ export function toSeatSessionSummary(raw: unknown): SeatSessionSummary | null {
     businessIdentityId: optTsid(raw.business_identity_id),
     status,
     version,
-    queuedAt: optStr(raw.queued_at),
-    claimedAt: optStr(raw.claimed_at),
-    closedAt: optStr(raw.closed_at),
+    queuedAt: optInt(raw.queued_at),
+    claimedAt: optInt(raw.claimed_at),
+    closedAt: optInt(raw.closed_at),
     source: optStr(raw.source) ?? 'shop_key',
     contactMaskedName: optStr(contact.masked_name),
     lastMessage: toLastMessage(raw.last_message),
+    waitingSeconds: optInt(raw.waiting_seconds),
   }
 }
 
