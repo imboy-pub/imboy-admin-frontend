@@ -59,6 +59,7 @@ interface ApiCall {
   url: string
   status: number
   server: string
+  code: number | null
 }
 
 const evidenceDir = process.env.ADM03_EVIDENCE_DIR || 'test-results/adm03-evidence'
@@ -68,12 +69,22 @@ function watchApi(page: Page, leaf: string): void {
   page.on('response', async (res) => {
     const url = res.url()
     if (!url.includes('/api/adm/')) return
+    // code=0 Oracle 收紧：响应体在事件回调内**即时**缓冲（离岗等导航型加载
+    // 稍后 res.json() 会因 Network.getResponseBody 被回收而失败——先取先得）。
+    let code: number | null = null
+    try {
+      const body = (await res.json()) as { code?: number }
+      code = body?.code ?? null
+    } catch {
+      code = null
+    }
     apiCalls.push({
       leaf,
       method: res.request().method(),
       url,
       status: res.status(),
       server: res.headers()['server'] ?? '',
+      code,
     })
   })
 }
@@ -93,13 +104,15 @@ async function realApiRoundTrip(
   const res = await pending
   // 无 mock Oracle：真实 imboy 后端是 Cowboy；page.route fulfill 不带该头。
   expect(res.headers()['server'] ?? '').toContain('Cowboy')
-  // code=0 信封校验容错：导航后响应体可能被浏览器回收（Network.getResponseBody
-  // 协议错）——此时 200 + Cowboy 头 + 后续行断言仍构成真实往返铁证。
-  try {
-    const body = (await res.json()) as { code?: number }
-    expect(body.code).toBe(0)
-  } catch {
-    // body 已回收：跳过信封校验（真实后端事实由其余断言钉死）。
+  // code=0 Oracle：优先用 watchApi 已在回调内缓冲的信封（不受导航回收影响）；
+  // 兜底再试当次响应体。
+  let body: { code?: number } | undefined
+  const buffered = apiCalls.find((c) => c.url === res.url() && c.code !== null)
+  if (buffered) {
+    expect(buffered.code).toBe(0)
+  } else {
+    body = (await res.json().catch(() => undefined)) as { code?: number } | undefined
+    expect(body?.code).toBe(0)
   }
   return res.url()
 }
@@ -249,6 +262,9 @@ test.describe('ADM-03 企业管理 9 叶子 × 真实本地后端', () => {
         {
           generated_at: new Date().toISOString(),
           no_mock_oracle: '每条 /api/adm 响应均断言 server=Cowboy（Playwright fulfill 无此头）',
+          code0_oracle: '数据往返 code=0 断言（事件回调内即时缓冲信封，导航免回收）',
+          data_round_trips: apiCalls.filter((c) => c.code !== null).length,
+          data_round_trips_code0: apiCalls.filter((c) => c.code === 0).length,
           total_api_calls: apiCalls.length,
           api_calls: apiCalls,
         },
