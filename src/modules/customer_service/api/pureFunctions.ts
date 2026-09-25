@@ -512,3 +512,79 @@ export function toPlatformSeatListPage(raw: unknown, fallbackLimit: number): Pla
   }
   return { seats, next_after_id: null }
 }
+
+// ===================================================================
+// CS-ADM-02（CS-GOV-03B）：平台运营面按需统计投影——只搬运服务端事实，
+// 零客户端重算（不聚合、不推导、不填默认指标值）。
+// ===================================================================
+
+export type CsStatsMetricPair = {
+  count: number
+  /** 服务端无样本时为 null（诚实空态，禁止伪装成 0）。 */
+  avgSeconds: number | null
+}
+
+export type CsStatsRatingPair = {
+  count: number
+  /** 服务端无样本时为 null。 */
+  avg: number | null
+}
+
+export type CsStatsCurrent = {
+  queued: number
+  active: number
+}
+
+export type CsSessionStats = {
+  organizationId: EntityId
+  date: string | null
+  tzOffset: number
+  /** 服务端回显的显式窗口（epoch 秒）——UI 只展示，不重算。 */
+  windowStart: number
+  windowEnd: number
+  newSessions: number
+  firstResponse: CsStatsMetricPair
+  closedSessions: number
+  rating: CsStatsRatingPair
+  current: CsStatsCurrent
+}
+
+function toAvgNumber(value: unknown): number | null {
+  const n = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(n) ? n : null
+}
+
+/**
+ * 统计响应整包解析。数值字段缺席/非法时按 0 处理（计数型）或 null
+ * （均值型——服务端无样本语义）；窗口回显缺席按 -1 标记（UI 隐藏窗口行）。
+ */
+export function toCsSessionStats(raw: unknown): CsSessionStats | null {
+  if (!raw || typeof raw !== 'object') return null
+  const payload = raw as Record<string, unknown>
+  const orgId = toIdOrNull(payload.organization_id)
+  if (orgId === null) return null
+  const fr = (payload.first_response ?? {}) as Record<string, unknown>
+  const rating = (payload.rating ?? {}) as Record<string, unknown>
+  const current = (payload.current ?? {}) as Record<string, unknown>
+  return {
+    organizationId: orgId,
+    date: typeof payload.date === 'string' ? payload.date : null,
+    tzOffset: toOptionalInt(payload.tz_offset) ?? 0,
+    windowStart: toOptionalInt(payload.window_start) ?? -1,
+    windowEnd: toOptionalInt(payload.window_end) ?? -1,
+    newSessions: toOptionalInt(payload.new_sessions) ?? 0,
+    firstResponse: {
+      count: toOptionalInt(fr.count) ?? 0,
+      avgSeconds: toAvgNumber(fr.avg_seconds),
+    },
+    closedSessions: toOptionalInt(payload.closed_sessions) ?? 0,
+    rating: {
+      count: toOptionalInt(rating.count) ?? 0,
+      avg: toAvgNumber(rating.avg),
+    },
+    current: {
+      queued: toOptionalInt(current.queued) ?? 0,
+      active: toOptionalInt(current.active) ?? 0,
+    },
+  }
+}

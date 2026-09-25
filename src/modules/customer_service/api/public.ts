@@ -22,6 +22,7 @@ import {
   assertScope,
   buildCsSessionListQuery,
   toCsSeat,
+  toCsSessionStats,
   toCsSeatList,
   toCsSession,
   toCsSessionListPage,
@@ -31,8 +32,11 @@ import {
   type CsSession,
   type CsSessionListPage,
   type CsSessionStatusFilter,
+  type CsSessionStats,
   type PlatformSeatListPage,
 } from './pureFunctions'
+
+export type { CsSessionStats }
 
 const CS_ORGS_BASE = '/customer-service/organizations'
 
@@ -215,4 +219,39 @@ export async function closeCsSession(
     }
   )
   return toCsSession(requireApiPayload(response.data, 'POST cs session close'))
+}
+
+export type CsSessionStatsParams = {
+  organizationId: EntityId
+  /** 日历日 YYYY-MM-DD；缺失 = 服务端时钟 UTC 当日。 */
+  date?: string
+  /** ISO 8601 分钟口径时区偏移（-840..840）；缺失 = 0（UTC）。 */
+  tzOffset?: number
+}
+
+/**
+ * GET 平台运营面按需统计（CS-ADM-02 / CS-GOV-03B）：
+ * /api/adm/customer-service/organizations/:org_id/stats/sessions。
+ *
+ * 只读（customer_service:read）；窗口语义与指标公式全部由服务端
+ * session_stats 用例裁决（CS-BE-07 同一实现）——本函数只透传参数与
+ * 投影响应，绝不客户端重算任何指标。workspace 可选（缺省 org-wide）。
+ */
+export async function getCsSessionStats(params: CsSessionStatsParams): Promise<CsSessionStats> {
+  const organizationId = requireNonEmptyId(params.organizationId, 'organization_id')
+  const query: Record<string, string | number> = {}
+  const date = typeof params.date === 'string' ? params.date.trim() : ''
+  if (date.length > 0) query.date = date
+  if (typeof params.tzOffset === 'number' && Number.isFinite(params.tzOffset)) {
+    query.tz_offset = Math.trunc(params.tzOffset)
+  }
+  const response = await client.get<ApiResponse<unknown>>(
+    `${CS_ORGS_BASE}/${encodeURIComponent(organizationId)}/stats/sessions`,
+    { params: query }
+  )
+  const stats = toCsSessionStats(requireApiPayload(response.data, 'GET cs session stats'))
+  if (stats === null) {
+    throw new Error('统计响应缺少 organization_id，无法投影')
+  }
+  return stats
 }

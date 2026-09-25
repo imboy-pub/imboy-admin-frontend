@@ -46,6 +46,7 @@ import {
 } from '@/modules/organization/api'
 import { provisionCustomerServiceSeat } from '../api/provisioning'
 import { getPlatformSeats, resumeCsSeat, suspendCsSeat } from '../api/public'
+import { CsStatsPanel } from './CsStatsPanel'
 import type { PlatformSeatRow } from '../api/pureFunctions'
 
 const READ_PERMISSION = 'customer_service:read'
@@ -286,6 +287,9 @@ export function CustomerServiceHomePage() {
           </Button>
         }
       />
+
+      {/* CS-ADM-02（CS-GOV-03B）：运营统计面板——org 作用域（选定企业后现算）。 */}
+      <CsStatsPanel orgId={orgId} canRead={readReady} />
 
       <Card>
         <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3">
