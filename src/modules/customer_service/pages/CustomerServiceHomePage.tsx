@@ -488,7 +488,7 @@ function AddSeatDialog(props: {
             </Select>
           </div>
           <details className="rounded-md border px-4 py-3">
-            <summary className="cursor-pointer text-sm font-medium">{t('cs.addSeat.advanced')}</summary>
+            <summary className="flex min-h-11 cursor-pointer items-center text-sm font-medium">{t('cs.addSeat.advanced')}</summary>
             <div className="mt-3 max-w-xs space-y-2">
               <Label htmlFor="cs-add-seat-max">{t('cs.addSeat.maxConcurrent')}</Label>
               <Input

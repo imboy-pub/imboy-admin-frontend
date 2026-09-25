@@ -85,7 +85,7 @@ function RelationshipSectionBody({
           {item.href ? (
             <Link
               to={item.href}
-              className="underline-offset-2 hover:underline"
+              className="inline-flex min-h-11 items-center underline-offset-2 hover:underline"
               data-relation-id={item.id}
             >
               {item.label}

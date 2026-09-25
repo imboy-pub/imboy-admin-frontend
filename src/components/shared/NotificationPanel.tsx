@@ -133,12 +133,12 @@ export function NotificationPanel() {
             <h3 className="text-sm font-semibold">系统通知</h3>
             <div className="flex gap-2">
               {unreadCount > 0 && (
-                <button type="button" className="text-xs text-primary hover:underline" onClick={markAllRead}>
+                <button type="button" className="inline-flex min-h-11 items-center rounded px-1 text-xs text-primary hover:underline" onClick={markAllRead}>
                   全部已读
                 </button>
               )}
               {notifications.length > 0 && (
-                <button type="button" className="text-xs text-muted-foreground hover:underline" onClick={clearAll}>
+                <button type="button" className="inline-flex min-h-11 items-center rounded px-1 text-xs text-muted-foreground hover:underline" onClick={clearAll}>
                   清空
                 </button>
               )}
@@ -164,7 +164,7 @@ export function NotificationPanel() {
                         <span className="text-sm font-medium truncate">{n.title}</span>
                         <button
                           type="button"
-                          className="shrink-0 text-muted-foreground hover:text-foreground"
+                          className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground"
                           onClick={() => dismiss(n.id)}
                         >
                           <X className="h-3.5 w-3.5" />

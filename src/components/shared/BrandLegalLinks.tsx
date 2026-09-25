@@ -25,7 +25,7 @@ export function BrandLegalLinks() {
           href={link.href}
           target="_blank"
           rel="noreferrer noopener"
-          className="hover:text-sidebar-foreground hover:underline"
+          className="inline-flex min-h-11 items-center hover:text-sidebar-foreground hover:underline"
         >
           {link.label}
         </a>

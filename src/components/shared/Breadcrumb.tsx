@@ -82,7 +82,7 @@ export function Breadcrumb() {
             {isLast ? (
               <span className="font-medium text-foreground">{item.label}</span>
             ) : (
-              <Link to={item.path} className="hover:text-foreground transition-colors">
+              <Link to={item.path} className="inline-flex min-h-11 min-w-11 items-center justify-center hover:text-foreground transition-colors">
                 {item.label}
               </Link>
             )}

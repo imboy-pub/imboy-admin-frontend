@@ -95,7 +95,7 @@ export function UserSearchSelect({ id, testIdPrefix, label, value, onChange, hin
                   data-testid={`${testIdPrefix}-option`}
                   disabled={!selectable}
                   onClick={() => onChange(user)}
-                  className="flex w-full items-center justify-between gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex min-h-11 w-full items-center justify-between gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <span className="truncate">
                     <span className="font-medium">{user.nickname || '-'}</span>

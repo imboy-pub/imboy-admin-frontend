@@ -134,7 +134,7 @@ export function OrganizationListPage() {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              className="font-medium underline-offset-2 hover:underline"
+              className="inline-flex min-h-11 min-w-11 items-center font-medium underline-offset-2 hover:underline"
               onClick={() => openDetail(row.original)}
             >
               {row.original.name}

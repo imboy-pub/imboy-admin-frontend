@@ -255,7 +255,7 @@ export function LoginPage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  className="absolute right-1 top-1/2 flex min-h-11 min-w-11 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:text-foreground"
                   aria-label={showPassword ? '隐藏密码' : '显示密码'}
                   tabIndex={-1}
                 >
@@ -282,7 +282,7 @@ export function LoginPage() {
                   <button
                     type="button"
                     onClick={refreshCaptcha}
-                    className="rounded border"
+                    className="flex min-h-11 items-center justify-center rounded border"
                     aria-label="点击刷新验证码"
                     title="点击刷新"
                   >

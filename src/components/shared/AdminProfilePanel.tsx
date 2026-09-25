@@ -28,7 +28,7 @@ export function AdminProfilePanel() {
     <div className="relative">
       <button
         type="button"
-        className="flex items-center gap-2 rounded-md px-2 py-1 hover:bg-muted transition-colors"
+        className="flex min-h-11 items-center gap-2 rounded-md px-2 py-1 hover:bg-muted transition-colors"
         onClick={() => setOpen((v) => !v)}
       >
         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-medium">
@@ -63,7 +63,7 @@ export function AdminProfilePanel() {
             <div className="p-2">
               <button
                 type="button"
-                className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm hover:bg-muted transition-colors text-muted-foreground cursor-not-allowed"
+                className="flex min-h-11 w-full items-center gap-3 rounded-md px-3 py-2 text-sm hover:bg-muted transition-colors text-muted-foreground cursor-not-allowed"
                 disabled
                 title="修改密码功能开发中，需要后端支持 /api/adm/admin/password 接口"
               >
@@ -73,7 +73,7 @@ export function AdminProfilePanel() {
               </button>
               <button
                 type="button"
-                className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-destructive hover:bg-destructive/10 transition-colors"
+                className="flex min-h-11 w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-destructive hover:bg-destructive/10 transition-colors"
                 onClick={handleLogout}
               >
                 <LogOut className="h-4 w-4" />

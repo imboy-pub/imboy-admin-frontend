@@ -144,3 +144,30 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .animate-fade-in { animation: none; }
 }
+
+/* ============================================================
+ * ENT-UX-01 触达基线（44px hit area）
+ * Sidebar.tsx / DataTable.tsx 为共享禁改热点：其中原生交互元素
+ * （导航 NavLink、收藏 star、分组折叠、折叠开关、菜单搜索框）
+ * 经容器选择器兜底；ui 组件层（Button/buttonVariants/Input/
+ * Select）已在各自 class 内建 min-h-11。未分层规则优先于
+ * Tailwind utilities 层，覆盖 h-9/py-2 等视觉密度类。
+ * ============================================================ */
+aside a,
+aside button,
+aside input {
+  min-height: 2.75rem; /* 44px */
+}
+
+/* 近方形图标类按钮（侧栏折叠开关 / 菜单收藏星标）同时兜底宽度 */
+aside > div > button,
+aside nav a > button {
+  min-width: 2.75rem;
+}
+
+/* 主内容区按钮宽度兜底：DataTablePagination 页码等消费处经 tailwind-merge
+ * 用 min-w-8 覆盖组件基类 min-w-11（同属性组后者胜），未分层规则优先级
+ * 高于 utilities 层，在此恢复 44px 宽度下限（ENT-UX-01）。 */
+main button {
+  min-width: 2.75rem;
+}
