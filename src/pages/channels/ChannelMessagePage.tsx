@@ -1,19 +1,14 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { LegacyColumnDef, getCoreRowModel, useLegacyTable } from '@tanstack/react-table/legacy'
 import { RowSelectionState } from '@tanstack/react-table'
-import { ArrowLeft, Pin, PinOff, Trash2, Download, MessageSquareText, Image, Video, Music, File, ChevronDown, ChevronUp } from 'lucide-react'
+import { Pin, PinOff, Trash2, MessageSquareText, Image, Video, Music, File, ChevronDown, ChevronUp } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
 import {
   ConfirmDialog,
-  DataTable,
-  DataTablePagination,
-  ErrorState,
-  LoadingState,
-  PageHeader,
+  EntityManageListPageLayout,
   BatchActionBar,
 } from '@/components/shared'
 import {
@@ -137,7 +132,6 @@ function ContentCell({ content }: { content: string }) {
 
 export function ChannelMessagePage() {
   const { id } = useParams<{ id: string }>()
-  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const channelId = id ?? ''
 
@@ -396,40 +390,23 @@ export function ChannelMessagePage() {
     getCoreRowModel: getCoreRowModel(),
   })
 
-  if (isLoading) {
-    return <LoadingState message="加载频道消息中..." />
-  }
-
-  if (error || !channelId) {
-    return <ErrorState message="加载频道消息失败" onRetry={() => refetch()} />
-  }
-
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="频道消息治理"
-        description={`频道 ID: ${channelId}`}
-        actions={(
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleExportCsv}
-              disabled={messages.length === 0}
-            >
-              <Download className="mr-2 h-4 w-4" />
-              导出 CSV
-            </Button>
-            <Button variant="outline" onClick={() => navigate(`/channels/${channelId}`)}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              返回频道详情
-            </Button>
-          </div>
-        )}
-      />
-
-      <Card>
-        <CardContent>
+    <EntityManageListPageLayout
+      title="频道消息治理"
+      description={`频道 ID: ${channelId}`}
+      exportCsv={{
+        onClick: handleExportCsv,
+        disabled: messages.length === 0,
+        label: '导出 CSV',
+      }}
+      backTo={{ to: `/channels/${channelId}`, label: '返回频道详情' }}
+      loading={isLoading}
+      loadingMessage="加载频道消息中..."
+      error={error || !channelId}
+      errorMessage="加载频道消息失败"
+      onRetry={() => refetch()}
+      table={table}
+      filters={
           <BatchActionBar
             selectedCount={selectedCount}
             onClear={() => setRowSelection({})}
@@ -487,21 +464,22 @@ export function ChannelMessagePage() {
               },
             ]}
           />
-          <DataTable table={table} />
-          {data && (
-            <DataTablePagination
-              page={data.page}
-              pageSize={data.size}
-              total={data.total}
-              onPageChange={handlePageChange}
-              onPageSizeChange={handlePageSizeChange}
-              dataUpdatedAt={dataUpdatedAt}
-              onRefresh={() => refetch()}
-            />
-          )}
-        </CardContent>
-      </Card>
-
+      }
+      pagination={
+        data
+          ? {
+              page: data.page,
+              pageSize: data.size,
+              total: data.total,
+              onPageChange: handlePageChange,
+              onPageSizeChange: handlePageSizeChange,
+              dataUpdatedAt,
+              onRefresh: () => refetch(),
+            }
+          : undefined
+      }
+      paginationPlacement="inside-card"
+    >
       {confirmDialog && (
         <ConfirmDialog
           open={confirmDialog.open}
@@ -514,6 +492,6 @@ export function ChannelMessagePage() {
           onConfirm={() => deleteMutation.mutate(confirmDialog.messageId)}
         />
       )}
-    </div>
+    </EntityManageListPageLayout>
   )
 }

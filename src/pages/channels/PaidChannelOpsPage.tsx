@@ -3,15 +3,10 @@ import { useQuery } from '@tanstack/react-query'
 import { LegacyColumnDef, getCoreRowModel, useLegacyTable } from '@tanstack/react-table/legacy'
 import { DollarSign, ListOrdered, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import {
-  DataTable,
-  DataTablePagination,
-  ErrorState,
+  EntityManageListPageLayout,
   FilterBar,
-  LoadingState,
-  PageHeader,
   StatusBadge,
 } from '@/components/shared'
 import { formatDate } from '@/lib/utils'
@@ -164,57 +159,60 @@ export function PaidChannelOpsPage() {
     getCoreRowModel: getCoreRowModel(),
   })
 
-  if (isLoading) return <LoadingState message="加载付费频道..." />
-  if (error) return <ErrorState message="加载付费频道失败" onRetry={() => refetch()} />
-
   return (
-    <div className="space-y-6">
-      <PageHeader title="付费频道运营" description="管理付费频道定价与订单（type=付费）" />
-
-      <Card>
-        <CardHeader>
-          <FilterBar onSearch={handleSearch} onReset={handleReset}>
-            <div className="relative w-full max-w-sm">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="搜索频道名称..."
-                value={keywordInput}
-                onChange={(e) => setKeywordInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                className="pl-10"
-              />
-            </div>
-            <Select
-              className="h-10 min-w-36 rounded-md border border-input bg-background px-3 text-sm"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
-              <option value="-1">全部状态</option>
-              <option value="1">正常</option>
-              <option value="0">禁用</option>
-            </Select>
-          </FilterBar>
-        </CardHeader>
-        <CardContent>
-          <DataTable table={table} />
-          {data && (
-            <DataTablePagination
-              page={data.page}
-              pageSize={data.size}
-              total={data.total}
-              onPageChange={handlePageChange}
-              onPageSizeChange={handlePageSizeChange}
-              dataUpdatedAt={dataUpdatedAt}
-              onRefresh={() => refetch()}
+    <EntityManageListPageLayout
+      title="付费频道运营"
+      description="管理付费频道定价与订单（type=付费）"
+      loading={isLoading}
+      loadingMessage="加载付费频道..."
+      error={error}
+      errorMessage="加载付费频道失败"
+      onRetry={() => refetch()}
+      table={table}
+      filters={
+        <FilterBar onSearch={handleSearch} onReset={handleReset}>
+          <div className="relative w-full max-w-sm">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="搜索频道名称..."
+              value={keywordInput}
+              onChange={(e) => setKeywordInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+              className="pl-10"
             />
-          )}
-          {paidChannels.length === 0 && (
-            <p className="mt-4 text-center text-sm text-muted-foreground">
-              暂无付费频道
-            </p>
-          )}
-        </CardContent>
-      </Card>
+          </div>
+          <Select
+            className="h-10 min-w-36 rounded-md border border-input bg-background px-3 text-sm"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+          >
+            <option value="-1">全部状态</option>
+            <option value="1">正常</option>
+            <option value="0">禁用</option>
+          </Select>
+        </FilterBar>
+      }
+      filtersPlacement="header"
+      pagination={
+        data
+          ? {
+              page: data.page,
+              pageSize: data.size,
+              total: data.total,
+              onPageChange: handlePageChange,
+              onPageSizeChange: handlePageSizeChange,
+              dataUpdatedAt,
+              onRefresh: () => refetch(),
+            }
+          : undefined
+      }
+      paginationPlacement="inside-card"
+    >
+      {paidChannels.length === 0 && (
+        <p className="text-center text-sm text-muted-foreground">
+          暂无付费频道
+        </p>
+      )}
 
       <SetChannelPriceDialog
         channelId={priceTarget?.id ?? null}
@@ -230,6 +228,6 @@ export function PaidChannelOpsPage() {
         open={Boolean(ordersTarget)}
         onOpenChange={(open) => { if (!open) setOrdersTarget(null) }}
       />
-    </div>
+    </EntityManageListPageLayout>
   )
 }
