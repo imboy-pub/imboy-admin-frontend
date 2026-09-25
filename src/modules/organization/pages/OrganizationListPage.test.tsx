@@ -17,6 +17,7 @@ import { cleanup, fireEvent, render, waitFor } from '@testing-library/react'
 import { act } from 'react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import client from '@/services/api/client'
+import { t } from '@/i18n'
 import { OrganizationListPage } from './OrganizationListPage'
 
 type AnyFn = (..._args: unknown[]) => unknown
@@ -229,6 +230,106 @@ describe('OrganizationListPage + profile drawer (ENT-ADM-04)', () => {
 
     await waitFor(() => {
       expect(view.container.textContent).toContain('organization-detail-probe')
+    })
+  })
+})
+
+describe('OrganizationListPage 文案经 t() 输出（ENT-UX-01 i18n 入键门）', () => {
+  beforeEach(() => {
+    document.body.innerHTML = ''
+    stubSidebarFetch(READ_WRITE)
+    mutableClient.post = (() => Promise.resolve(envelope({}))) as AnyFn
+  })
+
+  afterEach(() => {
+    mutableClient.get = realGet
+    mutableClient.post = realPost
+    globalThis.fetch = realFetch
+    cleanup()
+  })
+
+  it('页面标题/表头/主按钮渲染文本与键表严格一致', async () => {
+    mutableClient.get = makeGet(READ_WRITE) as AnyFn
+
+    let view: ReturnType<typeof renderPage>
+    await act(async () => {
+      view = renderPage()
+    })
+    await waitFor(() => {
+      expect(view.container.textContent).toContain('imboy-org')
+    })
+
+    // 页面标题/描述：经 t() 插权限参数后的完整键值原样渲染
+    expect(view.container.textContent).toContain(t('ent.orgList.pageTitle'))
+    expect(view.container.textContent).toContain(
+      t('ent.orgList.pageDescription', { readPermission: 'organizations:read', writePermission: 'organizations:write' })
+    )
+
+    // 表头单元格逐格严格相等（值只能来自键表，不允许字面量旁路）
+    const headers = Array.from(view.container.querySelectorAll('th')).map((cell) => cell.textContent ?? '')
+    for (const key of [
+      'ent.orgList.colName',
+      'ent.orgList.colOrgId',
+      'ent.orgList.colOwner',
+      'ent.orgList.colMemberWorkspace',
+      'ent.orgList.colStatus',
+      'ent.orgList.colCreatedAt',
+      'ent.orgList.colActions',
+    ] as const) {
+      expect(headers).toContain(t(key))
+    }
+
+    // 主按钮：创建组织 / 搜索
+    const createBtn = view.container.querySelector('[data-testid="org-create-entry"]')
+    expect(createBtn?.textContent).toBe(t('ent.orgList.createOrg'))
+    const searchBtn = view.container.querySelector('[data-testid="org-search-submit"]')
+    expect(searchBtn?.textContent).toContain(t('ent.orgList.search'))
+  })
+
+  it('归档确认弹层文案（标题/描述/确认按钮）经 t() 渲染', async () => {
+    mutableClient.get = makeGet(READ_WRITE) as AnyFn
+
+    let view: ReturnType<typeof renderPage>
+    await act(async () => {
+      view = renderPage()
+    })
+    await waitFor(() => {
+      expect(view.container.textContent).toContain('imboy-org')
+    })
+    const archiveBtn = view.container.querySelector('[data-testid="org-archive-btn"]')
+    expect(archiveBtn).not.toBeNull()
+
+    await act(async () => {
+      fireEvent.click(archiveBtn)
+    })
+
+    await waitFor(() => {
+      expect(document.body.textContent).toContain(t('ent.orgList.archiveTitle', { name: 'imboy-org' }))
+    })
+    expect(document.body.textContent).toContain(t('ent.orgList.archiveDescription'))
+    const confirmBtn = Array.from(document.body.querySelectorAll('button')).find(
+      (btn) => btn.textContent === t('ent.orgList.archiveConfirm')
+    )
+    expect(confirmBtn).toBeDefined()
+  })
+
+  it('空态文案经 t() 渲染（键表 empty 键直达用户）', async () => {
+    mutableClient.get = (async (url: string) => {
+      if (url === '/rbac/me') {
+        return envelope({ role_id: '2', role_ids: ['2'], permissions: READ_WRITE, menu_paths: [] })
+      }
+      if (url === '/organizations') {
+        return envelope({ list: [], page: 1, size: 10, total: 0, total_page: 0 })
+      }
+      throw new Error(`unexpected GET url: ${url}`)
+    }) as AnyFn
+
+    let view: ReturnType<typeof renderPage>
+    await act(async () => {
+      view = renderPage()
+    })
+    await waitFor(() => {
+      expect(view.container.textContent).toContain(t('ent.orgList.empty'))
     })
   })
 })

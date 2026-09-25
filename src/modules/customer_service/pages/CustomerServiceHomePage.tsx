@@ -36,6 +36,7 @@ import {
 } from '@/components/shared/orgWorkspaceQuery'
 import { useAdminPermission } from '@/hooks/useAdminPermission'
 import { useListQueryState } from '@/hooks/useListQueryState'
+import { t } from '@/i18n'
 import { cn } from '@/lib/utils'
 import { getErrorMessage } from '@/lib/errorUtils'
 import type { EntityId } from '@/types/common'
@@ -134,10 +135,10 @@ export function CustomerServiceHomePage() {
 
   const actionMutation = useMutation({
     mutationFn: async () => {
-      if (pendingAction === null) throw new Error('没有待执行的操作')
+      if (pendingAction === null) throw new Error(t('cs.home.pendingActionError'))
       const { kind, seat } = pendingAction
       if (!seat.workspace_id) {
-        throw new Error('该企业暂无可用工作区，无法执行该操作')
+        throw new Error(t('cs.home.noWorkspaceError'))
       }
       const scope = {
         organizationId: seat.organization_id,
@@ -146,10 +147,10 @@ export function CustomerServiceHomePage() {
       }
       if (kind === 'suspend') {
         await suspendCsSeat(scope)
-        return '坐席已停用'
+        return t('cs.home.suspendToast')
       }
       await resumeCsSeat(scope)
-      return '坐席已恢复'
+      return t('cs.home.resumeToast')
     },
     onSuccess: async (message) => {
       toast.success(message)
@@ -172,7 +173,7 @@ export function CustomerServiceHomePage() {
   const columns = useMemo<LegacyColumnDef<PlatformSeatRow>[]>(
     () => [
       {
-        header: '企业',
+        header: t('cs.home.colEnterprise'),
         cell: ({ row }) => (
           <span className="font-medium">
             {row.original.organization_name || row.original.organization_id}
@@ -180,10 +181,10 @@ export function CustomerServiceHomePage() {
         ),
       },
       {
-        header: '客服坐席',
+        header: t('cs.home.colSeat'),
         cell: ({ row }) => (
           <div className="min-w-0">
-            <div className="truncate">{row.original.display_name ?? '未命名坐席'}</div>
+            <div className="truncate">{row.original.display_name ?? t('cs.home.unnamedSeat')}</div>
             <div className="truncate font-mono text-xs text-muted-foreground">
               {row.original.business_identity_id}
             </div>
@@ -191,15 +192,15 @@ export function CustomerServiceHomePage() {
         ),
       },
       {
-        header: '状态',
+        header: t('cs.home.colStatus'),
         cell: ({ row }) => (
           <Badge variant={row.original.enabled ? 'default' : 'outline'}>
-            {row.original.enabled ? '可接待' : '已停用'}
+            {row.original.enabled ? t('cs.home.statusEnabled') : t('cs.home.statusDisabled')}
           </Badge>
         ),
       },
       {
-        header: '当前接待',
+        header: t('cs.home.colActive'),
         cell: ({ row }) => (
           <span className="tabular-nums">
             {row.original.active_count} / {row.original.max_concurrent}
@@ -207,7 +208,7 @@ export function CustomerServiceHomePage() {
         ),
       },
       {
-        header: '操作',
+        header: t('cs.home.colActions'),
         cell: ({ row }) => (
           <Button
             variant="ghost"
@@ -217,7 +218,7 @@ export function CustomerServiceHomePage() {
               setPendingAction({ kind: row.original.enabled ? 'suspend' : 'resume', seat: row.original })
             }
           >
-            {row.original.enabled ? '停用' : '恢复'}
+            {row.original.enabled ? t('cs.home.actionSuspend') : t('cs.home.actionResume')}
           </Button>
         ),
       },
@@ -234,14 +235,14 @@ export function CustomerServiceHomePage() {
   let body: ReactElement
   if (!readReady) {
     body = permissionLoading ? (
-      <LoadingState message="正在加载在线客服…" />
+      <LoadingState message={t('cs.home.loading')} />
     ) : (
-      <EmptyState icon={<Headphones className="h-8 w-8" />} title="无权访问在线客服" />
+      <EmptyState icon={<Headphones className="h-8 w-8" />} title={t('cs.home.noPermission')} />
     )
   } else if (seatsQuery.error) {
     body = (
       <ErrorState
-        message={`加载客服坐席失败：${getErrorMessage(seatsQuery.error)}`}
+        message={t('cs.home.loadError', { message: getErrorMessage(seatsQuery.error) })}
         onRetry={() => void seatsQuery.refetch()}
       />
     )
@@ -253,8 +254,8 @@ export function CustomerServiceHomePage() {
           loading={seatsQuery.isLoading}
           emptyMessage={
             orgId !== null
-              ? '该企业还没有客服坐席，点击右上角「添加客服坐席」开通'
-              : '平台还没有客服坐席，点击右上角「添加客服坐席」开通'
+              ? t('cs.home.emptyWithOrg')
+              : t('cs.home.emptyAll')
           }
         />
         <CursorPaginationBar
@@ -279,11 +280,11 @@ export function CustomerServiceHomePage() {
   return (
     <div className="space-y-4" data-page="customer-service-home">
       <PageHeader
-        title="在线客服坐席"
-        description="查看各企业客服坐席与接待状态，添加或停用坐席。"
+        title={t('cs.home.pageTitle')}
+        description={t('cs.home.pageDescription')}
         actions={
           <Button disabled={!canWrite} onClick={() => setAddSeatOpen(true)}>
-            <Plus className="mr-1 h-4 w-4" />添加客服坐席
+            <Plus className="mr-1 h-4 w-4" />{t('cs.home.addSeat')}
           </Button>
         }
       />
@@ -294,12 +295,12 @@ export function CustomerServiceHomePage() {
       <Card>
         <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3">
           <CardTitle className="text-base">
-            {orgId !== null ? '企业客服坐席' : '全部企业的客服坐席'}
+            {orgId !== null ? t('cs.home.seatsOfOrg') : t('cs.home.seatsOfAll')}
           </CardTitle>
           <div className="flex items-center gap-2">
             <Select
               id="cs-home-org-filter"
-              aria-label="企业过滤"
+              aria-label={t('cs.home.orgFilterLabel')}
               className="w-[240px]"
               value={orgId ?? ''}
               onChange={(event) => {
@@ -307,7 +308,7 @@ export function CustomerServiceHomePage() {
                 resetCursor()
               }}
             >
-              <option value="">全部企业</option>
+              <option value="">{t('cs.home.allOrgs')}</option>
               {orgOptions.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
@@ -315,7 +316,7 @@ export function CustomerServiceHomePage() {
               ))}
             </Select>
             <Link to="/customer-service/widgets" className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}>
-              <Globe2 className="mr-1 h-4 w-4" />网站接入
+              <Globe2 className="mr-1 h-4 w-4" />{t('cs.home.widgetsLink')}
             </Link>
           </div>
         </CardHeader>
@@ -341,13 +342,13 @@ export function CustomerServiceHomePage() {
         onOpenChange={(open) => {
           if (!open) setPendingAction(null)
         }}
-        title={pendingAction?.kind === 'resume' ? '恢复客服坐席' : '停用客服坐席'}
+        title={pendingAction?.kind === 'resume' ? t('cs.home.resumeTitle') : t('cs.home.suspendTitle')}
         description={
           pendingAction?.kind === 'resume'
-            ? '恢复后，该坐席可以重新参与客服接待。'
-            : '停用后，该坐席将不能继续接待新会话。'
+            ? t('cs.home.resumeDescription')
+            : t('cs.home.suspendDescription')
         }
-        confirmText={pendingAction?.kind === 'resume' ? '恢复' : '停用'}
+        confirmText={pendingAction?.kind === 'resume' ? t('cs.home.resumeConfirm') : t('cs.home.suspendConfirm')}
         loading={actionMutation.isPending}
         onConfirm={() => actionMutation.mutate()}
       />
@@ -399,7 +400,7 @@ function AddSeatDialog(props: {
   const member = members.find((item) => item.userId === memberId)
   const mutation = useMutation({
     mutationFn: async () => {
-      if (!member) throw new Error('请选择客服成员')
+      if (!member) throw new Error(t('cs.addSeat.memberRequired'))
       return provisionCustomerServiceSeat({
         organizationId: orgId,
         workspaceId: selectedWorkspaceId,
@@ -409,7 +410,7 @@ function AddSeatDialog(props: {
       })
     },
     onSuccess: async () => {
-      toast.success('客服坐席已添加')
+      toast.success(t('cs.addSeat.successToast'))
       props.onOpenChange(false)
       await props.onCompleted()
     },
@@ -420,19 +421,19 @@ function AddSeatDialog(props: {
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>添加客服坐席</DialogTitle>
-          <DialogDescription>选择企业与成员后，该成员即可参与客服接待。</DialogDescription>
+          <DialogTitle>{t('cs.addSeat.title')}</DialogTitle>
+          <DialogDescription>{t('cs.addSeat.description')}</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="cs-add-seat-org">企业</Label>
+            <Label htmlFor="cs-add-seat-org">{t('cs.addSeat.orgLabel')}</Label>
             <Select
               id="cs-add-seat-org"
               value={orgId}
               disabled={props.orgsLoading || props.lockedOrganizationId !== null}
               onChange={(event) => onOrgChange(event.target.value)}
             >
-              <option value="">{props.orgsLoading ? '正在加载企业…' : '请选择企业'}</option>
+              <option value="">{props.orgsLoading ? t('cs.addSeat.orgLoading') : t('cs.addSeat.orgPlaceholder')}</option>
               {props.organizations.map((org) => (
                 <option key={org.id} value={org.id}>
                   {org.name}
@@ -441,7 +442,7 @@ function AddSeatDialog(props: {
             </Select>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="cs-add-seat-workspace">工作区</Label>
+            <Label htmlFor="cs-add-seat-workspace">{t('cs.addSeat.workspaceLabel')}</Label>
             <Select
               id="cs-add-seat-workspace"
               value={selectedWorkspaceId}
@@ -450,12 +451,12 @@ function AddSeatDialog(props: {
             >
               <option value="">
                 {orgId.length === 0
-                  ? '请先选择企业'
+                  ? t('cs.addSeat.orgRequiredFirst')
                   : wssQuery.isLoading
-                    ? '正在加载工作区…'
+                    ? t('cs.addSeat.workspaceLoading')
                     : workspaces.length === 0
-                      ? '该企业暂无可用工作区'
-                      : '请选择工作区'}
+                      ? t('cs.addSeat.workspaceEmpty')
+                      : t('cs.addSeat.workspacePlaceholder')}
               </option>
               {workspaces.map((ws) => (
                 <option key={ws.id} value={ws.id}>
@@ -465,7 +466,7 @@ function AddSeatDialog(props: {
             </Select>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="cs-add-seat-member">企业成员</Label>
+            <Label htmlFor="cs-add-seat-member">{t('cs.addSeat.memberLabel')}</Label>
             <Select
               id="cs-add-seat-member"
               value={memberId}
@@ -474,10 +475,10 @@ function AddSeatDialog(props: {
             >
               <option value="">
                 {orgId.length === 0
-                  ? '请先选择企业'
+                  ? t('cs.addSeat.orgRequiredFirst')
                   : membersQuery.isLoading
-                    ? '正在加载成员…'
-                    : '请选择成员'}
+                    ? t('cs.addSeat.memberLoading')
+                    : t('cs.addSeat.memberPlaceholder')}
               </option>
               {members.map((item) => (
                 <option key={item.userId} value={item.userId}>
@@ -487,9 +488,9 @@ function AddSeatDialog(props: {
             </Select>
           </div>
           <details className="rounded-md border px-4 py-3">
-            <summary className="cursor-pointer text-sm font-medium">高级设置</summary>
+            <summary className="cursor-pointer text-sm font-medium">{t('cs.addSeat.advanced')}</summary>
             <div className="mt-3 max-w-xs space-y-2">
-              <Label htmlFor="cs-add-seat-max">同时接待数</Label>
+              <Label htmlFor="cs-add-seat-max">{t('cs.addSeat.maxConcurrent')}</Label>
               <Input
                 id="cs-add-seat-max"
                 type="number"
@@ -505,7 +506,7 @@ function AddSeatDialog(props: {
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => props.onOpenChange(false)}>
-            取消
+            {t('cs.addSeat.cancel')}
           </Button>
           <Button
             disabled={
@@ -516,7 +517,7 @@ function AddSeatDialog(props: {
             }
             onClick={() => mutation.mutate()}
           >
-            {mutation.isPending ? '正在添加…' : '添加坐席'}
+            {mutation.isPending ? t('cs.addSeat.submitting') : t('cs.addSeat.submit')}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -14,6 +14,7 @@ import type { EntityDrawerSection } from '@/components/shared'
 import { serializeOrgWorkspaceQuery } from '@/components/shared/orgWorkspaceQuery'
 import { useAdminPermission } from '@/hooks/useAdminPermission'
 import { useListQueryState } from '@/hooks/useListQueryState'
+import { t } from '@/i18n'
 import { DEFAULT_PAGE_SIZE } from '@/lib/pagination'
 import {
   archiveOrganization,
@@ -94,7 +95,11 @@ export function OrganizationListPage() {
     mutationFn: (orgId: string) => archiveOrganization(orgId),
     onSuccess: (result, orgId) => {
       toast.success(
-        `组织 ${orgId} 已归档（status=${result.status}${result.changed ? '' : '，幂等重放'}；restore 是唯一放行的恢复入口）`
+        t('ent.orgList.archiveToast', {
+          orgId,
+          status: result.status,
+          suffix: result.changed ? '' : t('ent.orgList.archiveToastReplaySuffix'),
+        })
       )
       setPendingArchive(null)
       invalidateList()
@@ -105,7 +110,7 @@ export function OrganizationListPage() {
   const restoreMutation = useMutation({
     mutationFn: (orgId: string) => restoreOrganization(orgId),
     onSuccess: (result, orgId) => {
-      toast.success(`组织 ${orgId} 已恢复为 ${result.status}`)
+      toast.success(t('ent.orgList.restoreToast', { orgId, status: result.status }))
       setPendingRestore(null)
       invalidateList()
     },
@@ -124,7 +129,7 @@ export function OrganizationListPage() {
   const columns = useMemo<LegacyColumnDef<OrganizationSummary>[]>(
     () => [
       {
-        header: '名称',
+        header: t('ent.orgList.colName'),
         cell: ({ row }) => (
           <div className="flex items-center gap-2">
             <button
@@ -134,16 +139,16 @@ export function OrganizationListPage() {
             >
               {row.original.name}
             </button>
-            {row.original.status === 'archived' && <Badge variant="destructive">已归档</Badge>}
+            {row.original.status === 'archived' && <Badge variant="destructive">{t('ent.orgList.archivedBadge')}</Badge>}
           </div>
         ),
       },
       {
-        header: '组织 ID',
+        header: t('ent.orgList.colOrgId'),
         cell: ({ row }) => <span className="font-mono text-xs">{row.original.id}</span>,
       },
       {
-        header: 'Owner',
+        header: t('ent.orgList.colOwner'),
         cell: ({ row }) => (
           <span className="text-xs">
             {row.original.ownerNickname || row.original.ownerId ? (
@@ -163,7 +168,7 @@ export function OrganizationListPage() {
         ),
       },
       {
-        header: '成员 / Workspace',
+        header: t('ent.orgList.colMemberWorkspace'),
         cell: ({ row }) => (
           <span className="font-mono text-xs">
             {row.original.memberCount ?? '-'} / {row.original.workspaceCount ?? '-'}
@@ -171,15 +176,15 @@ export function OrganizationListPage() {
         ),
       },
       {
-        header: '状态',
+        header: t('ent.orgList.colStatus'),
         cell: ({ row }) => <span className="font-mono text-xs">{orgStatusLabel(row.original.status)}</span>,
       },
       {
-        header: '创建时间',
+        header: t('ent.orgList.colCreatedAt'),
         cell: ({ row }) => <span className="font-mono text-xs">{row.original.createdAt || '-'}</span>,
       },
       {
-        header: '操作',
+        header: t('ent.orgList.colActions'),
         cell: ({ row }) => {
           const org = row.original
           // 档案 Drawer 为只读投影（organizations:read 门内页面即可用），
@@ -192,23 +197,23 @@ export function OrganizationListPage() {
                 data-testid="org-profile-btn"
                 onClick={() => setProfileOrg(org)}
               >
-                档案
+                {t('ent.orgList.actionProfile')}
               </Button>
               {!canWrite ? (
-                <span className="text-xs text-muted-foreground">只读（无 {WRITE_PERMISSION} 权限）</span>
+                <span className="text-xs text-muted-foreground">{t('ent.orgList.readonlyHint', { permission: WRITE_PERMISSION })}</span>
               ) : (
                 <>
                   <Button variant="ghost" size="sm" onClick={() => openDetail(org)}>
-                    治理
+                    {t('ent.orgList.actionGovern')}
                   </Button>
                   {isOrgWriteAllowed(org.status, 'archive') ? (
                     <Button variant="outline" size="sm" data-testid="org-archive-btn" onClick={() => setPendingArchive(org)}>
-                      归档
+                      {t('ent.orgList.actionArchive')}
                     </Button>
                   ) : null}
                   {isOrgWriteAllowed(org.status, 'restore') ? (
                     <Button variant="outline" size="sm" data-testid="org-restore-btn" onClick={() => setPendingRestore(org)}>
-                      恢复
+                      {t('ent.orgList.actionRestore')}
                     </Button>
                   ) : null}
                 </>
@@ -229,7 +234,7 @@ export function OrganizationListPage() {
 
   let body: ReactElement
   if (!readReady) {
-    body = <EmptyState title="无查看权限" description={`进入组织治理面板需要 ${READ_PERMISSION} 权限。`} />
+    body = <EmptyState title={t('ent.orgList.noPermissionTitle')} description={t('ent.orgList.noPermissionDescription', { permission: READ_PERMISSION })} />
   } else if (query.error) {
     const failure = classifyOrgError(query.error)
     body = (
@@ -241,7 +246,7 @@ export function OrganizationListPage() {
   } else {
     body = (
       <div className="space-y-3">
-        <DataTable table={table} loading={query.isLoading} emptyMessage={keyword ? '没有匹配搜索条件的组织' : '暂无组织'} />
+        <DataTable table={table} loading={query.isLoading} emptyMessage={keyword ? t('ent.orgList.emptyWithKeyword') : t('ent.orgList.empty')} />
         <DataTablePagination
           page={query.data?.page ?? state.page}
           pageSize={query.data?.size ?? state.size}
@@ -258,13 +263,13 @@ export function OrganizationListPage() {
   return (
     <div className="space-y-4" data-page="organization-list">
       <PageHeader
-        title="组织治理"
-        description={`平台视角的组织列表与生命周期治理（/api/adm/organizations）。页面可达需要 ${READ_PERMISSION}；写入口需要 ${WRITE_PERMISSION}（adm_acl 分权，read-only 角色对 mutation 恒 403）。平台管理员权限不映射为组织角色。`}
+        title={t('ent.orgList.pageTitle')}
+        description={t('ent.orgList.pageDescription', { readPermission: READ_PERMISSION, writePermission: WRITE_PERMISSION })}
       />
 
       <Card>
         <CardHeader className="flex-row items-center justify-between space-y-0">
-          <CardTitle className="text-base">组织列表</CardTitle>
+          <CardTitle className="text-base">{t('ent.orgList.cardTitle')}</CardTitle>
           {/*
             §9-2 合同（EADM-07）：read-only 账号「只见只读页、无写入口」。
             「无写入口」= 该入口不进 DOM，而不是渲染一个 disabled 按钮——disabled 仍是
@@ -277,10 +282,10 @@ export function OrganizationListPage() {
               type="button"
               size="sm"
               data-testid="org-create-entry"
-              title="创建组织"
+              title={t('ent.orgList.createOrg')}
               onClick={() => setCreateOpen(true)}
             >
-              创建组织
+              {t('ent.orgList.createOrg')}
             </Button>
           )}
         </CardHeader>
@@ -293,25 +298,21 @@ export function OrganizationListPage() {
             }}
           >
             <div className="flex-1 space-y-1.5">
-              <Label htmlFor="org-list-q">按名称 / ID 搜索（服务端）</Label>
+              <Label htmlFor="org-list-q">{t('ent.orgList.searchLabel')}</Label>
               <Input
                 id="org-list-q"
                 value={keywordDraft}
                 onChange={(event) => setKeywordDraft(event.target.value)}
-                placeholder="组织名或 TSID，留空列出全部"
+                placeholder={t('ent.orgList.searchPlaceholder')}
               />
             </div>
             <Button type="submit" size="sm" variant="outline" data-testid="org-search-submit">
               <Search className="mr-1 h-4 w-4" />
-              搜索
+              {t('ent.orgList.search')}
             </Button>
           </form>
           {body}
-          <p className="text-xs text-muted-foreground">
-            数据面为 <code className="font-mono">/api/adm/organizations</code>（平台专用端点，adm cookie
-            会话）。平台管理员可经上方「创建组织」入口新建组织（Owner 必须经用户搜索选择，禁止手填裸 TSID）；
-            创建为幂等命令——同名 + 同 Owner 已有 active 组织时返回既有组织而非报错。治理详情见组织详情页。
-          </p>
+          <p className="text-xs text-muted-foreground">{t('ent.orgList.footnote')}</p>
         </CardContent>
       </Card>
 
@@ -320,9 +321,9 @@ export function OrganizationListPage() {
         onOpenChange={(open) => {
           if (!open) setPendingArchive(null)
         }}
-        title={`归档组织「${pendingArchive?.name ?? ''}」`}
-        description="归档是幂等命令：组织将禁新写（成员/邀请/部门写全部拒绝，C16 fail-closed），成员与既有事实保留；恢复只能通过 restore。平台操作将写入 adm_operation_log 审计。确认继续？"
-        confirmText="确认归档"
+        title={t('ent.orgList.archiveTitle', { name: pendingArchive?.name ?? '' })}
+        description={t('ent.orgList.archiveDescription')}
+        confirmText={t('ent.orgList.archiveConfirm')}
         variant="destructive"
         loading={archiveMutation.isPending}
         onConfirm={async () => {
@@ -335,9 +336,9 @@ export function OrganizationListPage() {
         onOpenChange={(open) => {
           if (!open) setPendingRestore(null)
         }}
-        title={`恢复组织「${pendingRestore?.name ?? ''}」`}
-        description="restore 是 archived 态唯一放行的写入口，幂等。恢复后组织回到 active，常规治理写重新开放。确认恢复？"
-        confirmText="确认恢复"
+        title={t('ent.orgList.restoreTitle', { name: pendingRestore?.name ?? '' })}
+        description={t('ent.orgList.restoreDescription')}
+        confirmText={t('ent.orgList.restoreConfirm')}
         loading={restoreMutation.isPending}
         onConfirm={async () => {
           if (pendingRestore) await restoreMutation.mutateAsync(pendingRestore.id)
@@ -357,7 +358,7 @@ export function OrganizationListPage() {
         onOpenChange={(open) => {
           if (!open) setProfileOrg(null)
         }}
-        title="组织档案"
+        title={t('ent.orgProfile.drawerTitle')}
         subtitle={profileOrg ? `${profileOrg.name} · ${orgStatusLabel(profileOrg.status)}` : undefined}
         sections={profileOrg ? buildOrgProfileSections(profileOrg) : []}
       />
@@ -381,19 +382,19 @@ function buildOrgProfileSections(org: OrganizationSummary): EntityDrawerSection[
     {
       id: 'org-profile-facts',
       kind: 'profile',
-      title: '组织档案',
+      title: t('ent.orgProfile.sectionTitle'),
       fields: [
-        { label: '组织 TSID', value: org.id, mono: true },
-        { label: '名称', value: org.name },
-        { label: 'Owner（owner_id）', value: org.ownerId || '-', mono: true },
+        { label: t('ent.orgProfile.fieldTsid'), value: org.id, mono: true },
+        { label: t('ent.orgProfile.fieldName'), value: org.name },
+        { label: t('ent.orgProfile.fieldOwnerId'), value: org.ownerId || '-', mono: true },
         {
-          label: 'Owner 昵称 / 账号',
+          label: t('ent.orgProfile.fieldOwner'),
           value: `${org.ownerNickname || '-'}${org.ownerAccount ? ` (${org.ownerAccount})` : ''}`,
         },
-        { label: '状态', value: orgStatusLabel(org.status), mono: true },
-        { label: 'active 成员数', value: org.memberCount == null ? '-' : String(org.memberCount), mono: true },
-        { label: 'Workspace 数', value: org.workspaceCount == null ? '-' : String(org.workspaceCount), mono: true },
-        { label: '创建时间', value: org.createdAt || '-', mono: true },
+        { label: t('ent.orgProfile.fieldStatus'), value: orgStatusLabel(org.status), mono: true },
+        { label: t('ent.orgProfile.fieldMemberCount'), value: org.memberCount == null ? '-' : String(org.memberCount), mono: true },
+        { label: t('ent.orgProfile.fieldWorkspaceCount'), value: org.workspaceCount == null ? '-' : String(org.workspaceCount), mono: true },
+        { label: t('ent.orgProfile.fieldCreatedAt'), value: org.createdAt || '-', mono: true },
       ],
     },
     {
@@ -402,24 +403,24 @@ function buildOrgProfileSections(org: OrganizationSummary): EntityDrawerSection[
       // 打开期间挂载）。面板自带 customer_service:read 门（fail-closed）。
       id: 'org-profile-cs-summary',
       kind: 'custom',
-      title: '客服摘要',
+      title: t('ent.orgProfile.csSectionTitle'),
       content: <CsSummaryPanel organizationId={org.id} variant="inline" />,
     },
     {
       id: 'org-profile-relations',
       kind: 'relationship',
-      title: '关系导航',
+      title: t('ent.orgProfile.relationSectionTitle'),
       items: [
-        { id: 'relation-org-detail', label: '组织详情（事实域）', href: orgBase },
-        { id: 'relation-org-members', label: '成员治理', href: `${orgBase}/members` },
-        { id: 'relation-org-invitations', label: '邀请管理', href: `${orgBase}/invitations` },
-        { id: 'relation-org-departments', label: '部门管理', href: `${orgBase}/departments` },
-        { id: 'relation-org-cs', label: '在线客服治理面', href: csHref },
+        { id: 'relation-org-detail', label: t('ent.orgProfile.relationOrgDetail'), href: orgBase },
+        { id: 'relation-org-members', label: t('ent.orgProfile.relationMembers'), href: `${orgBase}/members` },
+        { id: 'relation-org-invitations', label: t('ent.orgProfile.relationInvitations'), href: `${orgBase}/invitations` },
+        { id: 'relation-org-departments', label: t('ent.orgProfile.relationDepartments'), href: `${orgBase}/departments` },
+        { id: 'relation-org-cs', label: t('ent.orgProfile.relationCs'), href: csHref },
         ...(org.ownerId
-          ? [{ id: 'relation-owner-user', label: 'Owner 用户详情', href: `/users/${encodeURIComponent(org.ownerId)}` }]
+          ? [{ id: 'relation-owner-user', label: t('ent.orgProfile.relationOwnerUser'), href: `/users/${encodeURIComponent(org.ownerId)}` }]
           : []),
       ],
-      emptyMessage: '暂无关系导航',
+      emptyMessage: t('ent.orgProfile.relationEmpty'),
     },
   ]
 }
