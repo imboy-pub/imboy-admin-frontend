@@ -1,0 +1,147 @@
+/**
+ * zh-CN 键表（ENT-UX-01 / T-P2-1 Admin i18n 最小机制）。
+ *
+ * 定位：零依赖、单 locale（current-main 事实：中文平台后台，无 locale 层）。
+ * 键表是文案唯一真源——组件渲染输出必须经 `t(key)` 取值，不得字面量内联。
+ *
+ * 术语键（ent.term.*）沿用 docs/prototype-delta-ledger.md 的冻结术语表并按
+ * ENT-UX-01 复核口径扩至 8 个核心术语；禁用同义漂移（"机构/团队/空间/公司"
+ * 等一律不得出现于企业域用户可见文案）。
+ */
+export const zhCN = {
+  /* ---------- 企业域冻结术语（8 核心 + 平台侧补充） ---------- */
+  'ent.term.organization': '组织',
+  'ent.term.member': '成员',
+  'ent.term.department': '部门',
+  'ent.term.group': '群组',
+  'ent.term.channel': '频道',
+  'ent.term.invitation': '邀请',
+  'ent.term.governance': '治理',
+  'ent.term.customerService': '客服',
+  // 平台侧补充术语（delta ledger 冻结表原班人马）
+  'ent.term.enterprise': '企业',
+  'ent.term.workspace': '工作区',
+  'ent.term.seat': '客服坐席',
+  'ent.term.session': '会话',
+  'ent.term.provisioning': '开通',
+
+  /* ---------- 组织列表页（/organizations，ORG-14 平台治理面） ---------- */
+  'ent.orgList.pageTitle': '组织治理',
+  'ent.orgList.pageDescription':
+    '平台视角的组织列表与生命周期治理（/api/adm/organizations）。页面可达需要 {readPermission}；写入口需要 {writePermission}（adm_acl 分权，read-only 角色对 mutation 恒 403）。平台管理员权限不映射为组织角色。',
+  'ent.orgList.cardTitle': '组织列表',
+  'ent.orgList.createOrg': '创建组织',
+  'ent.orgList.searchLabel': '按名称 / ID 搜索（服务端）',
+  'ent.orgList.searchPlaceholder': '组织名或 TSID，留空列出全部',
+  'ent.orgList.search': '搜索',
+  'ent.orgList.colName': '名称',
+  'ent.orgList.colOrgId': '组织 ID',
+  'ent.orgList.colOwner': 'Owner',
+  'ent.orgList.colMemberWorkspace': '成员 / Workspace',
+  'ent.orgList.colStatus': '状态',
+  'ent.orgList.colCreatedAt': '创建时间',
+  'ent.orgList.colActions': '操作',
+  'ent.orgList.archivedBadge': '已归档',
+  'ent.orgList.actionProfile': '档案',
+  'ent.orgList.actionGovern': '治理',
+  'ent.orgList.actionArchive': '归档',
+  'ent.orgList.actionRestore': '恢复',
+  'ent.orgList.readonlyHint': '只读（无 {permission} 权限）',
+  'ent.orgList.emptyWithKeyword': '没有匹配搜索条件的组织',
+  'ent.orgList.empty': '暂无组织',
+  'ent.orgList.noPermissionTitle': '无查看权限',
+  'ent.orgList.noPermissionDescription': '进入组织治理面板需要 {permission} 权限。',
+  'ent.orgList.footnote':
+    '数据面为 /api/adm/organizations（平台专用端点，adm cookie 会话）。平台管理员可经上方「创建组织」入口新建组织（Owner 必须经用户搜索选择，禁止手填裸 TSID）；创建为幂等命令——同名 + 同 Owner 已有 active 组织时返回既有组织而非报错。治理详情见组织详情页。',
+  'ent.orgList.archiveToast': '组织 {orgId} 已归档（status={status}{suffix}；restore 是唯一放行的恢复入口）',
+  'ent.orgList.archiveToastReplaySuffix': '，幂等重放',
+  'ent.orgList.restoreToast': '组织 {orgId} 已恢复为 {status}',
+  'ent.orgList.archiveTitle': '归档组织「{name}」',
+  'ent.orgList.archiveDescription':
+    '归档是幂等命令：组织将禁新写（成员/邀请/部门写全部拒绝，C16 fail-closed），成员与既有事实保留；恢复只能通过 restore。平台操作将写入 adm_operation_log 审计。确认继续？',
+  'ent.orgList.archiveConfirm': '确认归档',
+  'ent.orgList.restoreTitle': '恢复组织「{name}」',
+  'ent.orgList.restoreDescription':
+    'restore 是 archived 态唯一放行的写入口，幂等。恢复后组织回到 active，常规治理写重新开放。确认恢复？',
+  'ent.orgList.restoreConfirm': '确认恢复',
+
+  /* ---------- 组织档案 Drawer（ENT-ADM-04 / CS-ADM-01） ---------- */
+  'ent.orgProfile.drawerTitle': '组织档案',
+  'ent.orgProfile.sectionTitle': '组织档案',
+  'ent.orgProfile.fieldTsid': '组织 TSID',
+  'ent.orgProfile.fieldName': '名称',
+  'ent.orgProfile.fieldOwnerId': 'Owner（owner_id）',
+  'ent.orgProfile.fieldOwner': 'Owner 昵称 / 账号',
+  'ent.orgProfile.fieldStatus': '状态',
+  'ent.orgProfile.fieldMemberCount': 'active 成员数',
+  'ent.orgProfile.fieldWorkspaceCount': 'Workspace 数',
+  'ent.orgProfile.fieldCreatedAt': '创建时间',
+  'ent.orgProfile.csSectionTitle': '客服摘要',
+  'ent.orgProfile.relationSectionTitle': '关系导航',
+  'ent.orgProfile.relationOrgDetail': '组织详情（事实域）',
+  'ent.orgProfile.relationMembers': '成员治理',
+  'ent.orgProfile.relationInvitations': '邀请管理',
+  'ent.orgProfile.relationDepartments': '部门管理',
+  'ent.orgProfile.relationCs': '在线客服治理面',
+  'ent.orgProfile.relationOwnerUser': 'Owner 用户详情',
+  'ent.orgProfile.relationEmpty': '暂无关系导航',
+
+  /* ---------- 客服坐席首页（/customer-service，平台运营面） ---------- */
+  'cs.home.pageTitle': '在线客服坐席',
+  'cs.home.pageDescription': '查看各企业客服坐席与接待状态，添加或停用坐席。',
+  'cs.home.addSeat': '添加客服坐席',
+  'cs.home.colEnterprise': '企业',
+  'cs.home.colSeat': '客服坐席',
+  'cs.home.colStatus': '状态',
+  'cs.home.colActive': '当前接待',
+  'cs.home.colActions': '操作',
+  'cs.home.unnamedSeat': '未命名坐席',
+  'cs.home.statusEnabled': '可接待',
+  'cs.home.statusDisabled': '已停用',
+  'cs.home.actionSuspend': '停用',
+  'cs.home.actionResume': '恢复',
+  'cs.home.suspendToast': '坐席已停用',
+  'cs.home.resumeToast': '坐席已恢复',
+  'cs.home.noWorkspaceError': '该企业暂无可用工作区，无法执行该操作',
+  'cs.home.seatsOfOrg': '企业客服坐席',
+  'cs.home.seatsOfAll': '全部企业的客服坐席',
+  'cs.home.orgFilterLabel': '企业过滤',
+  'cs.home.allOrgs': '全部企业',
+  'cs.home.widgetsLink': '网站接入',
+  'cs.home.emptyWithOrg': '该企业还没有客服坐席，点击右上角「添加客服坐席」开通',
+  'cs.home.emptyAll': '平台还没有客服坐席，点击右上角「添加客服坐席」开通',
+  'cs.home.loading': '正在加载在线客服…',
+  'cs.home.noPermission': '无权访问在线客服',
+  'cs.home.loadError': '加载客服坐席失败：{message}',
+  'cs.home.pendingActionError': '没有待执行的操作',
+  'cs.home.suspendTitle': '停用客服坐席',
+  'cs.home.suspendDescription': '停用后，该坐席将不能继续接待新会话。',
+  'cs.home.suspendConfirm': '停用',
+  'cs.home.resumeTitle': '恢复客服坐席',
+  'cs.home.resumeDescription': '恢复后，该坐席可以重新参与客服接待。',
+  'cs.home.resumeConfirm': '恢复',
+
+  /* ---------- 添加客服坐席弹层 ---------- */
+  'cs.addSeat.title': '添加客服坐席',
+  'cs.addSeat.description': '选择企业与成员后，该成员即可参与客服接待。',
+  'cs.addSeat.orgLabel': '企业',
+  'cs.addSeat.workspaceLabel': '工作区',
+  'cs.addSeat.memberLabel': '企业成员',
+  'cs.addSeat.orgLoading': '正在加载企业…',
+  'cs.addSeat.orgPlaceholder': '请选择企业',
+  'cs.addSeat.orgRequiredFirst': '请先选择企业',
+  'cs.addSeat.workspaceLoading': '正在加载工作区…',
+  'cs.addSeat.workspaceEmpty': '该企业暂无可用工作区',
+  'cs.addSeat.workspacePlaceholder': '请选择工作区',
+  'cs.addSeat.memberLoading': '正在加载成员…',
+  'cs.addSeat.memberPlaceholder': '请选择成员',
+  'cs.addSeat.memberRequired': '请选择客服成员',
+  'cs.addSeat.advanced': '高级设置',
+  'cs.addSeat.maxConcurrent': '同时接待数',
+  'cs.addSeat.cancel': '取消',
+  'cs.addSeat.submit': '添加坐席',
+  'cs.addSeat.submitting': '正在添加…',
+  'cs.addSeat.successToast': '客服坐席已添加',
+} as const
+
+export type I18nKey = keyof typeof zhCN
