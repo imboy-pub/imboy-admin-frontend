@@ -9,7 +9,8 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { ConfirmDialog, DataTable, DataTablePagination, EmptyState, ErrorState, PageHeader } from '@/components/shared'
+import { ConfirmDialog, DataTable, DataTablePagination, EmptyState, EntityDrawer, ErrorState, PageHeader } from '@/components/shared'
+import type { EntityDrawerSection } from '@/components/shared'
 import { serializeOrgWorkspaceQuery } from '@/components/shared/orgWorkspaceQuery'
 import { useAdminPermission } from '@/hooks/useAdminPermission'
 import { useListQueryState } from '@/hooks/useListQueryState'
@@ -59,6 +60,9 @@ export function OrganizationListPage() {
   const [pendingArchive, setPendingArchive] = useState<OrganizationSummary | null>(null)
   const [pendingRestore, setPendingRestore] = useState<OrganizationSummary | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
+  // 组织档案 Drawer（T-P2-4 最小补差，ENT-ADM-04）：消费 ENT-FND-01 的
+  // EntityDrawer sections 能力，只读投影行内既有事实，不新发请求。
+  const [profileOrg, setProfileOrg] = useState<OrganizationSummary | null>(null)
 
   const handleCreated = useCallback(
     (organizationId: EntityId, workspaceId: EntityId, _created: boolean) => {
@@ -176,24 +180,37 @@ export function OrganizationListPage() {
         header: '操作',
         cell: ({ row }) => {
           const org = row.original
-          if (!canWrite) {
-            return <span className="text-xs text-muted-foreground">只读（无 {WRITE_PERMISSION} 权限）</span>
-          }
+          // 档案 Drawer 为只读投影（organizations:read 门内页面即可用），
+          // read-only 账号也提供；归档 / 恢复写入口仍按 canWrite 分权裁决。
           return (
             <div className="flex items-center gap-1">
-              <Button variant="ghost" size="sm" onClick={() => openDetail(org)}>
-                治理
+              <Button
+                variant="ghost"
+                size="sm"
+                data-testid="org-profile-btn"
+                onClick={() => setProfileOrg(org)}
+              >
+                档案
               </Button>
-              {isOrgWriteAllowed(org.status, 'archive') ? (
-                <Button variant="outline" size="sm" data-testid="org-archive-btn" onClick={() => setPendingArchive(org)}>
-                  归档
-                </Button>
-              ) : null}
-              {isOrgWriteAllowed(org.status, 'restore') ? (
-                <Button variant="outline" size="sm" data-testid="org-restore-btn" onClick={() => setPendingRestore(org)}>
-                  恢复
-                </Button>
-              ) : null}
+              {!canWrite ? (
+                <span className="text-xs text-muted-foreground">只读（无 {WRITE_PERMISSION} 权限）</span>
+              ) : (
+                <>
+                  <Button variant="ghost" size="sm" onClick={() => openDetail(org)}>
+                    治理
+                  </Button>
+                  {isOrgWriteAllowed(org.status, 'archive') ? (
+                    <Button variant="outline" size="sm" data-testid="org-archive-btn" onClick={() => setPendingArchive(org)}>
+                      归档
+                    </Button>
+                  ) : null}
+                  {isOrgWriteAllowed(org.status, 'restore') ? (
+                    <Button variant="outline" size="sm" data-testid="org-restore-btn" onClick={() => setPendingRestore(org)}>
+                      恢复
+                    </Button>
+                  ) : null}
+                </>
+              )}
             </div>
           )
         },
@@ -330,6 +347,63 @@ export function OrganizationListPage() {
         onOpenChange={setCreateOpen}
         onCreated={handleCreated}
       />
+
+      {/* 组织档案 Drawer（T-P2-4 最小补差）：行内事实只读投影 + 合同背书关系导航 */}
+      <EntityDrawer
+        open={profileOrg != null}
+        onOpenChange={(open) => {
+          if (!open) setProfileOrg(null)
+        }}
+        title="组织档案"
+        subtitle={profileOrg ? `${profileOrg.name} · ${orgStatusLabel(profileOrg.status)}` : undefined}
+        sections={profileOrg ? buildOrgProfileSections(profileOrg) : []}
+      />
     </div>
   )
+}
+
+/**
+ * 组织档案 Drawer 分区（ENT-FND-01 sections 消费，对齐 MembersPage 模式）：
+ * - profile 分区：列表行内既有事实（只读投影，不新发请求）；
+ * - relationship 分区：合同背书路由的关系导航（组织详情 / 成员 / 邀请 / 部门 /
+ *   Owner 用户详情——均为 App.tsx 已注册的既有 URL，不造新路由）。
+ * branding/settings 键值可能含租户私有配置，档案分区不渲染取值（只投影计数事实）。
+ */
+function buildOrgProfileSections(org: OrganizationSummary): EntityDrawerSection[] {
+  const orgBase = `/organizations/${encodeURIComponent(org.id)}`
+  return [
+    {
+      id: 'org-profile-facts',
+      kind: 'profile',
+      title: '组织档案',
+      fields: [
+        { label: '组织 TSID', value: org.id, mono: true },
+        { label: '名称', value: org.name },
+        { label: 'Owner（owner_id）', value: org.ownerId || '-', mono: true },
+        {
+          label: 'Owner 昵称 / 账号',
+          value: `${org.ownerNickname || '-'}${org.ownerAccount ? ` (${org.ownerAccount})` : ''}`,
+        },
+        { label: '状态', value: orgStatusLabel(org.status), mono: true },
+        { label: 'active 成员数', value: org.memberCount == null ? '-' : String(org.memberCount), mono: true },
+        { label: 'Workspace 数', value: org.workspaceCount == null ? '-' : String(org.workspaceCount), mono: true },
+        { label: '创建时间', value: org.createdAt || '-', mono: true },
+      ],
+    },
+    {
+      id: 'org-profile-relations',
+      kind: 'relationship',
+      title: '关系导航',
+      items: [
+        { id: 'relation-org-detail', label: '组织详情（事实域）', href: orgBase },
+        { id: 'relation-org-members', label: '成员治理', href: `${orgBase}/members` },
+        { id: 'relation-org-invitations', label: '邀请管理', href: `${orgBase}/invitations` },
+        { id: 'relation-org-departments', label: '部门管理', href: `${orgBase}/departments` },
+        ...(org.ownerId
+          ? [{ id: 'relation-owner-user', label: 'Owner 用户详情', href: `/users/${encodeURIComponent(org.ownerId)}` }]
+          : []),
+      ],
+      emptyMessage: '暂无关系导航',
+    },
+  ]
 }
