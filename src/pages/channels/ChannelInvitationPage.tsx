@@ -1,18 +1,11 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { LegacyColumnDef, getCoreRowModel, useLegacyTable } from '@tanstack/react-table/legacy'
-import { ArrowLeft, Download } from 'lucide-react'
 import { toast } from 'sonner'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import {
-  DataTable,
-  DataTablePagination,
-  ErrorState,
+  EntityManageListPageLayout,
   FilterBar,
-  LoadingState,
-  PageHeader,
   StatusBadge,
 } from '@/components/shared'
 import {
@@ -27,7 +20,6 @@ import { useListQueryState } from '@/hooks/useListQueryState'
 
 export function ChannelInvitationPage() {
   const { id } = useParams<{ id: string }>()
-  const navigate = useNavigate()
   const channelId = id ?? ''
 
   const { state: params, setState: setParams } = useListQueryState<{
@@ -172,70 +164,53 @@ export function ChannelInvitationPage() {
     getCoreRowModel: getCoreRowModel(),
   })
 
-  if (isLoading) {
-    return <LoadingState message="加载频道邀请中..." />
-  }
-
-  if (error || !channelId) {
-    return <ErrorState message="加载频道邀请失败" onRetry={() => refetch()} />
-  }
-
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="频道邀请治理"
-        description={`频道 ID: ${channelId}`}
-        actions={(
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleExportCsv}
-              disabled={invitations.length === 0}
-            >
-              <Download className="mr-2 h-4 w-4" />
-              导出 CSV
-            </Button>
-            <Button variant="outline" onClick={() => navigate(`/channels/${channelId}`)}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              返回频道详情
-            </Button>
-          </div>
-        )}
-      />
-
-      <Card>
-        <CardHeader>
-          <FilterBar onSearch={handleStatusSearch} onReset={handleReset} searchText="查询">
-            <Select
-              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
-              <option value="-1">全部状态</option>
-              <option value="0">待处理</option>
-              <option value="1">已接受</option>
-              <option value="2">已拒绝</option>
-              <option value="3">已过期</option>
-              <option value="4">已取消</option>
-            </Select>
-          </FilterBar>
-        </CardHeader>
-        <CardContent>
-          <DataTable table={table} />
-          {data && (
-            <DataTablePagination
-              page={data.page}
-              pageSize={data.size}
-              total={data.total}
-              onPageChange={handlePageChange}
-              onPageSizeChange={handlePageSizeChange}
-              dataUpdatedAt={dataUpdatedAt}
-              onRefresh={() => refetch()}
-            />
-          )}
-        </CardContent>
-      </Card>
-    </div>
+    <EntityManageListPageLayout
+      title="频道邀请治理"
+      description={`频道 ID: ${channelId}`}
+      exportCsv={{
+        onClick: handleExportCsv,
+        disabled: invitations.length === 0,
+        label: '导出 CSV',
+      }}
+      backTo={{ to: `/channels/${channelId}`, label: '返回频道详情' }}
+      loading={isLoading}
+      loadingMessage="加载频道邀请中..."
+      error={error || !channelId}
+      errorMessage="加载频道邀请失败"
+      onRetry={() => refetch()}
+      table={table}
+      filters={
+        <FilterBar onSearch={handleStatusSearch} onReset={handleReset} searchText="查询">
+          <Select
+            className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+          >
+            <option value="-1">全部状态</option>
+            <option value="0">待处理</option>
+            <option value="1">已接受</option>
+            <option value="2">已拒绝</option>
+            <option value="3">已过期</option>
+            <option value="4">已取消</option>
+          </Select>
+        </FilterBar>
+      }
+      filtersPlacement="header"
+      pagination={
+        data
+          ? {
+              page: data.page,
+              pageSize: data.size,
+              total: data.total,
+              onPageChange: handlePageChange,
+              onPageSizeChange: handlePageSizeChange,
+              dataUpdatedAt,
+              onRefresh: () => refetch(),
+            }
+          : undefined
+      }
+      paginationPlacement="inside-card"
+    />
   )
 }

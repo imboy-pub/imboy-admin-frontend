@@ -1,11 +1,10 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { LegacyColumnDef, getCoreRowModel, useLegacyTable } from '@tanstack/react-table/legacy'
-import { ArrowLeft, Download, RotateCcw } from 'lucide-react'
+import { RotateCcw } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import {
   Dialog,
   DialogContent,
@@ -17,12 +16,8 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import {
-  DataTable,
-  DataTablePagination,
-  ErrorState,
+  EntityManageListPageLayout,
   FilterBar,
-  LoadingState,
-  PageHeader,
   StatusBadge,
 } from '@/components/shared'
 import {
@@ -56,7 +51,6 @@ const ORDER_STATUS_VARIANTS: Record<number, 'warning' | 'success' | 'error' | 's
 
 export function ChannelOrderPage() {
   const { id } = useParams<{ id: string }>()
-  const navigate = useNavigate()
   const channelId = id ?? ''
 
   const queryClient = useQueryClient()
@@ -263,70 +257,54 @@ export function ChannelOrderPage() {
     getCoreRowModel: getCoreRowModel(),
   })
 
-  if (isLoading) {
-    return <LoadingState message="加载频道订单中..." />
-  }
-
-  if (error || !channelId) {
-    return <ErrorState message="加载频道订单失败" onRetry={() => refetch()} />
-  }
-
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="频道订单治理"
-        description={`频道 ID: ${channelId}`}
-        actions={(
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleExportCsv}
-              disabled={orders.length === 0}
-            >
-              <Download className="mr-2 h-4 w-4" />
-              导出 CSV
-            </Button>
-            <Button variant="outline" onClick={() => navigate(`/channels/${channelId}`)}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              返回频道详情
-            </Button>
-          </div>
-        )}
-      />
-
-      <Card>
-        <CardHeader>
-          <FilterBar onSearch={handleStatusSearch} onReset={handleReset} searchText="查询">
-            <Select
-              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
-              <option value="-1">全部状态</option>
-              <option value="0">待支付</option>
-              <option value="1">已支付</option>
-              <option value="2">已退款</option>
-              <option value="3">已取消</option>
-              <option value="4">已过期</option>
-            </Select>
-          </FilterBar>
-        </CardHeader>
-        <CardContent>
-          <DataTable table={table} />
-          {data && (
-            <DataTablePagination
-              page={data.page}
-              pageSize={data.size}
-              total={data.total}
-              onPageChange={handlePageChange}
-              onPageSizeChange={handlePageSizeChange}
-              dataUpdatedAt={dataUpdatedAt}
-              onRefresh={() => refetch()}
-            />
-          )}
-        </CardContent>
-      </Card>
+    <EntityManageListPageLayout
+      title="频道订单治理"
+      description={`频道 ID: ${channelId}`}
+      exportCsv={{
+        onClick: handleExportCsv,
+        disabled: orders.length === 0,
+        label: '导出 CSV',
+      }}
+      backTo={{ to: `/channels/${channelId}`, label: '返回频道详情' }}
+      loading={isLoading}
+      loadingMessage="加载频道订单中..."
+      error={error || !channelId}
+      errorMessage="加载频道订单失败"
+      onRetry={() => refetch()}
+      table={table}
+      filters={
+        <FilterBar onSearch={handleStatusSearch} onReset={handleReset} searchText="查询">
+          <Select
+            className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+          >
+            <option value="-1">全部状态</option>
+            <option value="0">待支付</option>
+            <option value="1">已支付</option>
+            <option value="2">已退款</option>
+            <option value="3">已取消</option>
+            <option value="4">已过期</option>
+          </Select>
+        </FilterBar>
+      }
+      filtersPlacement="header"
+      pagination={
+        data
+          ? {
+              page: data.page,
+              pageSize: data.size,
+              total: data.total,
+              onPageChange: handlePageChange,
+              onPageSizeChange: handlePageSizeChange,
+              dataUpdatedAt,
+              onRefresh: () => refetch(),
+            }
+          : undefined
+      }
+      paginationPlacement="inside-card"
+    >
 
       <Dialog
         open={refundOrder !== null}
@@ -386,6 +364,6 @@ export function ChannelOrderPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </EntityManageListPageLayout>
   )
 }
