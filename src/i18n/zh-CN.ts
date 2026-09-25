@@ -90,8 +90,6 @@ export const zhCN = {
   'cs.home.pageTitle': '在线客服坐席',
   'cs.home.pageDescription': '查看各企业客服坐席与接待状态，添加或停用坐席。',
   'cs.home.addSeat': '添加客服坐席',
-  'cs.home.colEnterprise': '企业',
-  'cs.home.colSeat': '客服坐席',
   'cs.home.colStatus': '状态',
   'cs.home.colActive': '当前接待',
   'cs.home.colActions': '操作',
@@ -124,8 +122,6 @@ export const zhCN = {
   /* ---------- 添加客服坐席弹层 ---------- */
   'cs.addSeat.title': '添加客服坐席',
   'cs.addSeat.description': '选择企业与成员后，该成员即可参与客服接待。',
-  'cs.addSeat.orgLabel': '企业',
-  'cs.addSeat.workspaceLabel': '工作区',
   'cs.addSeat.memberLabel': '企业成员',
   'cs.addSeat.orgLoading': '正在加载企业…',
   'cs.addSeat.orgPlaceholder': '请选择企业',

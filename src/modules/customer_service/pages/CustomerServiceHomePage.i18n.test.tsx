@@ -148,9 +148,10 @@ describe('CustomerServiceHomePage 文案经 t() 输出（ENT-UX-01）', () => {
     })
 
     const headers = Array.from(view.container.querySelectorAll('th')).map((cell) => cell.textContent ?? '')
+    // 纯术语文案位直接消费术语键（ent.term.enterprise / ent.term.seat）
     for (const key of [
-      'cs.home.colEnterprise',
-      'cs.home.colSeat',
+      'ent.term.enterprise',
+      'ent.term.seat',
       'cs.home.colStatus',
       'cs.home.colActive',
       'cs.home.colActions',

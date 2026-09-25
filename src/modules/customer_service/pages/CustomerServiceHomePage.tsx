@@ -173,7 +173,7 @@ export function CustomerServiceHomePage() {
   const columns = useMemo<LegacyColumnDef<PlatformSeatRow>[]>(
     () => [
       {
-        header: t('cs.home.colEnterprise'),
+        header: t('ent.term.enterprise'),
         cell: ({ row }) => (
           <span className="font-medium">
             {row.original.organization_name || row.original.organization_id}
@@ -181,7 +181,7 @@ export function CustomerServiceHomePage() {
         ),
       },
       {
-        header: t('cs.home.colSeat'),
+        header: t('ent.term.seat'),
         cell: ({ row }) => (
           <div className="min-w-0">
             <div className="truncate">{row.original.display_name ?? t('cs.home.unnamedSeat')}</div>
@@ -426,7 +426,7 @@ function AddSeatDialog(props: {
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="cs-add-seat-org">{t('cs.addSeat.orgLabel')}</Label>
+            <Label htmlFor="cs-add-seat-org">{t('ent.term.enterprise')}</Label>
             <Select
               id="cs-add-seat-org"
               value={orgId}
@@ -442,7 +442,7 @@ function AddSeatDialog(props: {
             </Select>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="cs-add-seat-workspace">{t('cs.addSeat.workspaceLabel')}</Label>
+            <Label htmlFor="cs-add-seat-workspace">{t('ent.term.workspace')}</Label>
             <Select
               id="cs-add-seat-workspace"
               value={selectedWorkspaceId}
