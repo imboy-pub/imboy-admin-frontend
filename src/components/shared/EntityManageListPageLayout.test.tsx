@@ -32,7 +32,7 @@ const columns: LegacyColumnDef<Row>[] = [
   { accessorKey: 'name', header: '名称' },
 ]
 
-type HarnessProps = Partial<Omit<EntityManageListPageLayoutProps<Row>, 'table' | 'title' | 'description' | 'listTitle' | 'loadingMessage' | 'errorMessage' | 'loading' | 'onRetry'>>
+type HarnessProps = Partial<Omit<EntityManageListPageLayoutProps<Row>, 'table' | 'title' | 'description' | 'loadingMessage' | 'errorMessage' | 'loading' | 'onRetry'>>
 
 function LayoutHarness({
   loading = false,
@@ -54,7 +54,7 @@ function LayoutHarness({
       error={error}
       errorMessage="加载群标签数据失败"
       onRetry={onRetry}
-      listTitle="标签列表"
+      listTitle={'listTitle' in rest ? rest.listTitle : '标签列表'}
       table={table}
       {...rest}
     />
@@ -200,5 +200,42 @@ describe('EntityManageListPageLayout — 详情分区与页尾', () => {
     expect(view.container.textContent).not.toContain('标签详情')
     const sections = Array.from(view.container.querySelectorAll('.space-y-6 > *'))
     expect(sections.length).toBe(2) // PageHeader + 列表卡片
+  })
+})
+
+describe('EntityManageListPageLayout — ENT-ADM-03 加性扩展（不传新参时行为与 ENT-ADM-02 一致）', () => {
+  it('exportCsv.label：自定义按钮文案（频道簇既有文案“导出 CSV”）', () => {
+    const onClick = vi.fn()
+    const view = renderLayout({ exportCsv: { onClick, disabled: false, label: '导出 CSV' } })
+    const button = view.getByRole('button', { name: '导出 CSV' })
+    expect(button).toBeDefined()
+    // 缺省文案不受影响（既有群簇行为不变）：
+    const defView = renderLayout({ exportCsv: { onClick, disabled: false } })
+    expect(defView.getByRole('button', { name: '导出当前页 CSV' })).toBeDefined()
+  })
+
+  it('listTitle 不传 → 不渲染 CardHeader（默认行为不变：传了照常渲染）', () => {
+    // CardHeader 的稳定特征类是 space-y-1.5（ui/card.tsx）。
+    const omitView = renderLayout({ listTitle: undefined })
+    expect(omitView.container.querySelector('div[class*="space-y-1.5"]')).toBeNull()
+    const withTitle = renderLayout({ listTitle: '列表标题探针' })
+    expect(withTitle.container.textContent).toContain('列表标题探针')
+    expect(withTitle.container.querySelector('div[class*="space-y-1.5"]')).not.toBeNull()
+  })
+
+  it("filtersPlacement='header'：filters 渲染进 CardHeader；默认 'content' 位置不变", () => {
+    const filters = <div data-testid="probe-filters">筛选区</div>
+    const probe = (view: ReturnType<typeof renderLayout>) =>
+      view.container.querySelector('[data-testid="probe-filters"]') as HTMLElement
+    const contentView = renderLayout({ filters })
+    // 默认 content：filters 在 CardContent（p-6 pt-0）内，CardHeader 只含标题。
+    expect(probe(contentView).closest('div[class*="pt-0"]')).not.toBeNull()
+    expect(probe(contentView).closest('div[class*="space-y-1.5"]')).toBeNull()
+    const headerView = renderLayout({ filters, filtersPlacement: 'header' })
+    expect(probe(headerView).closest('div[class*="space-y-1.5"]')).not.toBeNull()
+    // header 位置且无 listTitle：CardHeader 只承载 filters，不渲染空标题。
+    const headerNoTitle = renderLayout({ filters, filtersPlacement: 'header', listTitle: undefined })
+    expect(probe(headerNoTitle).closest('div[class*="space-y-1.5"]')).not.toBeNull()
+    expect(headerNoTitle.container.textContent).not.toContain('列表标题探针')
   })
 })

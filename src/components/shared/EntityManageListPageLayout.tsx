@@ -46,10 +46,12 @@ export interface EntityManageListPageLayoutProps<TData extends RowData> {
   title: string
   /** 页面描述（PageHeader.description） */
   description: string
-  /** 标准“导出当前页 CSV”动作；不传则不渲染该按钮 */
+  /** 标准“导出当前页 CSV”动作；不传则不渲染该按钮。label 缺省为“导出当前页 CSV”（ENT-ADM-03） */
   exportCsv?: {
     onClick: () => void
     disabled: boolean
+    /** 按钮文案（频道簇既有按钮文案为“导出 CSV”，群簇为“导出当前页 CSV”，参数化避免为收敛骨架而漂移既有 UI 文案） */
+    label?: string
   }
   /** 标准返回动作（按钮触发 navigate(to)）；不传则不渲染该按钮 */
   backTo?: {
@@ -63,13 +65,15 @@ export interface EntityManageListPageLayoutProps<TData extends RowData> {
   error?: unknown
   errorMessage: string
   onRetry: () => void
-  /** 列表卡片标题 */
-  listTitle: ReactNode
+  /** 列表卡片标题；不传则不渲染 CardHeader（ENT-ADM-03：订阅者/管理员/消息页原本无列表标题） */
+  listTitle?: ReactNode
   /** tanstack legacy table 实例 */
   table: LegacyTable<TData>
   onRowClick?: (_row: TData) => void
-  /** 表格上方筛选插槽（渲染在列表卡片内容顶部） */
+  /** 表格上方筛选插槽；默认渲染在列表卡片内容顶部，'header' 时渲染在 CardHeader（ENT-ADM-03：频道邀请/订单/付费运营三页 FilterBar 原本位于 CardHeader） */
   filters?: ReactNode
+  /** filters 渲染位置：'content'（默认，ENT-ADM-02 行为）| 'header'（CardHeader 内） */
+  filtersPlacement?: 'header' | 'content'
   /** 分页属性；不传则不渲染分页（调用方自行用 data 条件包裹） */
   pagination?: EntityManageListPagination
   /**
@@ -101,6 +105,7 @@ export function EntityManageListPageLayout<TData extends RowData>({
   table,
   onRowClick,
   filters,
+  filtersPlacement = 'content',
   pagination,
   paginationPlacement = 'below-card',
   detail,
@@ -126,7 +131,7 @@ export function EntityManageListPageLayout<TData extends RowData>({
             {exportCsv && (
               <Button variant="outline" size="sm" onClick={exportCsv.onClick} disabled={exportCsv.disabled}>
                 <Download className="mr-2 h-4 w-4" />
-                导出当前页 CSV
+                {exportCsv.label ?? '导出当前页 CSV'}
               </Button>
             )}
             {backTo && (
@@ -140,11 +145,19 @@ export function EntityManageListPageLayout<TData extends RowData>({
       />
 
       <Card>
-        <CardHeader>
-          <CardTitle>{listTitle}</CardTitle>
-        </CardHeader>
+        {(filters || listTitle) && filtersPlacement === 'header' && (
+          <CardHeader>
+            {listTitle && <CardTitle>{listTitle}</CardTitle>}
+            {filters}
+          </CardHeader>
+        )}
+        {listTitle && filtersPlacement !== 'header' && (
+          <CardHeader>
+            <CardTitle>{listTitle}</CardTitle>
+          </CardHeader>
+        )}
         <CardContent className="space-y-4">
-          {filters}
+          {filters && filtersPlacement !== 'header' && filters}
           <DataTable table={table} onRowClick={onRowClick} />
           {pagination && paginationPlacement === 'inside-card' && (
             <DataTablePagination {...pagination} />
