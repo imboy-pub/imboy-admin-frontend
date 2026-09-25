@@ -23,6 +23,8 @@ import {
 import { OrganizationOwnerTransferDialog } from './OrganizationOwnerTransferDialog'
 // GZAPP-08 集成接线：把 GZAPP-06 的待激活 Owner 治理面板挂进组织详情页。
 import { PendingOwnerPanel } from './PendingOwnerPanel'
+// CS-ADM-01 集成接线：组织级客服摘要（/api/adm/customer-service 域）。
+import { CsSummaryPanel } from '../components/CsSummaryPanel'
 
 const READ_PERMISSION = 'organizations:read'
 const WRITE_PERMISSION = 'organizations:write'
@@ -327,6 +329,13 @@ export function OrganizationDetailPage() {
           </p>
         </CardContent>
       </Card>
+
+      {/* 客服摘要（CS-ADM-01）：组织级客服事实（seat used/enabled/active sessions）
+          + 直达既有 Customer Service 治理面。面板自带 customer_service:read 门
+          （无权限 fail-closed，不发请求），无需父级再判一次。 */}
+      {organizationId.length > 0 ? (
+        <CsSummaryPanel organizationId={organizationId} workspaceId={defaultWorkspaceId} />
+      ) : null}
 
       {/* 待激活 Owner（GZAPP-06/J02）：状态 + 重发 + 重新激活 + 按手机号换 Owner。
           面板自带 organizations:write 门（无权限只读），无需父级再判一次。 */}

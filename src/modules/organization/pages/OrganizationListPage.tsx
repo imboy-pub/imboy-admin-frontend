@@ -22,6 +22,8 @@ import {
 } from '../api/public'
 // GZAPP-08：建企走 V2 双模式（registered 复用 EADM-01；pending_phone 建待激活 Owner）
 import { OrganizationCreateDialogV2 } from './OrganizationCreateDialogV2'
+// CS-ADM-01：档案 Drawer 内嵌组织级客服摘要（Drawer 打开才挂载才发请求）。
+import { CsSummaryPanel } from '../components/CsSummaryPanel'
 import type { EntityId } from '@/types/common'
 import {
   classifyOrgError,
@@ -348,7 +350,8 @@ export function OrganizationListPage() {
         onCreated={handleCreated}
       />
 
-      {/* 组织档案 Drawer（T-P2-4 最小补差）：行内事实只读投影 + 合同背书关系导航 */}
+      {/* 组织档案 Drawer（T-P2-4 最小补差 + CS-ADM-01 客服摘要）：行内事实只读投影
+          + 客服摘要（custom 分区，Drawer 打开才挂载/发请求）+ 合同背书关系导航 */}
       <EntityDrawer
         open={profileOrg != null}
         onOpenChange={(open) => {
@@ -371,6 +374,9 @@ export function OrganizationListPage() {
  */
 function buildOrgProfileSections(org: OrganizationSummary): EntityDrawerSection[] {
   const orgBase = `/organizations/${encodeURIComponent(org.id)}`
+  // CS-ADM-01：客服治理面直达（org 经共享 codec 生成，禁止手写 ?org= 拼接）。
+  const csScope = serializeOrgWorkspaceQuery({ org: org.id })
+  const csHref = csScope.length > 0 ? `/customer-service?${csScope}` : '/customer-service'
   return [
     {
       id: 'org-profile-facts',
@@ -391,6 +397,15 @@ function buildOrgProfileSections(org: OrganizationSummary): EntityDrawerSection[
       ],
     },
     {
+      // CS-ADM-01：组织级客服摘要（custom 分区承载活数据；其余分区仍是
+      // 「不新发请求」的行内只读投影——只有本分区按需取数，且仅在 Drawer
+      // 打开期间挂载）。面板自带 customer_service:read 门（fail-closed）。
+      id: 'org-profile-cs-summary',
+      kind: 'custom',
+      title: '客服摘要',
+      content: <CsSummaryPanel organizationId={org.id} variant="inline" />,
+    },
+    {
       id: 'org-profile-relations',
       kind: 'relationship',
       title: '关系导航',
@@ -399,6 +414,7 @@ function buildOrgProfileSections(org: OrganizationSummary): EntityDrawerSection[
         { id: 'relation-org-members', label: '成员治理', href: `${orgBase}/members` },
         { id: 'relation-org-invitations', label: '邀请管理', href: `${orgBase}/invitations` },
         { id: 'relation-org-departments', label: '部门管理', href: `${orgBase}/departments` },
+        { id: 'relation-org-cs', label: '在线客服治理面', href: csHref },
         ...(org.ownerId
           ? [{ id: 'relation-owner-user', label: 'Owner 用户详情', href: `/users/${encodeURIComponent(org.ownerId)}` }]
           : []),

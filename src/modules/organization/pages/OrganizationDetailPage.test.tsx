@@ -269,3 +269,90 @@ describe('OrganizationDetailPage — 修改 Owner 入口接线', () => {
     expect(view.queryByTestId('org-owner-change-btn')).toBeNull()
   })
 })
+
+// ---------------------------------------------------------------------------
+// ④ 客服摘要面板（CS-ADM-01）集成接线：详情页内渲染组织级客服事实
+// ---------------------------------------------------------------------------
+describe('OrganizationDetailPage — 客服摘要面板（CS-ADM-01）', () => {
+  it('有 customer_service:read：详情页内渲染 used/enabled/active sessions，链接携带 org/ws', async () => {
+    mutableClient.get = ((url: string) => {
+      if (url === '/rbac/me') {
+        return Promise.resolve(
+          envelope({
+            ...RBAC_PROFILE,
+            permissions: [
+              'organizations:read',
+              'organizations:write',
+              'customer_service:read',
+              'customer_service:write',
+            ],
+          })
+        )
+      }
+      if (url === `/organizations/${ORG_ID}`) return Promise.resolve(envelope(ORG_DETAIL))
+      if (url === `/organizations/${ORG_ID}/workspaces`) {
+        return Promise.resolve(
+          envelope({ list: WORKSPACE_ROWS, page: 1, size: 100, total: WORKSPACE_ROWS.length, total_page: 1 })
+        )
+      }
+      if (url === '/customer-service/seats') {
+        return Promise.resolve(
+          envelope({
+            seats: [
+              {
+                organization_id: ORG_ID,
+                organization_name: 'imboy',
+                display_name: '客服甲',
+                business_identity_id: '1942412345678901234',
+                function_key: 'customer_service',
+                enabled: true,
+                max_concurrent: 3,
+                active_count: 2,
+                workspace_id: WS_ID,
+              },
+              {
+                organization_id: ORG_ID,
+                organization_name: 'imboy',
+                display_name: '客服乙',
+                business_identity_id: '1942412345678901299',
+                function_key: 'customer_service',
+                enabled: false,
+                max_concurrent: 3,
+                active_count: 0,
+                workspace_id: WS_ID,
+              },
+            ],
+            next_after_id: null,
+          })
+        )
+      }
+      throw new Error(`unexpected GET url: ${url}`)
+    }) as AnyFn
+
+    const view = renderPage(`/organizations/${ORG_ID}?org=${ORG_ID}&ws=${WS_ID}`)
+    await waitDetailReady(view)
+
+    await waitFor(() => {
+      expect(view.queryByTestId('org-cs-summary-data')).not.toBeNull()
+    })
+    expect(view.getByTestId('org-cs-summary-used').textContent).toContain('1')
+    expect(view.getByTestId('org-cs-summary-active-sessions').textContent).toBe('2')
+    expect(view.getByTestId('org-cs-summary-limit').textContent).toContain('平台域不投影')
+
+    const href = view.getByTestId('org-cs-summary-link-home').getAttribute('href') ?? ''
+    const url = new URL(href, 'http://localhost')
+    expect(url.pathname).toBe('/customer-service')
+    expect(url.searchParams.get('org')).toBe(ORG_ID)
+    expect(url.searchParams.get('ws')).toBe(WS_ID)
+  })
+
+  it('无 customer_service:read（基线 fixture）：面板 fail-closed，不渲染事实', async () => {
+    const view = renderPage(`/organizations/${ORG_ID}?org=${ORG_ID}&ws=${WS_ID}`)
+    await waitDetailReady(view)
+
+    await waitFor(() => {
+      expect(view.queryByTestId('org-cs-summary-perm')).not.toBeNull()
+    })
+    expect(view.queryByTestId('org-cs-summary-data')).toBeNull()
+  })
+})
