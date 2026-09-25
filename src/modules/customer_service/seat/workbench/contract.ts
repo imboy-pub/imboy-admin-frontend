@@ -142,6 +142,109 @@ export type SeatTransferTargetPage = {
   nextAfterId: EntityId | null
 }
 
+/**
+ * CS-WEB-04：客户上下文（后端 CS-BE-03 / CS-DEC-01 冻结白名单投影）。
+ * GET /api/v1/cs/organizations/:org_id/sessions/:id/context（Seat Bearer +
+ * conversation.read；读操作零写副作用）。
+ * 白名单**仅限**：掩码名 / first_seen / last_seen / 来源 / 同 Org 历史会话页 /
+ * 授权备注事实行（零正文零密文）——电话/邮箱/原始外部身份/密文/凭证/object key
+ * 永不出现在本投影，前端解析器同口径丢弃未知键（双层白名单）。
+ * 时间字段均为 epoch 秒（后端 extract(epoch)::bigint wire）。
+ */
+export type SeatCustomerContextContact = {
+  maskedName: string | null
+  firstSeen: number | null
+  lastSeen: number | null
+}
+
+export type SeatCustomerHistorySession = {
+  id: EntityId
+  conversationId: EntityId | null
+  workspaceId: EntityId | null
+  status: SeatSessionStatus | null
+  version: number | null
+  rating: number | null
+  queuedAt: number | null
+  claimedAt: number | null
+  closedAt: number | null
+}
+
+export type SeatCustomerNote = {
+  id: EntityId
+  businessIdentityId: EntityId | null
+  createdAt: number | null
+}
+
+export type SeatCustomerContext = {
+  sessionId: EntityId
+  workspaceId: EntityId | null
+  source: string
+  contact: SeatCustomerContextContact
+  history: {
+    sessions: SeatCustomerHistorySession[]
+    nextAfterId: EntityId | null
+  }
+  notes: SeatCustomerNote[]
+}
+
+/** 历史会话行投影（键集 {id,conversation_id,workspace_id,status,version,rating,queued_at,claimed_at,closed_at}）。 */
+function toCustomerHistorySession(raw: unknown): SeatCustomerHistorySession | null {
+  if (!isRecord(raw)) return null
+  const id = toEntityId(raw.id)
+  if (id === null) return null
+  return {
+    id,
+    conversationId: optTsid(raw.conversation_id),
+    workspaceId: optTsid(raw.workspace_id),
+    status: toStatus(raw.status),
+    version: optInt(raw.version),
+    rating: optInt(raw.rating),
+    queuedAt: optInt(raw.queued_at),
+    claimedAt: optInt(raw.claimed_at),
+    closedAt: optInt(raw.closed_at),
+  }
+}
+
+/**
+ * 客户上下文投影（fail-closed）：session_id 形状非法即 throw（上游按错误处理）；
+ * contact/history/notes 形状非法收敛为空值而非猜测；未知键一律丢弃——
+ * 后端白名单外的字段即使出现（不该发生）也绝不进前端渲染面。
+ */
+export function toSeatCustomerContext(raw: unknown): SeatCustomerContext {
+  if (!isRecord(raw)) throw new TypeError('seat customer context shape invalid')
+  const sessionId = toEntityId(raw.session_id)
+  if (sessionId === null) throw new TypeError('seat customer context session_id invalid')
+  const contactRaw = isRecord(raw.contact) ? raw.contact : {}
+  const historyRaw = isRecord(raw.history) ? raw.history : {}
+  const historySessions = Array.isArray(historyRaw.sessions)
+    ? historyRaw.sessions.map(toCustomerHistorySession).filter((s): s is SeatCustomerHistorySession => s !== null)
+    : []
+  const notes = Array.isArray(raw.notes)
+    ? raw.notes.map((noteRaw: unknown): SeatCustomerNote | null => {
+        if (!isRecord(noteRaw)) return null
+        const noteId = toEntityId(noteRaw.id)
+        if (noteId === null) return null
+        return {
+          id: noteId,
+          businessIdentityId: optTsid(noteRaw.business_identity_id),
+          createdAt: optInt(noteRaw.created_at),
+        }
+      }).filter((n): n is SeatCustomerNote => n !== null)
+    : []
+  return {
+    sessionId,
+    workspaceId: optTsid(raw.workspace_id),
+    source: optStr(raw.source) ?? 'shop_key',
+    contact: {
+      maskedName: optStr(contactRaw.masked_name),
+      firstSeen: optInt(contactRaw.first_seen),
+      lastSeen: optInt(contactRaw.last_seen),
+    },
+    history: { sessions: historySessions, nextAfterId: optTsid(historyRaw.next_after_id) },
+    notes,
+  }
+}
+
 const SESSION_STATUS_LITERALS: readonly string[] = SEAT_SESSION_STATUSES
 
 function toStatus(value: unknown): SeatSessionStatus | null {
@@ -337,6 +440,14 @@ export function buildSeatSessionActionPath(
 
 export function buildSeatSessionDetailPath(orgId: EntityId, sessionId: EntityId): string {
   return `/cs/organizations/${encodeURIComponent(orgId)}/sessions/${encodeURIComponent(sessionId)}`
+}
+
+/**
+ * CS-WEB-04：客户上下文路径（CS-BE-03 落地：imboy_router.erl session_customer_context，
+ * cs_seat + conversation.read；5 段路径与 4 段 detail 不冲突）。
+ */
+export function buildSeatSessionContextPath(orgId: EntityId, sessionId: EntityId): string {
+  return `/cs/organizations/${encodeURIComponent(orgId)}/sessions/${encodeURIComponent(sessionId)}/context`
 }
 
 /** 会话历史/发送路径族（合同：/api/v1/enterprise/conversations/:conv_id/messages；org 由 seat 事实派生）。 */

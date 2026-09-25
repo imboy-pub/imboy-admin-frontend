@@ -17,6 +17,7 @@ import { SeatQrLoginPanel } from "./seatQrLoginPanel";
 import { SeatQueuePanel } from "./queuePanel";
 import { SeatSessionView } from "./sessionView";
 import { SeatDetailPanel } from "./detailPanel";
+import { SeatCustomerContextPanel } from "./customerContextPanel";
 import {
   SeatErrorState,
   SeatLoadingState,
@@ -32,6 +33,7 @@ import {
   useSeatClaim,
   useSeatClose,
   useSeatContexts,
+  useSeatCustomerContext,
   useSeatEventStream,
   useSeatMessages,
   useSeatScopeSelection,
@@ -119,6 +121,12 @@ function SeatWorkspaceInner() {
   );
   const detail = detailQuery.data ?? null;
 
+  // CS-WEB-04：客户上下文只读投影（键随会话切换；stale 守卫在 hook 内）。
+  const contextQuery = useSeatCustomerContext(
+    scope.organizationId,
+    selectedSessionId,
+  );
+
   const conversationId = detail?.conversationId ?? null;
   const messagesQuery = useSeatMessages(scope.organizationId, conversationId, scope.workspaceId);
   const send = useSeatSend(
@@ -165,6 +173,7 @@ function SeatWorkspaceInner() {
       claim.error,
       transfer.error,
       close.error,
+      contextQuery.error,
     ];
     if (
       errors.some(
@@ -183,6 +192,7 @@ function SeatWorkspaceInner() {
     claim.error,
     transfer.error,
     close.error,
+    contextQuery.error,
     clearSession,
   ]);
 
@@ -246,6 +256,18 @@ function SeatWorkspaceInner() {
       }}
       closeConflict={close.conflict}
       closePending={close.isPending}
+    />
+  );
+
+  // CS-WEB-04：客户上下文面板（xl 第三栏与窄屏抽屉共用同一投影；四态在
+  // 面板内部独立呈现，本层只透传查询事实）。
+  const [contextDrawerOpen, setContextDrawerOpen] = useState(false);
+  const contextPanel = (
+    <SeatCustomerContextPanel
+      context={contextQuery.data ?? null}
+      loading={contextQuery.isLoading}
+      error={contextQuery.error}
+      onRetry={() => void contextQuery.refetch()}
     />
   );
 
@@ -448,8 +470,9 @@ function SeatWorkspaceInner() {
             className={`${pane === "conversation" ? "flex" : "hidden"} min-h-0 flex-col md:flex`}
             data-testid="seat-pane-conversation"
           >
-            {/* CS-WEB-03：768-1279 详情入口（xl 起第三栏常驻，<768 无详情面——
-                与既有分层导航行为一致）。 */}
+            {/* CS-WEB-03：768-1279 详情入口（xl 起第三栏常驻）。CS-WEB-04：
+                客户上下文入口在 xl 以下所有窄屏（含 <768）可见——窄屏唯一
+                形态是抽屉。 */}
             {detail !== null && (
               <Button
                 type="button"
@@ -460,6 +483,18 @@ function SeatWorkspaceInner() {
                 onClick={() => setDetailDrawerOpen(true)}
               >
                 会话详情
+              </Button>
+            )}
+            {selectedSessionId !== null && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="inline-flex self-end px-2 py-1 text-xs xl:hidden"
+                data-testid="seat-customer-context-drawer-trigger"
+                onClick={() => setContextDrawerOpen(true)}
+              >
+                客户上下文
               </Button>
             )}
             <SeatSessionView
@@ -485,7 +520,21 @@ function SeatWorkspaceInner() {
             className="hidden min-h-0 xl:flex"
             data-testid="seat-pane-detail"
           >
-            {detailPanel}
+            {/* CS-WEB-04：第三栏纵向堆叠——上会话操作详情、下客户上下文，
+                共用一列滚动（17rem 宽度不变）。 */}
+            <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
+              {detailPanel}
+              <section
+                aria-label="客户上下文"
+                data-testid="seat-customer-context-section"
+                className="px-1 pb-2"
+              >
+                <h2 className="mb-1 px-1 text-xs font-medium text-muted-foreground">
+                  客户上下文
+                </h2>
+                {contextPanel}
+              </section>
+            </div>
           </div>
         </main>
 
@@ -499,6 +548,16 @@ function SeatWorkspaceInner() {
           className="max-w-md"
         >
           {detailPanel}
+        </EntityDrawer>
+
+        {/* CS-WEB-04：xl 以下客户上下文抽屉（窄屏唯一形态；同一投影）。 */}
+        <EntityDrawer
+          open={contextDrawerOpen}
+          onOpenChange={setContextDrawerOpen}
+          title="客户上下文"
+          className="max-w-md"
+        >
+          {contextPanel}
         </EntityDrawer>
       </div>
     </SeatShell>

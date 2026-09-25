@@ -412,3 +412,66 @@ describe('CS-WEB-02 附件合同（presign / 裸 PUT / confirm / asset_ids 发�
     expect(isValidSha256Hex('zz')).toBe(false)
   })
 })
+
+describe('CS-WEB-04 客户上下文合同（CS-BE-03 端点）', () => {
+  it('fetchCustomerContext：GET context 路径 + 信封解包 + 投影；signal 透传', async () => {
+    const { calls, api } = makeFetch(() =>
+      envelope(
+        `{"session_id":${SESSION},"workspace_id":3000000000000000003,"source":"seat",` +
+          `"contact":{"masked_name":"李***","first_seen":1757000000,"last_seen":1759000000},` +
+          `"history":{"sessions":[{"id":7100000000000000010,"conversation_id":${CONV},"workspace_id":3000000000000000003,"status":"closed","version":3,"rating":5,"queued_at":1758000000,"claimed_at":1758000100,"closed_at":1758000200}],"next_after_id":null},` +
+          `"notes":[{"id":8200000000000000010,"business_identity_id":6000000000000000006,"created_at":1758500000}]}`,
+      ),
+    )
+    seatTokenVault.setToken('eyJh.eyJi.c2lg')
+    const controller = new AbortController()
+    const ctx = await api.fetchCustomerContext(ORG, SESSION, { signal: controller.signal })
+    expect(ctx.sessionId).toBe(SESSION)
+    expect(ctx.source).toBe('seat')
+    expect(ctx.contact.maskedName).toBe('李***')
+    expect(ctx.history.sessions.length).toBe(1)
+    expect(ctx.notes.length).toBe(1)
+    const call = calls[0]
+    expect(call?.url).toBe(`/api/v1/cs/organizations/${ORG}/sessions/${SESSION}/context`)
+    expect(call?.init?.signal).toBe(controller.signal)
+  })
+
+  it('fetchCustomerContext：403 → forbidden 分类（转接后原 Seat 失去读权语义）', async () => {
+    const { api } = makeFetch(() => new Response('{"code":403,"msg":"not_session_owner","payload":{}}', { status: 403 }))
+    seatTokenVault.setToken('eyJh.eyJi.c2lg')
+    let caught: unknown = null
+    try {
+      await api.fetchCustomerContext(ORG, SESSION)
+    } catch (error) {
+      caught = error
+    }
+    expect(isSeatApiError(caught)).toBe(true)
+    expect(caught && typeof caught === 'object' && 'kind' in caught ? (caught as { kind: string }).kind : '').toBe('forbidden')
+  })
+
+  it('fetchCustomerContext：载荷形状非法 → TypeError（投影层 fail-closed，不猜形状）', async () => {
+    const { api } = makeFetch(() => envelope('{"session_id":"not-a-tsid"}'))
+    seatTokenVault.setToken('eyJh.eyJi.c2lg')
+    let caught: unknown = null
+    try {
+      await api.fetchCustomerContext(ORG, SESSION)
+    } catch (error) {
+      caught = error
+    }
+    expect(caught instanceof TypeError).toBe(true)
+    expect(String(caught)).toMatch(/session_id/)
+  })
+
+  it('fetchCustomerContext：信封载荷缺失 → invalid_response（传输层分类不变）', async () => {
+    const { api } = makeFetch(() => envelope('null'))
+    seatTokenVault.setToken('eyJh.eyJi.c2lg')
+    let caught: unknown = null
+    try {
+      await api.fetchCustomerContext(ORG, SESSION)
+    } catch (error) {
+      caught = error
+    }
+    expect(isSeatApiError(caught)).toBe(true)
+    expect(caught && typeof caught === 'object' && 'kind' in caught ? (caught as { kind: string }).kind : '').toBe('invalid_response')
+  })
+})

@@ -99,7 +99,13 @@ export function seatFailureKind(error: unknown): SeatFailureKind {
   return 'other'
 }
 
-type SubKey = 'contexts' | 'sessions' | 'detail' | 'messages' | 'transfer-targets'
+type SubKey =
+  | 'contexts'
+  | 'sessions'
+  | 'detail'
+  | 'messages'
+  | 'transfer-targets'
+  | 'customer-context'
 
 /** 失效刷新（权威刷新的唯一入口）。subKeys 省略 = 全量（resync）。 */
 function useInvalidateSeatQueries() {
@@ -543,6 +549,33 @@ export function useSeatTransferTargets(orgId: EntityId | null, enabled: boolean)
   })
 }
 
+/**
+ * CS-WEB-04：客户上下文只读面板数据（CS-BE-03 端点）。
+ *
+ * 陈旧防护三层：
+ * 1. react-query 缓存按 (orgId, sessionId) 键隔离——切换会话即换键，旧会话的
+ *    数据不可能出现在新面板；
+ * 2. 请求序号守卫：并发下晚到的旧响应（含同键 refetch 竞态）与最新序号不符
+ *    → 显式拒绝（AbortError），绝不落缓存；
+ * 3. AbortSignal 透传传输层，切换会话时在途请求被真实取消。
+ */
+export function useSeatCustomerContext(orgId: EntityId | null, sessionId: EntityId | null) {
+  const { api } = useSeatWorkbenchGateway()
+  const seqRef = useRef(0)
+  return useQuery({
+    queryKey: [SEAT_QUERY_ROOT_KEY, 'customer-context', orgId, sessionId],
+    enabled: orgId !== null && sessionId !== null,
+    queryFn: async ({ signal }) => {
+      const seq = ++seqRef.current
+      const data = await api.fetchCustomerContext(orgId as EntityId, sessionId as EntityId, { signal })
+      if (seq !== seqRef.current) {
+        throw new DOMException('stale customer context response rejected', 'AbortError')
+      }
+      return data
+    },
+  })
+}
+
 // ---------------------------------------------------------------------------
 // §3.6 事件流收敛：信封 → 权威刷新；resync → 全量；revocation → 写入口收回
 // ---------------------------------------------------------------------------
@@ -568,7 +601,9 @@ export function useSeatEventStream(organizationId: EntityId | null, workspaceId:
         return
       }
       if (envelope.resourceType === 'queue' || envelope.resourceType === 'session') {
-        invalidate('sessions', 'detail')
+        // CS-WEB-04：session 事实（状态/经办）变化同时影响客户上下文投影
+        // （历史页的 status 列、last_seen 推导）。
+        invalidate('sessions', 'detail', 'customer-context')
         return
       }
       // assignment/seat：撤权/停用事实变化 → 立即收回写入口并复核上下文。

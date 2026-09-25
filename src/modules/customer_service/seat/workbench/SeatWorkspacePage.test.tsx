@@ -27,8 +27,9 @@ import {
   FakeSseStream,
   IDENTITY,
   ORG,
-  SeatFakeBackend,
   SESSION,
+  SESSION2,
+  SeatFakeBackend,
   WS,
   envelopeFrame,
   makeGateway,
@@ -747,5 +748,139 @@ describe('SeatWorkspacePage CS-WEB-02 单文件发送（presign → 裸 PUT → 
     fireEvent.click(removeButton)
     expect(view.queryByTestId('seat-attach-chip')).toBeNull()
     expect((view.getByTestId('seat-send') as HTMLButtonElement).disabled).toBe(true)
+  })
+})
+
+describe('SeatWorkspacePage CS-WEB-04 客户上下文面板（CS-BE-03 消费 + 四态 + 陈旧防护）', () => {
+  beforeEach(() => {
+    spyOn(console, 'error').mockImplementation(() => {})
+    spyOn(console, 'warn').mockImplementation(() => {})
+    loginSeat()
+  })
+  afterEach(() => {
+    cleanup()
+    seatTokenVault.clear()
+    useSeatAuthStore.setState({ status: 'anonymous', userId: null, endReason: null })
+  })
+
+  it('渲染投影：掩码资料/来源/首末联系/历史会话/备注，白名单外字段不出现', async () => {
+    const backend = new SeatFakeBackend()
+    backend.state.contextHistoryCount = 2
+    backend.state.contextNotesCount = 1
+    const view = renderWorkspace(backend, new FakeSseStream())
+    fireEvent.click(await waitFor(() => view.getByTestId(`seat-session-item-${SESSION}`)))
+    const panel = await waitFor(() => view.getByTestId('seat-customer-context'))
+    expect(view.getByTestId('seat-customer-context-masked-name').textContent).toBe('王***')
+    expect(view.getByTestId('seat-customer-context-source').textContent).toContain('网页组件')
+    expect(view.getByTestId('seat-customer-context-first-seen').getAttribute('data-first-seen')).toBe('1757000000')
+    expect(view.getByTestId('seat-customer-context-last-seen').getAttribute('data-last-seen')).toBe('1759000000')
+    // 历史会话行（含评分展示）：
+    const history = view.getByTestId('seat-customer-context-history')
+    expect(history.querySelectorAll('[data-testid="seat-customer-context-history-row"]').length).toBe(2)
+    expect(history.textContent).toContain('已结束')
+    expect(view.getByTestId('seat-customer-context-history-rating').textContent).toContain('5 星')
+    // 备注事实行（无正文——密文材料零出站）：
+    expect(view.getByTestId('seat-customer-context-notes-count').textContent).toContain('1')
+    expect(view.getAllByTestId('seat-customer-context-note-row').length).toBe(1)
+    // 白名单外字段负例：DOM 不出现电话/邮箱/掩码原料/备注正文。
+    const html = panel.innerHTML
+    expect(html).not.toMatch(/138|@|subject_mask|note_bod|phone|email/i)
+    // context 请求走真实 5 段路由（CS-BE-03）。
+    expect(
+      backend.calls.some((call) => call.path === `/api/v1/cs/organizations/${ORG}/sessions/${SESSION}/context`),
+    ).toBe(true)
+  })
+
+  it('四态：loading / error+重试 / permission(403) / empty 各自独立（逐子用例独立挂载）', async () => {
+    // loading：延迟响应期间是独立 loading 面板。
+    const loadingBackend = new SeatFakeBackend()
+    loadingBackend.state.contextDelayMsBySession[SESSION] = 60
+    const loadingView = renderWorkspace(loadingBackend, new FakeSseStream())
+    fireEvent.click(await waitFor(() => loadingView.getByTestId(`seat-session-item-${SESSION}`)))
+    expect(loadingView.getByTestId('seat-customer-context-loading')).toBeDefined()
+    await waitFor(() => expect(loadingView.getByTestId('seat-customer-context')).toBeDefined())
+    loadingView.unmount()
+
+    // permission denied：403（转接后原 Seat 失去读权 / 撤权）。
+    const forbiddenBackend = new SeatFakeBackend()
+    forbiddenBackend.state.context403 = true
+    const forbiddenView = renderWorkspace(forbiddenBackend, new FakeSseStream())
+    fireEvent.click(await waitFor(() => forbiddenView.getByTestId(`seat-session-item-${SESSION}`)))
+    await waitFor(() => expect(forbiddenView.getByTestId('seat-customer-context-forbidden')).toBeDefined())
+    expect(forbiddenView.queryByTestId('seat-customer-context')).toBeNull()
+    expect(forbiddenBackend.contextCalls.length).toBe(1)
+    forbiddenView.unmount()
+
+    // error + retry：500 一次 → 错误面板；重试成功后收敛到数据。
+    const errorBackend = new SeatFakeBackend()
+    errorBackend.state.contextFailuresLeft = 1
+    const errorView = renderWorkspace(errorBackend, new FakeSseStream())
+    fireEvent.click(await waitFor(() => errorView.getByTestId(`seat-session-item-${SESSION}`)))
+    await waitFor(() => expect(errorView.getByTestId('seat-customer-context-error')).toBeDefined())
+    fireEvent.click(errorView.getByTestId('seat-customer-context-error-retry'))
+    await waitFor(() => expect(errorView.getByTestId('seat-customer-context')).toBeDefined())
+    errorView.unmount()
+
+    // empty：无历史 + 无备注 → 两个空态独立呈现。
+    const emptyBackend = new SeatFakeBackend()
+    emptyBackend.state.contextHistoryCount = 0
+    emptyBackend.state.contextNotesCount = 0
+    const emptyView = renderWorkspace(emptyBackend, new FakeSseStream())
+    fireEvent.click(await waitFor(() => emptyView.getByTestId(`seat-session-item-${SESSION}`)))
+    await waitFor(() => expect(emptyView.getByTestId('seat-customer-context-history-empty')).toBeDefined())
+    expect(emptyView.getByTestId('seat-customer-context-notes-empty')).toBeDefined()
+  })
+
+  it('切换会话不显示上一客户陈旧数据；晚到的旧响应被拒（不覆盖新会话）', async () => {
+    const backend = new SeatFakeBackend()
+    backend.state.extraSessionInQueue = true
+    // 会话 A（SESSION）响应慢 200ms；会话 B（SESSION2）立即返回。
+    backend.state.contextDelayMsBySession[SESSION] = 200
+    const view = renderWorkspace(backend, new FakeSseStream())
+    await waitFor(() => expect(view.getByTestId(`seat-session-item-${SESSION}`)).toBeDefined())
+    await waitFor(() => expect(view.getByTestId(`seat-session-item-${SESSION2}`)).toBeDefined())
+    // 先选 A（慢）→ 立即切 B（快）：B 的数据先到并展示。
+    fireEvent.click(view.getByTestId(`seat-session-item-${SESSION}`))
+    fireEvent.click(view.getByTestId(`seat-session-item-${SESSION2}`))
+    await waitFor(() => expect(view.getByTestId('seat-customer-context-masked-name').textContent).toBe('李***'))
+    // A 的晚到响应（+200ms）绝不能把面板拉回王***（序号守卫拒绝落缓存）。
+    // 断言作用域 = 客户上下文面板（队列列表行显示会话 A 的掩码名属正常事实）。
+    await sleep(320)
+    expect(view.getByTestId('seat-customer-context-masked-name').textContent).toBe('李***')
+    expect(view.getByTestId('seat-customer-context').textContent).not.toContain('王***')
+    expect(backend.contextFetchCount).toBe(2)
+  })
+
+  it('切换会话后旧客户数据被新投影替换（正向时序；旧掩码名不再出现）', async () => {
+    const backend = new SeatFakeBackend()
+    backend.state.extraSessionInQueue = true
+    const view = renderWorkspace(backend, new FakeSseStream())
+    await waitFor(() => expect(view.getByTestId(`seat-session-item-${SESSION}`)).toBeDefined())
+    await waitFor(() => expect(view.getByTestId(`seat-session-item-${SESSION2}`)).toBeDefined())
+    fireEvent.click(view.getByTestId(`seat-session-item-${SESSION}`))
+    await waitFor(() => expect(view.getByTestId('seat-customer-context-masked-name').textContent).toBe('王***'))
+    fireEvent.click(view.getByTestId(`seat-session-item-${SESSION2}`))
+    await waitFor(() => expect(view.getByTestId('seat-customer-context-masked-name').textContent).toBe('李***'))
+    expect(view.getByTestId('seat-customer-context').textContent).not.toContain('王***')
+    // 各会话各自的 context 请求都发生过（键集隔离，不互相污染）。
+    expect(
+      backend.calls.some((call) => call.path.endsWith(`/sessions/${SESSION}/context`)),
+    ).toBe(true)
+    expect(
+      backend.calls.some((call) => call.path.endsWith(`/sessions/${SESSION2}/context`)),
+    ).toBe(true)
+  })
+
+  it('窄屏 Drawer：触发按钮打开 role=dialog 的同一上下文投影；关闭回收', async () => {
+    const backend = new SeatFakeBackend()
+    const view = renderWorkspace(backend, new FakeSseStream())
+    fireEvent.click(await waitFor(() => view.getByTestId(`seat-session-item-${SESSION}`)))
+    const trigger = await waitFor(() => view.getByTestId('seat-customer-context-drawer-trigger'))
+    fireEvent.click(trigger)
+    const dialog = await waitFor(() => view.getByRole('dialog'))
+    expect(dialog.getAttribute('aria-modal')).toBe('true')
+    expect(within(dialog).getByTestId('seat-customer-context')).toBeDefined()
+    fireEvent.click(within(dialog).getByRole('button', { name: '关闭' }))
+    await waitFor(() => expect(view.queryByRole('dialog')).toBeNull())
   })
 })

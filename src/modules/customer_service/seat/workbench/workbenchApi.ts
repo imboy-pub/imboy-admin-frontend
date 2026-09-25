@@ -15,6 +15,7 @@ import {
   buildConversationSendPath,
   buildSeatQueuePath,
   buildSeatSessionActionPath,
+  buildSeatSessionContextPath,
   buildSeatSessionDetailPath,
   buildSeatSessionsPath,
   buildTransferTargetsPath,
@@ -24,8 +25,10 @@ import {
   toSeatPresignResult,
   toSeatSessionDetail,
   toSeatSessionPage,
+  toSeatCustomerContext,
   toTransferTargetList,
   type SeatMessage,
+  type SeatCustomerContext,
   type SeatPresignResult,
   type SeatSessionDetail,
   type SeatSessionPage,
@@ -269,5 +272,22 @@ export class SeatWorkbenchApi {
    */
   async fetchAssetContent(orgId: EntityId, assetId: EntityId, signal?: AbortSignal): Promise<Blob> {
     return this.client.requestBlob(seatAssetContentPath(orgId, assetId), { signal })
+  }
+
+  /**
+   * CS-WEB-04：客户上下文只读投影（CS-BE-03 端点，conversation.read 门）。
+   * 授权由服务端裁决（session ownership 复核：转接后原 Seat 403 not_session_owner、
+   * 撤权 403 seat_disabled、跨 Org 404）——本层不猜、不缓存跨会话事实；
+   * signal 透传给传输层，切换会话时旧请求可被取消（stale 防护第二层）。
+   */
+  async fetchCustomerContext(
+    orgId: EntityId,
+    sessionId: EntityId,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<SeatCustomerContext> {
+    const payload = await this.client.request(buildSeatSessionContextPath(orgId, sessionId), {
+      signal: options.signal,
+    })
+    return toSeatCustomerContext(payload)
   }
 }

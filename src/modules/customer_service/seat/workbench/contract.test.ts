@@ -25,10 +25,12 @@ import {
   toSeatMessage,
   toSeatMessageList,
   toSeatPresignResult,
+  toSeatCustomerContext,
   toSeatSessionDetail,
   toSeatSessionPage,
   toSeatSessionSummary,
   toTransferTargetList,
+  buildSeatSessionContextPath,
 } from './contract'
 
 const ORG = '2000000000000000002'
@@ -337,5 +339,93 @@ describe('CS-WEB-02 presign 投影与上传路径', () => {
     // imboy_router.erl:1790/1796 真实路由族（Seat 域门 /api/v1/enterprise/organizations/ 放行）。
     expect(buildAssetPresignPath(ORG)).not.toContain('/cs/')
     expect(buildAssetConfirmPath(ORG)).not.toContain('/sessions/')
+  })
+})
+
+describe('CS-WEB-04 客户上下文投影（CS-BE-03 白名单双层防线）', () => {
+  const CONTEXT_PAYLOAD = {
+    session_id: SESSION,
+    workspace_id: WS,
+    source: 'widget',
+    request_id: 'ignored-common-key',
+    business_identity_id: '6000000000000000006',
+    contact: { masked_name: '王***', first_seen: 1757000000, last_seen: 1759000000 },
+    history: {
+      sessions: [
+        {
+          id: '7100000000000000010',
+          conversation_id: CONV,
+          workspace_id: WS,
+          status: 'closed',
+          version: 3,
+          rating: 5,
+          queued_at: 1758000000,
+          claimed_at: 1758000100,
+          closed_at: 1758000200,
+        },
+        { id: HUGE_TSID, conversation_id: null, status: 'bogus-status', version: null, rating: null },
+      ],
+      next_after_id: null,
+    },
+    notes: [{ id: '8200000000000000010', business_identity_id: '6000000000000000006', created_at: 1758500000 }],
+    // 白名单外键（不该出现；出现也必须被丢弃）：
+    contact_phone: '13800138000',
+    contact_email: 'a@b.c',
+    subject_mask: 'should-not-leak',
+    note_bodies: ['should-not-leak'],
+  }
+
+  it('白名单投影：已知键收敛为 camelCase；白名单外键一律丢弃', () => {
+    const ctx = toSeatCustomerContext(CONTEXT_PAYLOAD)
+    expect(ctx.sessionId).toBe(SESSION)
+    expect(ctx.workspaceId).toBe(WS)
+    expect(ctx.source).toBe('widget')
+    expect(ctx.contact.maskedName).toBe('王***')
+    expect(ctx.contact.firstSeen).toBe(1757000000)
+    expect(ctx.contact.lastSeen).toBe(1759000000)
+    expect(ctx.history.sessions.length).toBe(2)
+    expect(ctx.history.sessions[0]?.id).toBe('7100000000000000010')
+    expect(ctx.history.sessions[0]?.status).toBe('closed')
+    expect(ctx.history.sessions[0]?.rating).toBe(5)
+    // 未知状态/缺失字段收敛为 null（不猜）：
+    expect(ctx.history.sessions[1]?.status).toBe(null)
+    expect(ctx.history.sessions[1]?.version).toBe(null)
+    expect(ctx.notes.length).toBe(1)
+    expect(ctx.notes[0]?.businessIdentityId).toBe('6000000000000000006')
+    // JSON.stringify 断言：白名单外键（电话/邮箱/subject_mask/正文材料）永不进投影。
+    const serialized = JSON.stringify(ctx)
+    expect(serialized).not.toContain('13800138000')
+    expect(serialized).not.toContain('a@b.c')
+    expect(serialized).not.toContain('should-not-leak')
+    expect(serialized).not.toContain('ignored-common-key')
+  })
+
+  it('fail-closed：payload 非对象 / session_id 非法即 throw（不猜形状）', () => {
+    expect(() => toSeatCustomerContext(null)).toThrow(/shape/)
+    expect(() => toSeatCustomerContext('nope')).toThrow(/shape/)
+    expect(() => toSeatCustomerContext({})).toThrow(/session_id/)
+    expect(() => toSeatCustomerContext({ session_id: 'not-a-tsid' })).toThrow(/session_id/)
+  })
+
+  it('空历史/空备注收敛为空数组（面板 empty 态的数据源）', () => {
+    const ctx = toSeatCustomerContext({
+      session_id: SESSION,
+      workspace_id: WS,
+      source: 'shop_key',
+      contact: {},
+      history: {},
+      notes: 'not-an-array',
+    })
+    expect(ctx.contact.maskedName).toBe(null)
+    expect(ctx.history.sessions).toEqual([])
+    expect(ctx.history.nextAfterId).toBe(null)
+    expect(ctx.notes).toEqual([])
+    expect(ctx.source).toBe('shop_key')
+  })
+
+  it('路径构造：5 段 context 路径落 Seat 域（CS-BE-03 真实路由）', () => {
+    expect(buildSeatSessionContextPath(ORG, SESSION)).toBe(
+      `/cs/organizations/${ORG}/sessions/${SESSION}/context`,
+    )
   })
 })

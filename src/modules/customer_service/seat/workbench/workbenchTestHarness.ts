@@ -22,6 +22,8 @@ export const USER = '1000000000000000001'
 export const IDENTITY = '6000000000000000006'
 export const OTHER_IDENTITY = '6000000000000000007'
 export const SESSION = '72057594037927937'
+/** CS-WEB-04：第二会话（切换/陈旧响应用例的另一位客户）。 */
+export const SESSION2 = '72057594037927938'
 export const CONV = '5000000000000000005'
 export const CONTACT = '4000000000000000004'
 /** CS-WEB-01 附件 fixture（与 MESSAGES_TEXT 的 assets[].id 对应）。 */
@@ -53,6 +55,18 @@ export type SeatFakeBackendState = {
   queueWaitingSeconds: number | null
   /** CS-WEB-03：last_message.preview（null = 占位；undefined = 无 last_message 整键）。 */
   lastMessagePreview: string | null | undefined
+  /** CS-WEB-04：客户上下文 403（转接后原 Seat 失去读权 / 撤权 seat_disabled）。 */
+  context403: boolean
+  /** CS-WEB-04：客户上下文连续 500 计数（递减）。 */
+  contextFailuresLeft: number
+  /** CS-WEB-04：客户上下文历史会话页行数（0 = 历史空态）。 */
+  contextHistoryCount: number
+  /** CS-WEB-04：客户上下文备注行数（0 = 备注空态）。 */
+  contextNotesCount: number
+  /** CS-WEB-04：按会话 id 的上下文响应延迟 ms（陈旧响应竞态用例）。 */
+  contextDelayMsBySession: Record<string, number>
+  /** CS-WEB-04：队列页附加第二会话行（切换会话用例）。 */
+  extraSessionInQueue: boolean
 }
 
 export function initialFakeState(): SeatFakeBackendState {
@@ -72,6 +86,12 @@ export function initialFakeState(): SeatFakeBackendState {
     presignOmitUploadUrl: false,
     queueWaitingSeconds: 125,
     lastMessagePreview: '你好，请问订单 8891 什么时候发货',
+    context403: false,
+    contextFailuresLeft: 0,
+    contextHistoryCount: 1,
+    contextNotesCount: 0,
+    contextDelayMsBySession: {},
+    extraSessionInQueue: false,
   }
 }
 
@@ -106,7 +126,13 @@ function forbidden(): Response {
  * {id, sender_type, created_at, preview}（preview 为 null 占位），queued 行
  * 带 waiting_seconds（服务端权威值；active/closed 恒缺键）。
  */
-export function sessionRowText(status: string, version: number, state: SeatFakeBackendState): string {
+export function sessionRowText(
+  status: string,
+  version: number,
+  state: SeatFakeBackendState,
+  sessionId: string = SESSION,
+  maskedName = '王***',
+): string {
   const lastMessageText =
     state.lastMessagePreview === undefined
       ? 'null'
@@ -114,25 +140,29 @@ export function sessionRowText(status: string, version: number, state: SeatFakeB
   const waitingText =
     status === 'queued' && state.queueWaitingSeconds !== null ? `,"waiting_seconds":${state.queueWaitingSeconds}` : ''
   return (
-    `{"id":${SESSION},"organization_id":"${ORG}","workspace_id":"${WS}","contact_id":"${CONTACT}",` +
+    `{"id":${sessionId},"organization_id":"${ORG}","workspace_id":"${WS}","contact_id":"${CONTACT}",` +
     `"conversation_id":${CONV},"business_identity_id":${status === 'queued' ? 'null' : `"${IDENTITY}"`},` +
     `"status":"${status}","version":${version},` +
     `"queued_at":1758999975,"claimed_at":${status === 'queued' ? 'null' : '1759000025'},` +
-    `"closed_at":null,"source":"widget","contact":{"masked_name":"王***"},` +
+    `"closed_at":null,"source":"widget","contact":{"masked_name":"${maskedName}"},` +
     `"last_message":${lastMessageText}${waitingText}}`
   )
 }
 
 function pageText(view: 'queued' | 'active' | 'closed', rowVersion: number | null, state: SeatFakeBackendState): string {
-  const count = rowVersion !== null ? 1 : 0
-  const rows = rowVersion !== null ? `[${sessionRowText(view, rowVersion, state)}]` : '[]'
+  let rows = rowVersion !== null ? [sessionRowText(view, rowVersion, state)] : []
+  // CS-WEB-04：附加第二会话行（仅 queued 视图；行数/计数同步为服务端事实口径）。
+  if (view === 'queued' && state.extraSessionInQueue) {
+    rows = [...rows, sessionRowText('queued', state.version, state, SESSION2, '李***')]
+  }
+  const countFinal = rows.length
   const counts =
     view === 'queued'
-      ? `{"queued":${count},"active":0,"closed":0}`
+      ? `{"queued":${countFinal},"active":0,"closed":0}`
       : view === 'active'
-        ? `{"queued":0,"active":${count},"closed":0}`
+        ? `{"queued":0,"active":${countFinal},"closed":0}`
         : '{"queued":0,"active":0,"closed":0}'
-  return `{"sessions":${rows},"total":${count},"total_by_status":${counts},"next_after_id":null}`
+  return `{"sessions":[${rows.join(',')}],"total":${countFinal},"total_by_status":${counts},"next_after_id":null}`
 }
 
 export const CONTEXTS_TEXT =
@@ -161,12 +191,46 @@ const ASSET_CONTENT_BYTES = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 
 export const TRANSFER_TARGETS_TEXT =
   `{"targets":[{"business_identity_id":"${OTHER_IDENTITY}","display_name":"坐席乙","available":true}],"next_after_id":null}`
 
+/**
+ * CS-WEB-04：客户上下文载荷（镜像 CS-BE-03 session_customer_context 投影：
+ * 白名单 {session_id, workspace_id, source, contact{masked_name,first_seen,
+ * last_seen}, history{sessions,next_after_id}, notes[{id,business_identity_id,
+ * created_at}]}；TSID = JSON 整数字面量，时间 = epoch 秒 bigint）。
+ * 不同会话给不同掩码名（陈旧数据可见性断言的事实源）。
+ */
+export function customerContextText(sessionId: string, state: SeatFakeBackendState): string {
+  const maskedName = sessionId === SESSION2 ? '李***' : '王***'
+  const historyRows: string[] = []
+  for (let i = 0; i < state.contextHistoryCount; i += 1) {
+    const id = `71000000000000000${String(10 + i)}`
+    historyRows.push(
+      `{"id":${id},"conversation_id":${CONV},"workspace_id":${WS},"status":"closed",` +
+        `"version":3,"rating":${i === 0 ? 5 : 'null'},"queued_at":1758000000,` +
+        `"claimed_at":1758000100,"closed_at":1758000200}`,
+    )
+  }
+  const noteRows: string[] = []
+  for (let i = 0; i < state.contextNotesCount; i += 1) {
+    const id = `82000000000000000${String(10 + i)}`
+    noteRows.push(`{"id":${id},"business_identity_id":"${IDENTITY}","created_at":1758500000}`)
+  }
+  return (
+    `{"session_id":${sessionId},"workspace_id":${WS},"source":"widget",` +
+    `"contact":{"masked_name":"${maskedName}","first_seen":1757000000,"last_seen":1759000000},` +
+    `"history":{"sessions":[${historyRows.join(',')}],"next_after_id":null},` +
+    `"notes":[${noteRows.join(',')}]}`
+  )
+}
+
 /** 假后端：按冻结动作表回包；记录调用供断言（权威刷新次数等）。 */
 export class SeatFakeBackend {
   readonly state: SeatFakeBackendState
   readonly calls: Array<{ method: string; path: string; body: string; auth: string | null }> = []
   messageFetchCount = 0
   queueFetchCount = 0
+  /** CS-WEB-04：context 端点观测（刷新次数/晚到响应断言）。 */
+  contextFetchCount = 0
+  contextCalls: Array<{ sessionId: string; aborted: boolean }> = []
   contextsFetchCount = 0
   assetContentFetchCount = 0
   sentClientMsgIds: string[] = []
@@ -221,12 +285,42 @@ export class SeatFakeBackend {
       const rowVersion = this.state.sessionStatus === view ? this.state.version : null
       return ok(pageText(view, rowVersion, this.state))
     }
-    if (path === `/api/v1/cs/organizations/${ORG}/sessions/${SESSION}`) {
+    // CS-WEB-04：客户上下文端点（imboy_router session_customer_context）。
+    // 5 段路径；403（转接后原 Seat / 撤权）/ 500 递减 / 可编程延迟（陈旧
+    // 响应竞态用例：晚到的旧响应由 hook 序号守卫拒绝）。
+    const contextMatch = path.match(new RegExp(`^/api/v1/cs/organizations/${ORG}/sessions/(\\d+)/context$`))
+    if (contextMatch !== null) {
+      this.contextFetchCount += 1
+      const sessionId = contextMatch[1] ?? ''
+      this.contextCalls.push({ sessionId, aborted: init?.signal?.aborted === true })
+      if (this.state.context403) return forbidden()
+      if (this.state.contextFailuresLeft > 0) {
+        this.state.contextFailuresLeft -= 1
+        return serverError()
+      }
+      const delay = this.state.contextDelayMsBySession[sessionId] ?? 0
+      if (delay > 0) await sleep(delay)
+      if (init?.signal?.aborted === true) {
+        return new Response('{"code":499,"msg":"aborted","payload":{}}', { status: 499 })
+      }
+      return ok(customerContextText(sessionId, this.state))
+    }
+    const detailMatch = path.match(new RegExp(`^/api/v1/cs/organizations/${ORG}/sessions/(\\d+)$`))
+    if (detailMatch !== null) {
       // DF-9 真实合同：session detail 的 workspace_id 走 query 且必填
       // （cs_actions session_detail 无 workspace=>optional 宽松项 → 缺失 422）。
       const ws = new URL(url, 'http://localhost').searchParams.get('workspace_id')
       if (ws !== WS) return missingWorkspace()
-      return ok(sessionRowText(this.state.sessionStatus, this.state.version, this.state))
+      const sessionId = detailMatch[1] ?? SESSION
+      return ok(
+        sessionRowText(
+          this.state.sessionStatus,
+          this.state.version,
+          this.state,
+          sessionId,
+          sessionId === SESSION2 ? '李***' : '王***',
+        ),
+      )
     }
     if (path === `/api/v1/cs/organizations/${ORG}/sessions/${SESSION}/claim`) {
       this.state.claimAttempts += 1
