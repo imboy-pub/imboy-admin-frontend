@@ -18,6 +18,7 @@ import { SeatQueuePanel } from "./queuePanel";
 import { SeatSessionView } from "./sessionView";
 import { SeatDetailPanel } from "./detailPanel";
 import { SeatCustomerContextPanel } from "./customerContextPanel";
+import { SeatPresenceBar } from "./presenceBar";
 import {
   SeatErrorState,
   SeatLoadingState,
@@ -38,6 +39,10 @@ import {
   useSeatMessages,
   useSeatScopeSelection,
   useSeatSend,
+  useSeatFocusAck,
+  useSeatManualStatus,
+  useSeatPresenceHeartbeat,
+  useSeatReadState,
   useSeatSessionDetail,
   useSeatSessionViews,
   useSeatTransfer,
@@ -114,6 +119,9 @@ function SeatWorkspaceInner() {
 
   const views = useSeatSessionViews(scope.organizationId, scope.workspaceId);
   const stream = useSeatEventStream(scope.organizationId, scope.workspaceId);
+  // CS-WEB-05：presence 心跳（可见+在线才发送）与手动状态切换。
+  const presenceQuery = useSeatPresenceHeartbeat(scope.organizationId);
+  const manualStatus = useSeatManualStatus(scope.organizationId);
   const detailQuery = useSeatSessionDetail(
     scope.organizationId,
     selectedSessionId,
@@ -129,6 +137,22 @@ function SeatWorkspaceInner() {
 
   const conversationId = detail?.conversationId ?? null;
   const messagesQuery = useSeatMessages(scope.organizationId, conversationId, scope.workspaceId);
+  // CS-WEB-05：未读 badge（服务端 read-state）+ 聚焦/可见性驱动 ACK（单调 ref，
+  // 服务端单调 upsert 兜底——多标签页交错不倒退游标；lastSeen = 消息页最大 id）。
+  const readStateQuery = useSeatReadState(scope.organizationId, selectedSessionId);
+  const lastSeenMessageId = useMemo(() => {
+    const items = messagesQuery.data ?? [];
+    let max: string | null = null;
+    for (const item of items) {
+      if (max === null || item.id.length > max.length || (item.id.length === max.length && item.id > max)) {
+        max = item.id;
+      }
+    }
+    return max;
+  }, [messagesQuery.data]);
+  useSeatFocusAck(scope.organizationId, selectedSessionId, {
+    lastSeenMessageId,
+  });
   const send = useSeatSend(
     scope.organizationId,
     conversationId,
@@ -394,6 +418,17 @@ function SeatWorkspaceInner() {
               ))}
             </select>
           </div>
+          {scope.organizationId !== null && (
+            <span className="ml-2">
+              <SeatPresenceBar
+                presence={presenceQuery.data}
+                isLoading={presenceQuery.isLoading}
+                error={presenceQuery.error}
+                manualPending={manualStatus.isPending}
+                onSetManualStatus={(manual) => manualStatus.mutate(manual)}
+              />
+            </span>
+          )}
           <span
             className="ml-auto flex items-center gap-1 text-xs text-muted-foreground"
             data-testid="seat-connection-status"
@@ -514,6 +549,7 @@ function SeatWorkspaceInner() {
               onRetrySend={send.retry}
               sendError={send.error}
               sending={send.sending}
+              unreadCount={readStateQuery.data?.unreadCount}
             />
           </div>
           <div

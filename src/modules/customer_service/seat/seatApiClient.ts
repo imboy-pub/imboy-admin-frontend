@@ -97,7 +97,7 @@ export function assertSeatQueryContract(path: string, query: Record<string, stri
 }
 
 export type SeatRequestOptions = {
-  method?: 'GET' | 'POST'
+  method?: 'GET' | 'POST' | 'PUT'
   /** 值会被 encodeURIComponent；凭证键受 assertSeatQueryContract 管制。 */
   query?: Record<string, string>
   body?: unknown

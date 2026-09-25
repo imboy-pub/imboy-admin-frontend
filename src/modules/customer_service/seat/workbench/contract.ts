@@ -433,7 +433,7 @@ export function buildSeatSessionsPath(orgId: EntityId): string {
 export function buildSeatSessionActionPath(
   orgId: EntityId,
   sessionId: EntityId,
-  action: 'claim' | 'transfer' | 'close',
+  action: 'claim' | 'transfer' | 'close' | 'read-cursor',
 ): string {
   return `/cs/organizations/${encodeURIComponent(orgId)}/sessions/${encodeURIComponent(sessionId)}/${action}`
 }
@@ -514,4 +514,87 @@ export function buildAssetPresignPath(orgId: EntityId): string {
 
 export function buildAssetConfirmPath(orgId: EntityId): string {
   return `/enterprise/organizations/${encodeURIComponent(orgId)}/assets/confirm`
+}
+
+/**
+ * CS-WEB-05（CS-DEC-02）：坐席 presence 运行态（服务端派生值，前端只读展示 +
+ * 手动 away 覆盖）。状态集合冻结：online / away / busy / offline。
+ */
+export type SeatPresenceStatus = 'online' | 'away' | 'busy' | 'offline'
+
+const PRESENCE_STATUSES: readonly SeatPresenceStatus[] = [
+  'online',
+  'away',
+  'busy',
+  'offline',
+]
+
+export type SeatPresence = {
+  status: SeatPresenceStatus
+  /** 最近一次心跳的服务端时钟（epoch 秒）；null = 从未上报。 */
+  lastHeartbeatAt: number | null
+  /** 手动覆盖（当前冻结枚举仅 away）；null = 无手动覆盖。 */
+  manualStatus: 'away' | null
+  enabled: boolean
+  maxConcurrent: number
+  activeCount: number
+}
+
+/** CS-WEB-05：presence 视图 fail-closed 投影（形状非法即 throw，不猜）。 */
+export function toSeatPresence(raw: unknown): SeatPresence {
+  if (!isRecord(raw)) throw new TypeError('seat presence shape invalid')
+  const status = PRESENCE_STATUSES.find((candidate) => candidate === raw.status)
+  if (status === undefined) {
+    throw new TypeError('seat presence status invalid')
+  }
+  const enabled = raw.enabled
+  const maxConcurrent = optInt(raw.max_concurrent)
+  const activeCount = optInt(raw.active_count)
+  if (
+    typeof enabled !== 'boolean' ||
+    maxConcurrent === null ||
+    maxConcurrent < 0 ||
+    activeCount === null ||
+    activeCount < 0
+  ) {
+    throw new TypeError('seat presence capacity fields invalid')
+  }
+  const manual = raw.manual_status
+  return {
+    status,
+    lastHeartbeatAt: optInt(raw.last_heartbeat_at),
+    manualStatus: manual === 'away' ? 'away' : null,
+    enabled,
+    maxConcurrent,
+    activeCount,
+  }
+}
+
+/** CS-BE-04：会话读状态（游标 + 未读数；未读 badge 数据源）。 */
+export type SeatReadState = {
+  sessionId: EntityId
+  lastReadMessageId: EntityId
+  unreadCount: number
+}
+
+/** CS-WEB-05：read_state fail-closed 投影。 */
+export function toSeatReadState(raw: unknown): SeatReadState {
+  if (!isRecord(raw)) throw new TypeError('seat read state shape invalid')
+  const sessionId = toEntityId(raw.session_id)
+  const lastReadMessageId = toEntityId(raw.last_read_message_id)
+  const unreadCount = raw.unread_count
+  if (sessionId === null || lastReadMessageId === null || typeof unreadCount !== 'number') {
+    throw new TypeError('seat read state fields invalid')
+  }
+  return { sessionId, lastReadMessageId, unreadCount }
+}
+
+/** CS-BE-05：presence 心跳（POST；返回派生运行态）。 */
+export function buildSeatHeartbeatPath(orgId: EntityId): string {
+  return `/cs/organizations/${encodeURIComponent(orgId)}/seats/me/heartbeat`
+}
+
+/** CS-BE-05：手动状态 set/clear（PUT）与自身运行态视图（GET）同路径。 */
+export function buildSeatMyPresencePath(orgId: EntityId): string {
+  return `/cs/organizations/${encodeURIComponent(orgId)}/seats/me/presence`
 }

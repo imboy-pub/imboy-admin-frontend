@@ -67,6 +67,10 @@ export type SeatFakeBackendState = {
   contextDelayMsBySession: Record<string, number>
   /** CS-WEB-04：队列页附加第二会话行（切换会话用例）。 */
   extraSessionInQueue: boolean
+  /** CS-WEB-05：presence 心跳状态（null = 端点 500 模拟降级）。 */
+  presenceStatus: 'online' | 'away' | 'busy' | 'offline' | null
+  /** CS-WEB-05：read-cursor 未读数（GET 读状态；POST ACK 空响应）。 */
+  unreadCount: number
 }
 
 export function initialFakeState(): SeatFakeBackendState {
@@ -92,6 +96,8 @@ export function initialFakeState(): SeatFakeBackendState {
     contextNotesCount: 0,
     contextDelayMsBySession: {},
     extraSessionInQueue: false,
+    presenceStatus: 'online',
+    unreadCount: 0,
   }
 }
 
@@ -198,6 +204,19 @@ export const TRANSFER_TARGETS_TEXT =
  * created_at}]}；TSID = JSON 整数字面量，时间 = epoch 秒 bigint）。
  * 不同会话给不同掩码名（陈旧数据可见性断言的事实源）。
  */
+/** CS-WEB-05：presence 视图 wire 形态（status/manual/容量；服务端派生事实）。 */
+export function presenceText(
+  status: 'online' | 'away' | 'busy' | 'offline',
+  lastHeartbeatAt: number,
+  manualAway = false,
+): string {
+  return (
+    `{"status":"${status}","last_heartbeat_at":${lastHeartbeatAt},` +
+    `"manual_status":${manualAway ? '"away"' : 'null'},` +
+    `"enabled":true,"max_concurrent":2,"active_count":${status === 'busy' ? 2 : 0}}`
+  )
+}
+
 export function customerContextText(sessionId: string, state: SeatFakeBackendState): string {
   const maskedName = sessionId === SESSION2 ? '李***' : '王***'
   const historyRows: string[] = []
@@ -224,6 +243,9 @@ export function customerContextText(sessionId: string, state: SeatFakeBackendSta
 
 /** 假后端：按冻结动作表回包；记录调用供断言（权威刷新次数等）。 */
 export class SeatFakeBackend {
+  heartbeatCalls = 0
+  ackCalls = 0
+
   readonly state: SeatFakeBackendState
   readonly calls: Array<{ method: string; path: string; body: string; auth: string | null }> = []
   messageFetchCount = 0
@@ -304,6 +326,37 @@ export class SeatFakeBackend {
         return new Response('{"code":499,"msg":"aborted","payload":{}}', { status: 499 })
       }
       return ok(customerContextText(sessionId, this.state))
+    }
+    // CS-WEB-05：presence 心跳（POST）——页隐藏时 hook 不会发（诚实在线）。
+    if (path === `/api/v1/cs/organizations/${ORG}/seats/me/heartbeat` && init?.method === 'POST') {
+      this.heartbeatCalls += 1
+      if (this.state.presenceStatus === null) return serverError()
+      return ok(presenceText(this.state.presenceStatus, 1790312470))
+    }
+    // CS-WEB-05：手动状态（PUT）——away/clear 双形态。
+    if (path === `/api/v1/cs/organizations/${ORG}/seats/me/presence` && init?.method === 'PUT') {
+      const bodyText = typeof init?.body === 'string' ? init.body : ''
+      const wantsAway = bodyText.includes('away')
+      this.state.presenceStatus = wantsAway ? 'away' : 'online'
+      return ok(presenceText(this.state.presenceStatus, 1790312470, wantsAway))
+    }
+    if (path === `/api/v1/cs/organizations/${ORG}/seats/me/presence`) {
+      if (this.state.presenceStatus === null) return serverError()
+      return ok(presenceText(this.state.presenceStatus, 1790312470))
+    }
+    // CS-BE-04：read-cursor（GET 读状态 / POST ACK 空成功响应）。
+    const cursorMatch = path.match(
+      new RegExp(`^/api/v1/cs/organizations/${ORG}/sessions/(\\d+)/read-cursor$`),
+    )
+    if (cursorMatch !== null) {
+      if (init?.method === 'POST') {
+        this.ackCalls += 1
+        return ok('{}')
+      }
+      return ok(
+        `{"session_id":${cursorMatch[1]},"business_identity_id":${IDENTITY},` +
+          `"last_read_message_id":"72057594037928100","unread_count":${this.state.unreadCount}}`,
+      )
     }
     const detailMatch = path.match(new RegExp(`^/api/v1/cs/organizations/${ORG}/sessions/(\\d+)$`))
     if (detailMatch !== null) {

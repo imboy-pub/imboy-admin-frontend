@@ -14,6 +14,8 @@ import {
   buildConversationMessagesPath,
   buildConversationSendPath,
   buildSeatQueuePath,
+  buildSeatHeartbeatPath,
+  buildSeatMyPresencePath,
   buildSeatSessionActionPath,
   buildSeatSessionContextPath,
   buildSeatSessionDetailPath,
@@ -22,6 +24,7 @@ import {
   seatAssetContentPath,
   toSeatMessage,
   toSeatMessageList,
+  toSeatPresence,
   toSeatPresignResult,
   toSeatSessionDetail,
   toSeatSessionPage,
@@ -29,13 +32,22 @@ import {
   toTransferTargetList,
   type SeatMessage,
   type SeatCustomerContext,
+  type SeatPresence,
+  type SeatReadState,
   type SeatPresignResult,
   type SeatSessionDetail,
   type SeatSessionPage,
   type SeatTransferTargetPage,
+  toSeatReadState,
 } from './contract'
 
-export type { SeatSessionCounts, SeatSessionPage } from './contract'
+export type {
+  SeatPresence,
+  SeatPresenceStatus,
+  SeatReadState,
+  SeatSessionCounts,
+  SeatSessionPage,
+} from './contract'
 import type { SeatApiClient } from '../seatApiClient'
 import type { EntityId, SeatContextsResult } from '../types'
 import { fetchSeatContexts } from '../seatContexts'
@@ -289,5 +301,61 @@ export class SeatWorkbenchApi {
       signal: options.signal,
     })
     return toSeatCustomerContext(payload)
+  }
+
+  /**
+   * CS-WEB-05：presence 心跳（POST；at 是服务端派生时钟，客户端不可报时）。
+   * 调用时机由 hooks 门控（页面可见 + navigator.onLine）——断网/隐藏不发，
+   * 不得替用户谎报 online；失败原样上抛（展示侧降级，不本地造状态）。
+   */
+  async heartbeat(orgId: EntityId): Promise<SeatPresence> {
+    const payload = await this.client.request(buildSeatHeartbeatPath(orgId), {
+      method: 'POST',
+    })
+    return toSeatPresence(payload)
+  }
+
+  /** CS-WEB-05：自身运行态视图（GET；降级展示的数据源，不发心跳）。 */
+  async fetchMyPresence(orgId: EntityId): Promise<SeatPresence> {
+    const payload = await this.client.request(buildSeatMyPresencePath(orgId))
+    return toSeatPresence(payload)
+  }
+
+  /**
+   * CS-WEB-05：手动状态 set/clear（PUT；manual_status 缺省 = clear 回自动）。
+   * manual away 优先于自动派生（CS-DEC-02），clear 后回到心跳/负载派生。
+   */
+  async setManualStatus(
+    orgId: EntityId,
+    manualStatus: 'away' | null,
+  ): Promise<SeatPresence> {
+    const body =
+      manualStatus === 'away'
+        ? { manual_status: 'away' }
+        : {}
+    const payload = await this.client.request(buildSeatMyPresencePath(orgId), {
+      method: 'PUT',
+      body,
+    })
+    return toSeatPresence(payload)
+  }
+
+  /** CS-BE-04：会话读状态（游标 + 未读数；未读 badge 数据源）。 */
+  async fetchReadState(orgId: EntityId, sessionId: EntityId): Promise<SeatReadState> {
+    const payload = await this.client.request(
+      buildSeatSessionActionPath(orgId, sessionId, 'read-cursor'),
+    )
+    return toSeatReadState(payload)
+  }
+
+  /**
+   * CS-WEB-05：ACK（POST last_read_message_id；服务端单调 upsert——重复/
+   * 乱序后到的旧值是零行 no-op，前端多标签页并发 ACK 不会倒退游标）。
+   */
+  async ackRead(orgId: EntityId, sessionId: EntityId, lastReadMessageId: EntityId): Promise<void> {
+    await this.client.request(buildSeatSessionActionPath(orgId, sessionId, 'read-cursor'), {
+      method: 'POST',
+      body: { last_read_message_id: lastReadMessageId },
+    })
   }
 }

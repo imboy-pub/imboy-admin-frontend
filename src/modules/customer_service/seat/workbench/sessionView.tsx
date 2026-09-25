@@ -45,6 +45,8 @@ export type SeatSessionViewProps = {
   onRetrySend: () => void
   sendError: unknown
   sending: boolean
+  /** CS-WEB-05：当前会话未读数（服务端 read-state；badge 展示，undefined=未知不显示）。 */
+  unreadCount?: number
 }
 
 /** 附件字节获取器（org scope 由调用方闭包；signal 供取消/卸载中断）。 */
@@ -374,6 +376,7 @@ export function SeatSessionView(props: SeatSessionViewProps) {
     onRetrySend,
     sendError,
     sending,
+    unreadCount,
   } = props
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const conversationRef = useRef<HTMLDivElement | null>(null)
@@ -398,6 +401,15 @@ export function SeatSessionView(props: SeatSessionViewProps) {
           <span className="ml-2 text-xs font-normal text-muted-foreground">
             {detail.status === 'queued' ? '排队中' : detail.status === 'active' ? '进行中' : '已结束'}
           </span>
+          {unreadCount !== undefined && unreadCount > 0 && (
+            <span
+              className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 text-xs font-semibold text-destructive-foreground"
+              data-testid="seat-unread-badge"
+              aria-label={`未读 ${unreadCount} 条`}
+            >
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
+          )}
         </h2>
       </header>
       <div

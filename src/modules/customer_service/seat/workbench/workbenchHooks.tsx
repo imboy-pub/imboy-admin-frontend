@@ -19,6 +19,7 @@ import {
   useQuery,
   useQueryClient,
   type UseInfiniteQueryResult,
+  type UseQueryResult,
   type InfiniteData,
 } from '@tanstack/react-query'
 import { SeatEventStream, type SeatEventStreamStatus } from '../seatSseClient'
@@ -34,6 +35,8 @@ import {
   SEAT_SESSION_PAGE_LIMIT,
   SeatWorkbenchApi,
   type SeatPageQuery,
+  type SeatPresence,
+  type SeatReadState,
   type SeatSessionCounts,
   type SeatSessionPage,
 } from './workbenchApi'
@@ -662,4 +665,157 @@ export function useSeatEventStream(organizationId: EntityId | null, workspaceId:
   }, [organizationId, workspaceId, createStream, applyEnvelope, invalidate, handleEnded])
 
   return { status, writeRevoked, retry }
+}
+
+/** CS-DEC-02 冻结的心跳间隔（秒）：客户端 30s 一次。 */
+export const SEAT_HEARTBEAT_INTERVAL_MS = 30_000
+
+function pageVisible(): boolean {
+  return typeof document === 'undefined' || document.visibilityState === 'visible'
+}
+
+function browserOnline(): boolean {
+  return typeof navigator === 'undefined' || navigator.onLine !== false
+}
+
+/**
+ * CS-WEB-05（CS-RUNTIME-03）：presence 心跳 + 派生状态。
+ *
+ * 诚实在线约束——**只在页面可见且 navigator.onLine 时发送心跳**：
+ *   * 页面隐藏 / 断网：暂停发送（不在场的事实不能被前端谎报成 online，
+ *     90 秒无心跳服务端自然 offline）；
+ *   * 恢复可见 / 网络恢复：立即补一次心跳（刷新恢复与重连恢复同路径）；
+ *   * 心跳失败原样上抛为 query error：展示侧按 failureKind 降级
+ *     （**不用本地乐观状态**——没有服务端事实就不显示任何运行态）。
+ *
+ * @param orgId        当前租户（null = 未就绪，不发）
+ * @param options.intervalMs 心跳间隔（测试注入；缺省 30s）
+ */
+export function useSeatPresenceHeartbeat(
+  orgId: EntityId | null,
+  options: { intervalMs?: number } = {},
+): UseQueryResult<SeatPresence, Error> {
+  const { api } = useSeatWorkbenchGateway()
+  const intervalMs = options.intervalMs ?? SEAT_HEARTBEAT_INTERVAL_MS
+  const queryClient = useQueryClient()
+
+  const query = useQuery({
+    queryKey: [SEAT_QUERY_ROOT_KEY, 'presence-heartbeat', orgId],
+    enabled: orgId !== null && pageVisible() && browserOnline(),
+    refetchInterval: intervalMs,
+    refetchIntervalInBackground: false,
+    queryFn: () => {
+      if (orgId === null) throw new Error('presence heartbeat without org')
+      return api.heartbeat(orgId)
+    },
+  })
+
+  // 恢复可见 / 网络恢复 → 立即补一次心跳（refetch 合并去重）。
+  useEffect(() => {
+    if (orgId === null) return
+    const resume = () => {
+      if (pageVisible() && browserOnline()) {
+        void queryClient.invalidateQueries({
+          queryKey: [SEAT_QUERY_ROOT_KEY, 'presence-heartbeat', orgId],
+        })
+      }
+    }
+    document.addEventListener('visibilitychange', resume)
+    window.addEventListener('online', resume)
+    return () => {
+      document.removeEventListener('visibilitychange', resume)
+      window.removeEventListener('online', resume)
+    }
+  }, [orgId, queryClient])
+
+  return query
+}
+
+/** CS-WEB-05：手动状态切换（away / clear）。mutation 成功后回填心跳缓存。 */
+export function useSeatManualStatus(orgId: EntityId | null) {
+  const { api } = useSeatWorkbenchGateway()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (manualStatus: 'away' | null) => {
+      if (orgId === null) throw new Error('manual status without org')
+      return api.setManualStatus(orgId, manualStatus)
+    },
+    onSuccess: (presence) => {
+      if (orgId !== null) {
+        queryClient.setQueryData([SEAT_QUERY_ROOT_KEY, 'presence-heartbeat', orgId], presence)
+      }
+    },
+  })
+}
+
+/**
+ * CS-WEB-05 / CS-BE-04：会话读状态（游标 + 未读数；未读 badge 数据源）。
+ * 会话切换即失效（键含 sessionId），stale 防护与 customer-context 同款。
+ */
+export function useSeatReadState(
+  orgId: EntityId | null,
+  sessionId: EntityId | null,
+): UseQueryResult<SeatReadState, Error> {
+  const { api } = useSeatWorkbenchGateway()
+  return useQuery({
+    queryKey: [SEAT_QUERY_ROOT_KEY, 'read-state', orgId, sessionId],
+    enabled: orgId !== null && sessionId !== null,
+    queryFn: () => {
+      if (orgId === null || sessionId === null) throw new Error('read state without scope')
+      return api.fetchReadState(orgId, sessionId)
+    },
+  })
+}
+
+/**
+ * CS-WEB-05：聚焦/可见性驱动 ACK（单调 ref）。
+ *
+ * 多标签页不倒退游标：ref 只被更大的 message id 推进（本地单调）；即便两个
+ * 标签页交错 ACK，服务端单调 upsert（`WHERE last_read < EXCLUDED`）把后到的
+ * 旧值吞成零行 no-op——前后端双层单调。刷新恢复：ack 前的 read-state 与
+ * 消息页都是服务端事实，刷新后重新拉取即可（无本地持久化）。
+ */
+export function useSeatFocusAck(
+  orgId: EntityId | null,
+  sessionId: EntityId | null,
+  options: { lastSeenMessageId: EntityId | null },
+) {
+  const { api } = useSeatWorkbenchGateway()
+  const lastSeenRef = useRef<EntityId | null>(null)
+  const lastSeen = options.lastSeenMessageId
+
+  // ref 只在 effect 中推进（react-hooks/refs 纪律）：单调取更大 id。
+  useEffect(() => {
+    lastSeenRef.current = maxEntityId(lastSeenRef.current, lastSeen)
+  }, [lastSeen])
+
+  const ack = useCallback(async () => {
+    if (orgId === null || sessionId === null) return
+    const target = lastSeenRef.current
+    if (target === null) return
+    await api.ackRead(orgId, sessionId, target)
+  }, [api, orgId, sessionId])
+
+  useEffect(() => {
+    if (orgId === null || sessionId === null) return
+    const onVisible = () => {
+      if (pageVisible() && browserOnline()) void ack()
+    }
+    // 打开会话即 ACK 一次 + 回到可见时再 ACK（聚焦/可见性驱动）。
+    void ack()
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('focus', onVisible)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('focus', onVisible)
+    }
+  }, [ack, orgId, sessionId])
+}
+
+/** TSID 字符串的数值大小比较（等长十进制字符串可字典序；长度不同先比长度）。 */
+function maxEntityId(a: EntityId | null, b: EntityId | null): EntityId | null {
+  if (a === null) return b
+  if (b === null) return a
+  if (b.length !== a.length) return b.length > a.length ? b : a
+  return b > a ? b : a
 }
