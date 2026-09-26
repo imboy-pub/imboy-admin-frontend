@@ -74,7 +74,9 @@ async function settle(): Promise<void> {
  * 断言读到上一个用例的旧渲染（数据晚到），故对内容断言必须轮询。
  */
 async function settleUntil(predicate: () => boolean, label: string): Promise<void> {
-  const deadline = Date.now() + 5000
+  // deadline 必须 < bun 单用例默认 5000ms 超时：否则用例被判超时后
+  // settleUntil 的 throw 落地为孤儿 rejection，统计上多一条 error。
+  const deadline = Date.now() + 4000
   for (;;) {
     await settle()
     if (predicate()) return
@@ -93,11 +95,13 @@ beforeEach(() => {
 describe('CsStatsPanel — CS-GOV-03B', () => {
   it('数值与 fixture API 逐项相等（含窗口回显与时区可见）', async () => {
     statsResult = fixture()
-    const { getByLabelText, getByTestId } = render(host(<CsStatsPanel orgId={ORG} canRead={true} />))
+    const { getByLabelText, getByTestId, container } = render(host(<CsStatsPanel orgId={ORG} canRead={true} />))
 
     await settle()
     await settle()
-    const facts = Array.from(document.querySelectorAll('[data-testid="cs-stats-fact"]'))
+    // 只在本用例自己的 container 内查询：裸 bun test 全量连跑时前序文件
+    // 的 DOM 残留会占据 document 级查询结果（rbac404 同场组合复现过）。
+    const facts = Array.from(container.querySelectorAll('[data-testid="cs-stats-fact"]'))
     expect(facts.length).toBe(5)
     // 逐项：新会话 7、首响 6 次平均 42 秒、关闭 5、评分 4.5（4 条）、当前 4 排队 / 2 接待
     expect(facts[0]?.textContent).toContain('7')
@@ -127,10 +131,12 @@ describe('CsStatsPanel — CS-GOV-03B', () => {
       current: { queued: 1, active: 0 },
       closedSessions: 0,
     })
-    render(host(<CsStatsPanel orgId={ORG} canRead={true} />))
-    // 确定性等待本用例数据落盘（防全量负载下读到上一用例的旧渲染）
+    const view = render(host(<CsStatsPanel orgId={ORG} canRead={true} />))
+    // 确定性等待本用例数据落盘（防全量负载下读到上一用例的旧渲染）；
+    // 限定 container 内查询——前序文件的 DOM 残留会让 document 级查询
+    // 永远读到旧 facts（rbac404 同场组合复现过）。
     const factTexts = () =>
-      Array.from(document.querySelectorAll('[data-testid="cs-stats-fact"]')).map((n) => n.textContent)
+      Array.from(view.container.querySelectorAll('[data-testid="cs-stats-fact"]')).map((n) => n.textContent)
     await settleUntil(() => {
       const t = factTexts()
       return (t[1] ?? '').includes('无样本') && (t[3] ?? '').includes('无样本')
