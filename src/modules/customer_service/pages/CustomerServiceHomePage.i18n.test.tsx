@@ -7,14 +7,13 @@
  */
 import '../../../test/setupDom'
 
-import { afterAll, afterEach, beforeEach, describe, expect, it, mock } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render } from '@testing-library/react'
 import { act } from 'react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import client from '@/services/api/client'
 import { t } from '@/i18n'
-import * as realPublicModule from '../api/public'
 import { CustomerServiceHomePage } from './CustomerServiceHomePage'
 
 type AnyFn = (..._args: unknown[]) => unknown
@@ -25,12 +24,11 @@ const realFetch = globalThis.fetch
 const ORG_ID = '114022088375011328'
 const CS_PERMISSIONS = ['customer_service:read', 'customer_service:write']
 
-const realPublicExports = { ...realPublicModule }
-mock.module('../api/public', () => realPublicExports)
-
-afterAll(() => {
-  mock.module('../api/public', () => realPublicExports)
-})
+// 注意：不得在此 mock.module('../api/public')（哪怕恢复为真实实现）——
+// bun 全量并发下同 key mock 会与 CsStatsPanel.test.tsx 的 fixture mock
+// 互相覆盖（进程级注册表），导致其用例拿到真实实现而稳定失败。
+// 本文件的 API stub 走 mutableClient.get / globalThis.fetch 替换并在
+// afterAll 恢复，进程级 mock.module 注册表保持零触碰。
 
 function envelope(payload: unknown) {
   return { data: { code: 0, msg: 'ok', payload } }
