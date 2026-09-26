@@ -26,23 +26,35 @@ const PG_DB = 'imboy_csagent_cs-agent-entux-v1-20260924T164136Z-539f3dae'
 // 合成身份 + 生产同款签发的短期 JWT —— 仓库零凭据，gitleaks 干净）。
 const ORG1 = process.env.INT02_ORG1 ?? ''
 const WS1 = process.env.INT02_WS1 ?? ''
-const ORG2 = process.env.INT02_ORG2 ?? ''
 const SEAT_A_TOKEN = process.env.INT02_SEAT_A_TOKEN ?? ''
 const SEAT_B_TOKEN = process.env.INT02_SEAT_B_TOKEN ?? ''
 const SEAT_C2_TOKEN = process.env.INT02_SEAT_C2_TOKEN ?? ''
 const SEAT_A_IDENTITY = process.env.INT02_SEAT_A_IDENTITY ?? ''
 const SEAT_B_IDENTITY = process.env.INT02_SEAT_B_IDENTITY ?? ''
-const WIDGET_PUBLIC_ID = process.env.INT02_WIDGET_PUBLIC_ID ?? ''
 
 const RUN_UNIQ = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`
 
-/** 打开 widget 面板并完成 consent（等待式；已 consent 时直接返回 input）。 */
+/** 去 flaky（CS-INT-02 补齐轮）：冷启动抖动的确定性消除——
+ *  1) goto 用 domcontentloaded + 显式等 launcher（不依赖 networkidle 的
+ *     隐式时机——宿主页资源加载抖动下既可能过早也可能挂长）；
+ *  2) 面板就绪用「分支竞速 waitFor」而非组合 locator（locator.or() 的
+ *     可见性评估在 frame 恢复期实测恒 false，单 locator 则正常——a09b 同款
+ *     实证）；installation_unavailable 可见即 fail-fast（环境/种子错误
+ *     不该被 30s 盲等掩盖成 flaky）。 */
 async function openWidgetAndConsent(page: import('@playwright/test').Page) {
-  await page.goto(`${HOST}/`, { waitUntil: 'networkidle' })
-  await page.getByTestId('cs-widget-launcher').click()
+  await page.goto(`${HOST}/`, { waitUntil: 'domcontentloaded' })
+  const launcher = page.getByTestId('cs-widget-launcher')
+  await expect(launcher).toBeVisible({ timeout: 30_000 })
+  await launcher.click()
   const frame = page.frameLocator('iframe[data-testid="cs-widget-iframe"]')
+  const deadFrame = frame.getByText('installation_unavailable')
+  const waited = await Promise.race([
+    frame.getByTestId('cs-consent-accept').waitFor({ state: 'visible', timeout: 30_000 }).then(() => 'panel'),
+    deadFrame.waitFor({ state: 'visible', timeout: 30_000 }).then(() => 'dead'),
+    new Promise<'timeout'>((resolve) => setTimeout(() => resolve('timeout'), 30_000)),
+  ])
+  expect(waited, 'widget 面板就绪（installation_unavailable=种子/宿主 id 不匹配）').toBe('panel')
   const consent = frame.getByTestId('cs-consent-accept')
-  await expect(consent).toBeVisible({ timeout: 30_000 })
   await consent.click()
   const input = frame.getByTestId('cs-input')
   await expect(input).toBeVisible({ timeout: 15_000 })
@@ -83,33 +95,52 @@ async function dbq(sql: string): Promise<string> {
       'exec', PG_CONTAINER, 'psql', '-U', 'imboy_user', '-d', PG_DB, '-tAc', sql,
     ]).toString().trim()
   } catch (err) {
-    throw new Error(`dbq failed: ${sql}: ${String(err)}`)
+    throw new Error(`dbq failed: ${sql}: ${String(err)}`, { cause: err })
   }
 }
 
 const org = (p: string) => `/api/v1/cs/organizations/${ORG1}${p}`
-const org2 = (p: string) => `/api/v1/cs/organizations/${ORG2}${p}`
 
 test.describe('a08 agent productivity real (J-CS-03..05)', () => {
-  // 真实集成环境的 widget iframe 时序抖动（节点冷启动/SSE 建流）允许重试；
-  // 断言本身全部服务端/DB 真值，重试不改变 oracle 语义。
-  test.describe.configure({ retries: 2 })
+  // 去 flaky（CS-INT-02 补齐轮）：冷启动抖动已由确定性等待消除（openWidgetAndConsent
+  // 的 domcontentloaded + 显式 launcher + 分支竞速面板就绪 + fail-fast），
+  // 重试通道撤销——oracle 全部服务端/DB 真值，零 retry 全绿是本门新基线。
+  //
+  // 幂等清场（容量语义适配，CS-DEC-02 max_concurrent=1 冻结）：claim 有
+  // 「active 计数 < max_concurrent」硬门——上一轮残留的 active 会话会让
+  // 本轮 claim 被 seat_at_capacity 拒（顺序耦合，上轮被 retries 掩盖）。
+  // beforeAll 把 org1 全部 active 会话经真实 close（CAS 收敛，按经办人
+  // token）释放，测试间不再互相污染；这是业务动作前置，非 mock。
+  test.beforeAll(async () => {
+    const rows = await dbq(
+      `SELECT id, business_identity_id FROM customer_service_session WHERE organization_id = ${ORG1} AND status = 'active' ORDER BY id`,
+    )
+    for (const row of rows.split('\n').filter(Boolean)) {
+      const [staleId, identity] = row.split('|')
+      const token = identity === SEAT_A_IDENTITY ? SEAT_A_TOKEN
+        : identity === SEAT_B_IDENTITY ? SEAT_B_TOKEN : null
+      if (token === null) continue
+      for (let i = 0; i < 4; i++) {
+        const det = await api(token, 'GET', org(`/sessions/${staleId}?workspace_id=${WS1}`))
+        const ver = (det.env.payload as { version?: number }).version
+        const c = await api(token, 'POST', org(`/sessions/${staleId}/close?workspace_id=${WS1}`), {
+          expected_version: ver,
+        })
+        if (c.status === 200) break
+        await new Promise((r) => setTimeout(r, 300))
+      }
+    }
+  })
+
   test('J-CS-03 未读与转接：cursor DB + queue count + transfer boundary', async ({ page }) => {
     // —— 坐席 A 心跳上线（为 claim 与后续 presence 断言铺垫）——
     const hb = await api(SEAT_A_TOKEN, 'POST', org(`/seats/me/heartbeat?workspace_id=${WS1}`))
     expect(hb.status).toBe(200)
 
-    // —— widget 页面驱动：访客发 3 条消息（真实 frame；consent 后 input）——
-    await page.goto(`${HOST}/`, { waitUntil: 'networkidle' })
-    const launcher = page.getByTestId('cs-widget-launcher')
-    await expect(launcher).toBeVisible({ timeout: 30_000 })
-    await launcher.click()
-    const frame = page.frameLocator('iframe[data-testid="cs-widget-iframe"]')
-    const consent = frame.getByTestId('cs-consent-accept')
-    await expect(consent).toBeVisible({ timeout: 30_000 })
-    await consent.click()
-    const input = frame.getByTestId('cs-input')
-    await expect(input).toBeVisible()
+    // —— widget 页面驱动：访客发 3 条消息（真实 frame；确定性打开 helper）——
+    const opened = await openWidgetAndConsent(page)
+    const frame = opened.frame
+    const input = opened.input
     const texts = [1, 2, 3].map((n) => `a08-cs03 访客消息${n} ${RUN_UNIQ}`)
     for (const t of texts) {
       await input.fill(t)
@@ -225,6 +256,20 @@ test.describe('a08 agent productivity real (J-CS-03..05)', () => {
   })
 
   test('J-CS-04 presence/离线：heartbeat/TTL DB + 派单真源 + Widget queued state', async ({ page }) => {
+    // —— 前置：释放 J-CS-03 转接给 B 的会话——transfer 后 B 满载
+    // （max_concurrent=1 → 容量满派生 busy，CS-DEC-02 冻结语义）；本卡
+    // 验证「心跳上线 → online」，先 close 让 B 回到空闲真态（close 本身
+    // 也是真实业务动作，CAS 版本取自会话详情）。——
+    const bActive = await dbq(
+      `SELECT id FROM customer_service_session WHERE organization_id = ${ORG1} AND business_identity_id = ${SEAT_B_IDENTITY} AND status = 'active' ORDER BY id LIMIT 1`,
+    )
+    if (bActive.length > 0) {
+      const detB = await api(SEAT_B_TOKEN, 'GET', org(`/sessions/${bActive}?workspace_id=${WS1}`))
+      const vB = (detB.env.payload as { version?: number }).version ?? 2
+      const closeB = await api(SEAT_B_TOKEN, 'POST', org(`/sessions/${bActive}/close?workspace_id=${WS1}`), { expected_version: vB })
+      expect(closeB.status).toBe(200)
+    }
+
     // —— B 心跳上线；DB 直证 presence 行 ——
     const hbB = await api(SEAT_B_TOKEN, 'POST', org(`/seats/me/heartbeat?workspace_id=${WS1}`))
     expect(hbB.status).toBe(200)
@@ -282,7 +327,12 @@ test.describe('a08 agent productivity real (J-CS-03..05)', () => {
       `SELECT status FROM customer_service_session WHERE id = (SELECT max(id) FROM customer_service_session WHERE organization_id = ${ORG1})`,
     )
     expect(queuedDb).toBe('queued')
-    await page.screenshot({ path: '/tmp/csint02-runtime/a08-widget-queued.png' })
+    // 截图目录缺省沿用 CS-INT-02 runtime（mkdir 兜底——硬编码路径在目录
+    // 被清理后会让测试自身失败，与业务 oracle 无关）。
+    const shotDir = process.env.CSINT02_SHOT_DIR ?? '/tmp/csint02-runtime'
+    const { mkdirSync } = await import('node:fs')
+    mkdirSync(shotDir, { recursive: true })
+    await page.screenshot({ path: `${shotDir}/a08-widget-queued.png` })
   })
 
   test('J-CS-05 客户上下文：白名单 + 禁键 + cross-org + 切换隔离', async ({ page }) => {
@@ -298,10 +348,19 @@ test.describe('a08 agent productivity real (J-CS-03..05)', () => {
     const sessions = (queue.env.payload as { sessions: Array<{ id: string; version?: number }> }).sessions
     const s1 = sessions.find((s) => s.id !== undefined)
     expect(s1).toBeTruthy()
-    const claim = await api(SEAT_A_TOKEN, 'POST', org(`/sessions/${s1!.id}/claim?workspace_id=${WS1}`), {
-      expected_version: s1!.version ?? 1,
-    })
-    expect(claim.status).toBe(200)
+    // claim（expected_version CAS；消息投影可能推进版本 → 循环收敛，与 J-CS-03
+    // 同款——快照版本落后时 409 是 CAS 正确行为，重读版本收敛而非侥幸单发）。
+    let claimedS1 = false
+    for (let i = 0; i < 6 && !claimedS1; i++) {
+      const det = await api(SEAT_A_TOKEN, 'GET', org(`/sessions/${s1!.id}?workspace_id=${WS1}`))
+      const ver = (det.env.payload as { version?: number }).version
+      const attempt = await api(SEAT_A_TOKEN, 'POST', org(`/sessions/${s1!.id}/claim?workspace_id=${WS1}`), {
+        expected_version: ver,
+      })
+      claimedS1 = attempt.status === 200
+      if (!claimedS1) await new Promise((r) => setTimeout(r, 400))
+    }
+    expect(claimedS1).toBe(true)
 
     // —— 白名单：context 响应只含冻结字段集；禁键扫描（无 PII/密文/凭证）——
     const ctx = await api(SEAT_A_TOKEN, 'GET', org(`/sessions/${s1!.id}/context?workspace_id=${WS1}`))
@@ -342,10 +401,32 @@ test.describe('a08 agent productivity real (J-CS-03..05)', () => {
     )
     const ctxDenied = await api(SEAT_A_TOKEN, 'GET', org(`/sessions/${s2Id}/context?workspace_id=${WS1}`))
     expect(ctxDenied.status).toBe(403)
-    const claimS2 = await api(SEAT_A_TOKEN, 'POST', org(`/sessions/${s2Id}/claim?workspace_id=${WS1}`), {
-      expected_version: 1,
-    })
-    expect(claimS2.status).toBe(200)
+    // 释放 s1（真实 close，CAS 收敛）：max_concurrent=1（CS-DEC-02 冻结）下
+    // A 同时只能持有 1 个 active——先结案 s1 再接 S2，「切换隔离」验证的是
+    // context 的 contact/history 维度不串数据，不受 s1 终态影响。
+    let closedS1 = false
+    for (let i = 0; i < 4 && !closedS1; i++) {
+      const det1 = await api(SEAT_A_TOKEN, 'GET', org(`/sessions/${s1!.id}?workspace_id=${WS1}`))
+      const ver1 = (det1.env.payload as { version?: number }).version
+      const c1 = await api(SEAT_A_TOKEN, 'POST', org(`/sessions/${s1!.id}/close?workspace_id=${WS1}`), {
+        expected_version: ver1,
+      })
+      closedS1 = c1.status === 200
+      if (!closedS1) await new Promise((r) => setTimeout(r, 300))
+    }
+    expect(closedS1).toBe(true)
+    // claim（CAS 收敛——同上，消息投影推进版本时快照值可能落后）。
+    let claimedS2 = false
+    for (let i = 0; i < 6 && !claimedS2; i++) {
+      const det2 = await api(SEAT_A_TOKEN, 'GET', org(`/sessions/${s2Id}?workspace_id=${WS1}`))
+      const ver2 = (det2.env.payload as { version?: number }).version
+      const attempt2 = await api(SEAT_A_TOKEN, 'POST', org(`/sessions/${s2Id}/claim?workspace_id=${WS1}`), {
+        expected_version: ver2,
+      })
+      claimedS2 = attempt2.status === 200
+      if (!claimedS2) await new Promise((r) => setTimeout(r, 400))
+    }
+    expect(claimedS2).toBe(true)
     const ctxS2 = await api(SEAT_A_TOKEN, 'GET', org(`/sessions/${s2Id}/context?workspace_id=${WS1}`))
     expect(ctxS2.status).toBe(200)
     const s2Payload = ctxS2.env.payload as Record<string, unknown>
