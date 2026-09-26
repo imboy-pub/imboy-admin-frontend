@@ -68,6 +68,22 @@ async function settle(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 250))
 }
 
+/**
+ * 确定性等待：轮询直到谓词成立（此 jsdom 环境 waitFor 轮询不刷新，
+ * 只能靠真实定时器让出事件循环）。全量并发负载下固定 sleep 会让
+ * 断言读到上一个用例的旧渲染（数据晚到），故对内容断言必须轮询。
+ */
+async function settleUntil(predicate: () => boolean, label: string): Promise<void> {
+  const deadline = Date.now() + 5000
+  for (;;) {
+    await settle()
+    if (predicate()) return
+    if (Date.now() > deadline) {
+      throw new Error(`settleUntil 超时: ${label}`)
+    }
+  }
+}
+
 beforeEach(() => {
   calls = []
   statsResult = null
@@ -112,11 +128,17 @@ describe('CsStatsPanel — CS-GOV-03B', () => {
       closedSessions: 0,
     })
     render(host(<CsStatsPanel orgId={ORG} canRead={true} />))
-    await settle()
-    const facts = Array.from(document.querySelectorAll('[data-testid="cs-stats-fact"]'))
-    expect(facts[1]?.textContent).toContain('无样本')
-    expect(facts[3]?.textContent).toContain('无样本')
-    expect(facts[3]?.textContent).not.toContain('0 条评价之外的默认值')
+    // 确定性等待本用例数据落盘（防全量负载下读到上一用例的旧渲染）
+    const factTexts = () =>
+      Array.from(document.querySelectorAll('[data-testid="cs-stats-fact"]')).map((n) => n.textContent)
+    await settleUntil(() => {
+      const t = factTexts()
+      return (t[1] ?? '').includes('无样本') && (t[3] ?? '').includes('无样本')
+    }, '无样本双事实渲染')
+    const facts = factTexts()
+    expect(facts[1]).toContain('无样本')
+    expect(facts[3]).toContain('无样本')
+    expect(facts[3]).not.toContain('0 条评价之外的默认值')
   })
 
   it('空事实（全零）显示空态且文案解释窗口语义', async () => {
