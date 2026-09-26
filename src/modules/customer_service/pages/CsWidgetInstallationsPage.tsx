@@ -41,6 +41,7 @@ import {
   createWidgetInstallation,
   listWidgetInstallations,
   revokeWidgetInstallation,
+  updateWidgetInstallation,
 } from '../api/widgetInstallations'
 import { CUSTOMER_SERVICE_WIDGET_ORIGIN } from '../widgetConfig'
 
@@ -77,6 +78,7 @@ export function CsWidgetInstallationsPage() {
   const [createOpen, setCreateOpen] = useState(false)
   const [revokeTarget, setRevokeTarget] = useState<WidgetInstallation | null>(null)
   const [embedTarget, setEmbedTarget] = useState<WidgetInstallation | null>(null)
+  const [editTarget, setEditTarget] = useState<WidgetInstallation | null>(null)
   const createMutation = useMutation({
     mutationFn: (input: {
       displayName: string
@@ -114,6 +116,35 @@ export function CsWidgetInstallationsPage() {
       void listQuery.refetch()
     },
     onError: (error) => toast.error(`撤销失败：${getErrorMessage(error)}`),
+  })
+
+  const updateMutation = useMutation({
+    mutationFn: (input: {
+      installationId: string
+      displayName: string
+      allowedOrigins: string[]
+      brandingDisplayName: string
+      brandingPrimaryColor: string
+      consentVersion: string
+    }) =>
+      updateWidgetInstallation({
+        organizationId,
+        workspaceId,
+        installationId: input.installationId,
+        displayName: input.displayName,
+        allowedOrigins: input.allowedOrigins,
+        branding: {
+          displayName: input.brandingDisplayName.trim() || null,
+          primaryColor: input.brandingPrimaryColor.trim() || null,
+        },
+        consentVersion: input.consentVersion,
+      }),
+    onSuccess: () => {
+      toast.success('Widget 接入已更新')
+      setEditTarget(null)
+      void listQuery.refetch()
+    },
+    onError: (error) => toast.error(`更新失败：${getErrorMessage(error)}`),
   })
 
   const rows = useMemo(() => listQuery.data ?? [], [listQuery.data])
@@ -168,6 +199,7 @@ export function CsWidgetInstallationsPage() {
         onPageSizeChange={(size) => setState({ page: 1, size })}
         onRetry={() => void listQuery.refetch()}
         onCopyEmbed={setEmbedTarget}
+        onEdit={setEditTarget}
         onRevoke={setRevokeTarget}
       />
 
@@ -176,6 +208,13 @@ export function CsWidgetInstallationsPage() {
         pending={createMutation.isPending}
         onOpenChange={setCreateOpen}
         onSubmit={(input) => createMutation.mutate(input)}
+      />
+
+      <EditInstallationDialog
+        installation={editTarget}
+        pending={updateMutation.isPending}
+        onClose={() => setEditTarget(null)}
+        onSubmit={(input) => updateMutation.mutate(input)}
       />
 
       <EmbedCodeDialog
@@ -222,6 +261,7 @@ type InstallationsSectionProps = {
   onPageSizeChange: (_size: number) => void
   onRetry: () => void
   onCopyEmbed: (_installation: WidgetInstallation) => void
+  onEdit: (_installation: WidgetInstallation) => void
   onRevoke: (_installation: WidgetInstallation) => void
 }
 
@@ -274,12 +314,13 @@ function InstallationsSection(props: InstallationsSectionProps) {
       onPageChange={props.onPageChange}
       onPageSizeChange={props.onPageSizeChange}
       onCopyEmbed={props.onCopyEmbed}
+      onEdit={props.onEdit}
       onRevoke={props.onRevoke}
     />
   )
 }
 
-function InstallationTable({ rows, page, size, canWrite, onPageChange, onPageSizeChange, onCopyEmbed, onRevoke }: {
+function InstallationTable({ rows, page, size, canWrite, onPageChange, onPageSizeChange, onCopyEmbed, onEdit, onRevoke }: {
   rows: WidgetInstallation[]
   page: number
   size: number
@@ -287,6 +328,7 @@ function InstallationTable({ rows, page, size, canWrite, onPageChange, onPageSiz
   onPageChange: (_page: number) => void
   onPageSizeChange: (_size: number) => void
   onCopyEmbed: (_installation: WidgetInstallation) => void
+  onEdit: (_installation: WidgetInstallation) => void
   onRevoke: (_installation: WidgetInstallation) => void
 }) {
   const columns = useMemo<LegacyColumnDef<WidgetInstallation>[]>(
@@ -326,6 +368,15 @@ function InstallationTable({ rows, page, size, canWrite, onPageChange, onPageSiz
               size="sm"
               disabled={!canWrite || row.original.status === 'revoked'}
               title={canWrite ? undefined : '需要 customer_service:write 权限'}
+              onClick={() => onEdit(row.original)}
+            >
+              编辑
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={!canWrite || row.original.status === 'revoked'}
+              title={canWrite ? undefined : '需要 customer_service:write 权限'}
               onClick={() => onRevoke(row.original)}
             >
               停用
@@ -334,7 +385,7 @@ function InstallationTable({ rows, page, size, canWrite, onPageChange, onPageSiz
         ),
       },
     ],
-    [canWrite, onCopyEmbed, onRevoke]
+    [canWrite, onCopyEmbed, onEdit, onRevoke]
   )
   const table = useLegacyTable({
     data: paginateClientSide(rows, page, size),
@@ -432,6 +483,164 @@ function CreateInstallationDialog(props: {
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+/**
+ * 编辑弹窗：public_widget_id / 状态不可改（公开标识变了接入代码就作废；
+ * 状态变更走停用流程），仅全量提交四个可编辑配置键。
+ */
+function EditInstallationDialog(props: {
+  installation: WidgetInstallation | null
+  pending: boolean
+  onClose: () => void
+  onSubmit: (_input: {
+    installationId: string
+    displayName: string
+    allowedOrigins: string[]
+    brandingDisplayName: string
+    brandingPrimaryColor: string
+    consentVersion: string
+  }) => void
+}) {
+  return (
+    <Dialog
+      open={props.installation !== null}
+      onOpenChange={(open) => {
+        if (!open) props.onClose()
+      }}
+    >
+      {props.installation !== null && (
+        <EditInstallationForm
+          key={props.installation.id}
+          installation={props.installation}
+          pending={props.pending}
+          onClose={props.onClose}
+          onSubmit={props.onSubmit}
+        />
+      )}
+    </Dialog>
+  )
+}
+
+function EditInstallationForm(props: {
+  installation: WidgetInstallation
+  pending: boolean
+  onClose: () => void
+  onSubmit: (_input: {
+    installationId: string
+    displayName: string
+    allowedOrigins: string[]
+    brandingDisplayName: string
+    brandingPrimaryColor: string
+    consentVersion: string
+  }) => void
+}) {
+  const installation = props.installation
+  const [displayName, setDisplayName] = useState(installation.display_name)
+  const [originsInput, setOriginsInput] = useState(installation.allowed_origins.join('\n'))
+  const [brandingDisplayName, setBrandingDisplayName] = useState(
+    installation.branding.display_name ?? ''
+  )
+  const [brandingPrimaryColor, setBrandingPrimaryColor] = useState(
+    installation.branding.primary_color ?? ''
+  )
+  const [consentVersion, setConsentVersion] = useState(installation.consent_version)
+  const parsedOrigins = useMemo(() => parseAllowedOriginsInput(originsInput), [originsInput])
+  const submitDisabled =
+    props.pending ||
+    displayName.trim().length === 0 ||
+    parsedOrigins.origins.length === 0 ||
+    parsedOrigins.errors.length > 0 ||
+    consentVersion.trim().length === 0
+
+  return (
+    <DialogContent>
+      <DialogHeader>
+        <DialogTitle>编辑接入网站</DialogTitle>
+        <DialogDescription>
+          保存后立即生效；公开标识与接入代码保持不变。
+        </DialogDescription>
+      </DialogHeader>
+      <div className="space-y-3">
+        <div className="space-y-1.5">
+          <Label htmlFor="csw-edit-display-name">显示名称（display_name）</Label>
+          <Input
+            id="csw-edit-display-name"
+            value={displayName}
+            maxLength={100}
+            onChange={(e) => setDisplayName(e.target.value)}
+            placeholder="例如：商城在线客服"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="csw-edit-origins">允许来源（allowed_origins，每行一个 origin）</Label>
+          <Textarea
+            id="csw-edit-origins"
+            rows={3}
+            value={originsInput}
+            onChange={(e) => setOriginsInput(e.target.value)}
+            placeholder={'https://shop.example.com\nhttps://www.example.com'}
+          />
+          {parsedOrigins.errors.length > 0 && (
+            <p className="text-xs text-destructive">
+              非法 origin（需 http(s) 且无路径/通配）：{parsedOrigins.errors.join('、')}
+            </p>
+          )}
+        </div>
+        <div className="grid gap-3 md:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="csw-edit-brand-name">品牌名（branding.display_name，可选）</Label>
+            <Input
+              id="csw-edit-brand-name"
+              value={brandingDisplayName}
+              maxLength={50}
+              onChange={(e) => setBrandingDisplayName(e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="csw-edit-brand-color">品牌主色（branding.primary_color，可选）</Label>
+            <Input
+              id="csw-edit-brand-color"
+              value={brandingPrimaryColor}
+              maxLength={9}
+              onChange={(e) => setBrandingPrimaryColor(e.target.value)}
+              placeholder="#2563eb"
+            />
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="csw-edit-consent-version">隐私同意版本（consent_version）</Label>
+          <Input
+            id="csw-edit-consent-version"
+            value={consentVersion}
+            maxLength={20}
+            onChange={(e) => setConsentVersion(e.target.value)}
+            placeholder="v1"
+          />
+        </div>
+      </div>
+      <DialogFooter>
+        <Button variant="outline" onClick={props.onClose}>
+          取消
+        </Button>
+        <Button
+          disabled={submitDisabled}
+          onClick={() =>
+            props.onSubmit({
+              installationId: installation.id,
+              displayName,
+              allowedOrigins: parsedOrigins.origins,
+              brandingDisplayName,
+              brandingPrimaryColor,
+              consentVersion,
+            })
+          }
+        >
+          保存
+        </Button>
+      </DialogFooter>
+    </DialogContent>
   )
 }
 

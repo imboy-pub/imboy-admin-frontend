@@ -811,7 +811,7 @@ function GovernanceLinksCard() {
   const links = [
     { to: '/customer-service', label: '坐席治理（suspend/resume）' },
     { to: '/customer-service/sessions', label: '会话运营' },
-    { to: '/customer-service/widgets', label: 'Widget 接入管理（撤销/复制）' },
+    { to: '/customer-service/widgets', label: 'Widget 接入管理（编辑/撤销/复制）' },
   ]
   return (
     <Card>

@@ -21,18 +21,21 @@ import {
   createWidgetInstallation,
   listWidgetInstallations,
   revokeWidgetInstallation,
+  updateWidgetInstallation,
 } from './widgetInstallations'
 
 type AnyFn = (..._args: unknown[]) => unknown
-type MutableClient = { get: AnyFn; post: AnyFn }
+type MutableClient = { get: AnyFn; post: AnyFn; put: AnyFn }
 
 const mutableClient = client as unknown as MutableClient
 const originalGet = mutableClient.get
 const originalPost = mutableClient.post
+const originalPut = mutableClient.put
 
 afterEach(() => {
   mutableClient.get = originalGet
   mutableClient.post = originalPost
+  mutableClient.put = originalPut
 })
 
 function captureCalls(responder?: (_url: string, _body: unknown) => unknown) {
@@ -44,6 +47,11 @@ function captureCalls(responder?: (_url: string, _body: unknown) => unknown) {
   }
   mutableClient.post = (url: unknown, body: unknown) => {
     calls.push({ method: 'POST', url: String(url), body })
+    const payload = responder?.(String(url), body) ?? {}
+    return { data: { code: 0, msg: 'success', payload } }
+  }
+  mutableClient.put = (url: unknown, body: unknown) => {
+    calls.push({ method: 'PUT', url: String(url), body })
     const payload = responder?.(String(url), body) ?? {}
     return { data: { code: 0, msg: 'success', payload } }
   }
@@ -85,6 +93,40 @@ describe('installation API 路径（A06）', () => {
       'organization_id',
       'workspace_id',
     ])
+  })
+
+  it('update 走 PUT /widget-installations/:id，id 只在路径；正文白名单且绝无 secret', async () => {
+    const calls = captureCalls((url) => {
+      if (url.includes('/widget-installations/')) {
+        return { installation: { id: '555555555555555555', public_widget_id: 'wgt_pub_x' } }
+      }
+      return {}
+    })
+    const updated = await updateWidgetInstallation({
+      ...SCOPE,
+      installationId: '555555555555555555',
+      displayName: '改名后的客服',
+      allowedOrigins: ['https://docs.example.com'],
+      branding: { displayName: null, primaryColor: '#2563eb' },
+      consentVersion: 'v2',
+    })
+    expect(updated?.id).toBe('555555555555555555')
+    expect(calls).toHaveLength(1)
+    expect(calls[0]?.method).toBe('PUT')
+    expect(calls[0]?.url).toBe('/customer-service/widget-installations/555555555555555555')
+    const putBody = calls[0]?.body as Record<string, unknown>
+    // id 只出现在路径——正文中出现即被服务端判 400（server_derived_key_rejected）
+    expect(Object.keys(putBody).sort()).toEqual([
+      'allowed_origins',
+      'branding',
+      'consent_version',
+      'display_name',
+      'organization_id',
+      'workspace_id',
+    ])
+    const branding = putBody.branding as Record<string, unknown>
+    expect(branding).toEqual({ primary_color: '#2563eb' })
+    expect(JSON.stringify(putBody)).not.toMatch(/shop_key|secret|token|sk_live/i)
   })
 
 })

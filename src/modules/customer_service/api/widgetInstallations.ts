@@ -7,6 +7,11 @@
  *        body {organization_id, workspace_id, display_name, allowed_origins,
  *              branding{display_name?, primary_color?}, consent_version}
  *        → payload {installation}
+ *   PUT  /customer-service/widget-installations/:id                           (write)
+ *        body {organization_id, workspace_id, display_name, allowed_origins,
+ *              branding, consent_version}（PUT 全量语义；id 只在路径，正文中
+ *          绝不出现——服务端把 body/query 申报 id 判为 400）
+ *        → payload {installation}
  *   POST /customer-service/widget-installations/:id/revoke                    (write)
  *        body {workspace_id}
  *
@@ -32,6 +37,10 @@ export type CreateWidgetInstallationInput = {
   allowedOrigins: string[]
   branding: { displayName?: string | null; primaryColor?: string | null }
   consentVersion: string
+}
+
+export type UpdateWidgetInstallationInput = CreateWidgetInstallationInput & {
+  installationId: EntityId
 }
 
 function requireNonEmptyId(value: EntityId, label: string): EntityId {
@@ -75,6 +84,28 @@ export async function createWidgetInstallation(
   )
   if (installation === null) throw new Error('创建 installation 响应形状非法')
   return installation
+}
+
+/** PUT 更新 installation（display_name / allowed_origins / branding / consent_version 全量提交）。 */
+export async function updateWidgetInstallation(
+  input: UpdateWidgetInstallationInput
+): Promise<WidgetInstallation | null> {
+  const response = await client.put<ApiResponse<unknown>>(
+    `${INSTALLATIONS_BASE}/${encodeURIComponent(requireNonEmptyId(input.installationId, 'installation_id'))}`,
+    {
+      organization_id: requireNonEmptyId(input.organizationId, 'organization_id'),
+      workspace_id: requireNonEmptyId(input.workspaceId, 'workspace_id'),
+      display_name: input.displayName.trim(),
+      allowed_origins: input.allowedOrigins,
+      branding: {
+        ...(input.branding.displayName ? { display_name: input.branding.displayName } : {}),
+        ...(input.branding.primaryColor ? { primary_color: input.branding.primaryColor } : {}),
+      },
+      consent_version: input.consentVersion.trim(),
+    }
+  )
+  const payload = requireApiPayload(response.data, 'PUT widget installations')
+  return toWidgetInstallation((payload as { installation?: unknown } | null)?.installation ?? null)
 }
 
 /** POST 撤销 installation（status → revoked；撤销后 widget bootstrap 拒绝）。 */
