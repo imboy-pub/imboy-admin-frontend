@@ -120,8 +120,8 @@ function SeatWorkspaceInner() {
   const views = useSeatSessionViews(scope.organizationId, scope.workspaceId);
   const stream = useSeatEventStream(scope.organizationId, scope.workspaceId);
   // CS-WEB-05：presence 心跳（可见+在线才发送）与手动状态切换。
-  const presenceQuery = useSeatPresenceHeartbeat(scope.organizationId);
-  const manualStatus = useSeatManualStatus(scope.organizationId);
+  const presenceQuery = useSeatPresenceHeartbeat(scope.organizationId, scope.workspaceId);
+  const manualStatus = useSeatManualStatus(scope.organizationId, scope.workspaceId);
   const detailQuery = useSeatSessionDetail(
     scope.organizationId,
     selectedSessionId,
@@ -132,6 +132,7 @@ function SeatWorkspaceInner() {
   // CS-WEB-04：客户上下文只读投影（键随会话切换；stale 守卫在 hook 内）。
   const contextQuery = useSeatCustomerContext(
     scope.organizationId,
+    scope.workspaceId,
     selectedSessionId,
   );
 
@@ -139,7 +140,7 @@ function SeatWorkspaceInner() {
   const messagesQuery = useSeatMessages(scope.organizationId, conversationId, scope.workspaceId);
   // CS-WEB-05：未读 badge（服务端 read-state）+ 聚焦/可见性驱动 ACK（单调 ref，
   // 服务端单调 upsert 兜底——多标签页交错不倒退游标；lastSeen = 消息页最大 id）。
-  const readStateQuery = useSeatReadState(scope.organizationId, selectedSessionId);
+  const readStateQuery = useSeatReadState(scope.organizationId, scope.workspaceId, selectedSessionId);
   const lastSeenMessageId = useMemo(() => {
     const items = messagesQuery.data ?? [];
     let max: string | null = null;
@@ -150,7 +151,7 @@ function SeatWorkspaceInner() {
     }
     return max;
   }, [messagesQuery.data]);
-  useSeatFocusAck(scope.organizationId, selectedSessionId, {
+  useSeatFocusAck(scope.organizationId, scope.workspaceId, selectedSessionId, {
     lastSeenMessageId,
   });
   const send = useSeatSend(
@@ -244,16 +245,17 @@ function SeatWorkspaceInner() {
   }, [stream.writeRevoked, scope.canWrite, scope.myIdentityId, detail]);
 
   // CS-WEB-01：附件字节获取（真实 enterprise content 端点；Seat Bearer 由
-  // SeatApiClient 注入，org scope 闭包在内——视图层只见 assetId + signal）。
+  // SeatApiClient 注入，org+workspace scope 闭包在内——视图层只见 assetId + signal）。
   const fetchAssetBlob = useCallback(
     (assetId: string, signal: AbortSignal): Promise<Blob> => {
       const orgId = scope.organizationId;
-      if (orgId === null) {
-        return Promise.reject(new Error("seat asset requires org scope"));
+      const workspaceId = scope.workspaceId;
+      if (orgId === null || workspaceId === null) {
+        return Promise.reject(new Error("seat asset requires org+workspace scope"));
       }
-      return api.fetchAssetContent(orgId, assetId, signal);
+      return api.fetchAssetContent(orgId, workspaceId, assetId, signal);
     },
-    [api, scope.organizationId],
+    [api, scope.organizationId, scope.workspaceId],
   );
 
   const canWriteNow = writeClosedReason === null;

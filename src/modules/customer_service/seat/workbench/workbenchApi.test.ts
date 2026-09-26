@@ -425,14 +425,14 @@ describe('CS-WEB-04 客户上下文合同（CS-BE-03 端点）', () => {
     )
     seatTokenVault.setToken('eyJh.eyJi.c2lg')
     const controller = new AbortController()
-    const ctx = await api.fetchCustomerContext(ORG, SESSION, { signal: controller.signal })
+    const ctx = await api.fetchCustomerContext(ORG, WS, SESSION, { signal: controller.signal })
     expect(ctx.sessionId).toBe(SESSION)
     expect(ctx.source).toBe('seat')
     expect(ctx.contact.maskedName).toBe('李***')
     expect(ctx.history.sessions.length).toBe(1)
     expect(ctx.notes.length).toBe(1)
     const call = calls[0]
-    expect(call?.url).toBe(`/api/v1/cs/organizations/${ORG}/sessions/${SESSION}/context`)
+    expect(call?.url).toBe(`/api/v1/cs/organizations/${ORG}/sessions/${SESSION}/context?workspace_id=${WS}`)
     expect(call?.init?.signal).toBe(controller.signal)
   })
 
@@ -441,7 +441,7 @@ describe('CS-WEB-04 客户上下文合同（CS-BE-03 端点）', () => {
     seatTokenVault.setToken('eyJh.eyJi.c2lg')
     let caught: unknown = null
     try {
-      await api.fetchCustomerContext(ORG, SESSION)
+      await api.fetchCustomerContext(ORG, WS, SESSION)
     } catch (error) {
       caught = error
     }
@@ -454,7 +454,7 @@ describe('CS-WEB-04 客户上下文合同（CS-BE-03 端点）', () => {
     seatTokenVault.setToken('eyJh.eyJi.c2lg')
     let caught: unknown = null
     try {
-      await api.fetchCustomerContext(ORG, SESSION)
+      await api.fetchCustomerContext(ORG, WS, SESSION)
     } catch (error) {
       caught = error
     }
@@ -467,7 +467,7 @@ describe('CS-WEB-04 客户上下文合同（CS-BE-03 端点）', () => {
     seatTokenVault.setToken('eyJh.eyJi.c2lg')
     let caught: unknown = null
     try {
-      await api.fetchCustomerContext(ORG, SESSION)
+      await api.fetchCustomerContext(ORG, WS, SESSION)
     } catch (error) {
       caught = error
     }

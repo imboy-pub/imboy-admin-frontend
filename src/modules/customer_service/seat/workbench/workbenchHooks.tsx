@@ -562,15 +562,19 @@ export function useSeatTransferTargets(orgId: EntityId | null, enabled: boolean)
  *    → 显式拒绝（AbortError），绝不落缓存；
  * 3. AbortSignal 透传传输层，切换会话时在途请求被真实取消。
  */
-export function useSeatCustomerContext(orgId: EntityId | null, sessionId: EntityId | null) {
+export function useSeatCustomerContext(
+  orgId: EntityId | null,
+  workspaceId: EntityId | null,
+  sessionId: EntityId | null,
+) {
   const { api } = useSeatWorkbenchGateway()
   const seqRef = useRef(0)
   return useQuery({
-    queryKey: [SEAT_QUERY_ROOT_KEY, 'customer-context', orgId, sessionId],
-    enabled: orgId !== null && sessionId !== null,
+    queryKey: [SEAT_QUERY_ROOT_KEY, 'customer-context', orgId, workspaceId, sessionId],
+    enabled: orgId !== null && workspaceId !== null && sessionId !== null,
     queryFn: async ({ signal }) => {
       const seq = ++seqRef.current
-      const data = await api.fetchCustomerContext(orgId as EntityId, sessionId as EntityId, { signal })
+      const data = await api.fetchCustomerContext(orgId as EntityId, workspaceId as EntityId, sessionId as EntityId, { signal })
       if (seq !== seqRef.current) {
         throw new DOMException('stale customer context response rejected', 'AbortError')
       }
@@ -693,6 +697,7 @@ function browserOnline(): boolean {
  */
 export function useSeatPresenceHeartbeat(
   orgId: EntityId | null,
+  workspaceId: EntityId | null,
   options: { intervalMs?: number } = {},
 ): UseQueryResult<SeatPresence, Error> {
   const { api } = useSeatWorkbenchGateway()
@@ -700,13 +705,13 @@ export function useSeatPresenceHeartbeat(
   const queryClient = useQueryClient()
 
   const query = useQuery({
-    queryKey: [SEAT_QUERY_ROOT_KEY, 'presence-heartbeat', orgId],
-    enabled: orgId !== null && pageVisible() && browserOnline(),
+    queryKey: [SEAT_QUERY_ROOT_KEY, 'presence-heartbeat', orgId, workspaceId],
+    enabled: orgId !== null && workspaceId !== null && pageVisible() && browserOnline(),
     refetchInterval: intervalMs,
     refetchIntervalInBackground: false,
     queryFn: () => {
-      if (orgId === null) throw new Error('presence heartbeat without org')
-      return api.heartbeat(orgId)
+      if (orgId === null || workspaceId === null) throw new Error('presence heartbeat without scope')
+      return api.heartbeat(orgId, workspaceId)
     },
   })
 
@@ -716,7 +721,7 @@ export function useSeatPresenceHeartbeat(
     const resume = () => {
       if (pageVisible() && browserOnline()) {
         void queryClient.invalidateQueries({
-          queryKey: [SEAT_QUERY_ROOT_KEY, 'presence-heartbeat', orgId],
+          queryKey: [SEAT_QUERY_ROOT_KEY, 'presence-heartbeat', orgId, workspaceId],
         })
       }
     }
@@ -726,13 +731,13 @@ export function useSeatPresenceHeartbeat(
       document.removeEventListener('visibilitychange', resume)
       window.removeEventListener('online', resume)
     }
-  }, [orgId, queryClient])
+  }, [orgId, workspaceId, queryClient])
 
   return query
 }
 
 /** CS-WEB-05：手动状态切换（away / clear）。mutation 成功后回填心跳缓存。 */
-export function useSeatManualStatus(orgId: EntityId | null) {
+export function useSeatManualStatus(orgId: EntityId | null, workspaceId: EntityId | null = null) {
   const { api } = useSeatWorkbenchGateway()
   const queryClient = useQueryClient()
   return useMutation({
@@ -742,7 +747,8 @@ export function useSeatManualStatus(orgId: EntityId | null) {
     },
     onSuccess: (presence) => {
       if (orgId !== null) {
-        queryClient.setQueryData([SEAT_QUERY_ROOT_KEY, 'presence-heartbeat', orgId], presence)
+        // 心跳缓存键含 workspace 维度（键漂移会静默 miss——CS-INT-03 实证）。
+        queryClient.setQueryData([SEAT_QUERY_ROOT_KEY, 'presence-heartbeat', orgId, workspaceId], presence)
       }
     },
   })
@@ -754,15 +760,16 @@ export function useSeatManualStatus(orgId: EntityId | null) {
  */
 export function useSeatReadState(
   orgId: EntityId | null,
+  workspaceId: EntityId | null,
   sessionId: EntityId | null,
 ): UseQueryResult<SeatReadState, Error> {
   const { api } = useSeatWorkbenchGateway()
   return useQuery({
-    queryKey: [SEAT_QUERY_ROOT_KEY, 'read-state', orgId, sessionId],
-    enabled: orgId !== null && sessionId !== null,
+    queryKey: [SEAT_QUERY_ROOT_KEY, 'read-state', orgId, workspaceId, sessionId],
+    enabled: orgId !== null && workspaceId !== null && sessionId !== null,
     queryFn: () => {
-      if (orgId === null || sessionId === null) throw new Error('read state without scope')
-      return api.fetchReadState(orgId, sessionId)
+      if (orgId === null || workspaceId === null || sessionId === null) throw new Error('read state without scope')
+      return api.fetchReadState(orgId, workspaceId, sessionId)
     },
   })
 }
@@ -777,6 +784,7 @@ export function useSeatReadState(
  */
 export function useSeatFocusAck(
   orgId: EntityId | null,
+  workspaceId: EntityId | null,
   sessionId: EntityId | null,
   options: { lastSeenMessageId: EntityId | null },
 ) {
@@ -790,14 +798,14 @@ export function useSeatFocusAck(
   }, [lastSeen])
 
   const ack = useCallback(async () => {
-    if (orgId === null || sessionId === null) return
+    if (orgId === null || workspaceId === null || sessionId === null) return
     const target = lastSeenRef.current
     if (target === null) return
-    await api.ackRead(orgId, sessionId, target)
-  }, [api, orgId, sessionId])
+    await api.ackRead(orgId, workspaceId, sessionId, target)
+  }, [api, orgId, workspaceId, sessionId])
 
   useEffect(() => {
-    if (orgId === null || sessionId === null) return
+    if (orgId === null || workspaceId === null || sessionId === null) return
     const onVisible = () => {
       if (pageVisible() && browserOnline()) void ack()
     }
@@ -809,7 +817,7 @@ export function useSeatFocusAck(
       document.removeEventListener('visibilitychange', onVisible)
       window.removeEventListener('focus', onVisible)
     }
-  }, [ack, orgId, sessionId])
+  }, [ack, orgId, workspaceId, sessionId])
 }
 
 /** TSID 字符串的数值大小比较（等长十进制字符串可字典序；长度不同先比长度）。 */

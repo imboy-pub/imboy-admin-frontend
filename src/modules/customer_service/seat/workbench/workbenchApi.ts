@@ -279,25 +279,38 @@ export class SeatWorkbenchApi {
    * CS-WEB-01：附件内容字节（后端真实合同，imboy_router.erl:1803：
    * GET /api/v1/enterprise/organizations/:org_id/assets/:id/content →
    * eb_tenant_handler#asset_content；Seat JWT 认证域 + asset.read）。
+   * workspace_id 是后端必填 query（CS-BE-02 workspace 门：缺参 422
+   * missing_workspace_id——真实集成 CS-INT-03 实证补齐）。
    * 成功 = 原始字节流 Blob（非 {code,msg,payload} 信封）；失败按 HTTP
    * 状态/信封 code 分类（401/403/404…）。调用方负责 ObjectURL 生命周期。
    */
-  async fetchAssetContent(orgId: EntityId, assetId: EntityId, signal?: AbortSignal): Promise<Blob> {
-    return this.client.requestBlob(seatAssetContentPath(orgId, assetId), { signal })
+  async fetchAssetContent(
+    orgId: EntityId,
+    workspaceId: EntityId,
+    assetId: EntityId,
+    signal?: AbortSignal,
+  ): Promise<Blob> {
+    return this.client.requestBlob(seatAssetContentPath(orgId, assetId), {
+      signal,
+      query: { workspace_id: workspaceId },
+    })
   }
 
   /**
    * CS-WEB-04：客户上下文只读投影（CS-BE-03 端点，conversation.read 门）。
+   * workspace_id 是后端必填 query（CS-INT-03 实证补齐，同 fetchAssetContent）。
    * 授权由服务端裁决（session ownership 复核：转接后原 Seat 403 not_session_owner、
    * 撤权 403 seat_disabled、跨 Org 404）——本层不猜、不缓存跨会话事实；
    * signal 透传给传输层，切换会话时旧请求可被取消（stale 防护第二层）。
    */
   async fetchCustomerContext(
     orgId: EntityId,
+    workspaceId: EntityId,
     sessionId: EntityId,
     options: { signal?: AbortSignal } = {},
   ): Promise<SeatCustomerContext> {
     const payload = await this.client.request(buildSeatSessionContextPath(orgId, sessionId), {
+      query: { workspace_id: workspaceId },
       signal: options.signal,
     })
     return toSeatCustomerContext(payload)
@@ -305,12 +318,14 @@ export class SeatWorkbenchApi {
 
   /**
    * CS-WEB-05：presence 心跳（POST；at 是服务端派生时钟，客户端不可报时）。
+   * workspace_id 是后端必填 query（CS-INT-03 实证补齐，同上）。
    * 调用时机由 hooks 门控（页面可见 + navigator.onLine）——断网/隐藏不发，
    * 不得替用户谎报 online；失败原样上抛（展示侧降级，不本地造状态）。
    */
-  async heartbeat(orgId: EntityId): Promise<SeatPresence> {
+  async heartbeat(orgId: EntityId, workspaceId: EntityId): Promise<SeatPresence> {
     const payload = await this.client.request(buildSeatHeartbeatPath(orgId), {
       method: 'POST',
+      query: { workspace_id: workspaceId },
     })
     return toSeatPresence(payload)
   }
@@ -340,10 +355,16 @@ export class SeatWorkbenchApi {
     return toSeatPresence(payload)
   }
 
-  /** CS-BE-04：会话读状态（游标 + 未读数；未读 badge 数据源）。 */
-  async fetchReadState(orgId: EntityId, sessionId: EntityId): Promise<SeatReadState> {
+  /** CS-BE-04：会话读状态（游标 + 未读数；未读 badge 数据源）。
+   * workspace_id 是后端必填 query（CS-INT-03 实证补齐，同上）。 */
+  async fetchReadState(
+    orgId: EntityId,
+    workspaceId: EntityId,
+    sessionId: EntityId,
+  ): Promise<SeatReadState> {
     const payload = await this.client.request(
       buildSeatSessionActionPath(orgId, sessionId, 'read-cursor'),
+      { query: { workspace_id: workspaceId } },
     )
     return toSeatReadState(payload)
   }
@@ -352,9 +373,15 @@ export class SeatWorkbenchApi {
    * CS-WEB-05：ACK（POST last_read_message_id；服务端单调 upsert——重复/
    * 乱序后到的旧值是零行 no-op，前端多标签页并发 ACK 不会倒退游标）。
    */
-  async ackRead(orgId: EntityId, sessionId: EntityId, lastReadMessageId: EntityId): Promise<void> {
+  async ackRead(
+    orgId: EntityId,
+    workspaceId: EntityId,
+    sessionId: EntityId,
+    lastReadMessageId: EntityId,
+  ): Promise<void> {
     await this.client.request(buildSeatSessionActionPath(orgId, sessionId, 'read-cursor'), {
       method: 'POST',
+      query: { workspace_id: workspaceId },
       body: { last_read_message_id: lastReadMessageId },
     })
   }

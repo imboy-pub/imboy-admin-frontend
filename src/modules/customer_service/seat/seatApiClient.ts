@@ -104,9 +104,12 @@ export type SeatRequestOptions = {
   signal?: AbortSignal
 }
 
-/** CS-WEB-01：二进制内容请求（附件 content 端点；成功是原始字节流）。 */
+/** CS-WEB-01：二进制内容请求（附件 content 端点；成功是原始字节流）。
+ * query 与 request 同规则：值 encodeURIComponent、凭证键受
+ * assertSeatQueryContract 管制（workspace_id 必填门由后端裁决）。 */
 export type SeatBlobRequestOptions = {
   signal?: AbortSignal
+  query?: Record<string, string>
 }
 
 /** CS-WEB-02：裸 PUT 上传选项（presign 下发的 upload.url；目标由服务端权威签发）。 */
@@ -206,13 +209,15 @@ export class SeatApiClient {
   async requestBlob(path: string, options: SeatBlobRequestOptions = {}): Promise<Blob> {
     const full = this.baseUrl + path
     assertSeatApiPath(full)
+    assertSeatQueryContract(full, options.query ?? {})
+    const url = buildQuery(full, options.query)
     const headers: Record<string, string> = { Accept: 'application/octet-stream, */*' }
     const token = this.getToken()
     if (token !== null) headers.Authorization = `Bearer ${token}`
 
     let response: Response
     try {
-      response = await this.fetchImpl(full, {
+      response = await this.fetchImpl(url, {
         method: 'GET',
         headers,
         // A01：Seat 域绝不携带（Admin）Cookie，也不接受 cookie 写入。
@@ -241,20 +246,27 @@ export class SeatApiClient {
    * - URL 是服务端 presign 权威下发的上传目标，**不经 Seat 域路径门**
    *   （可能同源相对路径或 http(s) 绝对地址）；协议白名单 http/https + 相对
    *   路径，其余（javascript:/data:…）发请求前直接抛错；
-   * - 只带 Content-Type: application/octet-stream，**不带 Authorization、
-   *   credentials: 'omit'**（目标凭证由 URL 自带，JWT/cookie 绝不出Seat域）；
+   * - Content-Type: application/octet-stream，credentials: 'omit'（Admin
+   *   Cookie 绝不出 Seat 域）；Authorization 按目标形态裁决（见
+   *   uploadTargetUsesUploadRef——imboy API 域字节上传带 Bearer，第三方
+   *   对象存储预签形态维持裸 PUT）；
    * - 非 2xx：优先读 JSON 信封 code（有则按码位分类），否则按 HTTP 状态；
    *   错误 message 不含 URL/响应体（upload 引用不进日志）。
    */
   async putUploadObject(url: string, blob: Blob, options: SeatUploadPutOptions = {}): Promise<void> {
     assertUploadTargetUrl(url)
+    const headers: Record<string, string> = { 'Content-Type': 'application/octet-stream' }
+    if (uploadTargetUsesUploadRef(url)) {
+      const token = this.getToken()
+      if (token !== null) headers.Authorization = `Bearer ${token}`
+    }
     let response: Response
     try {
       response = await this.fetchImpl(url, {
         method: 'PUT',
         body: blob,
-        headers: { 'Content-Type': 'application/octet-stream' },
-        // A01：裸 PUT 绝不携带（Admin）Cookie 或 Seat JWT。
+        headers,
+        // A01：（Admin）Cookie 绝不出 Seat 域。
         credentials: 'omit',
         signal: options.signal,
       })
@@ -278,6 +290,22 @@ function assertUploadTargetUrl(url: string): void {
   }
   if (/^https?:\/\//i.test(url)) return
   throw new SeatApiError('validation', 'seat upload target must be an http(s) URL or a relative path')
+}
+
+/** 上传目标是否为 imboy API 域的字节上传端点（CS-BE-01B 线格式特征：查询串
+ * 携带 upload_ref——eb_tenant_handler 把 workspace_id/upload_ref 拼进 presign
+ * 下发的 upload.url）。此时按路由级 enterprise_member 授权门携带 Bearer
+ * （CS-INT-03 实证：该 PUT 与 presign POST 同门，裸 PUT 一律 401；API 域是
+ * JWT 签发域，发回该域无额外暴露）。真实对象存储预签形态（X-Amz-* /
+ * signature 查询）不带 Authorization——多余头会破坏预签签名，Seat JWT
+ * 绝不外发第三方域。 */
+function uploadTargetUsesUploadRef(url: string): boolean {
+  try {
+    const query = new URL(url, 'http://seat.api.invalid').searchParams
+    return query.has('upload_ref')
+  } catch {
+    return false
+  }
 }
 
 /** 错误体若携带 {code} 信封则提取码位（解析失败/非对象 → null，不猜）。 */

@@ -62,3 +62,6 @@ tests/e2e/customer-service-real/.artifacts/
 
 # P2-E2E-01 客服四域 P2 E2E 运行产物（trace/报告/运行时自签证书）
 tests/e2e/customer-service-p2/.artifacts/
+
+# CS-INT-03 a09b 附件门 E2E 运行产物（trace/报告/失败现场）
+tests/e2e/customer-service-int02/.artifacts-a09b/
