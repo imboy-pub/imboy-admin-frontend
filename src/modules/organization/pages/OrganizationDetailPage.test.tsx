@@ -1,10 +1,17 @@
 /**
- * EADM-04 W3 修复：组织详情页「默认 Workspace 只读事实 + 跨面直达入口」组件级单测。
+ * CP-CON-03：组织详情页「默认 Workspace 只读事实 + 跨面直达入口」组件级单测。
+ *
+ * 默认指针真源 = 服务端 is_default 投影（GET /organizations/:id/workspaces 每行
+ * 携带 is_default，由 organization_default_workspace 显式关系计算；每 org 至多
+ * 一个 true）。URL 的 ws 参数不再是默认指针的事实来源（仅为上下文传递参数，
+ * 且本页生成的链接一律以服务端默认为准）。
  *
  * 覆盖验收点：
- *  ① 默认 Workspace 区域渲染（名称 + 状态，来源 = URL 的 ws 成立事实；无 ws 时如实降级）；
- *  ② 直达链接携带正确的 org/ws（在线客服 / 企业业务 / 成员 / 部门 / 默认 Workspace）；
- *  ③ 既有 Owner 展示保留（owner_id / owner 昵称账号）。
+ *  ① 默认 Workspace 区域渲染（名称 + 状态，来源 = 服务端 is_default=true 行；
+ *     服务端全部 false 时如实降级「未设置默认」）；
+ *  ② URL ws 与服务端冲突时以服务端 is_default 为准（URL 不参与判定）；
+ *  ③ 直达链接携带正确的 org/ws（ws = 服务端默认；无默认时如实省略）；
+ *  ④ 既有 Owner 展示保留（owner_id / owner 昵称账号）。
  *
  * ⚠️ 反污染：本文件不使用 bun mock.module（进程级全局、无法可靠还原，曾污染同进程
  * 后续文件的权限判定）。权限源经真实 useAdminPermission 的权威端点 `GET /rbac/me`
@@ -60,6 +67,7 @@ const WORKSPACE_ROWS = [
     owner_id: '7700487999999999999',
     organization_id: ORG_ID,
     status: 'active',
+    is_default: true,
     created_at: '2026-09-01T00:00:00Z',
     updated_at: '2026-09-02T00:00:00Z',
   },
@@ -69,6 +77,7 @@ const WORKSPACE_ROWS = [
     owner_id: '7700487999999999999',
     organization_id: ORG_ID,
     status: 'archived',
+    is_default: false,
     created_at: '2026-09-01T00:00:00Z',
     updated_at: '2026-09-02T00:00:00Z',
   },
@@ -146,46 +155,68 @@ async function waitDetailReady(view: View) {
 }
 
 // ---------------------------------------------------------------------------
-// ① 默认 Workspace 区域渲染
+// ① 默认 Workspace 区域渲染（服务端 is_default 真源）
 // ---------------------------------------------------------------------------
-describe('OrganizationDetailPage — 默认 Workspace 只读事实', () => {
-  it('URL 携带 ws 成立事实时：展示默认 Workspace 名称 + 状态，并列出全部工作区事实', async () => {
-    const view = renderPage(`/organizations/${ORG_ID}?org=${ORG_ID}&ws=${WS_ID}`)
+describe('OrganizationDetailPage — 默认 Workspace 只读事实（服务端 is_default 真源）', () => {
+  it('服务端 is_default=true：URL 无 ws 也展示默认 Workspace 名称 + 状态 + 恰一枚默认徽章', async () => {
+    const view = renderPage(`/organizations/${ORG_ID}?org=${ORG_ID}`)
     await waitDetailReady(view)
 
-    // 默认指针：名称与状态来自只读端点 GET /organizations/:id/workspaces
+    // 默认指针：来自 workspaces 投影中 is_default=true 的行，而非 URL
     expect(view.getByTestId('org-default-workspace-id').textContent).toContain(WS_ID)
     expect(view.getByTestId('org-default-workspace-name').textContent).toContain('imboy 默认工作区')
     expect(view.getByTestId('org-default-workspace-status').textContent).toContain('active')
-    expect(view.getByTestId('org-default-workspace-source').textContent).toContain('URL 上下文')
+    expect(view.getByTestId('org-default-workspace-source').textContent).toContain('服务端')
 
     // 组织工作区列表事实（名称 + 状态）
     const rows = view.getAllByTestId('org-workspace-row')
     expect(rows).toHaveLength(2)
     expect(view.getByText('支持工作区')).toBeTruthy()
-    // 仅 URL 指认的那一条被标注为默认，另一条不标
+    // 仅服务端 is_default=true 的那一条被标注为默认，另一条不标
     expect(view.getAllByTestId('org-workspace-row-is-default')).toHaveLength(1)
 
     // 未降级
     expect(view.queryByTestId('org-default-workspace-degraded')).toBeNull()
   })
 
-  it('URL 无 ws 时如实降级：不推导默认指针，仍列出工作区事实并写明依据', async () => {
-    const view = renderPage(`/organizations/${ORG_ID}?org=${ORG_ID}`)
+  it('URL ws 与服务端 is_default 冲突：以服务端为准（URL 不再参与默认判定）', async () => {
+    const view = renderPage(`/organizations/${ORG_ID}?org=${ORG_ID}&ws=${WS_OTHER_ID}`)
+    await waitDetailReady(view)
+
+    // 即使 URL 指向另一条，默认指针仍取服务端 is_default=true 的 WS_ID
+    expect(view.getByTestId('org-default-workspace-id').textContent).toContain(WS_ID)
+    expect(view.getByTestId('org-default-workspace-id').textContent).not.toContain(WS_OTHER_ID)
+    expect(view.queryByTestId('org-default-workspace-degraded')).toBeNull()
+  })
+
+  it('服务端全部 is_default=false：如实降级「未设置默认」，不推导指针，仍列出工作区事实', async () => {
+    mutableClient.get = ((url: string) => {
+      if (url === '/rbac/me') return Promise.resolve(envelope(RBAC_PROFILE))
+      if (url === `/organizations/${ORG_ID}`) return Promise.resolve(envelope(ORG_DETAIL))
+      if (url === `/organizations/${ORG_ID}/workspaces`) {
+        const noDefault = WORKSPACE_ROWS.map((row) => ({ ...row, is_default: false }))
+        return Promise.resolve(
+          envelope({ list: noDefault, page: 1, size: 100, total: noDefault.length, total_page: 1 })
+        )
+      }
+      throw new Error(`unexpected GET url: ${url}`)
+    }) as AnyFn
+
+    const view = renderPage(`/organizations/${ORG_ID}?org=${ORG_ID}&ws=${WS_ID}`)
     await waitDetailReady(view)
 
     expect(view.getByTestId('org-default-workspace-degraded')).toBeTruthy()
-    // 不编造：没有默认指针就不渲染默认指针 ID / 状态
+    // 不编造：没有默认指针就不渲染默认指针 ID / 状态（即使 URL 携带 ws）
     expect(view.queryByTestId('org-default-workspace-id')).toBeNull()
     expect(view.queryByTestId('org-default-workspace-status')).toBeNull()
     expect(view.queryByTestId('org-workspace-row-is-default')).toBeNull()
-    expect(view.getByTestId('org-default-workspace-source').textContent).toContain('降级')
+    expect(view.getByTestId('org-default-workspace-source').textContent).toContain('未设置默认')
     // 只读端点仍被调用，工作区事实照常展示
     expect(view.getAllByTestId('org-workspace-row')).toHaveLength(2)
   })
 
   it('保留 Owner 展示（owner_id + 昵称/账号）', async () => {
-    const view = renderPage(`/organizations/${ORG_ID}?org=${ORG_ID}&ws=${WS_ID}`)
+    const view = renderPage(`/organizations/${ORG_ID}?org=${ORG_ID}`)
     await waitDetailReady(view)
     const page = view.getByTestId('org-workspace-facts').closest('[data-page="organization-detail"]')
     expect(page?.textContent).toContain(ORG_DETAIL.owner_id)
@@ -195,7 +226,7 @@ describe('OrganizationDetailPage — 默认 Workspace 只读事实', () => {
 })
 
 // ---------------------------------------------------------------------------
-// ② 直达链接携带正确的 org/ws
+// ② 直达链接携带正确的 org/ws（ws = 服务端默认）
 // ---------------------------------------------------------------------------
 describe('OrganizationDetailPage — 跨面直达链接的 org/ws 上下文', () => {
   const EXPECTED: Array<[string, string]> = [
@@ -206,8 +237,8 @@ describe('OrganizationDetailPage — 跨面直达链接的 org/ws 上下文', ()
     ['org-link-default-workspace', '/enterprise-business'],
   ]
 
-  it('5 个直达入口均存在，且 href 携带 org 与 ws 查询参数', async () => {
-    const view = renderPage(`/organizations/${ORG_ID}?org=${ORG_ID}&ws=${WS_ID}`)
+  it('服务端有默认：5 个直达入口均存在，且 href 携带 org 与 ws（= 服务端默认 ws）', async () => {
+    const view = renderPage(`/organizations/${ORG_ID}?org=${ORG_ID}`)
     await waitDetailReady(view)
 
     for (const [testId, path] of EXPECTED) {
@@ -220,7 +251,19 @@ describe('OrganizationDetailPage — 跨面直达链接的 org/ws 上下文', ()
     }
   })
 
-  it('无 ws 成立事实时：ws 参数如实省略，org 仍携带，且不渲染「默认 Workspace」假入口', async () => {
+  it('服务端无默认：ws 参数如实省略，org 仍携带，且不渲染「默认 Workspace」假入口', async () => {
+    mutableClient.get = ((url: string) => {
+      if (url === '/rbac/me') return Promise.resolve(envelope(RBAC_PROFILE))
+      if (url === `/organizations/${ORG_ID}`) return Promise.resolve(envelope(ORG_DETAIL))
+      if (url === `/organizations/${ORG_ID}/workspaces`) {
+        const noDefault = WORKSPACE_ROWS.map((row) => ({ ...row, is_default: false }))
+        return Promise.resolve(
+          envelope({ list: noDefault, page: 1, size: 100, total: noDefault.length, total_page: 1 })
+        )
+      }
+      throw new Error(`unexpected GET url: ${url}`)
+    }) as AnyFn
+
     const view = renderPage(`/organizations/${ORG_ID}?org=${ORG_ID}`)
     await waitDetailReady(view)
 

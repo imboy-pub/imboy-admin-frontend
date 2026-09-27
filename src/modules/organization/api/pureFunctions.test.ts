@@ -287,16 +287,17 @@ describe('TSID 与平台事实投影', () => {
 })
 
 // ---------------------------------------------------------------------------
-// Workspace 只读关系行投影（adm 面 read 端点）
+// Workspace 只读关系行投影（adm 面 read 端点；is_default 服务端真源 CP-CON-03）
 // ---------------------------------------------------------------------------
 describe('Workspace 行投影', () => {
-  it('id/name/owner_id/organization_id/status/时间戳 全量映射，TSID 保持 string', () => {
+  it('id/name/owner_id/organization_id/status/is_default/时间戳 全量映射，TSID 保持 string', () => {
     const row = toWorkspaceRow({
       id: '7700487555555555555',
       name: '默认空间',
       owner_id: '7700487222222222222',
       organization_id: '7700487111111111111',
       status: 'active',
+      is_default: true,
       created_at: '2026-09-01T00:00:00',
       updated_at: '2026-09-01T00:00:00',
     })
@@ -305,14 +306,22 @@ describe('Workspace 行投影', () => {
     expect(row.ownerId).toBe('7700487222222222222')
     expect(row.organizationId).toBe('7700487111111111111')
     expect(row.status).toBe('active')
+    expect(row.isDefault).toBe(true)
     expect(row.createdAt).toBe('2026-09-01T00:00:00')
   })
 
-  it('缺字段走防御默认，不抛异常', () => {
+  it('is_default=false 如实映射为 false（非默认行）', () => {
+    const row = toWorkspaceRow({ id: '1', is_default: false })
+    expect(row.isDefault).toBe(false)
+  })
+
+  it('缺字段走防御默认，不抛异常（is_default 缺失 = false，不猜测）', () => {
     const row = toWorkspaceRow({})
     expect(row.name).toBe('')
     expect(row.status).toBe('unknown')
+    expect(row.isDefault).toBe(false)
     expect(toWorkspaceRow(undefined).status).toBe('unknown')
+    expect(toWorkspaceRow(undefined).isDefault).toBe(false)
   })
 })
 

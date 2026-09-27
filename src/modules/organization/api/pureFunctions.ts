@@ -102,7 +102,9 @@ export type DepartmentTreeNode = DepartmentRow & {
 
 /**
  * Workspace 只读关系行（GET /api/adm/organizations/:id/workspaces）。
- * 合同 read 端点，暂无 UI 旅程——形状按 W2 admin_workspace_page SQL 列投影。
+ * 形状按 W2 admin_workspace_page SQL 列投影；is_default（CP-CON-03）由
+ * 服务端真源 organization_default_workspace 计算（每 org 至多一个 true），
+ * 前端不做任何本地推导。
  */
 export type WorkspaceRow = {
   id: EntityId
@@ -110,6 +112,7 @@ export type WorkspaceRow = {
   ownerId: EntityId
   organizationId: EntityId
   status: string
+  isDefault: boolean
   createdAt: string
   updatedAt: string
 }
@@ -453,6 +456,9 @@ export function toWorkspaceRow(raw: unknown): WorkspaceRow {
     ownerId: coerceEntityId(record['owner_id']),
     organizationId: coerceEntityId(record['organization_id']),
     status: asString(record['status']) || 'unknown',
+    // 严格 === true：仅服务端显式投影的默认才成立（缺字段/历史响应一律 false，
+    // 不猜测、不推导）
+    isDefault: record['is_default'] === true,
     createdAt: asString(record['created_at']),
     updatedAt: asString(record['updated_at']),
   }
