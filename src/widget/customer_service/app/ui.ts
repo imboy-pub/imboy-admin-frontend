@@ -8,6 +8,7 @@
  * - 窄屏（iframe 已由 loader 铺满视口）下布局纵向自适应。
  */
 import type { AssetPreview, ChatMessage, ChatState, MessageAsset } from './chatMachine'
+import { showLeaveMessageNotice } from './chatMachine'
 import { isValidRatingScore } from './contract'
 
 export type ChatUiHandlers = {
@@ -174,6 +175,12 @@ export function createChatUi(root: HTMLElement, locale: string, handlers: ChatUi
   background: linear-gradient(180deg, #fefce8, #fef9c3); color: #854d0e;
   border-top: 1px solid #fde68a; text-align: center;
 }
+/* CP-CON-04：无坐席留言提示（queued 且无 online 坐席；不阻断发送）。 */
+.cs-leave {
+  padding: 7px 12px; font-size: 12px; font-weight: 500;
+  background: linear-gradient(180deg, #eff6ff, #dbeafe); color: #1e40af;
+  border-top: 1px solid #bfdbfe; text-align: center;
+}
 .cs-composer {
   display: flex; gap: 8px; padding: 12px; border-top: 1px solid #e2e8f0; background: #fff;
   box-shadow: 0 -1px 2px rgba(15,23,42,.04);
@@ -295,6 +302,13 @@ export function createChatUi(root: HTMLElement, locale: string, handlers: ChatUi
   banner.className = 'cs-banner'
   banner.setAttribute('data-testid', 'cs-banner')
   banner.style.display = 'none'
+  // CP-CON-04：无坐席留言提示条（role=status：aria-live=polite 语义，
+  // 状态出现时对读屏可感知；显示与否不影响 composer 可用性）。
+  const leaveHint = doc.createElement('div')
+  leaveHint.className = 'cs-leave'
+  leaveHint.setAttribute('role', 'status')
+  leaveHint.setAttribute('data-testid', 'cs-leave-message-hint')
+  leaveHint.style.display = 'none'
   const composer = doc.createElement('div')
   composer.className = 'cs-composer'
   // CS-WGT-01：图片大图预览 overlay（挂在 cs-body 内，覆盖消息区/composer）。
@@ -344,6 +358,7 @@ export function createChatUi(root: HTMLElement, locale: string, handlers: ChatUi
   composer.appendChild(fileInput)
   body.appendChild(center)
   body.appendChild(log)
+  body.appendChild(leaveHint)
   body.appendChild(banner)
   body.appendChild(composer)
   body.appendChild(previewOverlay)
@@ -371,9 +386,21 @@ export function createChatUi(root: HTMLElement, locale: string, handlers: ChatUi
       ;(el as HTMLButtonElement | HTMLInputElement).disabled = state.session === null
     })
     const last = state.messages[state.messages.length - 1]
+    // CP-CON-04：无坐席留言提示（queued 且无 online 坐席）——仅提示，绝不
+    // 禁用 composer（发送路径不受此状态影响）。
+    const leaveVisible = showLeaveMessageNotice(state)
+    leaveHint.style.display = leaveVisible ? 'block' : 'none'
+    leaveHint.textContent = leaveVisible ? leaveMessageText() : ''
     banner.style.display = state.connection === 'offline' || state.connection === 'reconnecting' ? 'block' : 'none'
     banner.textContent = CONNECTION_LABELS[state.connection]
     renderLog(state.messages, last !== undefined && last.role === 'agent')
+  }
+
+  /** CP-CON-04：留言提示 i18n 文案（中/英）。 */
+  function leaveMessageText(): string {
+    return locale === 'zh-CN'
+      ? '当前没有在线客服，你可以留下留言，我们会尽快回复你。'
+      : 'No agents are online right now — leave a message and we will reply as soon as possible.'
   }
 
   function attachmentRow(message: ChatMessage): HTMLElement | null {
@@ -522,6 +549,8 @@ export function createChatUi(root: HTMLElement, locale: string, handlers: ChatUi
     composer.style.display = 'none'
     log.style.display = 'none'
     banner.style.display = 'none'
+    leaveHint.style.display = 'none'
+    leaveHint.textContent = ''
     center.style.display = 'flex'
     if (state.phase === 'awaiting-context' || state.phase === 'bootstrapping') {
       center.replaceChildren(textNode('p', locale === 'zh-CN' ? '正在连接客服…' : 'Connecting…'))

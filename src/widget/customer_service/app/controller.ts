@@ -338,7 +338,8 @@ export function createWidgetController(deps: ControllerDeps) {
       return
     }
     if (classified.kind === 'widget-state') {
-      dispatch({ type: 'session_status', status: classified.status })
+      // CP-CON-04：state 帧可选携带 agents_online（undefined = 不更新判定）。
+      dispatch({ type: 'session_status', status: classified.status, agentsOnline: classified.agentsOnline })
       return
     }
     // widget-message 帧：帧内容不进业务真源，权威刷新 + 游标推进。
@@ -355,13 +356,17 @@ export function createWidgetController(deps: ControllerDeps) {
     }
   }
 
-  /** 会话状态权威刷新（session.changed / resync 用；payload 不直接入状态）。 */
+  /** 会话状态权威刷新（session.changed / resync 用；payload 不直接入状态）。
+   * CP-CON-04：list_sessions 行可选携带 agents_online（null = 未派生，
+   * 不覆盖既有判定；false/true 为权威结论）。 */
   async function refreshSessionStatus(): Promise<void> {
     if (scope === null || state.session === null) return
     try {
       const sessions = await deps.api.listSessions(scope)
       const current = sessions.find((s) => s.id === state.session?.id)
-      if (current !== undefined) dispatch({ type: 'session_status', status: current.status })
+      if (current !== undefined) {
+        dispatch({ type: 'session_status', status: current.status, agentsOnline: current.agentsOnline ?? undefined })
+      }
     } catch (error) {
       if (isRevoke(error)) onRevoke()
     }

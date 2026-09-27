@@ -94,6 +94,11 @@ export type ChatState = {
   ratingScore: number | null
   errorMessage: string | null
   preview: AssetPreview | null
+  /**
+   * CP-CON-04：访客面坐席在线汇总（null = 未知，服务端未派生）。
+   * 数据源 = 会话投影/SSE 权威刷新携带的 agents_online（见 contract.ts）。
+   */
+  agentsOnline: boolean | null
 }
 
 export type ChatEvent =
@@ -114,7 +119,7 @@ export type ChatEvent =
   | { type: 'asset_content_failed'; key: string; assetId: string }
   | { type: 'asset_preview_opened'; preview: AssetPreview }
   | { type: 'asset_preview_closed' }
-  | { type: 'session_status'; status: string }
+  | { type: 'session_status'; status: string; agentsOnline?: boolean | null }
   | { type: 'connection'; state: ChatConnectionState }
   | { type: 'rating_submitted'; score: number }
   | { type: 'rating_failed'; message: string }
@@ -131,7 +136,23 @@ export function initialChatState(brand: WidgetBrand = { displayName: '在线客�
     ratingScore: null,
     errorMessage: null,
     preview: null,
+    agentsOnline: null,
   }
+}
+
+/**
+ * CP-CON-04：无坐席留言状态判定——会话 queued 且权威刷新确认无 online
+ * 坐席（agentsOnline === false）时 widget 呈现「可留言」提示。
+ * fail-closed：presence 未知（null）或会话非 queued 一律不显示（不因缺
+ * 数据声称无坐席）；显示与否不影响发送路径（不阻断发消息）。
+ */
+export function showLeaveMessageNotice(state: ChatState): boolean {
+  return (
+    state.phase === 'chat' &&
+    state.session !== null &&
+    state.session.status === 'queued' &&
+    state.agentsOnline === false
+  )
 }
 
 /** 按 id → client_msg_id 双键去重合并消息（SSE 重放 / 补偿可能带来重复）。 */
@@ -209,7 +230,10 @@ export function reduceChat(state: ChatState, event: ChatEvent): ChatState {
       // 拒绝：不持久化任何内容（不建会话、不发消息），仅停留在提示屏
       return state.phase === 'consent' ? { ...state, phase: 'notice-rejected' } : state
     case 'session_created':
-      return state.phase === 'chat' ? { ...state, session: event.session } : state
+      // CP-CON-04：会话投影携带 agents_online 派生值；null（未派生）保留旧值。
+      return state.phase === 'chat'
+        ? { ...state, session: event.session, agentsOnline: event.session.agentsOnline ?? state.agentsOnline }
+        : state
     case 'messages_loaded': {
       let messages = state.messages
       for (const message of event.messages) messages = mergeMessage(messages, message)
@@ -266,9 +290,17 @@ export function reduceChat(state: ChatState, event: ChatEvent): ChatState {
       return { ...state, preview: event.preview }
     case 'asset_preview_closed':
       return state.preview === null ? state : { ...state, preview: null }
-    case 'session_status':
+    case 'session_status': {
+      if (state.session === null) return state
+      // CP-CON-04：会话状态同步（status 覆盖；agentsOnline 仅在权威刷新携带时更新）。
+      const session = { ...state.session, status: event.status }
+      const agentsOnline = event.agentsOnline !== undefined ? event.agentsOnline : state.agentsOnline
+      if (event.status !== 'closed' && state.phase !== 'rated') {
+        return { ...state, session, agentsOnline }
+      }
       if (event.status !== 'closed' || state.phase === 'rated') return state
-      return { ...state, phase: 'closed-rating' }
+      return { ...state, phase: 'closed-rating', session, agentsOnline }
+    }
     case 'connection':
       return { ...state, connection: event.state }
     case 'rating_submitted':

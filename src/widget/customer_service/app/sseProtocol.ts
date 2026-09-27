@@ -131,8 +131,10 @@ export type SseFrameInput = { id: string | null; event: string; data: string }
 
 export type ClassifiedSseFrame =
   | { kind: 'envelope'; envelope: SseEnvelope }
-  /** widget 面状态帧：data = {resource:'cs.session', session_id, status}。 */
-  | { kind: 'widget-state'; status: string }
+  /** widget 面状态帧：data = {resource:'cs.session', session_id, status}；
+   * CP-CON-04：可选 agents_online（安全整数；0 → false、>0 → true；
+   * 缺键/非法 → undefined = 本次帧不携带，不更新既有判定）。 */
+  | { kind: 'widget-state'; status: string; agentsOnline?: boolean }
   /** widget 面消息帧：data = 消息行投影（内容触发权威刷新，不入业务真源）。 */
   | { kind: 'widget-message'; messageId: string | null }
   | { kind: 'ignore' }
@@ -146,9 +148,15 @@ export function classifySseFrame(frame: SseFrameInput): ClassifiedSseFrame {
   if (envelope !== null) return { kind: 'envelope', envelope }
   if (frame.event === 'state') {
     try {
-      const data = JSON.parse(frame.data) as { status?: unknown } | null
+      const data = JSON.parse(frame.data) as { status?: unknown; agents_online?: unknown } | null
       if (data !== null && typeof data === 'object' && typeof data.status === 'string' && data.status.length > 0) {
-        return { kind: 'widget-state', status: data.status }
+        // CP-CON-04：可选 agents_online 三态投影（undefined = 帧不携带，不更新）。
+        const rawAgents = data.agents_online
+        const agentsOnline =
+          typeof rawAgents === 'number' && Number.isSafeInteger(rawAgents) && rawAgents >= 0
+            ? rawAgents > 0
+            : undefined
+        return { kind: 'widget-state', status: data.status, agentsOnline }
       }
     } catch {
       return { kind: 'ignore' }
