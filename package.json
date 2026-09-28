@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "build:widget": "vite build --mode widget && vite build --mode widget-loader && bun scripts/widget-manifest.mts",
+    "build:widget": "vite build --mode widget && vite build --mode widget-loader && vite build --mode seat && bun scripts/widget-manifest.mts",
     "verify:widget": "bun scripts/widget-verify.mts",
     "verify:widget-pairing": "bun scripts/check-widget-asset-pairing.mts",
     "preview": "vite preview",
