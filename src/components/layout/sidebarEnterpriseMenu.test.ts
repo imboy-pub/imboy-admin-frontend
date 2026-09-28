@@ -131,15 +131,14 @@ describe('EADM-03 Seat Auth 域守卫', () => {
   const __dirname = dirname(fileURLToPath(import.meta.url))
   const appSource = readFileSync(resolve(__dirname, '../../App.tsx'), 'utf-8')
 
-  it('/customer-service/workspace 在 Admin 认证壳之外（独立 Seat JWT/二维码域）', () => {
-    const workspaceRouteIdx = appSource.indexOf('<Route path="/customer-service/workspace"')
-    const adminShellIdx = appSource.indexOf('<Route element={<ProtectedRoute />}>')
-
-    expect(workspaceRouteIdx, 'workspace 路由应已声明').toBeGreaterThan(-1)
-    expect(adminShellIdx, 'Admin 认证壳应已声明').toBeGreaterThan(-1)
-    // workspace 路由声明位置必须早于 Admin 壳开启位置 → 位于壳外（<Routes> 顶层）
-    expect(workspaceRouteIdx).toBeLessThan(adminShellIdx)
-    // workspace 路由不应出现在 AdminLayout 包裹块内
-    expect(appSource.indexOf('<Route element={<AdminLayout />}>')).toBeGreaterThan(workspaceRouteIdx)
+  it('/customer-service/workspace Admin SPA 路由已移除（SC-FE：改由 cs 域 iframe 接入）', () => {
+    // SC-FE 后：坐席工作台不再挂 Admin SPA 路由——「网站接入」页生成 cs 域
+    // iframe 嵌入代码（唯一入口），SeatWorkspacePage 懒加载与 <Route> 声明
+    // 一并移除；seat/** 源码与侧边栏合同（无 workspace 菜单项）保持不变。
+    expect(appSource.includes('<Route path="/customer-service/workspace"'), 'workspace 路由应已移除').toBe(false)
+    expect(appSource.includes('SeatWorkspacePage'), 'SeatWorkspacePage 懒加载应已移除').toBe(false)
+    // Admin 认证壳不受影响
+    expect(appSource.indexOf('<Route element={<ProtectedRoute />}>'), 'Admin 认证壳应已声明').toBeGreaterThan(-1)
+    expect(appSource.indexOf('<Route element={<AdminLayout />}>'), 'AdminLayout 包裹块应已声明').toBeGreaterThan(-1)
   })
 })

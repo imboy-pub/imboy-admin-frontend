@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { MessageSquare } from 'lucide-react'
+import { Headphones, MessageSquare } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Dialog,
   DialogContent,
@@ -30,6 +30,7 @@ import { useLegacyTable, getCoreRowModel, type LegacyColumnDef } from '@tanstack
 import { useAdminPermission } from '@/hooks/useAdminPermission'
 import { useListQueryState } from '@/hooks/useListQueryState'
 import { getErrorMessage } from '@/lib/errorUtils'
+import type { EntityId } from '@/types/common'
 import type { WidgetInstallation } from '../api/widgetInstallationsPure'
 import { useOrgWorkspaceScope } from './useOrgWorkspaceScope'
 import {
@@ -43,18 +44,29 @@ import {
   revokeWidgetInstallation,
   updateWidgetInstallation,
 } from '../api/widgetInstallations'
+import type { SeatConsole } from '../api/seatConsolesPure'
+import { buildSeatEmbedCode } from '../api/seatConsolesPure'
+import {
+  createSeatConsole,
+  listSeatConsoles,
+  revokeSeatConsole,
+  updateSeatConsole,
+} from '../api/seatConsoles'
 import { CUSTOMER_SERVICE_WIDGET_ORIGIN } from '../widgetConfig'
 
 const READ_PERMISSION = 'customer_service:read'
 const WRITE_PERMISSION = 'customer_service:write'
 
 /**
- * 客服 Widget 接入管理页（CSW-01 / §12.5.2）。
+ * 客服 Widget 接入管理页（CSW-01 / §12.5.2；SC-FE 增补坐席工作台接入块）。
  *
  * - read（customer_service:read）：installation 列表 + public_widget_id + 复制接入代码；
  * - write（customer_service:write）：创建 / 撤销；
  * - 接入代码只含 script 标签 + public widget_id，绝不出现任何 secret；
- * - shop_key 是另一套 Org 级门店接入凭证，不属于 Widget installation。
+ * - shop_key 是另一套 Org 级门店接入凭证，不属于 Widget installation；
+ * - SC-FE：范围选择器与网站接入表之间渲染「客服工作台接入」块——每工作区至多
+ *   一个 active seat console，嵌入代码为 cs 域 iframe（不再走 Admin SPA 的
+ *   /customer-service/workspace 路由）。
  */
 export function CsWidgetInstallationsPage() {
   const { state, setState } = useListQueryState<{
@@ -185,6 +197,14 @@ export function CsWidgetInstallationsPage() {
           </div>
         </CardContent>
       </Card>
+
+      <SeatConsoleSection
+        organizationId={organizationId}
+        workspaceId={workspaceId}
+        scopeReady={scopeReady}
+        canRead={canRead && !readPermLoading}
+        canWrite={canWrite}
+      />
 
       <InstallationsSection
         scopeReady={scopeReady}
@@ -679,6 +699,310 @@ function EmbedCodeDialog(props: {
         <DialogFooter>
           <Button variant="outline" onClick={() => props.onClose()}>关闭</Button>
           <Button disabled={snippet.length === 0} onClick={() => void copyText(snippet)}>复制接入代码</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+/** 创建冲突（同工作区已有 active console）判定：后端 409。 */
+function isSeatConsoleConflict(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    (error as { response?: { status?: number } }).response?.status === 409
+  )
+}
+
+type SeatConsoleSectionProps = {
+  organizationId: EntityId
+  workspaceId: EntityId
+  scopeReady: boolean
+  canRead: boolean
+  canWrite: boolean
+}
+
+/**
+ * 「客服工作台接入」块（SC-FE）：位于租户范围选择器与网站接入表之间。
+ * 一工作区一个接入代码，坐席各自扫码登录；嵌入代码为 cs 域 iframe，只含
+ * public_seat_console_id，绝不出现 loader/token/secret/租户上下文。
+ */
+function SeatConsoleSection(props: SeatConsoleSectionProps) {
+  const queryClient = useQueryClient()
+  const seatQuery = useQuery({
+    queryKey: ['customer_service', 'seat_console', props.organizationId, props.workspaceId],
+    queryFn: () => listSeatConsoles({ organizationId: props.organizationId, workspaceId: props.workspaceId }),
+    enabled: props.scopeReady && props.canRead,
+  })
+  const activeConsole = useMemo(
+    () => (seatQuery.data ?? []).find((seatConsole) => seatConsole.status === 'active') ?? null,
+    [seatQuery.data]
+  )
+
+  const invalidateSeatConsoles = () => {
+    void queryClient.invalidateQueries({ queryKey: ['customer_service', 'seat_console'] })
+  }
+
+  const [createOpen, setCreateOpen] = useState(false)
+  const [revokeOpen, setRevokeOpen] = useState(false)
+  const createMutation = useMutation({
+    mutationFn: (allowedOrigins: string[]) =>
+      createSeatConsole({ organizationId: props.organizationId, workspaceId: props.workspaceId, allowedOrigins }),
+    onSuccess: () => {
+      toast.success('客服工作台接入已创建')
+      setCreateOpen(false)
+      invalidateSeatConsoles()
+    },
+    onError: (error) => toast.error(`创建失败：${getErrorMessage(error)}`),
+  })
+  const updateMutation = useMutation({
+    mutationFn: (input: { seatConsoleId: EntityId; allowedOrigins: string[] }) =>
+      updateSeatConsole(input.seatConsoleId, {
+        organizationId: props.organizationId,
+        workspaceId: props.workspaceId,
+        allowedOrigins: input.allowedOrigins,
+      }),
+    onSuccess: () => {
+      toast.success('允许来源已更新；接入代码保持不变')
+      invalidateSeatConsoles()
+    },
+    onError: (error) => toast.error(`更新失败：${getErrorMessage(error)}`),
+  })
+  const revokeMutation = useMutation({
+    mutationFn: (seatConsoleId: EntityId) =>
+      revokeSeatConsole(seatConsoleId, {
+        organizationId: props.organizationId,
+        workspaceId: props.workspaceId,
+      }),
+    onSuccess: () => {
+      toast.success('接入已停用')
+      setRevokeOpen(false)
+      invalidateSeatConsoles()
+    },
+    onError: (error) => toast.error(`停用失败：${getErrorMessage(error)}`),
+  })
+
+  return (
+    <Card data-testid="sc-seat-card">
+      <CardHeader className="space-y-1.5">
+        <CardTitle className="text-base">客服工作台接入</CardTitle>
+        <CardDescription>一工作区一个接入代码，坐席各自扫码登录</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {!props.scopeReady ? (
+          <EmptyState
+            icon={<Headphones className="h-10 w-10" />}
+            title="请先填写组织与工作区"
+            description="坐席工作台接入归属工作区；管理接口要求显式提供 org_id 与 workspace_id。"
+          />
+        ) : !props.canRead ? (
+          <EmptyState
+            icon={<Headphones className="h-10 w-10" />}
+            title="无权访问"
+            description="需要 customer_service:read 权限。"
+          />
+        ) : seatQuery.isLoading ? (
+          <LoadingState message="加载客服工作台接入…" />
+        ) : seatQuery.error !== null && seatQuery.error !== undefined ? (
+          <ErrorState
+            message={`加载客服工作台接入失败：${getErrorMessage(seatQuery.error)}`}
+            onRetry={() => void seatQuery.refetch()}
+          />
+        ) : activeConsole === null ? (
+          <div className="space-y-2" data-testid="sc-seat-empty">
+            <EmptyState
+              icon={<Headphones className="h-10 w-10" />}
+              title="暂无生效中的接入"
+              description="创建后即可复制 iframe 接入代码，嵌入到坐席使用的网站页面。"
+            />
+            {isSeatConsoleConflict(createMutation.error) && (
+              <p data-testid="sc-seat-create-conflict" className="text-xs text-destructive">
+                该工作区已有生效中的接入
+              </p>
+            )}
+            <div>
+              <Button
+                size="sm"
+                disabled={!props.canWrite || createMutation.isPending}
+                title={props.canWrite ? undefined : '需要 customer_service:write 权限'}
+                onClick={() => setCreateOpen(true)}
+              >
+                创建接入
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <SeatConsoleActiveView
+            key={activeConsole.id}
+            seatConsole={activeConsole}
+            canWrite={props.canWrite}
+            updatePending={updateMutation.isPending}
+            onSaveOrigins={(allowedOrigins) =>
+              updateMutation.mutate({ seatConsoleId: activeConsole.id, allowedOrigins })
+            }
+            onRevoke={() => setRevokeOpen(true)}
+          />
+        )}
+      </CardContent>
+
+      <CreateSeatConsoleDialog
+        open={createOpen}
+        pending={createMutation.isPending}
+        onOpenChange={setCreateOpen}
+        onSubmit={(allowedOrigins) => createMutation.mutate(allowedOrigins)}
+      />
+
+      <ConfirmDialog
+        open={revokeOpen}
+        onOpenChange={setRevokeOpen}
+        title="停用客服工作台接入"
+        description="停用后新加载将返回 404；已扫码登录的坐席会话不受影响，如需立即停用请到坐席管理操作"
+        confirmText="停用"
+        loading={revokeMutation.isPending}
+        onConfirm={() => {
+          if (activeConsole !== null) revokeMutation.mutate(activeConsole.id)
+        }}
+      />
+    </Card>
+  )
+}
+
+/** active console 视图：公开标识（可复制）+ iframe 代码（read 即可复制）+ origins 编辑 + 停用（write）。 */
+function SeatConsoleActiveView(props: {
+  seatConsole: SeatConsole
+  canWrite: boolean
+  updatePending: boolean
+  onSaveOrigins: (_allowedOrigins: string[]) => void
+  onRevoke: () => void
+}) {
+  const [originsInput, setOriginsInput] = useState(props.seatConsole.allowed_origins.join('\n'))
+  const [embedShown, setEmbedShown] = useState(false)
+  const parsedOrigins = useMemo(() => parseAllowedOriginsInput(originsInput), [originsInput])
+  let snippet = ''
+  let snippetError: string | null = null
+  try {
+    snippet = buildSeatEmbedCode(props.seatConsole.public_seat_console_id)
+  } catch (error) {
+    snippetError = getErrorMessage(error)
+  }
+  const originsDirty = originsInput.trim() !== props.seatConsole.allowed_origins.join('\n').trim()
+
+  return (
+    <div className="space-y-3" data-testid="sc-seat-active">
+      <div className="space-y-1.5">
+        <Label>公开标识（public_seat_console_id）</Label>
+        <div className="flex items-center gap-2">
+          <span data-testid="sc-seat-public-id" className="font-mono text-xs">{props.seatConsole.public_seat_console_id}</span>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => void copyText(props.seatConsole.public_seat_console_id)}
+          >
+            复制 ID
+          </Button>
+        </div>
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="sc-seat-embed-code">iframe 接入代码（只读，编辑来源不影响本代码）</Label>
+        {snippetError !== null ? (
+          <p className="text-xs text-destructive">{snippetError}</p>
+        ) : (
+          <Textarea
+            id="sc-seat-embed-code"
+            data-testid="sc-seat-embed-code"
+            readOnly
+            rows={7}
+            value={embedShown ? snippet : ''}
+            className="font-mono text-xs"
+            onFocus={(e) => e.currentTarget.select()}
+          />
+        )}
+        <Button
+          size="sm"
+          disabled={snippet.length === 0}
+          onClick={() => {
+            setEmbedShown(true)
+            void copyText(snippet)
+          }}
+        >
+          复制 iframe 代码
+        </Button>
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="sc-seat-origins">允许来源（allowed_origins，每行一个 origin）</Label>
+        <Textarea
+          id="sc-seat-origins"
+          data-testid="sc-seat-origins"
+          rows={3}
+          disabled={!props.canWrite}
+          value={originsInput}
+          onChange={(e) => setOriginsInput(e.target.value)}
+          placeholder={'https://admin.example.com\nhttps://ops.example.com'}
+        />
+        {parsedOrigins.errors.length > 0 && (
+          <p className="text-xs text-destructive">非法 origin（需 http(s) 且无路径/通配）：{parsedOrigins.errors.join('、')}</p>
+        )}
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            disabled={!props.canWrite || props.updatePending || parsedOrigins.errors.length > 0 || !originsDirty}
+            title={props.canWrite ? undefined : '需要 customer_service:write 权限'}
+            onClick={() => props.onSaveOrigins(parsedOrigins.origins)}
+          >
+            保存
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-destructive hover:text-destructive"
+            disabled={!props.canWrite}
+            title={props.canWrite ? undefined : '需要 customer_service:write 权限'}
+            onClick={props.onRevoke}
+          >
+            停用接入
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function CreateSeatConsoleDialog(props: {
+  open: boolean
+  pending: boolean
+  onOpenChange: (_open: boolean) => void
+  onSubmit: (_allowedOrigins: string[]) => void
+}) {
+  const [originsInput, setOriginsInput] = useState('')
+  const parsedOrigins = useMemo(() => parseAllowedOriginsInput(originsInput), [originsInput])
+  return (
+    <Dialog open={props.open} onOpenChange={props.onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>创建客服工作台接入</DialogTitle>
+          <DialogDescription>一工作区一个接入代码，坐席各自扫码登录。</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="sc-seat-create-origins">允许来源（allowed_origins，每行一个 origin，可留空后编辑）</Label>
+            <Textarea
+              id="sc-seat-create-origins"
+              data-testid="sc-seat-create-origins"
+              rows={3}
+              value={originsInput}
+              onChange={(e) => setOriginsInput(e.target.value)}
+              placeholder={'https://admin.example.com\nhttps://ops.example.com'}
+            />
+            {parsedOrigins.errors.length > 0 && (
+              <p className="text-xs text-destructive">非法 origin（需 http(s) 且无路径/通配）：{parsedOrigins.errors.join('、')}</p>
+            )}
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => props.onOpenChange(false)}>取消</Button>
+          <Button disabled={props.pending || parsedOrigins.errors.length > 0} onClick={() => props.onSubmit(parsedOrigins.origins)}>
+            创建
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
