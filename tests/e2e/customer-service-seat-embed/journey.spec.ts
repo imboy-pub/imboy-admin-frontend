@@ -174,22 +174,24 @@ test.describe('SC-E2E A01..A10（EXECUTE-GATED）', () => {
         }),
       )
       expect(jwtLike(storageDump), 'seat frame 的 localStorage/sessionStorage 不得含 JWT').toBe(false)
-      const cookies = page.context().cookies()
+      // SC-INT DEF-SC153-11：Playwright 全异步 API —— cookies() 返回 Promise，
+      // 不 await 时 for...of 对 Promise 迭代 TypeError（cookies is not iterable）。
+      const cookies = await page.context().cookies()
       for (const c of cookies) {
         expect(jwtLike(c.value), `cookie ${c.name}@${c.domain} 不得携带 JWT`).toBe(false)
       }
       // memory vault 的反向证明：seat frame 域名下零 cookie（含 admin 面）。
-      const csCookies = page.context().cookies(`${CS_ORIGIN}/seat/${CONSOLE_PUBLIC_ID}`)
+      const csCookies = await page.context().cookies(`${CS_ORIGIN}/seat/${CONSOLE_PUBLIC_ID}`)
       expect(csCookies, 'seat 域（cs.test）必须零 cookie（JWT 只在内存 vault）').toEqual([])
 
       // —— Admin Cookie 负例：admin.test 会话不得授权 seat API ——
       const adminCtx = await browser.newContext()
       const adminPage = await adminCtx.newPage()
       await adminLogin(adminPage)
-      const admCookies = adminCtx.cookies(`${ADMIN_ORIGIN}/`)
+      const admCookies = await adminCtx.cookies(`${ADMIN_ORIGIN}/`)
       expect(admCookies.some((c) => c.name.startsWith('adm_')), 'admin 登录后应有平台 Cookie（前置自检）').toBe(true)
       // 浏览器作用域事实：admin.test 的 Cookie 不进 cs.test 域。
-      expect(adminCtx.cookies(`${CS_ORIGIN}/`).filter((c) => c.name.startsWith('adm_'))).toEqual([])
+      expect((await adminCtx.cookies(`${CS_ORIGIN}/`)).filter((c) => c.name.startsWith('adm_'))).toEqual([])
       // 最坏情况重放：把 adm Cookie 显式附到 seat API —— 后端必须 401/403。
       const cookieHeader = admCookies.map((c) => `${c.name}=${c.value}`).join('; ')
       const replay = await adminCtx.request.get(

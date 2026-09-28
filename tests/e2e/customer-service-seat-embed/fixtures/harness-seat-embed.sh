@@ -346,11 +346,12 @@ log "dist-widget 已构建"
 if [ "${SC153_E2E_SKIP_ADMIN_BUILD:-0}" != "1" ]; then
   ( cd "$ROOT" && bun run build >/dev/null )
   # SC-INT DEF-SC153-07：__IMBOY_API_HOST__ 是部署期占位符（docker 入口 sed），
-  # harness 直发 dist 不会经过那条管道；残留占位符让 CSP connect-src 整条失效，
-  # Admin SPA 全部 API 被浏览器拦截 → 登录按钮永久禁用（A08 实测）。admin.test
-  # 对 /api/ 是同源代理，本地语义等价 = 去掉占位符只留 'self'（与开发态
-  # IMBOY_DEV_CSP_API_HOST 缺省行为一致）。
-  sed -i '' 's/ __IMBOY_API_HOST__//' "$ADMIN_DIST/index.html"
+  # harness 直发 dist 不会经过那条管道。占位符同时存在于 index.html 的 CSP
+  # connect-src 与编译后 JS 的 axios baseURL —— 只替换 html 会让 API 打到
+  # /__IMBOY_API_HOST__/api/adm/* 被 SPA fallback 吃成 200 HTML（实测）。
+  # admin.test 对 /api/ 是同源代理，本地语义等价 = 全 dist 清空占位符
+  # （与开发态 IMBOY_DEV_CSP_API_HOST 缺省行为一致）。
+  find "$ADMIN_DIST" -type f \( -name '*.html' -o -name '*.js' \) -exec sed -i '' 's|__IMBOY_API_HOST__||g' {} +
   log "Admin SPA dist 已构建（admin.test 面；SC153_E2E_SKIP_ADMIN_BUILD=1 可跳过）"
 fi
 
