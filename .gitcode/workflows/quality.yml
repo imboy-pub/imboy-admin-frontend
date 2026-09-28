@@ -35,10 +35,15 @@ jobs:
           "$HOME/.bun/bin/bun" --version
 
       - name: 安装依赖
-        run: "$HOME/.bun/bin/bun" install --frozen-lockfile
+        run: |
+          "$HOME/.bun/bin/bun" install --frozen-lockfile
 
       - name: Lint
-        run: "$HOME/.bun/bin/bun" run lint
+        run: |
+          "$HOME/.bun/bin/bun" run lint
 
+      # 口径与本地 pre-push（bun run test = bun test --isolate）完全一致；
+      # 勿改裸 bun test——与 package.json script 漂移后排查成本高。
       - name: Unit test
-        run: "$HOME/.bun/bin/bun" test
+        run: |
+          "$HOME/.bun/bin/bun" run test
