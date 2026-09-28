@@ -16,7 +16,8 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { LoadingState } from '@/components/shared'
-import { getSetupStatus, initSetup, getLoginPage } from '@/modules/identity'
+import { getSetupStatus, initSetup } from '@/modules/identity/api/setup'
+import { getLoginPage } from '@/modules/identity/api/auth'
 import { encryptLoginPassword } from '@/lib/passwordCrypto'
 
 /**

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getSetupStatus } from '@/modules/identity'
+import { getSetupStatus } from '@/modules/identity/api/setup'
 
 /**
  * useSetupGuard — 首启向导守卫（P0-5）

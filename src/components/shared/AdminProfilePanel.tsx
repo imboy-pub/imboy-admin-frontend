@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { LogOut, User, Key, ChevronRight } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { useNavigate } from 'react-router-dom'
-import { logout as logoutApi } from '@/modules/identity'
+import { logout as logoutApi } from '@/modules/identity/api/auth'
 import { formatOptionalDate } from '@/lib/utils'
 import { ADMIN_ROLE_LABELS } from './adminRoles'
 

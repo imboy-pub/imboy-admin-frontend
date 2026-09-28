@@ -49,6 +49,19 @@ export type WidgetSession = {
   status: WidgetSessionStatus | string
   /** 评分 CAS 用（list_sessions 视图携带；create_session 无此键） */
   version: number | null
+  /**
+   * CP-CON-04：访客面坐席在线汇总（`agents_online` 安全整数计数投影）：
+   * false = 无 online 坐席（计数 0）、true = 有（>0）、null = 服务端未派生
+   * （缺键/非法，未知不猜）。枚举语义对齐 seat 面冻结合同 SeatPresenceStatus
+   * （online/away/busy/offline）——计数即 status === 'online' 的坐席数。
+   */
+  agentsOnline: boolean | null
+}
+
+/** agents_online 三态投影：0 → false、正整数 → true、缺键/负数/非整数 → null。 */
+function toAgentsOnlineFlag(raw: unknown): boolean | null {
+  if (typeof raw !== 'number' || !Number.isSafeInteger(raw) || raw < 0) return null
+  return raw > 0
 }
 
 /**
@@ -131,20 +144,21 @@ export function toBootstrapResult(raw: unknown): BootstrapResult | null {
   }
 }
 
-/** create_session 响应投影（session_id 承载会话标识）。 */
+/** create_session 响应投影（session_id 承载会话标识；agents_online 可选派生）。 */
 export function toCreatedSession(raw: unknown): WidgetSession | null {
   if (!isRecord(raw)) return null
   const id = str(raw.session_id)
   if (id.length === 0) return null
-  return { id, status: str(raw.status) || 'queued', version: null }
+  return { id, status: str(raw.status) || 'queued', version: null, agentsOnline: toAgentsOnlineFlag(raw.agents_online) }
 }
 
-/** list_sessions 行投影（visitor_session_view 白名单，version 供评分 CAS）。 */
+/** list_sessions 行投影（visitor_session_view 白名单，version 供评分 CAS；
+ * agents_online 可选派生——服务端未派生时 null = 未知）。 */
 export function toSession(raw: unknown): WidgetSession | null {
   if (!isRecord(raw)) return null
   const id = str(raw.id)
   if (id.length === 0) return null
-  return { id, status: str(raw.status), version: optInt(raw.version) }
+  return { id, status: str(raw.status), version: optInt(raw.version), agentsOnline: toAgentsOnlineFlag(raw.agents_online) }
 }
 
 export function toSessionList(raw: unknown): WidgetSession[] {

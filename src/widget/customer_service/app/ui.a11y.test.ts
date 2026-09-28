@@ -29,7 +29,7 @@ function chatState(): ChatState {
     brand: { displayName: 'E2E 商城客服', primaryColor: '#2563eb', welcomeText: null },
     notice: { version: '', state: 'accepted' },
   })
-  state = reduceChat(state, { type: 'session_created', session: { id: '72057594037927936', status: 'active', version: 1 } })
+  state = reduceChat(state, { type: 'session_created', session: { id: '72057594037927936', status: 'active', version: 1, agentsOnline: null } })
   return state
 }
 

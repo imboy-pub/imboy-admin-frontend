@@ -35,7 +35,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { getRoleListPayload } from '@/modules/identity'
+import { getRoleListPayload } from '@/modules/identity/api/roles'
 import { useListQueryState } from '@/hooks/useListQueryState'
 import { useAuthStore } from '@/stores/authStore'
 import { formatDate } from '@/lib/utils'
@@ -43,7 +43,7 @@ import { exportCsv } from '@/lib/csvExport'
 import { getErrorMessage } from '@/lib/errorUtils'
 import { coerceEntityId } from '@/lib/entityId'
 import type { EntityId } from '@/types/common'
-import { getLoginPage } from '@/modules/identity'
+import { getLoginPage } from '@/modules/identity/api/auth'
 import { encryptLoginPassword } from '@/lib/passwordCrypto'
 import type { Admin } from '@/types/admin'
 import { Select } from '@/components/ui/select'

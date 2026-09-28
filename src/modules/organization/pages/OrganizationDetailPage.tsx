@@ -1,12 +1,12 @@
 import { useState } from 'react'
-import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ConfirmDialog, EmptyState, ErrorState, PageHeader } from '@/components/shared'
-import { parseOrgWorkspaceQuery, serializeOrgWorkspaceQuery } from '@/components/shared/orgWorkspaceQuery'
+import { serializeOrgWorkspaceQuery } from '@/components/shared/orgWorkspaceQuery'
 import { useAdminPermission } from '@/hooks/useAdminPermission'
 import { cn } from '@/lib/utils'
 import {
@@ -33,37 +33,36 @@ const WRITE_PERMISSION = 'organizations:write'
 const WORKSPACE_PAGE_SIZE = 100
 
 /**
- * 默认 Workspace 的**成立事实**来源说明（不得编造，故写明依据）。
+ * 默认 Workspace 的**成立事实**来源说明（CP-CON-03，不得编造，故写明依据）。
  *
- * 平台面**没有**任何只读端点投影「是否默认」标记：
- *   - `GET /api/adm/organizations/:id/workspaces` 的 SQL 只选取
- *     id/name/owner_id/organization_id/status/created_at/updated_at
- *     （后端 `src/logic/organization_admin_logic.erl:288`）；
- *   - `GET /api/adm/organizations/:id`（detail）投影同样不含 default_workspace_id
- *     （同文件 `:160`）。
- * 默认指针只出现在 `POST /api/adm/organizations` 的**创建响应**里
- * （`src/adm/adm_organization_handler.erl:859`，`default_workspace` 字段）。
+ * 服务端只读端点已投影「是否默认」标记：
+ *   - `GET /api/adm/organizations/:id/workspaces` 每行携带 `is_default`，
+ *     由后端以显式关系表 organization_default_workspace（迁移 00000130，
+ *     PK=organization_id，每 Org 至多一条）经 LEFT JOIN 计算；
+ *   - 无默认关系的 Org（0 条合法）全行 `is_default=false`。
  *
- * 因此本页把 URL 的 `ws` 参数（创建成功跳转 / 分享链接所携带，源自该创建响应）
- * 作为默认 Workspace 的成立事实，并用只读端点解析其名称与状态；
- * 拿不到 `ws` 时**如实降级**为组织工作区列表 + 依据说明，绝不推导、绝不编造。
+ * 因此本页把列表中 `is_default=true` 的行作为默认 Workspace 的成立事实
+ * （名称 / 状态 / id 全部来自该行）；服务端未投影任何默认（全 false）时
+ * **如实降级**为「本组织未设置默认」+ 工作区关系事实列表，绝不推导、
+ * 绝不编造。URL 的 `ws` 查询参数不再是默认指针的事实来源——本页生成的
+ * 跨面链接一律携带服务端默认 ws（无默认则省略该参数）。
  */
 const DEFAULT_WORKSPACE_EVIDENCE =
-  '依据：平台面只读端点不投影「是否默认」标记（workspaces 投影仅 id/name/owner_id/organization_id/status/created_at/updated_at；detail 无 default_workspace_id），默认指针仅由创建响应 POST /api/adm/organizations 的 default_workspace 返回。故此处以 URL 的 ws 参数（创建成功跳转携带）为成立事实，名称与状态由只读端点解析；不做任何 ID 推导。'
+  '依据：GET /api/adm/organizations/:id/workspaces 每行投影 is_default（服务端以 organization_default_workspace 显式关系计算，每 Org 至多一个 true）。本页以 is_default=true 的行为默认 Workspace 成立事实；全 false 时如实降级为「未设置默认」，不做任何 ID 推导，URL ws 参数不参与判定。'
 
 /**
  * 组织详情页（ORG-14 → ORG-ADMIN-ADM-WIRING 平台面）：事实域展示 +
- * 默认 Workspace 只读事实 + 跨面直达入口（携带 org/ws 上下文）+
- * 危险区（archive / restore，二次确认 + 服务端事实刷新）。
+ * 默认 Workspace 只读事实（服务端 is_default 投影，CP-CON-03）+ 跨面直达入口
+ * （携带 org/ws 上下文，ws = 服务端默认）+ 危险区（archive / restore，
+ * 二次确认 + 服务端事实刷新）。
  *
  * 平台面合同未提供：组织改名（PATCH）、删除预检（deletion-preflight）、
  * 默认 Workspace 指针（default-workspace）的读端点——相应**写**面板已随 App 面迁移移除；
- * Workspace 关系事实的只读端点（/workspaces）在本页已接入 UI 旅程。
+ * Workspace 关系事实的只读端点（/workspaces，含 is_default）在本页已接入 UI 旅程。
  */
 export function OrganizationDetailPage() {
   const params = useParams<{ organizationId: string }>()
   const organizationId = params.organizationId ?? ''
-  const [searchParams] = useSearchParams()
   const queryClient = useQueryClient()
   const { allowed: canRead, loading: permLoading } = useAdminPermission({ permission: READ_PERMISSION })
   const readReady = canRead && !permLoading
@@ -72,10 +71,6 @@ export function OrganizationDetailPage() {
   const [pendingArchive, setPendingArchive] = useState(false)
   const [pendingRestore, setPendingRestore] = useState(false)
   const [ownerTransferOpen, setOwnerTransferOpen] = useState(false)
-
-  // 默认 Workspace 上下文：只经共享 codec 读写，禁止手写字符串拼接。
-  const scopedContext = parseOrgWorkspaceQuery(searchParams)
-  const defaultWorkspaceId = scopedContext.ws
 
   const detailQuery = useQuery({
     queryKey: ['organization', 'detail', organizationId],
@@ -158,12 +153,11 @@ export function OrganizationDetailPage() {
   ]
 
   // -------------------------------------------------------------------------
-  // 默认 Workspace：只读事实解析（名称 + 状态），来源 = URL 的 ws 成立事实
+  // 默认 Workspace：服务端 is_default 真源（CP-CON-03）
   // -------------------------------------------------------------------------
   const workspaces = workspacesQuery.data?.items ?? []
-  const defaultWorkspace = defaultWorkspaceId
-    ? workspaces.find((item) => item.id === defaultWorkspaceId) ?? null
-    : null
+  const defaultWorkspace = workspaces.find((item) => item.isDefault) ?? null
+  const defaultWorkspaceId = defaultWorkspace?.id ?? null
   const workspaceFactsLoading = workspacesQuery.isLoading
   const workspaceFactsFailed = workspacesQuery.isError
 
@@ -188,7 +182,8 @@ export function OrganizationDetailPage() {
     },
   ]
 
-  // 「默认 Workspace」直达：只有在拿到 ws 成立事实时才提供入口（不造假按钮）。
+  // 「默认 Workspace」直达：只有在服务端投影了默认（is_default=true）时才提供
+  // 入口（不造假按钮）。
   const defaultWorkspaceLink = defaultWorkspaceId
     ? { to: withScope('/enterprise-business'), label: '默认 Workspace', testId: 'org-link-default-workspace' }
     : null
@@ -249,7 +244,7 @@ export function OrganizationDetailPage() {
         <CardHeader className="flex-row items-center justify-between space-y-0">
           <CardTitle className="text-base">默认 Workspace（只读事实）</CardTitle>
           <Badge variant={defaultWorkspaceId ? 'secondary' : 'outline'} data-testid="org-default-workspace-source">
-            {defaultWorkspaceId ? '来源：URL 上下文（创建响应携带）' : '来源：不可得，已如实降级'}
+            {defaultWorkspaceId ? '来源：服务端 is_default 投影' : '来源：服务端未设置默认'}
           </Badge>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -278,8 +273,8 @@ export function OrganizationDetailPage() {
               </div>
             ) : (
               <p className="text-sm text-muted-foreground" data-testid="org-default-workspace-degraded">
-                本页 URL 未携带 <span className="font-mono">ws</span> 上下文，无法确证默认 Workspace
-                指针（从创建流程进入或使用带 ws 的分享链接时才有该事实）。下方列出本组织的全部
+                服务端投影本组织所有 Workspace 的 <span className="font-mono">is_default</span> 均为
+                false（organization_default_workspace 无显式默认行，0 条是合法状态）。下方列出本组织的全部
                 Workspace 关系事实，供人工核对；本面板不推导「哪个是默认」。
               </p>
             )}
@@ -313,9 +308,9 @@ export function OrganizationDetailPage() {
                       {workspace.status}
                     </Badge>
                     <span className="font-mono text-xs text-muted-foreground">{workspace.id}</span>
-                    {workspace.id === defaultWorkspaceId ? (
+                    {workspace.isDefault ? (
                       <Badge variant="outline" data-testid="org-workspace-row-is-default">
-                        默认（URL 上下文）
+                        默认（服务端投影）
                       </Badge>
                     ) : null}
                   </li>
@@ -360,8 +355,8 @@ export function OrganizationDetailPage() {
           </div>
           <p className="text-xs text-muted-foreground">
             org/ws 查询参数由共享 codec 生成（{''}
-            <span className="font-mono">parseOrgWorkspaceQuery / serializeOrgWorkspaceQuery</span>），
-            无 ws 成立事实时如实省略该参数，不做推导。
+            <span className="font-mono">serializeOrgWorkspaceQuery</span>），
+            ws 取服务端投影的默认 Workspace（is_default=true）；无默认时如实省略该参数，不做推导。
           </p>
         </CardContent>
       </Card>

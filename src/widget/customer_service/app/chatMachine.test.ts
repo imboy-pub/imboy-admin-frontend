@@ -14,7 +14,7 @@ import { initialChatState, mergeMessage, reduceChat, type ChatMessage, type Chat
 const BRAND = { displayName: 'E2E 商城客服', primaryColor: '#2563eb' }
 const NOTICE_ACCEPTED = { version: 'v1', state: 'accepted' as const }
 const NOTICE_PENDING = { version: 'v1', state: 'pending' as const }
-const SESSION = { id: '72057594037927936', status: 'active' }
+const SESSION = { id: '72057594037927936', status: 'active', agentsOnline: null }
 
 function stateAfterBootstrap(notice: { version: string; state: 'pending' | 'accepted' | 'rejected' }): ChatState {
   return reduceChat(initialChatState(BRAND), { type: 'bootstrap_succeeded', brand: BRAND, notice })

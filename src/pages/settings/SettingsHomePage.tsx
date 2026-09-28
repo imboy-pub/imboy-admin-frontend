@@ -20,7 +20,7 @@ import { PageHeader, ErrorState, LoadingState, StatsCard } from '@/components/sh
 import { ADMIN_ROLE_LABELS } from '@/components/shared/adminRoles'
 import { getOverviewStatsPayload } from '@/services/api/stats'
 import type { EntityId } from '@/types/common'
-import { getCurrentAdminPayload } from '@/modules/identity'
+import { getCurrentAdminPayload } from '@/modules/identity/api/auth'
 
 type SettingsModule = {
   title: string
