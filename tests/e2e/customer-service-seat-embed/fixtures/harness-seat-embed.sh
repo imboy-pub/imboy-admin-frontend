@@ -296,7 +296,10 @@ log "种子已应用（org=$ORG_ID ws=$WORKSPACE_ID console=$PUBLIC_ID）"
 # ---- d. 坐席绑定（合成坐席，仅本地 scratch）------------------------------------
 SU=$(curl -s -X POST "$BE/api/v1/passport/signup" -H 'content-type: application/json' \
   -d "{\"type\":\"mobile\",\"account\":\"$SEAT_ACCOUNT\",\"code\":\"$MASTER_CODE\",\"pwd\":\"$SEAT_PASSWORD\",\"rsa_encrypt\":\"0\",\"nickname\":\"sc153-seat\",\"sys_version\":\"sc153-embed\"}")
-echo "$SU" | grep -q '"code":0' || { echo "signup 失败: $SU（提示：backend 需配置 {verification_master_code, <<\"$MASTER_CODE\">>}，见 README）" >&2; exit 3; }
+# SC-INT DEF-SC153-04：重跑幂等——账号已存在（code 1 + 手机号已经被占用）不算
+# 失败，直接走下方 login 验证凭据；其余失败照旧 fail-closed。
+echo "$SU" | grep -q '"code":0' || echo "$SU" | grep -q '已经被占用' || {
+  echo "signup 失败: $SU（提示：backend 需配置 {verification_master_code, <<\"$MASTER_CODE\">>}，见 README）" >&2; exit 3; }
 LOGIN=$(curl -s -X POST "$BE/api/v1/passport/login" -H 'content-type: application/json' \
   -d "{\"type\":\"mobile\",\"account\":\"$SEAT_ACCOUNT\",\"pwd\":\"$SEAT_PASSWORD\",\"rsa_encrypt\":\"0\",\"sys_version\":\"sc153-embed\"}")
 UID2=$(echo "$LOGIN" | python3 -c 'import sys,json;print(json.load(sys.stdin)["payload"]["uid"])')
