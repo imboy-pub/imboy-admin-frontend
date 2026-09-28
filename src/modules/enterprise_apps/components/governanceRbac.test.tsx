@@ -115,12 +115,14 @@ describe('RBAC 越权负例 · 渲染层（锁 1）', () => {
     mockRbac([READ_PERMISSION, WRITE_PERMISSION])
     const view = wrap(<ApplicationGovernanceCard scope={{ organizationId: ORG, applicationId: APP }} detail={DETAIL} onRefresh={() => {}} />)
 
+    // bun+jsdom 下条件渲染节点消失有 0.6-1.1s 事件循环延迟（本机 80 端口
+    // nginx 使未 stub 的原生 fetch 出网进一步拖慢），默认 1000ms 会稳定超时
     await waitFor(() => {
       expect(view.queryByTestId('governance-readonly-hint')).toBeNull()
-    })
+    }, { timeout: 5000 })
     await waitFor(() => {
       expect((view.getByTestId('lifecycle-to-disabled') as HTMLButtonElement).disabled).toBe(false)
-    })
+    }, { timeout: 5000 })
   })
 
   it('已归档应用：写入口关闭并给出归档提示（生命周期终态）', async () => {
