@@ -21,6 +21,9 @@ pre-commit:
 # 逃生门：若 lint/test 存量红阻塞 push，可 LEFTHOOK=0 git push 临时整体跳过（lefthook
 # 内建开关），或 git push --no-verify；也可 lefthook run pre-push 本地预演单条命令。
 # 存量红应尽快修复而非长期绕过。
+# ⚠️ 门禁生效前提：lefthook 需算出 push 文件集（首选 HEAD @{push}）。新 clone 后执行
+#   git config remote.pushDefault gitcode && git branch --set-upstream-to=gitcode/main main
+# 否则会以 "no matching push files" 静默跳过全部命令（2026-09-29 三仓实证）。
 pre-push:
   parallel: true
   commands:
