@@ -273,7 +273,9 @@ log "scratch 库就绪：$PG_DB"
 HEADROW=$(docker exec "$PG_CONTAINER" psql -U "$PG_USER" -d "$PG_DB" -tAc \
   "SELECT version || '|' || dirty FROM schema_migrations ORDER BY applied_at DESC LIMIT 1" 2>/dev/null || true)
 [ -n "$HEADROW" ] || { echo "schema_migrations 为空：请确认 backend 已用该库完成 auto-migrate" >&2; exit 3; }
-case "$HEADROW" in *'|f') ;; *) echo "迁移处于 dirty 状态：$HEADROW" >&2; exit 3;; esac
+# dirty 经 `||` 拼接已被 PG 铸成 text 全词（"false"/"true"，不是 t/f）；
+# SC-INT DEF-SC153-02：原模式 *'|f' 永不匹配，活体运行必然误报 dirty。
+case "$HEADROW" in *'|f'|*'|false') ;; *) echo "迁移处于 dirty 状态：$HEADROW" >&2; exit 3;; esac
 docker exec "$PG_CONTAINER" psql -U "$PG_USER" -d "$PG_DB" -tAc \
   "SELECT to_regclass('public.customer_service_seat_console')" | grep -q customer_service_seat_console || {
   echo "customer_service_seat_console 表不存在：scratch backend 未迁移到 00000153（SC-INT 后才可执行）" >&2; exit 3;

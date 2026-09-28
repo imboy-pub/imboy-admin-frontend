@@ -128,7 +128,11 @@ export default defineConfig(({ mode }) => {
   // SC-BLD：seat 模式把 react-router-dom 指向纯 <a> 替身（src/seat/routerStub.tsx）——
   // 坐席页共享抽屉静态 import { Link } 会把 react-router 库拖进产物，而该页从不
   // 渲染 Link（无 sections prop）。缺失导出由 rollup 构建期报错兜底（见替身注释）。
-  const seatOnlyAlias =
+  // Record<string,string> 注解（SC-INT DEF-SC153-03）：无注解时条件表达式被
+  // 推断为 { 'react-router-dom': string } | {} 的 spread union，第二支含
+  // 'react-router-dom'?: undefined，不满足 vite AliasOptions 的索引签名
+  // （tsc -b TS2769，集成 L3 实测）。
+  const seatOnlyAlias: Record<string, string> =
     mode === 'seat'
       ? { 'react-router-dom': path.resolve(__dirname, 'src/seat/routerStub.tsx') }
       : {}
