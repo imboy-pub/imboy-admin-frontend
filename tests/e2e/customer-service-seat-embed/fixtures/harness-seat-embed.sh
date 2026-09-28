@@ -120,6 +120,7 @@ http {
             proxy_pass $BE;
             proxy_http_version 1.1;
             proxy_set_header Host \$http_host;
+            proxy_set_header X-Forwarded-Proto \$scheme;
             proxy_buffering off; proxy_cache off;
             proxy_read_timeout 3600s; proxy_send_timeout 3600s;
         }
@@ -127,6 +128,7 @@ http {
             proxy_pass $BE;
             proxy_http_version 1.1;
             proxy_set_header Host \$http_host;
+            proxy_set_header X-Forwarded-Proto \$scheme;
             proxy_buffering off; proxy_cache off;
             proxy_read_timeout 3600s; proxy_send_timeout 3600s;
         }
@@ -139,6 +141,7 @@ http {
             proxy_pass $BE;
             proxy_http_version 1.1;
             proxy_set_header Host \$http_host;
+            proxy_set_header X-Forwarded-Proto \$scheme;
             proxy_read_timeout 300s; proxy_send_timeout 300s;
         }
 
@@ -152,14 +155,19 @@ http {
             proxy_pass $BE;
             proxy_http_version 1.1;
             proxy_set_header Host \$http_host;
+            proxy_set_header X-Forwarded-Proto \$scheme;
             proxy_read_timeout 300s; proxy_send_timeout 300s;
         }
 
         # ── 四组 Seat 客户端同源 API（精确白名单；不存在全量 /api/v1/ 代理）──
-        location /api/v1/cs/ { proxy_pass $BE; proxy_http_version 1.1; proxy_set_header Host \$http_host; }
-        location /api/v1/passport/qr_login/ { proxy_pass $BE; proxy_http_version 1.1; proxy_set_header Host \$http_host; }
-        location /api/v1/enterprise/conversations/ { proxy_pass $BE; proxy_http_version 1.1; proxy_set_header Host \$http_host; }
-        location /api/v1/enterprise/organizations/ { proxy_pass $BE; proxy_http_version 1.1; proxy_set_header Host \$http_host; }
+        location /api/v1/cs/ { proxy_pass $BE; proxy_http_version 1.1; proxy_set_header Host \$http_host;
+            proxy_set_header X-Forwarded-Proto \$scheme; }
+        location /api/v1/passport/qr_login/ { proxy_pass $BE; proxy_http_version 1.1; proxy_set_header Host \$http_host;
+            proxy_set_header X-Forwarded-Proto \$scheme; }
+        location /api/v1/enterprise/conversations/ { proxy_pass $BE; proxy_http_version 1.1; proxy_set_header Host \$http_host;
+            proxy_set_header X-Forwarded-Proto \$scheme; }
+        location /api/v1/enterprise/organizations/ { proxy_pass $BE; proxy_http_version 1.1; proxy_set_header Host \$http_host;
+            proxy_set_header X-Forwarded-Proto \$scheme; }
 
         # ── 静态产物 → 18080（缓存头由静态面下发，网关不覆写）────────────────
         location = /v1/loader.js { proxy_pass http://127.0.0.1:18080; }
@@ -227,7 +235,8 @@ http {
         ssl_certificate_key $WORKDIR/privkey.pem;
         root $ADMIN_DIST;
         client_max_body_size 50m;
-        location /api/ { proxy_pass $BE; proxy_http_version 1.1; proxy_set_header Host \$http_host; }
+        location /api/ { proxy_pass $BE; proxy_http_version 1.1; proxy_set_header Host \$http_host;
+            proxy_set_header X-Forwarded-Proto \$scheme; }
         location = /favicon.ico { return 204; }
         location / { try_files \$uri /index.html; }
     }
