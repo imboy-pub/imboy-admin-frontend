@@ -1,0 +1,32 @@
+<!doctype html>
+<!--
+  SC-E2E — shop.test 宿主页（合法 origin，A01/A03/A04/A05/A09/A10 主链用）。
+
+  iframe 直嵌代码合同（计划 §1.1，Admin buildSeatEmbedCode 生成的默认片段）：
+
+    <iframe
+      src="https://cs.imboy.pub/seat/PUBLIC_ID"
+      title="IMBoy 客服工作台"
+      sandbox="allow-scripts allow-same-origin allow-downloads"
+      referrerpolicy="no-referrer"
+      style="width:100%;height:100vh;border:0"
+    ></iframe>
+
+  E2E 域名映射（只此一处替换，属性名/顺序/取值逐一保持）：
+    生产 https://cs.imboy.pub  →  本地 https://cs.test:18443（cs 网关 TLS 18443）
+    PUBLIC_ID                  →  __SC153_PUBLIC_ID__（种子 console 公开 ID）
+  本页只做这一处替换；不添加任何 data-* 凭证属性、不生成 script loader。
+-->
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>SC153 Shop 宿主页</title></head>
+<body>
+<h1>shop.test — SC153 E2E host page（商城管理后台等价物）</h1>
+<iframe
+  src="__SC153_CS_ORIGIN__/seat/__SC153_PUBLIC_ID__"
+  title="IMBoy 客服工作台"
+  sandbox="allow-scripts allow-same-origin allow-downloads"
+  referrerpolicy="no-referrer"
+  style="width:100%;height:100vh;border:0"
+></iframe>
+</body>
+</html>
