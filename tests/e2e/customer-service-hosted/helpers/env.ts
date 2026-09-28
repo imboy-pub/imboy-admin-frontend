@@ -81,7 +81,7 @@ export async function agentHttpMessage(
   conversationId: string,
   clientMsgId: string,
   body: string,
-): Promise<{ status: number; json: any }> {
+): Promise<{ status: number; json: unknown }> {
   const res = await fetch(
     `${BE_MAIN}/api/v1/enterprise/organizations/${ORG}/conversations/${conversationId}/messages`,
     {
@@ -96,7 +96,7 @@ export async function agentHttpMessage(
       }),
     },
   )
-  let json: any = null
+  let json: unknown = null
   try {
     json = await res.json()
   } catch {
@@ -110,7 +110,7 @@ export async function agentHttpClose(
   token: string,
   sessionId: string,
   expectedVersion: number,
-): Promise<{ status: number; json: any }> {
+): Promise<{ status: number; json: unknown }> {
   const res = await fetch(
     `${BE_MAIN}/api/v1/cs/organizations/${ORG}/sessions/${sessionId}/close`,
     {
@@ -123,7 +123,7 @@ export async function agentHttpClose(
       }),
     },
   )
-  let json: any = null
+  let json: unknown = null
   try {
     json = await res.json()
   } catch {

@@ -204,7 +204,7 @@ test.describe('a09 CS production closure (J-CS-06)', () => {
       // 若恢复放行（实现允许 equality），收紧到 used-1 再验证拒绝面。
       const put2 = await api(OWNER_TOKEN, 'PUT', org(`/seat-limit?workspace_id=${WS1}`), { seat_limit: Math.max(1, used - 1) })
       expect(put2.status).toBe(200)
-      const susp2 = await api('', 'POST', `/api/adm/customer-service/organizations/${ORG1}/seats/${SEAT_B_IDENTITY}/suspend`, { reason: 'a09-probe2', workspace_id: WS1 }, true)
+      await api('', 'POST', `/api/adm/customer-service/organizations/${ORG1}/seats/${SEAT_B_IDENTITY}/suspend`, { reason: 'a09-probe2', workspace_id: WS1 }, true)
       const resume2 = await api('', 'POST', `/api/adm/customer-service/organizations/${ORG1}/seats/${SEAT_B_IDENTITY}/resume`, { workspace_id: WS1 }, true)
       // 冲突契约锚是 envelope tag（CS-APP-03 冻结口径：状态码可能漂移，
       // tag seat_limit_exceeded 稳定）。

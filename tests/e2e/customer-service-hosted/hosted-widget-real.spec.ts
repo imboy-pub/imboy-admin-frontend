@@ -19,18 +19,14 @@ import {
   agentHttpMessage,
   CS,
   CS_BROWSER,
-  IDENTITY_ID,
   INST_A,
-  INST_B,
   ORG,
   ORIGIN,
   psql,
   seatLogin,
   SHOP,
-  SHOP2,
   WID_A,
   WID_B,
-  WORKSPACE_ID,
 } from './helpers/env'
 
 // ---- 采集器 -------------------------------------------------------------
@@ -46,7 +42,7 @@ function wire(page: Page) {
   return { consoleErrors, failed, responses }
 }
 
-async function jsonOf(r: Response): Promise<any> {
+async function jsonOf(r: Response): Promise<unknown> {
   try {
     const t = await r.text()
     return t ? JSON.parse(t) : null

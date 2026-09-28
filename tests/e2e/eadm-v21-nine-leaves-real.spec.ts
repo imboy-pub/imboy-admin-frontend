@@ -72,7 +72,7 @@ function watchApi(page: Page, leaf: string): void {
     if (!url.includes('/api/adm/')) return
     // code=0 Oracle 收紧：响应体在事件回调内**即时**缓冲（离岗等导航型加载
     // 稍后 res.json() 会因 Network.getResponseBody 被回收而失败——先取先得）。
-    let code: number | null = null
+    let code: number | null
     try {
       const body = (await res.json()) as { code?: number }
       code = body?.code ?? null

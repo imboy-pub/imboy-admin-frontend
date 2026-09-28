@@ -17,7 +17,7 @@ import { expect, test } from '@playwright/test'
 
 const BASE = 'http://127.0.0.1:8906'
 const ORG1 = process.env.ENTINT01_ORG1 ?? ''
-const ORG2 = process.env.ENTINT01_ORG2 ?? ''
+
 const GROUP_ENT = 'ENTINT01 EnterpriseGroup'
 const GROUP_PERSONAL = 'ENTINT01 PersonalGroup'
 const CHANNEL = 'ENTINT01 EnterpriseChannel'
