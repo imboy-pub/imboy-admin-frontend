@@ -142,6 +142,19 @@ http {
             proxy_read_timeout 300s; proxy_send_timeout 300s;
         }
 
+        # ── 动态 frame：GET /w/:public_widget_id → backend ───────────────────
+        # SC-INT DEF-SC153-06：访客链路（hosted loader snippet 的 iframe src）
+        # 走既有 /w/ 面 —— 生产模板（cs-widget.conf.template ^~ /w/）与 P2
+        # hosted harness 都有，本 conf 初版漏带导致 /w/ 落 catch-all 静态 404、
+        # A04/A05/A09 访客会话链全断。与 /seat/ 同边界：XFO/CSP 由 backend 逐
+        # 请求下发，网关零注入。
+        location ^~ /w/ {
+            proxy_pass $BE;
+            proxy_http_version 1.1;
+            proxy_set_header Host \$http_host;
+            proxy_read_timeout 300s; proxy_send_timeout 300s;
+        }
+
         # ── 四组 Seat 客户端同源 API（精确白名单；不存在全量 /api/v1/ 代理）──
         location /api/v1/cs/ { proxy_pass $BE; proxy_http_version 1.1; proxy_set_header Host \$http_host; }
         location /api/v1/passport/qr_login/ { proxy_pass $BE; proxy_http_version 1.1; proxy_set_header Host \$http_host; }
@@ -323,6 +336,12 @@ log "坐席绑定完成（uid=$UID2 identity=$IDENTITY_ID account=$SEAT_ACCOUNT�
 log "dist-widget 已构建"
 if [ "${SC153_E2E_SKIP_ADMIN_BUILD:-0}" != "1" ]; then
   ( cd "$ROOT" && bun run build >/dev/null )
+  # SC-INT DEF-SC153-07：__IMBOY_API_HOST__ 是部署期占位符（docker 入口 sed），
+  # harness 直发 dist 不会经过那条管道；残留占位符让 CSP connect-src 整条失效，
+  # Admin SPA 全部 API 被浏览器拦截 → 登录按钮永久禁用（A08 实测）。admin.test
+  # 对 /api/ 是同源代理，本地语义等价 = 去掉占位符只留 'self'（与开发态
+  # IMBOY_DEV_CSP_API_HOST 缺省行为一致）。
+  sed -i '' 's/ __IMBOY_API_HOST__//' "$ADMIN_DIST/index.html"
   log "Admin SPA dist 已构建（admin.test 面；SC153_E2E_SKIP_ADMIN_BUILD=1 可跳过）"
 fi
 

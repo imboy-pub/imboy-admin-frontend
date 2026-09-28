@@ -112,10 +112,15 @@ test.describe('SC-E2E A01..A10（EXECUTE-GATED）', () => {
       const iframe = page.locator('iframe[title="IMBoy 客服工作台"]')
       await expect(iframe).toHaveAttribute('src', expectedFrameUrl())
       // 网络事实：/seat/<id> 真实发生了且 200（观察，不拦截）。
-      const seatResp = await page.waitForResponse(
+      // SC-INT DEF-SC153-09：openSeatEmbed 已等 iframe 挂载，/seat/<id> 首个响应
+      // 多半已发生——waitForResponse 事后注册必然 30s 超时。改为 reload 前先挂
+      // 监听，同一 frame URL 重新发起真实请求，网络事实照旧、无竞态。
+      const seatRespPromise = page.waitForResponse(
         (r) => r.url().includes(`/seat/${CONSOLE_PUBLIC_ID}`),
         { timeout: 30_000 },
       )
+      await page.reload({ waitUntil: 'domcontentloaded' })
+      const seatResp = await seatRespPromise
       expect(seatResp.status(), 'seat frame 文档必须 200').toBe(200)
       // 嵌入式工作台到达 QR 登录面板（QR SVG 可扫描形态可见）。
       const qr = embedFrame(page).getByTestId('seat-qr-code')
@@ -152,7 +157,9 @@ test.describe('SC-E2E A01..A10（EXECUTE-GATED）', () => {
   // ---------------------------------------------------------------- A03
   test('A03 QR create/subscribe/confirm 真实闭环 + JWT 零落地 + Admin Cookie 不放行', async ({ browser }) => {
     test.setTimeout(240_000)
-    const page = await openSeatEmbed(browser, SHOP)
+    // SC-INT DEF-SC153-08：漏解构 { page } —— 拿到的是 {page, frame} 包装对象，
+    // page.context() TypeError（A01 同款用法为正确形态）。
+    const { page } = await openSeatEmbed(browser, SHOP)
     try {
       await qrLoginSeatInFrame(page, SEAT.account)
 
