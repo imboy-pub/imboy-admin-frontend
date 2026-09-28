@@ -30,11 +30,14 @@ import { requireApiPayload } from '@/services/api/responseAdapter'
 import type { ApiResponse } from '@/types/api'
 import type { EntityId } from '@/types/common'
 import {
+  asOrgStatusFilter,
   toDepartmentRow,
   toInvitationCreatedReveal,
   toInvitationView,
+  toInviteCodeRevokeResult,
   toMemberLifecycleResult,
   toOrgLifecycleResult,
+  toOrganizationInviteCode,
   toOrganizationMemberRow,
   toOrganizationSummary,
   toWorkspaceRow,
@@ -46,12 +49,23 @@ import {
   type InvitationCreatedReveal,
   type InvitationStatus,
   type InvitationView,
+  type InviteCodeRevokeResult,
   type MemberLifecycleResult,
   type OrgLifecycleResult,
+  type OrganizationInviteCode,
+  type OrganizationInviteCodeRole,
   type OrganizationMemberRow,
   type OrganizationSummary,
   type OrgPage,
+  type OrgStatusFilter,
   type WorkspaceRow,
+} from './pureFunctions'
+
+// 邀请码类型出站再导出：调用方（组织二维码弹窗）从本模块统一取用。
+export type {
+  OrganizationInviteCode,
+  OrganizationInviteCodeRole,
+  InviteCodeRevokeResult,
 } from './pureFunctions'
 
 function requireNonEmptyId(value: EntityId, label: string): EntityId {
@@ -72,13 +86,14 @@ function orgPath(organizationId: EntityId, suffix = ''): string {
 // ===========================================================================
 
 /**
- * GET /api/adm/organizations —— 平台视角组织分页（status=all|active|archived；
- * keyword 命中组织名或 TSID，服务端搜索）。替代 App 面 /organizations/mine。
+ * GET /api/adm/organizations —— 平台视角组织分页（status=all|active|pending|
+ * rejected|archived；keyword 命中组织名或 TSID，服务端搜索）。替代 App 面
+ * /organizations/mine。pending/rejected 为入驻审核两态（review 域新增）。
  */
 export async function getOrganizations(
   page: number,
   size: number,
-  status: 'all' | 'active' | 'archived' = 'all',
+  status: OrgStatusFilter = 'all',
   keyword = ''
 ): Promise<OrgPage<OrganizationSummary>> {
   const trimmed = keyword.trim()
@@ -86,7 +101,7 @@ export async function getOrganizations(
     params: {
       page,
       size,
-      status,
+      status: asOrgStatusFilter(status),
       ...(trimmed.length > 0 ? { keyword: trimmed } : {}),
     },
   })
@@ -136,6 +151,28 @@ export async function archiveOrganization(organizationId: EntityId): Promise<Org
 export async function restoreOrganization(organizationId: EntityId): Promise<OrgLifecycleResult> {
   const response = await client.post<ApiResponse<unknown>>(orgPath(organizationId, '/restore'), {})
   return toOrgLifecycleResult(requireApiPayload(response.data, 'POST organization restore'))
+}
+
+// ===========================================================================
+// 入驻审核（review 域：pending → active | rejected）
+// 响应同为 lifecycle 信封 {organization_id,status,changed}；仅 pending 态可过
+// （其余状态服务端 409，UI 入口按 isOrgWriteAllowed(status,'approve'|'reject') 门控）。
+// ===========================================================================
+
+/** POST /api/adm/organizations/:organization_id/review/approve —— 审核通过（仅 pending）。 */
+export async function approveOrganization(organizationId: EntityId): Promise<OrgLifecycleResult> {
+  const response = await client.post<ApiResponse<unknown>>(orgPath(organizationId, '/review/approve'), {})
+  return toOrgLifecycleResult(requireApiPayload(response.data, 'POST organization review approve'))
+}
+
+/** POST /api/adm/organizations/:organization_id/review/reject —— 审核驳回（仅 pending；body {reason?} 可空）。 */
+export async function rejectOrganization(organizationId: EntityId, reason?: string): Promise<OrgLifecycleResult> {
+  const trimmed = typeof reason === 'string' ? reason.trim() : ''
+  const response = await client.post<ApiResponse<unknown>>(
+    orgPath(organizationId, '/review/reject'),
+    trimmed.length > 0 ? { reason: trimmed } : {}
+  )
+  return toOrgLifecycleResult(requireApiPayload(response.data, 'POST organization review reject'))
 }
 
 // ===========================================================================
@@ -311,6 +348,42 @@ export async function cancelOrganizationInvitation(organizationId: EntityId, inv
     `/organizations/${encodeURIComponent(org)}/invitations/${encodeURIComponent(invitation)}/cancel`,
     {}
   )
+}
+
+// ===========================================================================
+// 组织邀请码（扫码加入组织；与逐人 invitations 域相互独立）
+// GET 无有效码时后端返回 code=404：client 拦截器以 ApiError{code:404} reject，
+// 调用方用 classifyOrgError(err).kind === 'not_found' 判定「暂无有效邀请码」
+// （与既有错误码判定惯例同源：code 即后端 envelope 的 HTTP 语义码）。
+// ===========================================================================
+
+/**
+ * GET /api/adm/organizations/:organization_id/invite_code —— 当前有效邀请码。
+ * 404 = 无有效码（业务空态，不是故障）：由调用方判定后呈现「生成邀请码」入口。
+ */
+export async function getOrganizationInviteCode(organizationId: EntityId): Promise<OrganizationInviteCode> {
+  const response = await client.get<ApiResponse<unknown>>(orgPath(organizationId, '/invite_code'))
+  return toOrganizationInviteCode(requireApiPayload(response.data, 'GET organization invite_code'))
+}
+
+/**
+ * POST /api/adm/organizations/:organization_id/invite_code —— 生成/重新生成邀请码
+ * （body {role}；重新生成 = 旧码立即失效，已有二维码随即作废）。
+ */
+export async function createOrganizationInviteCode(
+  organizationId: EntityId,
+  role: OrganizationInviteCodeRole
+): Promise<OrganizationInviteCode> {
+  const response = await client.post<ApiResponse<unknown>>(orgPath(organizationId, '/invite_code'), {
+    role,
+  })
+  return toOrganizationInviteCode(requireApiPayload(response.data, 'POST organization invite_code'))
+}
+
+/** DELETE /api/adm/organizations/:organization_id/invite_code —— 撤销（幂等；响应 {organization_id, revoked}）。 */
+export async function revokeOrganizationInviteCode(organizationId: EntityId): Promise<InviteCodeRevokeResult> {
+  const response = await client.delete<ApiResponse<unknown>>(orgPath(organizationId, '/invite_code'))
+  return toInviteCodeRevokeResult(requireApiPayload(response.data, 'DELETE organization invite_code'))
 }
 
 // ===========================================================================

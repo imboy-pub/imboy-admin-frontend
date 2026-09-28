@@ -7,8 +7,18 @@ import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Select } from '@/components/ui/select'
+import { Textarea } from '@/components/ui/textarea'
 import { ConfirmDialog, DataTable, DataTablePagination, EmptyState, EntityDrawer, ErrorState, PageHeader } from '@/components/shared'
 import type { EntityDrawerSection } from '@/components/shared'
 import { serializeOrgWorkspaceQuery } from '@/components/shared/orgWorkspaceQuery'
@@ -17,20 +27,26 @@ import { useListQueryState } from '@/hooks/useListQueryState'
 import { t } from '@/i18n'
 import { DEFAULT_PAGE_SIZE } from '@/lib/pagination'
 import {
+  approveOrganization,
   archiveOrganization,
   getOrganizations,
+  rejectOrganization,
   restoreOrganization,
 } from '../api/public'
 // GZAPP-08：建企走 V2 双模式（registered 复用 EADM-01；pending_phone 建待激活 Owner）
 import { OrganizationCreateDialogV2 } from './OrganizationCreateDialogV2'
+// 入驻组织邀请码二维码弹窗（GET/POST/DELETE invite_code；打开才发请求）
+import { OrganizationQrcodeDialog } from './OrganizationQrcodeDialog'
 // CS-ADM-01：档案 Drawer 内嵌组织级客服摘要（Drawer 打开才挂载才发请求）。
 import { CsSummaryPanel } from '../components/CsSummaryPanel'
 import type { EntityId } from '@/types/common'
 import {
+  asOrgStatusFilter,
   classifyOrgError,
   isOrgWriteAllowed,
   orgStatusLabel,
   type OrganizationSummary,
+  type OrgStatusFilter,
 } from '../api/pureFunctions'
 
 const READ_PERMISSION = 'organizations:read'
@@ -40,7 +56,18 @@ type ListState = {
   page: number
   size: number
   q: string
+  /** 服务端状态筛选档位（'all' = 不过滤；pending/rejected 为入驻审核两态）。 */
+  status: OrgStatusFilter
 }
+
+/** 状态筛选下拉选项（值即服务端 status 档位字面量）。 */
+const STATUS_FILTER_OPTIONS: Array<{ value: OrgStatusFilter; label: string }> = [
+  { value: 'all', label: t('ent.orgList.statusAll') },
+  { value: 'active', label: t('ent.orgList.statusActive') },
+  { value: 'pending', label: t('ent.orgList.statusPending') },
+  { value: 'rejected', label: t('ent.orgList.statusRejected') },
+  { value: 'archived', label: t('ent.orgList.statusArchived') },
+]
 
 /**
  * 组织列表页（ORG-14 → ORG-ADMIN-ADM-WIRING 平台面）。
@@ -53,7 +80,7 @@ type ListState = {
 export function OrganizationListPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const { state, setState } = useListQueryState<ListState>({ page: 1, size: DEFAULT_PAGE_SIZE, q: '' })
+  const { state, setState } = useListQueryState<ListState>({ page: 1, size: DEFAULT_PAGE_SIZE, q: '', status: 'all' })
 
   const { allowed: canRead, loading: permLoading } = useAdminPermission({ permission: READ_PERMISSION })
   const readReady = canRead && !permLoading
@@ -66,6 +93,12 @@ export function OrganizationListPage() {
   // 组织档案 Drawer（T-P2-4 最小补差，ENT-ADM-04）：消费 ENT-FND-01 的
   // EntityDrawer sections 能力，只读投影行内既有事实，不新发请求。
   const [profileOrg, setProfileOrg] = useState<OrganizationSummary | null>(null)
+  // 入驻审核（review 域）+ 邀请码二维码弹窗：org!=null 即 open（复用行对象携带名称等上下文）
+  const [pendingApprove, setPendingApprove] = useState<OrganizationSummary | null>(null)
+  const [pendingReject, setPendingReject] = useState<OrganizationSummary | null>(null)
+  const [qrcodeOrg, setQrcodeOrg] = useState<OrganizationSummary | null>(null)
+  // 驳回原因草稿（可选；弹窗内草稿态，确认提交时才 trim 上送）
+  const [rejectReasonDraft, setRejectReasonDraft] = useState('')
 
   const handleCreated = useCallback(
     (organizationId: EntityId, workspaceId: EntityId, _created: boolean) => {
@@ -80,9 +113,11 @@ export function OrganizationListPage() {
   )
 
   const keyword = state.q.trim()
+  // URL 状态是事实源但值不可信（手输/历史链接），经防御收窄后再进 queryKey/请求。
+  const statusFilter = asOrgStatusFilter(state.status)
   const query = useQuery({
-    queryKey: ['organization', 'list', state.page, state.size, keyword],
-    queryFn: () => getOrganizations(state.page, state.size, 'all', keyword),
+    queryKey: ['organization', 'list', state.page, state.size, statusFilter, keyword],
+    queryFn: () => getOrganizations(state.page, state.size, statusFilter, keyword),
     enabled: readReady,
   })
 
@@ -117,6 +152,29 @@ export function OrganizationListPage() {
     onError: (err) => toast.error(classifyOrgError(err).message),
   })
 
+  // 入驻审核（review 域）：仅 pending 态可达（入口由 isOrgWriteAllowed 门控），
+  // 服务端对非 pending 一律 409；成功后 invalidate 列表/详情让状态列即时收敛。
+  const approveMutation = useMutation({
+    mutationFn: (orgId: string) => approveOrganization(orgId),
+    onSuccess: (result, orgId) => {
+      toast.success(t('ent.orgList.approveToast', { orgId, status: result.status }))
+      setPendingApprove(null)
+      invalidateList()
+    },
+    onError: (err) => toast.error(classifyOrgError(err).message),
+  })
+
+  const rejectMutation = useMutation({
+    mutationFn: (input: { orgId: string; reason: string }) => rejectOrganization(input.orgId, input.reason),
+    onSuccess: (result, input) => {
+      toast.success(t('ent.orgList.rejectToast', { orgId: input.orgId, status: result.status }))
+      setPendingReject(null)
+      setRejectReasonDraft('')
+      invalidateList()
+    },
+    onError: (err) => toast.error(classifyOrgError(err).message),
+  })
+
   const rows = useMemo(() => query.data?.items ?? [], [query.data])
 
   const openDetail = useCallback(
@@ -140,6 +198,9 @@ export function OrganizationListPage() {
               {row.original.name}
             </button>
             {row.original.status === 'archived' && <Badge variant="destructive">{t('ent.orgList.archivedBadge')}</Badge>}
+            {/* 入驻审核两态徽章（与 archivedBadge 同位呈现，风格一致） */}
+            {row.original.status === 'pending' && <Badge variant="secondary">{t('ent.orgList.pendingBadge')}</Badge>}
+            {row.original.status === 'rejected' && <Badge variant="destructive">{t('ent.orgList.rejectedBadge')}</Badge>}
           </div>
         ),
       },
@@ -203,9 +264,32 @@ export function OrganizationListPage() {
                 <span className="text-xs text-muted-foreground">{t('ent.orgList.readonlyHint', { permission: WRITE_PERMISSION })}</span>
               ) : (
                 <>
+                  {/* 邀请码二维码（扫码加入组织；打开弹窗后才发请求） */}
+                  <Button variant="ghost" size="sm" data-testid="org-qrcode-btn" onClick={() => setQrcodeOrg(org)}>
+                    {t('ent.orgList.qrcode')}
+                  </Button>
                   <Button variant="ghost" size="sm" onClick={() => openDetail(org)}>
                     {t('ent.orgList.actionGovern')}
                   </Button>
+                  {isOrgWriteAllowed(org.status, 'approve') ? (
+                    <Button variant="outline" size="sm" data-testid="org-approve-btn" onClick={() => setPendingApprove(org)}>
+                      {t('ent.orgList.actionApprove')}
+                    </Button>
+                  ) : null}
+                  {isOrgWriteAllowed(org.status, 'reject') ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-destructive hover:text-destructive"
+                      data-testid="org-reject-btn"
+                      onClick={() => {
+                        setRejectReasonDraft('')
+                        setPendingReject(org)
+                      }}
+                    >
+                      {t('ent.orgList.actionReject')}
+                    </Button>
+                  ) : null}
                   {isOrgWriteAllowed(org.status, 'archive') ? (
                     <Button variant="outline" size="sm" data-testid="org-archive-btn" onClick={() => setPendingArchive(org)}>
                       {t('ent.orgList.actionArchive')}
@@ -291,7 +375,7 @@ export function OrganizationListPage() {
         </CardHeader>
         <CardContent className="space-y-3">
           <form
-            className="flex max-w-md items-end gap-2"
+            className="flex max-w-2xl items-end gap-2"
             onSubmit={(event) => {
               event.preventDefault()
               setState({ q: keywordDraft, page: 1 })
@@ -305,6 +389,22 @@ export function OrganizationListPage() {
                 onChange={(event) => setKeywordDraft(event.target.value)}
                 placeholder={t('ent.orgList.searchPlaceholder')}
               />
+            </div>
+            {/* 状态筛选（服务端 status 档位；变更即时写回 URL 并重置页码） */}
+            <div className="w-44 space-y-1.5">
+              <Label htmlFor="org-list-status">{t('ent.orgList.statusFilterLabel')}</Label>
+              <Select
+                id="org-list-status"
+                value={statusFilter}
+                data-testid="org-status-filter"
+                onChange={(event) => setState({ status: asOrgStatusFilter(event.target.value), page: 1 })}
+              >
+                {STATUS_FILTER_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </Select>
             </div>
             <Button type="submit" size="sm" variant="outline" data-testid="org-search-submit">
               <Search className="mr-1 h-4 w-4" />
@@ -342,6 +442,78 @@ export function OrganizationListPage() {
         loading={restoreMutation.isPending}
         onConfirm={async () => {
           if (pendingRestore) await restoreMutation.mutateAsync(pendingRestore.id)
+        }}
+      />
+
+      {/* 入驻审核：通过（简单确认） */}
+      <ConfirmDialog
+        open={pendingApprove != null}
+        onOpenChange={(open) => {
+          if (!open) setPendingApprove(null)
+        }}
+        title={t('ent.orgList.approveTitle', { name: pendingApprove?.name ?? '' })}
+        description={t('ent.orgList.approveDescription')}
+        confirmText={t('ent.orgList.approveConfirm')}
+        loading={approveMutation.isPending}
+        onConfirm={async () => {
+          if (pendingApprove) await approveMutation.mutateAsync(pendingApprove.id)
+        }}
+      />
+
+      {/* 入驻审核：驳回（可选原因 textarea；确认前二次确认） */}
+      <Dialog
+        open={pendingReject != null}
+        onOpenChange={(open) => {
+          if (!open) setPendingReject(null)
+        }}
+      >
+        <DialogContent data-testid="org-reject-dialog" className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('ent.orgList.rejectTitle', { name: pendingReject?.name ?? '' })}</DialogTitle>
+            <DialogDescription>{t('ent.orgList.rejectDescription')}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-1.5">
+            <Label htmlFor="org-reject-reason">{t('ent.orgList.rejectReasonLabel')}</Label>
+            <Textarea
+              id="org-reject-reason"
+              value={rejectReasonDraft}
+              onChange={(event) => setRejectReasonDraft(event.target.value)}
+              placeholder={t('ent.orgList.rejectReasonPlaceholder')}
+              rows={3}
+            />
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={rejectMutation.isPending}
+              onClick={() => setPendingReject(null)}
+            >
+              {t('ent.orgList.rejectCancel')}
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              data-testid="org-reject-confirm"
+              disabled={rejectMutation.isPending}
+              onClick={() => {
+                if (pendingReject) {
+                  rejectMutation.mutate({ orgId: pendingReject.id, reason: rejectReasonDraft })
+                }
+              }}
+            >
+              {rejectMutation.isPending ? t('ent.orgList.rejectSubmitting') : t('ent.orgList.rejectConfirm')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 组织邀请码二维码（open 才发请求；关闭即卸载内容并复位会话态） */}
+      <OrganizationQrcodeDialog
+        org={qrcodeOrg}
+        open={qrcodeOrg != null}
+        onOpenChange={(open) => {
+          if (!open) setQrcodeOrg(null)
         }}
       />
 

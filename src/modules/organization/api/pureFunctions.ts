@@ -29,7 +29,20 @@ import type { EntityId } from '@/types/common'
 
 export type OrgRole = 'owner' | 'admin' | 'member' | null
 
-export type OrgStatus = 'active' | 'archived' | 'unknown'
+/**
+ * 组织状态（adm 面）：C16 原有 active/archived 之外，新增入驻审核两态——
+ * pending（待审核）/ rejected（已驳回）。服务端状态机：pending 经 review/approve
+ * → active、review/reject → rejected；其余读写门禁不变。
+ */
+export type OrgStatus = 'active' | 'archived' | 'pending' | 'rejected' | 'unknown'
+
+/** 列表服务端 status 筛选档位（GET /organizations?status=）。 */
+export type OrgStatusFilter = 'all' | 'active' | 'pending' | 'rejected' | 'archived'
+
+/** URL/输入防御收窄：非白名单值一律落回 'all'（不猜、不抛）。 */
+export function asOrgStatusFilter(value: unknown): OrgStatusFilter {
+  return value === 'active' || value === 'pending' || value === 'rejected' || value === 'archived' ? value : 'all'
+}
 
 export type OrganizationSummary = {
   id: EntityId
@@ -258,8 +271,17 @@ function isNetworkError(err: unknown): boolean {
 //   * owner-transfer：组织须 active，目标须是本组织成员，自转移 400。
 // ===========================================================================
 
-/** C16：archived 禁新写；restore 是 archived 态唯一放行的写入口。 */
-export function isOrgWriteAllowed(status: OrgStatus, action: 'archive' | 'restore' | 'update'): boolean {
+/**
+ * C16 + 入驻审核写门禁：
+ * - approve / reject 仅 pending 态放行（其余状态服务端一律 409，UI 同步隐藏入口）；
+ * - archived 禁新写，restore 是 archived 态唯一放行的写入口；
+ * - active 态对既有 archive/restore/update 语义放行（行为不变）。
+ */
+export function isOrgWriteAllowed(
+  status: OrgStatus,
+  action: 'archive' | 'restore' | 'update' | 'approve' | 'reject'
+): boolean {
+  if (action === 'approve' || action === 'reject') return status === 'pending'
   if (status === 'active') return true
   if (status === 'archived') return action === 'restore'
   return false
@@ -336,6 +358,58 @@ export function toOrgLifecycleResult(raw: unknown): OrgLifecycleResult {
 }
 
 // ===========================================================================
+// 组织邀请码（GET/POST/DELETE /api/adm/organizations/:id/invite_code）
+//
+// 契约要点：
+//   * GET 无有效码时后端返回 code=404 —— client 拦截器会以 ApiError{code:404}
+//     reject，调用方按 classifyOrgError(err).kind === 'not_found' 判定「无码」；
+//   * POST 生成/重新生成（重新生成 = 旧码立即失效），body 仅 {role}；
+//   * DELETE 撤销（幂等），响应 {organization_id, revoked}；
+//   * expires_at / created_at 为 epoch 秒（同 invitation 域口径）。
+// ===========================================================================
+
+/** 邀请码角色档位（与成员组织角色 admin/member 两档对齐；owner 不经邀请码授予）。 */
+export type OrganizationInviteCodeRole = 'admin' | 'member'
+
+/** GET/POST invite_code 响应 data 投影（snake_case → camelCase；TSID 全 string）。 */
+export type OrganizationInviteCode = {
+  organizationId: EntityId
+  code: string
+  role: OrganizationInviteCodeRole
+  status: string
+  expiresAt: number | null
+  createdAt: number | null
+}
+
+/** DELETE invite_code 响应 data 投影：revoked 为撤销命中的记录数（0 = 本就无码）。 */
+export type InviteCodeRevokeResult = {
+  organizationId: EntityId
+  revoked: number
+}
+
+export function toOrganizationInviteCode(raw: unknown): OrganizationInviteCode {
+  const record = asRecord(raw)
+  const role = record['role']
+  return {
+    organizationId: coerceEntityId(record['organization_id']),
+    code: asString(record['code']),
+    // 非 admin/member 的异常值按 member 防御兜底（不渲染成未知档位）。
+    role: role === 'admin' ? 'admin' : 'member',
+    status: asString(record['status']) || 'unknown',
+    expiresAt: asNumberOrNull(record['expires_at']),
+    createdAt: asNumberOrNull(record['created_at']),
+  }
+}
+
+export function toInviteCodeRevokeResult(raw: unknown): InviteCodeRevokeResult {
+  const record = asRecord(raw)
+  return {
+    organizationId: coerceEntityId(record['organization_id']),
+    revoked: asNumberOrNull(record['revoked']) ?? 0,
+  }
+}
+
+// ===========================================================================
 // 投影 / 归一化
 // ===========================================================================
 
@@ -358,7 +432,14 @@ function asVersion(value: unknown): number {
   return n != null && n >= 1 ? n : 1
 }
 
-function asStatus(value: unknown): 'active' | 'archived' | 'unknown' {
+function asStatus(value: unknown): OrgStatus {
+  return value === 'active' || value === 'archived' || value === 'pending' || value === 'rejected'
+    ? value
+    : 'unknown'
+}
+
+/** 部门域无入驻审核两态；与 asStatus 分离，避免组织域扩展波及 DepartmentStatus 白名单。 */
+function asDepartmentStatus(value: unknown): DepartmentStatus {
   return value === 'active' || value === 'archived' ? value : 'unknown'
 }
 
@@ -441,7 +522,7 @@ export function toDepartmentRow(raw: unknown): DepartmentRow {
           : coerceEntityId(parent)
         : coerceEntityId(parent) || null,
     name: asString(record['name']),
-    status: asStatus(record['status']),
+    status: asDepartmentStatus(record['status']),
     version: asVersion(record['version']),
     createdAt: asString(record['created_at']),
     updatedAt: asString(record['updated_at']),
@@ -612,6 +693,10 @@ export function orgStatusLabel(status: OrgStatus): string {
       return 'active'
     case 'archived':
       return 'archived'
+    case 'pending':
+      return '待审核'
+    case 'rejected':
+      return '已驳回'
     default:
       return 'unknown'
   }
