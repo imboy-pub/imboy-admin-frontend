@@ -1,0 +1,16 @@
+<!doctype html>
+<!--
+  SC-E2E — shop.test/visitor.html 访客页（A04/A05/A09 用）。
+  坐席旅程需要一条真实 queued 会话：访客经既有 hosted Widget loader（snippet →
+  iframe → consent → POST /sessions）真实建会话，坐席在嵌入 iframe 的工作台里
+  claim / 回复 / 收 SSE。loader 与 installation 种子行同 hosted 面合同（同源
+  /api/v1/cs/widget/* 由 cs.test 网关代理）。
+-->
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>SC153 Shop 访客页</title></head>
+<body>
+<h1>shop.test — SC153 E2E visitor page</h1>
+<!-- 冻结合同：最小 snippet，唯一 data-* 属性 = data-widget-id（种子 public_widget_id） -->
+<script async src="__SC153_CS_ORIGIN__/v1/loader.js" data-widget-id="__SC153_WIDGET_ID__"></script>
+</body>
+</html>

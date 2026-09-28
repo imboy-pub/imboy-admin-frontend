@@ -65,3 +65,6 @@ tests/e2e/customer-service-p2/.artifacts/
 
 # CS-INT-03 a09b 附件门 E2E 运行产物（trace/报告/失败现场）
 tests/e2e/customer-service-int02/.artifacts-a09b/
+
+# SC-E2E 坐席工作台嵌入 E2E 运行产物（trace/报告/失败现场）
+tests/e2e/customer-service-seat-embed/.artifacts/
