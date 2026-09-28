@@ -39,7 +39,10 @@
 #           SC153_E2E_SKIP_ADMIN_BUILD
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"       # 仓根（imboyadmin worktree）
+# SC-INT DEF-SC153-05：fixtures 在仓根下 4 级（tests/e2e/<case>/fixtures），
+# 上溯必须 4 级；3 级落在 tests/，静态 root 渲染成 tests/dist-widget（不存在，
+# 静态面全 404；构建步骤因 bun 向上找 package.json 而侥幸成功，掩盖了该错）。
+ROOT="$(cd "$(dirname "$0")/../../../.." && pwd)"    # 仓根（imboyadmin worktree）
 HERE="$(cd "$(dirname "$0")" && pwd)"                # tests/e2e/customer-service-seat-embed/fixtures
 PG_CONTAINER="${SC153_E2E_PG_CONTAINER:-imboy_pg18}"
 PG_USER="${SC153_E2E_PG_USER:-imboy_user}"
@@ -349,7 +352,9 @@ fi
 sleep 1
 
 # ---- h. 冒烟：cs 网关静态面 + seat frame 面真实可达 ------------------------------
-curl -sk -o /dev/null --resolve cs.test:18443:127.0.0.1 "https://cs.test:18443/v1/loader.js" \
+# -f 必须带上（DEF-SC153-05 一并修）：无 -f 时 404 响应也算 curl 成功，
+# 冒烟对静态面故障完全不设防。
+curl -skf -o /dev/null --resolve cs.test:18443:127.0.0.1 "https://cs.test:18443/v1/loader.js" \
   || { echo "nginx 拓扑冒烟失败（loader 静态面）" >&2; exit 3; }
 SEAT_CODE=$(curl -sk -o /dev/null -w '%{http_code}' --resolve cs.test:18443:127.0.0.1 "https://cs.test:18443/seat/$PUBLIC_ID")
 if [ "$SEAT_CODE" != "200" ]; then
