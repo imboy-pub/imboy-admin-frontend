@@ -277,11 +277,11 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        'flex flex-col border-r bg-sidebar-background transition-all duration-300',
+        'flex h-full flex-col border-r bg-sidebar-background transition-all duration-300',
         collapsed ? 'w-16' : 'w-64'
       )}
     >
-      <div className="flex h-16 items-center justify-between border-b px-4">
+      <div className="flex h-16 shrink-0 items-center justify-between border-b px-4">
         {!collapsed && <span className="text-xl font-bold text-sidebar-primary">{title}</span>}
         <button onClick={() => setCollapsed(!collapsed)} className="rounded p-1.5 hover:bg-sidebar-accent">
           {collapsed ? <ChevronRight className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
@@ -289,7 +289,7 @@ export function Sidebar() {
       </div>
 
       {!collapsed && (
-        <div className="border-b p-2">
+        <div className="shrink-0 border-b p-2">
           <div className="relative">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-sidebar-foreground/60" />
             <input
@@ -302,7 +302,7 @@ export function Sidebar() {
         </div>
       )}
 
-      <nav className="flex-1 space-y-2 overflow-y-auto p-2">
+      <nav className="min-h-0 flex-1 space-y-2 overflow-y-auto p-2">
         {!collapsed && favoriteItems.length > 0 && (
           <section className="space-y-1">
             <div className="px-2 text-xs font-medium text-sidebar-foreground/60">收藏</div>
@@ -329,7 +329,7 @@ export function Sidebar() {
 
       {/* 白标接线点④：部署方配置了隐私/客服链接才渲染（折叠态不显示） */}
       {!collapsed && hasBrandLegalLinks && (
-        <div className="border-t border-sidebar-border p-3">
+        <div className="shrink-0 border-t border-sidebar-border p-3">
           <BrandLegalLinks />
         </div>
       )}

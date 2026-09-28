@@ -46,9 +46,10 @@ export function AdminLayout() {
 
   return (
     <SidebarContext.Provider value={{ mobileOpen, toggleMobile, closeMobile }}>
-      <div className="flex h-screen">
+      {/* App Shell：整页锁定视口高度且不产生文档级滚动，侧边栏与内容区各自独立滚动 */}
+      <div className="flex h-dvh overflow-hidden">
         {/* 桌面侧边栏 */}
-        <div className="hidden md:block">
+        <div className="hidden h-full shrink-0 md:block">
           <Sidebar />
         </div>
 
@@ -65,11 +66,11 @@ export function AdminLayout() {
           </>
         )}
 
-        <div className="flex flex-1 flex-col overflow-hidden">
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           <Header />
           <LicenseExpiryBanner />
           <QuotaWarningBanner />
-          <main className="flex-1 overflow-auto bg-muted/30 p-4 md:p-6">
+          <main className="min-h-0 flex-1 overflow-y-auto bg-muted/30 p-4 md:p-6">
             <Breadcrumb />
             <div key={location.pathname} className="animate-fade-in">
               <Outlet />
