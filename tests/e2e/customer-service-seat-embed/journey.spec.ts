@@ -425,6 +425,11 @@ test.describe('SC-E2E A01..A10（EXECUTE-GATED）', () => {
       const scanTargets: Array<{ source: string; sample: string }> = [
         { source: 'shop DOM', sample: await page.content() },
         { source: 'visitor DOM', sample: await visitorPage.content() },
+        // console error / 未捕获异常 / 网络层失败（计划 A09 三通道之一；
+        // 采集器补齐后与 DOM/响应体同权扫描——SC-E2E REVIEW-4 F1）。
+        ...collector.consoleErrors.map((item) => ({ source: `console@${item.pageUrl}`, sample: item.text })),
+        ...collector.pageErrors.map((item) => ({ source: `pageerror@${item.pageUrl}`, sample: item.text })),
+        ...collector.requestFailures.map((item) => ({ source: `requestfailed:${item.url}`, sample: item.failure })),
         ...collector.responseBodies
           .filter((item) => !/\/passport\/qr_login\/(status|subscribe)/.test(item.url)) // QR 合同投递通道豁免（同 P2）
           .map((item) => ({ source: item.url, sample: item.sample })),

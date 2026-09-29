@@ -135,36 +135,6 @@ export async function seatPassportLogin(account: string): Promise<string> {
   return body.payload.token
 }
 
-/** 坐席回复（真实 HTTP 通道：eb_tenant POST conversation_messages）。 */
-export async function agentHttpMessage(
-  token: string,
-  conversationId: string,
-  clientMsgId: string,
-  body: string,
-): Promise<{ status: number; json: any }> {
-  const res = await fetch(
-    `${BE_MAIN}/api/v1/enterprise/organizations/${ORG_ID}/conversations/${conversationId}/messages`,
-    {
-      method: 'POST',
-      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-      body: JSON.stringify({
-        workspace_id: WORKSPACE_ID,
-        client_msg_id: clientMsgId,
-        sender_type: 'business_identity',
-        identity_id: IDENTITY_ID,
-        body,
-      }),
-    },
-  )
-  let json: any = null
-  try {
-    json = await res.json()
-  } catch {
-    /* 如实留空 */
-  }
-  return { status: res.status, json }
-}
-
 /** 清理本作用域残留 active 会话（坐席 max_concurrent=1；与 P2 db-proof 同款）。 */
 export function closeStaleActiveSessions(): number {
   const out = psql(

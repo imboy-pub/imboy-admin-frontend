@@ -10,6 +10,8 @@ import type { Page, Response } from '@playwright/test'
 
 export interface BrowserGateCollector {
   consoleErrors: Array<{ text: string; pageUrl: string }>
+  /** 未捕获页面异常（pageerror；泄漏扫描与归档用）。 */
+  pageErrors: Array<{ text: string; pageUrl: string }>
   serverErrors: Array<{ status: number; url: string }>
   /** 响应体采样（截断）供泄漏扫描：仅 2xx/3xx 文本型响应（负例响应不采）。 */
   responseBodies: Array<{ url: string; sample: string }>
@@ -17,16 +19,20 @@ export interface BrowserGateCollector {
   requestUrls: string[]
   /** 4xx 请求台账（归因用：console 的 Failed to load resource 不带 URL）。 */
   clientErrors: Array<{ status: number; url: string }>
+  /** 网络层失败请求（requestfailed；url 参与泄漏扫描）。 */
+  requestFailures: Array<{ url: string; failure: string }>
   exemptPatterns: RegExp[]
 }
 
 export function createCollector(exemptPatterns: RegExp[] = []): BrowserGateCollector {
   return {
     consoleErrors: [],
+    pageErrors: [],
     serverErrors: [],
     clientErrors: [],
     responseBodies: [],
     requestUrls: [],
+    requestFailures: [],
     exemptPatterns,
   }
 }
@@ -35,6 +41,12 @@ export function createCollector(exemptPatterns: RegExp[] = []): BrowserGateColle
 export function watchPage(collector: BrowserGateCollector, page: Page): void {
   page.on('console', (message) => {
     if (message.type() === 'error') collector.consoleErrors.push({ text: message.text(), pageUrl: page.url() })
+  })
+  page.on('pageerror', (error) => {
+    collector.pageErrors.push({ text: String(error?.message ?? error), pageUrl: page.url() })
+  })
+  page.on('requestfailed', (request) => {
+    collector.requestFailures.push({ url: request.url(), failure: request.failure()?.errorText ?? 'unknown' })
   })
   page.on('response', (response: Response) => {
     const status = response.status()
