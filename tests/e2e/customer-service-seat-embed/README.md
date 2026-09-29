@@ -41,6 +41,32 @@ A09 泄漏门（JWT/secret/手机号零泄漏）；A10 sandbox 精确属性 + to
 3. 负例断言用 **浏览器侧事实**（console enforcement message + frame 未提交），
    不把响应头字符串当 oracle。
 
+## 已知边界 / 未测区（REVIEW-4 F5/F7）
+
+**本套件禁止并行执行**（跨 run 会互扰，多个 run 只能串行跑）：
+
+- `closeStaleActiveSessions()`（`helpers/env.ts`）是 **全 workspace UPDATE**——
+  `UPDATE customer_service_session ... WHERE organization_id=? AND workspace_id=?
+  AND status='active'`，不带任何 run 维度隔离。并行 run 的清理会把对方
+  正在操作的 active 会话一并关掉；坐席 `max_concurrent=1` 的前置也依赖
+  干净现场，互扰即双双翻车。
+- 访客建会话后的会话 id oracle 是 **按 id DESC 取最新一行**
+  （`journey.spec.ts` `newVisitorSession` 的 `ORDER BY id DESC LIMIT 1`），
+  同样不带 run 隔离——多 run 并行时可能取到**他人 run 刚建的会话**，
+  后续 sessionId/conversationId 断言全部错位。
+
+**并发盲区清单**（本套件未覆盖、真实多实例行为未在 EXECUTE 阶段验证）：
+
+1. **双坐席 claim 竞争**：A04 只走单坐席 claim 成功路径；两个坐席对同一
+   queued 会话并发 CAS claim 恰一成功、失败方收到 409 后列表自动收敛的
+   端到端竞争未在真实浏览器 + 真实后端上验证（组件级 409 收敛已有单测）。
+2. **SSE visitor→agent 半向**：访客发消息 → 坐席侧 SSE 实时收敛由 A04 覆盖；
+   反方向（坐席回复 → 访客侧实时刷新）依赖访客页事件通道，本套件只断言
+   坐席侧，访客侧实时性是盲区。
+3. **多 run 并行**：即上两条的根因——全 workspace UPDATE 与 id DESC 最新行
+   oracle 都隐含"同一时刻只有一个 run 在跑"；要支持并行须先引入 run 级
+   隔离（独立 org/workspace 种子，或会话标记/前缀过滤）。
+
 ## 运行（EXECUTE 阶段）
 
 前置（外部提供）：
