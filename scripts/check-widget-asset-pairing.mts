@@ -14,8 +14,8 @@
  *     后端  cs_widget_handler.erl   -define(PUBLIC_FRAME_ASSET_JS, <<"/widget-assets/cs-widget.v2.js">>)
  *     admin widget-manifest.mts     const STABLE_ASSET_ALIAS = 'widget-assets/cs-widget.v2.js'
  *     admin widget-verify.mts       const STABLE_ASSET_ENTRY = 'widget-assets/cs-widget.v2.js'
- *   face = seat_console（SC-BLD 冻结合同；后端面由 SC-INT 落地）：
- *     后端  cs_seat_frame_handler.erl -define(SEAT_FRAME_ASSET_JS, <<"/seat-assets/cs-seat.v1.js">>)
+ *   face = seat_console（SC-BLD 冻结合同；后端面已由 SC-INT 落地）：
+ *     后端  cs_seat_console_handler.erl -define(SEAT_FRAME_ASSET_JS, <<"/seat-assets/cs-seat.v1.js">>)
  *     admin widget-manifest.mts       const STABLE_SEAT_ASSET_ALIAS = 'seat-assets/cs-seat.v1.js'
  *     admin widget-verify.mts         const STABLE_SEAT_ASSET_ENTRY = 'seat-assets/cs-seat.v1.js'
  * （后端常量带前导 /，比对前归一。CSS 别名由 JS 常量单真源派生，无独立后端宏；
@@ -25,7 +25,8 @@
  * 配对表接线交叉核对（single source of truth）：priv/cs_widget_asset_pairing.json
  * （经 IMBOY_REPO_DIR 定位）登记了 face → 后端文件/宏 与 admin 文件/常量的接线。
  * 本脚本在 JSON 可读且已登记某 face 时，核对两边接线一致（漂移即 FAIL，只加强
- * 不放宽）；seat_console 尚未登记时记 PENDING（SC-INT 落地后同步）。JSON 不可读
+ * 不放宽）；seat_console 已于 SC-INT 落地同步登记（REVIEW-1 N-1 修正接线漂移：
+ * 真实处理器为 cs_seat_console_handler.erl）。JSON 不可读
  * 或某 face 未登记时，仅提示、不改变该 face 既有判定（不引入新的失败面）。
  *
  * 退出码：0 = 全部配对一致（若存在 PENDING 面——仅限 pending_ok 面、且只可能是
@@ -87,11 +88,10 @@ const FACES: Face[] = [
   },
   {
     face: 'seat_console',
-    note: '/seat/:public_seat_console_id frame 引用的版本化坐席工作台入口（SC-BLD；后端面由 SC-INT 落地，宏缺失时记 PENDING）',
+    note: '/seat/:public_seat_console_id frame 引用的版本化坐席工作台入口（SC-BLD；后端面已由 SC-INT 落地：cs_seat_console_handler.erl）',
     shape: 'seat-assets/cs-seat.',
-    pending_ok: true,
     backend: {
-      file: 'src/features/customer_service/interfaces/cs_seat_frame_handler.erl',
+      file: 'src/features/customer_service/interfaces/cs_seat_console_handler.erl',
       macro: 'SEAT_FRAME_ASSET_JS',
     },
     admin: [
