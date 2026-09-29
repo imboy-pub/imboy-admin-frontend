@@ -5,7 +5,12 @@
 > **最后更新 / Last updated**: 2026-09-19（版本锚点与术语链接刷新；结构描述未全量复核）
 > **技术栈 / Stack**: React 19.2 + TypeScript + Vite + Radix UI + Zustand + TanStack Query/Table
 > **包管理 / Package manager**: bun
-> **测试 / Testing**: bun test (unit) + Playwright (E2E)
+> **测试 / Testing**: `bun run test`（= `bun test --isolate`，unit）+ Playwright (E2E)
+>   ⚠️ 单测必须带 `--isolate`：bun 默认所有测试文件共享同一全局对象（同一
+>   `document` + 同一份模块表），跨文件的 mock/DOM 泄漏会造成 "Found multiple
+>   elements" 等假失败（review-2 实证：裸 `bun test` 2360/5，`--isolate` 2365/0）。
+>   一律通过 `bun run test` 调用；bunfig 不支持 `isolate = true`，进程内也无法
+>   探测该开关，CLI 标志是唯一 lever。
 > **术语与三端对齐 / Terminology**: 后端仓 `docs/glossary.md`（正式术语）· `docs/api-contracts/three-platform-alignment.md`（API 对齐与契约漂移登记）
 
 ---
