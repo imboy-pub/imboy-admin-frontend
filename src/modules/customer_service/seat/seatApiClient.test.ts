@@ -9,6 +9,12 @@
  * - A05 合同：{code,msg,payload} 信封、TSID 精度保护解析、错误分类；
  * - CS-WEB-01：requestBlob 附件内容端点（原始字节流非信封；Bearer 头 +
  *   credentials omit；401/403/404 分类；域外路径拒绝）。
+ * - REVIEW-2 凭据卫生锁定（评审无发现项 → 防回归测试化）：全部出站通道
+ *   （JSON request / SSE fetch 流 / 资产 content 读回 / 裸 PUT 上传）每条请求
+ *   credentials:'omit'；有 token 时 Authorization: Bearer 形状正确且 URL 与
+ *   body 均不含 JWT；token 类查询键仅 status/subscribe allowlist；redact
+ *   家族脱敏。注：SSE fetch 流实现位于 seatSseClient.ts（SeatEventStream），
+ *   本文件按真实代码路径将其纳入同一凭据卫生断言面。
  */
 import { afterEach, describe, expect, it } from 'bun:test'
 import {
@@ -20,6 +26,7 @@ import {
 } from './seatApiClient'
 import { isSeatApiError } from './errors'
 import { seatTokenVault } from './seatAuthStore'
+import { SeatEventStream } from './seatSseClient'
 
 type RecordedCall = { url: string; init: RequestInit | undefined }
 
@@ -383,5 +390,136 @@ describe('CS-WEB-02 putUploadObject（裸 PUT 上传通道；presign 下发目�
       thrown = error
     }
     expect((thrown as { kind: string }).kind).toBe('network')
+  })
+})
+
+/**
+ * REVIEW-2 凭据卫生锁定（评审确认事实 → 防回归测试化）。
+ *
+ * 锁定事实（以真实实现为准；mock 只打 fetch 边界，真实走 client 代码路径）：
+ * 1. 全部出站通道每条请求 credentials:'omit'（Cookie 不随行）；
+ * 2. 有 token 时 Authorization: Bearer <token> 只进头；URL 与 body 均不含 JWT
+ *    （对每通道各断言一次）；
+ * 3. token 类查询键家族仅 session_token 在 status/subscribe 两条合同路径
+ *    allowlist 内；其余路径带该类键的构造在发请求前被拒；
+ * 4. redactSeatUrl：token 类键值一律替换为 ***，值不出现在输出。
+ *
+ * 通道盘点（真实代码）：request（JSON API）、requestBlob（资产 content 读回）、
+ * putUploadObject（裸 PUT 上传，含 upload_ref 带 Bearer / 对象存储裸 PUT 两种
+ * 形态）、SeatEventStream（SSE fetch 流；实现在 seatSseClient.ts，此处纳入
+ * 同一断言面）。无 token 时 SSE fail-closed 不发请求，已在 seatSseClient.test.ts
+ * 锁定，此处不重复。
+ */
+describe('REVIEW-2 凭据卫生锁定（全通道系统断言）', () => {
+  const GUARD_JWT = 'REVIEW2guard.hdgJWTsig.bodynever'
+
+  it('通道1 JSON API（request）：credentials omit；Bearer 只进 Authorization 头；URL 与 body 均不含 JWT', async () => {
+    seatTokenVault.setToken(GUARD_JWT)
+    const { calls, fetchImpl } = makeFetch(() => ({ code: 0, msg: 'success', payload: {} }))
+    const client = new SeatApiClient({ fetchImpl, getToken: () => seatTokenVault.getToken() })
+    await client.request('/cs/me/seat-contexts')
+    await client.request('/passport/qr_login/cancel', { method: 'POST', body: { qr_token: 'q-1' } })
+    expect(calls).toHaveLength(2)
+    for (const call of calls) {
+      const init = call.init as RequestInit
+      expect(init.credentials).toBe('omit')
+      expect((init.headers as Record<string, string>).Authorization).toBe(`Bearer ${GUARD_JWT}`)
+      expect(call.url).not.toContain(GUARD_JWT)
+      if (typeof init.body === 'string') expect(init.body).not.toContain(GUARD_JWT)
+    }
+  })
+
+  it('通道2 资产 content 读回（requestBlob）：credentials omit；Bearer 只进 Authorization 头；URL 不含 JWT', async () => {
+    seatTokenVault.setToken(GUARD_JWT)
+    const { calls, fetchImpl } = makeFetch(() => new Response(new Uint8Array([1, 2, 3]), { status: 200 }))
+    const client = new SeatApiClient({ fetchImpl, getToken: () => seatTokenVault.getToken() })
+    await client.requestBlob('/enterprise/organizations/1/assets/2/content')
+    expect(calls).toHaveLength(1)
+    const init = calls[0]?.init as RequestInit
+    expect(init.credentials).toBe('omit')
+    expect((init.headers as Record<string, string>).Authorization).toBe(`Bearer ${GUARD_JWT}`)
+    expect(calls[0]?.url).not.toContain(GUARD_JWT)
+  })
+
+  it('通道3 裸 PUT 上传（putUploadObject）：两种形态均 credentials omit；upload_ref 形态 Bearer 进头、URL/body 不含 JWT；对象存储形态无 Authorization', async () => {
+    seatTokenVault.setToken(GUARD_JWT)
+    const { calls, fetchImpl } = makeFetch(() => new Response('', { status: 200 }))
+    const client = new SeatApiClient({ fetchImpl, getToken: () => seatTokenVault.getToken() })
+    const blob = new Blob([new Uint8Array([9, 9, 9])])
+    // imboy API 域形态（CS-BE-01B 线特征：查询串带 upload_ref）→ 带 Bearer。
+    await client.putUploadObject('/api/v1/enterprise/organizations/1/assets/upload/1?upload_ref=ur-1', blob)
+    // 对象存储预签形态 → 无 Authorization（Seat JWT 绝不外发第三方域）。
+    await client.putUploadObject('https://objects.example.internal/bucket/obj?X-Amz-Signature=sig', blob)
+    expect(calls).toHaveLength(2)
+    const apiInit = calls[0]?.init as RequestInit
+    const s3Init = calls[1]?.init as RequestInit
+    for (const call of calls) {
+      const init = call.init as RequestInit
+      expect(init.credentials).toBe('omit')
+      expect(call.url).not.toContain(GUARD_JWT)
+      // body 只透传调用方 Blob（引用相等）：client 不会另构造含 JWT 的 body。
+      expect(init.body).toBe(blob)
+    }
+    expect((apiInit.headers as Record<string, string>).Authorization).toBe(`Bearer ${GUARD_JWT}`)
+    expect((s3Init.headers as Record<string, string>).Authorization).toBeUndefined()
+  })
+
+  it('通道4 SSE fetch 流（SeatEventStream，实现位于 seatSseClient.ts）：credentials omit；Bearer 只进 Authorization 头；URL 不含 JWT 且 GET 无 body', async () => {
+    seatTokenVault.setToken(GUARD_JWT)
+    const calls: RecordedCall[] = []
+    const encoder = new TextEncoder()
+    const stream = new SeatEventStream({
+      getToken: () => seatTokenVault.getToken(),
+      fetchImpl: async (url, init) => {
+        calls.push({ url, init })
+        const body = new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(encoder.encode('retry: 2000\n\n'))
+            controller.close()
+          },
+        })
+        return new Response(body, { status: 200 })
+      },
+      onEnvelope: () => {},
+      onResync: () => {},
+    })
+    stream.start({ organizationId: '2000000000000000002', workspaceId: '3000000000000000003' })
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    stream.stop()
+    expect(calls).toHaveLength(1)
+    const call = calls[0] as RecordedCall
+    const init = call.init as RequestInit
+    expect(init.credentials).toBe('omit')
+    expect((init.headers as Record<string, string>).Authorization).toBe(`Bearer ${GUARD_JWT}`)
+    expect(call.url).toBe(
+      '/api/v1/cs/organizations/2000000000000000002/seats/me/events?workspace_id=3000000000000000003',
+    )
+    expect(call.url).not.toContain(GUARD_JWT)
+    expect(init.body).toBeUndefined()
+  })
+
+  it('token 类查询键家族在 Seat 域非 allowlist 路径全部发请求前被拒（与实现 TOKEN_LIKE_QUERY_KEYS 同步）', async () => {
+    const { calls, fetchImpl } = makeFetch(() => ({}))
+    const client = new SeatApiClient({ fetchImpl })
+    for (const key of ['session_token', 'token', 'access_token', 'refresh_token', 'visit_token', 'jwt']) {
+      let thrown: unknown = null
+      try {
+        await client.request('/cs/me/seat-contexts', { query: { [key]: 'SECRETVALUE' } })
+      } catch (error) {
+        thrown = error
+      }
+      expect(isSeatApiError(thrown)).toBe(true)
+      expect((thrown as { kind: string }).kind).toBe('validation')
+      expect((thrown as Error).message).toContain(key)
+    }
+    expect(calls).toHaveLength(0)
+  })
+
+  it('redactSeatUrl 家族：全部 token 类键值替换为 ***，值不出现在输出', () => {
+    for (const key of ['session_token', 'token', 'access_token', 'refresh_token', 'visit_token', 'jwt']) {
+      const redacted = redactSeatUrl(`/api/v1/cs/x?${key}=SECRETVALUE&w=1`)
+      expect(redacted).toBe(`/api/v1/cs/x?${key}=***&w=1`)
+      expect(redacted).not.toContain('SECRETVALUE')
+    }
   })
 })
