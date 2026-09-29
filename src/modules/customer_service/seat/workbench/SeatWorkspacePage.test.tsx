@@ -425,6 +425,30 @@ describe('SeatWorkspacePage 工作台（A01/A02/A03/A04/A05/A06）', () => {
     expect(backend.sentClientMsgIds).toHaveLength(1)
   })
 
+  it('连续两次发送产生互不相同的 client_msg_id（唯一性不变量；兜底不再是常量）', async () => {
+    const backend = new SeatFakeBackend()
+    backend.state.sessionStatus = 'active'
+    backend.state.version = 8
+    const view = renderWorkspace(backend, new FakeSseStream())
+    fireEvent.click(await waitFor(() => view.getByTestId('seat-tab-active')))
+    fireEvent.click(await waitFor(() => view.getByTestId(`seat-session-item-${SESSION}`)))
+    const composer = await waitFor(() => view.getByTestId('seat-composer'))
+    const user = userEvent.setup()
+    // REVIEW-3 F-3：client_msg_id 无常量兜底——ref 未置位也绝不发出 'seat-web-empty'。
+    await user.type(composer, '第一条')
+    fireEvent.click(view.getByTestId('seat-send'))
+    await waitFor(() => expect(backend.sentClientMsgIds).toHaveLength(1))
+    await user.type(composer, '第二条')
+    fireEvent.click(view.getByTestId('seat-send'))
+    await waitFor(() => expect(backend.sentClientMsgIds).toHaveLength(2))
+    const [first, second] = backend.sentClientMsgIds
+    expect(first?.length).toBeGreaterThan(0)
+    expect(second?.length).toBeGreaterThan(0)
+    expect(first).not.toBe('seat-web-empty')
+    expect(second).not.toBe('seat-web-empty')
+    expect(first).not.toBe(second)
+  })
+
   it('A05：tablist/tab 语义 + 会话列表键盘可达（原生 button 焦点路径）', async () => {
     const backend = new SeatFakeBackend()
     const view = renderWorkspace(backend, new FakeSseStream())
