@@ -141,19 +141,35 @@ export default defineConfig(({ mode }) => {
       '^/brand$': {
         target: process.env.VITE_PROXY_TARGET || 'http://127.0.0.1:9800',
         changeOrigin: true,
+        // 后端 cowboy keepalive 超时会关空闲连接；dev proxy 复用 stale 连接会
+        // 偶发 ECONNRESET 随机打挂 E2E 用例（prodready run 实证）。禁用出站
+        // 连接复用（每请求新建），dev/E2E 场景开销可忽略。
+        agent: false,
       },
       '^/api/adm(?=/|$)': {
         target: process.env.VITE_PROXY_TARGET || 'http://127.0.0.1:9800',
         changeOrigin: true,
+        // 后端 cowboy keepalive 超时会关空闲连接；dev proxy 复用 stale 连接会
+        // 偶发 ECONNRESET 随机打挂 E2E 用例（prodready run 实证）。禁用出站
+        // 连接复用（每请求新建），dev/E2E 场景开销可忽略。
+        agent: false,
       },
       // ORG-14：组织治理面走 /api/v1 App 面（同后端实例），dev 下同源转发
       '^/api/v1(?=/|$)': {
         target: process.env.VITE_PROXY_TARGET || 'http://127.0.0.1:9800',
         changeOrigin: true,
+        // 后端 cowboy keepalive 超时会关空闲连接；dev proxy 复用 stale 连接会
+        // 偶发 ECONNRESET 随机打挂 E2E 用例（prodready run 实证）。禁用出站
+        // 连接复用（每请求新建），dev/E2E 场景开销可忽略。
+        agent: false,
       },
       '^/metrics$': {
         target: process.env.VITE_PROXY_TARGET || 'http://127.0.0.1:9800',
         changeOrigin: true,
+        // 后端 cowboy keepalive 超时会关空闲连接；dev proxy 复用 stale 连接会
+        // 偶发 ECONNRESET 随机打挂 E2E 用例（prodready run 实证）。禁用出站
+        // 连接复用（每请求新建），dev/E2E 场景开销可忽略。
+        agent: false,
       },
     },
   },
