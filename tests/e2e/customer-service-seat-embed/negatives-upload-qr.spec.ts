@@ -118,7 +118,7 @@ test.describe('SC-E2E 负例B：presign 声明值绕过', () => {
     })
     const put = await request.put(
       `/api/v1/cs/widget/sessions/${identity.sessionId}/assets/upload` +
-        `?installation_id=${identity.installationId}&upload_ref=${uploadRef}`,
+        `?installation_id=${identity.installationId}&upload_ref=${encodeURIComponent(uploadRef)}`,
       { data: SAMPLE },
     )
     // 声明值不符 = 客户端请求错误 → 400（执行期实证合同）
@@ -137,7 +137,7 @@ test.describe('SC-E2E 负例B：presign 声明值绕过', () => {
     })
     const put = await request.put(
       `/api/v1/cs/widget/sessions/${identity.sessionId}/assets/upload` +
-        `?installation_id=${identity.installationId}&upload_ref=${uploadRef}`,
+        `?installation_id=${identity.installationId}&upload_ref=${encodeURIComponent(uploadRef)}`,
       { data: SAMPLE },
     )
     expect(put.status(), 'hash 复核失败必须 400（声明值不符）').toBe(400)
@@ -190,14 +190,14 @@ test.describe('SC-E2E 负例B：QR 登录 token 重放', () => {
 
     // 3) 首次 status：单次读分支 → 200 + payload.token（取走即删，
     // qr_login_handler:141；confirm 响应只含 status=confirmed 不含 token）
-    const first = await request.get(`/api/v1/passport/qr_login/status?session_token=${sessionToken}`)
+    const first = await request.get(`/api/v1/passport/qr_login/status?session_token=${encodeURIComponent(sessionToken)}`)
     expect(first.status(), '确认后首次 status 必须 200').toBe(200)
     const firstBody = (await first.json()) as Envelope
     expect(firstBody.code, '首次 status 必须成功签发').toBe(0)
     expect(String(firstBody.payload?.token ?? ''), 'token 只此一次').not.toBe('')
 
     // 4) 重放同一 session_token → HTTP 200 + envelope 404 会话不存在或已过期
-    const replay = await request.get(`/api/v1/passport/qr_login/status?session_token=${sessionToken}`)
+    const replay = await request.get(`/api/v1/passport/qr_login/status?session_token=${encodeURIComponent(sessionToken)}`)
     expect(replay.status(), '取走即删：重放 HTTP 面仍 200（防枚举）').toBe(200)
     const replayBody = (await replay.json()) as Envelope
     expect(replayBody.code, '重放 envelope 404').toBe(404)

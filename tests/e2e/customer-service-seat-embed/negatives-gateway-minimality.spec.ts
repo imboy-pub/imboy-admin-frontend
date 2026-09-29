@@ -23,6 +23,11 @@
 import { expect, test } from '@playwright/test'
 import { CS_ORIGIN, EXECUTE_ENABLED, ORG_ID, SEAT, seatPassportLogin, WORKSPACE_ID } from './helpers/env'
 
+// 与 negatives-gateway-cookie.spec.ts 同款：cs.test 被系统代理 fake-ip 劫持时，
+// SC153_E2E_GATEWAY_BASE=https://127.0.0.1:18443 直连同一拓扑（cs.test 块为
+// 首个 vhost=默认 server），零 BE_MAIN 回退。
+const GATEWAY_BASE = process.env.SC153_E2E_GATEWAY_BASE ?? CS_ORIGIN
+
 // ⛔ EXECUTE 阶段门（文件级：FIXTURE_ONLY 下本文件全部用例 skip）
 test.skip(!EXECUTE_ENABLED, 'EXECUTE-GATED: 主线程串行阶段 sets SC153_E2E_EXECUTE=1 after SC-INT PASS')
 
@@ -48,7 +53,7 @@ interface ProbeResult {
 }
 
 async function probe(path: string, method: 'GET' | 'POST' | 'PUT' = 'GET'): Promise<ProbeResult> {
-  const res = await fetch(`${CS_ORIGIN}${path}`, {
+  const res = await fetch(`${GATEWAY_BASE}${path}`, {
     method,
     headers: {
       Authorization: `Bearer ${seatJwt}`,
@@ -175,7 +180,8 @@ test.describe('r3-B1 网关收敛负例：治理面经 cs.test origin 携有效 
     } catch {
       envelope = null // 非 JSON（静态 404 HTML）即天然无信封
     }
-    expect(envelope?.code ?? 0).not.toBe(0)
+    // 无信封（null）= 网关层直接裁决，通过；有信封则 code 绝不为 0。
+    expect(envelope?.code ?? null).not.toBe(0)
   })
 })
 
