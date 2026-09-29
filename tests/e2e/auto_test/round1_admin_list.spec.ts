@@ -206,14 +206,19 @@ test('批次1 AdminListPage 全量首测', async ({ page }) => {
     const current = await roleSelect.inputValue()
     const options = await roleSelect.locator('option').all()
     let next: string | null = null
+    // 优先选内置角色（value 1..6，权限集代码硬编码且 ⊆ super 全集）：自定义角色的
+    // permissions override 存在测试轮写脏的先例（e2e_369730_1 实测 permissions 为一串
+    // 中文描述文本 → 防提权 guard 403「不能授予超出自身权限集的角色」，adm-12 第四轮
+    // 实证）；super_admin（value=1）跳过——授 super 无业务意义。
     for (const o of options) {
       const v = await o.getAttribute('value')
-      const label = ((await o.textContent()) ?? '').trim()
-      // 授予 super_admin 会被后端防自我提权 guard 拒绝（403「不能授予超出自身权限集的角色」，
-      // adm_admin_handler 正确安全行为）；本步只验证变更链路，与创建步同口径跳过 super_admin
-      if (v && v !== current && Number(v) > 0 && label !== 'super_admin') { next = v; break }
+      const n = Number(v)
+      if (v && v !== current && n >= 2 && n <= 6) { next = v; break }
     }
     test.skip(!next, '无可切换的角色选项')
+    const optDump = await roleSelect.locator('option').evaluateAll((ns) =>
+      ns.map((n) => `${(n as HTMLOptionElement).value}:${((n as HTMLOptionElement).textContent ?? '').trim()}`))
+    console.log(`[dbg] role options=[${optDump.join(', ')}] current=${current} next=${next}`)
     const assignResp = page.waitForResponse((r) => r.url().includes('/admin/assign_role'), { timeout: 15_000 })
     await roleSelect.selectOption(next!)
     await expect(page.getByText('确认变更管理员角色')).toBeVisible()
