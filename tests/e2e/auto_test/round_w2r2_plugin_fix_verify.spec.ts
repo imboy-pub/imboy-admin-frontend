@@ -10,7 +10,7 @@
  * 测后：gate-off 恢复门禁默认关闭。
  */
 import { expect, test, type Page, type Response } from '@playwright/test'
-import { execFileSync, spawnSync } from 'node:child_process'
+import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import { loginAsAdmin, requireAdminCredentials } from '../support/adminAuth'
 

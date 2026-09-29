@@ -68,7 +68,7 @@ const ADMIN_LEAF_MENUS = [
 const PRESENCE_ONLY_LEAVES = ['工作区', '企业项目', '企业群', '企业频道'] as const
 
 /** 独立 Seat 入口：/customer-service/workspace 直达（现行侧栏无该叶子；Seat 域独立路由）。 */
-const SEAT_LEAF = { label: '坐席工作台', path: SEAT_WORKSPACE_PATH } as const
+const _SEAT_LEAF = { label: '坐席工作台', path: SEAT_WORKSPACE_PATH } as const
 
 /** 「企业管理」叶子（顺序即 sidebarSchema 下发顺序）。 */
 const ENTERPRISE_LEAF_MENUS = [...ADMIN_LEAF_MENUS, ...PRESENCE_ONLY_LEAVES.map((label) => ({ label, path: '', marker: '' }))] as const

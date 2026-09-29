@@ -14,6 +14,13 @@
 
 import { execFileSync } from 'node:child_process'
 
+/** 后端 API 信封（宽松形状，仅供 E2E oracle 断言前的松散解析；字段按需可选）。 */
+export type BackendEnvelope = {
+  code?: number
+  msg?: string
+  payload?: Record<string, unknown>
+}
+
 export const CS_BROWSER = 'https://cs.test:18443'
 export const CS = 'https://127.0.0.1:18443'
 export const SHOP = 'https://shop.test:18443'
@@ -81,7 +88,7 @@ export async function agentHttpMessage(
   conversationId: string,
   clientMsgId: string,
   body: string,
-): Promise<{ status: number; json: any }> {
+): Promise<{ status: number; json: BackendEnvelope | null }> {
   const res = await fetch(
     `${BE_MAIN}/api/v1/enterprise/organizations/${ORG}/conversations/${conversationId}/messages`,
     {
@@ -96,7 +103,7 @@ export async function agentHttpMessage(
       }),
     },
   )
-  let json: any = null
+  let json: BackendEnvelope | null = null
   try {
     json = await res.json()
   } catch {
@@ -110,7 +117,7 @@ export async function agentHttpClose(
   token: string,
   sessionId: string,
   expectedVersion: number,
-): Promise<{ status: number; json: any }> {
+): Promise<{ status: number; json: BackendEnvelope | null }> {
   const res = await fetch(
     `${BE_MAIN}/api/v1/cs/organizations/${ORG}/sessions/${sessionId}/close`,
     {
@@ -123,7 +130,7 @@ export async function agentHttpClose(
       }),
     },
   )
-  let json: any = null
+  let json: BackendEnvelope | null = null
   try {
     json = await res.json()
   } catch {
