@@ -39,10 +39,25 @@ export const WIDGET_PUBLIC_ID = process.env.SC153_E2E_WIDGET_ID ?? '702000000000
 export const ALLOWED_ORIGIN = SHOP
 export const ROTATED_ORIGIN = SHOP2
 
-/** 合成坐席（scratch 库 DB 直种 + passport/signup 建号；仅本地测试值）。 */
+/**
+ * 合成坐席（scratch 库 DB 直种 + passport/signup 建号；仅本地测试值）。
+ * REVIEW-2 B-5①：密码不再提供跟踪文件内的默认回退——必须经环境注入
+ * （与 harness-seat-embed.sh 的种子同源），缺配置即刻 fail-fast 带指引，
+ * 杜绝「默认密码」静默漂移进任何环境。
+ */
+function requiredEnv(name: string): string {
+  const v = process.env[name]
+  if (typeof v !== 'string' || v === '') {
+    throw new Error(
+      `缺少必需环境变量 ${name}（合成凭据已禁止默认回退；取值须与 fixtures/harness-seat-embed.sh 的种子一致，见 README.md 前置清单）`,
+    )
+  }
+  return v
+}
+
 export const SEAT = {
   account: process.env.SC153_E2E_SEAT_ACCOUNT ?? '19900000002',
-  password: process.env.SC153_E2E_SEAT_PASSWORD ?? 'Sc153E2e2026',
+  password: requiredEnv('SC153_E2E_SEAT_PASSWORD'),
 }
 
 /**
@@ -51,7 +66,7 @@ export const SEAT = {
  */
 export const ADMIN = {
   account: process.env.SC153_E2E_ADMIN_ACCOUNT ?? 'sc153-admin-e2e@imboy.local',
-  password: process.env.SC153_E2E_ADMIN_PASSWORD ?? 'Sc153AdmE2e2026',
+  password: requiredEnv('SC153_E2E_ADMIN_PASSWORD'),
   captcha: '1234',
 }
 
@@ -135,11 +150,17 @@ export async function seatPassportLogin(account: string): Promise<string> {
   return body.payload.token
 }
 
-/** 清理本作用域残留 active 会话（坐席 max_concurrent=1；与 P2 db-proof 同款）。 */
-export function closeStaleActiveSessions(): number {
+/**
+ * 清理 active 会话（坐席 max_concurrent=1；与 P2 db-proof 同款）。
+ * REVIEW-4 F5：只关 `runSince`（本 run 启动时刻）之后创建的会话 —— 全
+ * workspace 无差别 UPDATE 会误杀另一 run 正在使用的 active 会话（跨 run
+ * 互扰的主害）；更早的残留交给人工/重建口径，不越权代管。
+ */
+export function closeStaleActiveSessions(runSince: Date): number {
   const out = psql(
     `with cls as (update customer_service_session set status='closed', closed_at=now() at time zone 'utc'` +
-      ` where organization_id=${ORG_ID} and workspace_id=${WORKSPACE_ID} and status='active' returning 1)` +
+      ` where organization_id=${ORG_ID} and workspace_id=${WORKSPACE_ID} and status='active'` +
+      ` and queued_at >= '${runSince.toISOString()}' returning 1)` +
       ` select count(*) from cls`,
   )
   return Number(out.trim() || 0)

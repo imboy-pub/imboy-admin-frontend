@@ -51,9 +51,19 @@ PG_CONTAINER="${SC153_E2E_PG_CONTAINER:-imboy_pg18}"
 PG_USER="${SC153_E2E_PG_USER:-imboy_user}"
 PG_DB="${SC153_E2E_PG_DB:-sc153_e2e}"
 BE="${SC153_E2E_BACKEND:-http://127.0.0.1:9801}"
-MASTER_CODE="${SC153_E2E_MASTER_CODE:-abc12345}"
+# REVIEW-2 B-5①：万能验证码与合成密码不再提供跟踪文件内的默认回退——必须
+# 经环境注入（与 helpers/env.ts 同源同值），缺失即刻失败并给出指引。
+require_env() {
+  local name="$1"
+  if [ -z "${!name:-}" ]; then
+    echo "[sc153-harness] ❌ 缺少必需环境变量 ${name}（合成凭据已禁止默认回退；见 README.md 前置清单）" >&2
+    exit 1
+  fi
+  printf '%s' "${!name}"
+}
+MASTER_CODE="$(require_env SC153_E2E_MASTER_CODE)"
 SEAT_ACCOUNT="${SC153_E2E_SEAT_ACCOUNT:-19900000002}"
-SEAT_PASSWORD="${SC153_E2E_SEAT_PASSWORD:-Sc153E2e2026}"
+SEAT_PASSWORD="$(require_env SC153_E2E_SEAT_PASSWORD)"
 ORG_ID="${SC153_E2E_ORG_ID:-1603940848519155}"
 WORKSPACE_ID="${SC153_E2E_WORKSPACE_ID:-1603940848519156}"
 PUBLIC_ID="${SC153_E2E_CONSOLE_PUBLIC_ID:-7003004002001001}"

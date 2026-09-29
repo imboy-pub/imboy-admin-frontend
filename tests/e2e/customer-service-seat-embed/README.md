@@ -74,8 +74,11 @@ A09 泄漏门（JWT/secret/手机号零泄漏）；A10 sandbox 精确属性 + to
 1. **PG**：docker 容器 `imboy_pg18` 在跑；
 2. **Backend**：imboy 仓本地节点监听 `9801`（scratch 库 `sc153_e2e`，auto-migrate
    到 head —— 必须含 `00000153 customer_service_seat_console`）。要点：
-   - `{verification_master_code, <<"abc12345">>}`（harness 万能验证码）；
+   - `{verification_master_code, ...}`：经 `SC153_E2E_MASTER_CODE` 注入 harness
+     （REVIEW-2 B-5①：合成凭据禁止跟踪文件内默认回退，缺失即 fail-fast）；
    - `{cs_widget_subject_key, <<64-hex>>}`、`{eb_enterprise_keyring, ...}`（同 hosted）；
+   - `SC153_E2E_SEAT_PASSWORD` / `SC153_E2E_ADMIN_PASSWORD` 同为必填注入
+     （harness 种子与 helpers/env.ts 读同一环境变量，二者必须一致）。
 3. **Admin 首启**（A08 用）：`/api/adm/setup/init` 建超管（captcha `1234` 为 local
    合同测试码；账号默认 `sc153-admin-e2e@imboy.local`）—— setup/init 密码走页内
    RSA 加密，harness 不在 bash 里复刻，与 P2 同口径由 run 环境提供，脚本只探测告警。

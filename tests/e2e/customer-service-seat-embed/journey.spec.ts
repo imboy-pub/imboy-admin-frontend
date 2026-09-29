@@ -16,7 +16,6 @@
 import { expect, test, type Browser, type FrameLocator, type Page } from '@playwright/test'
 import {
   ADMIN_ORIGIN,
-  BE_MAIN,
   closeStaleActiveSessions,
   CONSOLE_PUBLIC_ID,
   CS_ORIGIN,
@@ -42,6 +41,8 @@ import { createCollector, watchPage, type BrowserGateCollector } from '../custom
 test.skip(!EXECUTE_ENABLED, 'EXECUTE-GATED: A0 sets SC153_E2E_EXECUTE=1 after SC-INT PASS + frozen candidate manifest')
 
 const RUN_UNIQ = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`
+/** REVIEW-4 F5：本 run 时间窗——closeStaleActiveSessions 只清窗内会话。 */
+const RUN_SINCE = new Date()
 
 /** JWT 形状（三段 base64url）；运行时拼接防自匹配（同 P2 a05 口径）。 */
 function jwtLike(value: string): boolean {
@@ -61,12 +62,21 @@ async function openLoggedWorkspace(browser: Browser): Promise<Page> {
   return page
 }
 
-/** 访客真实建会话（hosted loader 面）并取回 sessionId/conversationId（DB 直证）。 */
+/** 访客真实建会话（hosted loader 面）并取回 sessionId/conversationId（DB 直证）。
+ *  REVIEW-4 F5：id 水位线定位（先记 max(id)，建完取「越过水位的最早一条」）——
+ *  `ORDER BY id DESC LIMIT 1` 在并发 run 下会取到对方更晚建的会话，队列断言
+ *  全部错位；水位线把错拿窗口从「任意更晚」收窄到「恰好同刻插入」，完全隔离
+ *  需 widget 支持首消息 marker 注入（与 F7 同类，README 已禁并行 + 已登记）。 */
 async function newVisitorSession(visitorPage: Page): Promise<{ sessionId: string; conversationId: string }> {
+  const beforeMax = psql(
+    `SELECT coalesce(max(id), 0) FROM customer_service_session` +
+      ` WHERE organization_id = ${ORG_ID} AND workspace_id = ${WORKSPACE_ID}`,
+  )
   await createVisitorSession(visitorPage, RUN_UNIQ)
   const row = psql(
     `SELECT id, conversation_id FROM customer_service_session` +
-      ` WHERE organization_id = ${ORG_ID} AND workspace_id = ${WORKSPACE_ID} ORDER BY id DESC LIMIT 1`,
+      ` WHERE organization_id = ${ORG_ID} AND workspace_id = ${WORKSPACE_ID}` +
+      ` AND id > ${beforeMax.trim()} ORDER BY id ASC LIMIT 1`,
   )
   const [sessionId, conversationId] = row.split('|')
   expect(sessionId?.length ?? 0).toBeGreaterThan(0)
@@ -219,12 +229,13 @@ test.describe('SC-E2E A01..A10（EXECUTE-GATED）', () => {
       // 浏览器作用域事实：admin.test 的 Cookie 不进 cs.test 域。
       expect((await adminCtx.cookies(`${CS_ORIGIN}/`)).filter((c) => c.name.startsWith('adm_'))).toEqual([])
       // 最坏情况重放：把 adm Cookie 显式附到 seat API —— 后端必须 401/403。
-      // oracle 是「服务端鉴权拒绝」这一真实行为，直打 BE_MAIN（harness 拓扑里
-      // cs.test 的同一上游）与走网关等价；node 侧 APIRequestContext 对
-      // cs.test:18443 的自签 TLS/系统代理不可用（SC-E2E ENVIRONMENT，已记录）。
+      // oracle 是「服务端鉴权拒绝」这一真实行为。REVIEW-4 F11：改打
+      // ${CS_ORIGIN} 网关面闭合「经网关的 Cookie 放行路径」——adminCtx.request
+      // 属浏览器上下文（ignoreHTTPSErrors 生效），不再是 node fetch 直连上游
+      // 的拓扑捷径（ENVIRONMENT×4 的 node fetch 自签限制不再适用）。
       const cookieHeader = admCookies.map((c) => `${c.name}=${c.value}`).join('; ')
       const replay = await adminCtx.request.get(
-        `${BE_MAIN}/api/v1/cs/organizations/${ORG_ID}/seats/me/heartbeat?workspace_id=${WORKSPACE_ID}`,
+        `${CS_ORIGIN}/api/v1/cs/organizations/${ORG_ID}/seats/me/heartbeat?workspace_id=${WORKSPACE_ID}`,
         { headers: { cookie: cookieHeader } },
       )
       expect([401, 403], `Admin Cookie 重放 seat API 必须 401/403，got ${replay.status()}`).toContain(replay.status())
@@ -237,7 +248,7 @@ test.describe('SC-E2E A01..A10（EXECUTE-GATED）', () => {
   // ---------------------------------------------------------------- A04
   test('A04 嵌入工作台主链：contexts/queue 加载 → claim → 发文本 → SSE 收敛到访客', async ({ browser }) => {
     test.setTimeout(300_000)
-    closeStaleActiveSessions()
+    closeStaleActiveSessions(RUN_SINCE)
     const visitorCtx = await browser.newContext()
     const visitorPage = await visitorCtx.newPage()
     let page: Page | null = null
@@ -259,6 +270,15 @@ test.describe('SC-E2E A01..A10（EXECUTE-GATED）', () => {
           .getByTestId('cs-message-list')
           .getByText(reply),
       ).toBeVisible({ timeout: 20_000 })
+      // REVIEW-4 F6（SSE 半向补全）：反向链路——访客 claim 后再发一条消息，
+      // 坐席 message-list 经 seat SSE **实时**出现（全程不注入任何刷新/重开动作）。
+      const followup = `sc153 访客追发 ${RUN_UNIQ}`
+      const visitorWidget = visitorPage.frameLocator('iframe[data-testid="cs-widget-iframe"]')
+      await visitorWidget.getByTestId('cs-input').fill(followup)
+      await visitorWidget.getByTestId('cs-send').click()
+      await expect(frame.getByTestId('seat-message-list').getByText(followup)).toBeVisible({
+        timeout: 20_000,
+      })
       // DB 直证：坐席回复落库（eb 真源，DEF-SC153-13 密文口径）。
       expect(countBusinessIdentityMessages(sessionId)).toBeGreaterThanOrEqual(1)
     } finally {
@@ -270,7 +290,7 @@ test.describe('SC-E2E A01..A10（EXECUTE-GATED）', () => {
   // ---------------------------------------------------------------- A05
   test('A05 sandbox iframe 内附件闭环：presign→PUT→confirm→发送→预览→下载', async ({ browser }) => {
     test.setTimeout(300_000)
-    closeStaleActiveSessions()
+    closeStaleActiveSessions(RUN_SINCE)
     const visitorCtx = await browser.newContext()
     const visitorPage = await visitorCtx.newPage()
     let page: Page | null = null
@@ -344,6 +364,24 @@ test.describe('SC-E2E A01..A10（EXECUTE-GATED）', () => {
       } finally {
         await page.context().close()
       }
+      // REVIEW-2 B-5②：origin 归一化边界（BE 六禁门语义的 E2E 钉子）——名单
+      // 写成 http:// 形态或端口漂移形态时，https 宿主必须被拒（scheme/端口
+      // 不参与宽松归一，精确匹配才放行）。
+      for (const driftOrigin of ['http://shop2.test:18443', 'https://shop2.test:18444']) {
+        rotateConsoleOrigins(CONSOLE_PUBLIC_ID, driftOrigin)
+        const driftPage = await browser.newPage()
+        const driftErrors: string[] = []
+        driftPage.on('console', (m) => {
+          if (m.type() === 'error') driftErrors.push(m.text())
+        })
+        try {
+          await driftPage.goto(`${SHOP2}/`, { waitUntil: 'domcontentloaded' })
+          await driftPage.waitForTimeout(1_000)
+          await assertFrameBlockedByBrowser(driftPage, driftErrors)
+        } finally {
+          await driftPage.context().close()
+        }
+      }
     } finally {
       restoreConsoleOrigins(CONSOLE_PUBLIC_ID, before)
     }
@@ -352,7 +390,7 @@ test.describe('SC-E2E A01..A10（EXECUTE-GATED）', () => {
   // ---------------------------------------------------------------- A07
   test('A07 revoke：新加载 404（seat_console_unavailable）；已打开 frame 不被强制终止且可续用发消息', async ({ browser }) => {
     test.setTimeout(240_000)
-    closeStaleActiveSessions()
+    closeStaleActiveSessions(RUN_SINCE)
     const visitorCtx = await browser.newContext()
     const visitorPage = await visitorCtx.newPage()
     let openPage: Page | null = null
@@ -373,6 +411,16 @@ test.describe('SC-E2E A01..A10（EXECUTE-GATED）', () => {
         expect(resp?.status(), 'revoked 后新加载必须 404').toBe(404)
         const bodyText = (await resp?.text()) ?? ''
         expect(bodyText).toContain('seat_console_unavailable')
+        // REVIEW-2 B-5②：三态统一 404 不可枚举的 E2E 钉子——missing（不存在
+        // 的 public id）与非法（非 TSID 形态）必须与 revoked 同状态码、同
+        // 不可区分响应体，外部无法据响应分辨 console 是否存在过。
+        for (const probeId of ['7003004002001999', 'not-a-tsid']) {
+          const probe = await probePage.goto(`${CS_ORIGIN}/seat/${probeId}`, { waitUntil: 'domcontentloaded' })
+          expect(probe?.status(), `probe=${probeId} 必须 404（三态统一）`).toBe(404)
+          expect((await probe?.text()) ?? '', `probe=${probeId} 响应体必须与 revoked 不可区分`).toContain(
+            'seat_console_unavailable',
+          )
+        }
         await probeCtx.close()
         // 已打开 frame：仅阻止新加载 —— 不强制终止（页面/文档仍存活；SSE 是否
         // 续传不在断言内，按实际行为记录）。
@@ -445,7 +493,7 @@ test.describe('SC-E2E A01..A10（EXECUTE-GATED）', () => {
   // ---------------------------------------------------------------- A09
   test('A09 泄漏门：console/network/URL/页面源码无 JWT、secret、坐席手机号', async ({ browser }) => {
     test.setTimeout(300_000)
-    closeStaleActiveSessions()
+    closeStaleActiveSessions(RUN_SINCE)
     const collector: BrowserGateCollector = createCollector()
     const visitorCtx = await browser.newContext()
     const visitorPage = await visitorCtx.newPage()

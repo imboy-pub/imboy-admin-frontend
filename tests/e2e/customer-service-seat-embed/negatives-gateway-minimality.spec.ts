@@ -174,7 +174,7 @@ test.describe('r3-B1 网关收敛负例：治理面经 cs.test origin 携有效 
 
   test('N12 负例响应绝不携带成功信封（code 0 永不出现）', async () => {
     const r = await probe(`/api/v1/enterprise/organizations/${ORG_ID}/offboarding`, 'POST')
-    let envelope: { code?: number } | null = null
+    let envelope: { code?: number } | null
     try {
       envelope = JSON.parse(r.body) as { code?: number }
     } catch {
