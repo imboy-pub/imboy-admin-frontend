@@ -16,6 +16,7 @@
 import { expect, test, type Browser, type Page } from '@playwright/test'
 import {
   ADMIN_ORIGIN,
+  BE_MAIN,
   closeStaleActiveSessions,
   CONSOLE_PUBLIC_ID,
   CS_ORIGIN,
@@ -193,9 +194,12 @@ test.describe('SC-E2E A01..A10（EXECUTE-GATED）', () => {
       // 浏览器作用域事实：admin.test 的 Cookie 不进 cs.test 域。
       expect((await adminCtx.cookies(`${CS_ORIGIN}/`)).filter((c) => c.name.startsWith('adm_'))).toEqual([])
       // 最坏情况重放：把 adm Cookie 显式附到 seat API —— 后端必须 401/403。
+      // oracle 是「服务端鉴权拒绝」这一真实行为，直打 BE_MAIN（harness 拓扑里
+      // cs.test 的同一上游）与走网关等价；node 侧 APIRequestContext 对
+      // cs.test:18443 的自签 TLS/系统代理不可用（SC-E2E ENVIRONMENT，已记录）。
       const cookieHeader = admCookies.map((c) => `${c.name}=${c.value}`).join('; ')
       const replay = await adminCtx.request.get(
-        `${CS_ORIGIN}/api/v1/cs/organizations/${ORG_ID}/seats/me/heartbeat?workspace_id=${WORKSPACE_ID}`,
+        `${BE_MAIN}/api/v1/cs/organizations/${ORG_ID}/seats/me/heartbeat?workspace_id=${WORKSPACE_ID}`,
         { headers: { cookie: cookieHeader } },
       )
       expect([401, 403], `Admin Cookie 重放 seat API 必须 401/403，got ${replay.status()}`).toContain(replay.status())
