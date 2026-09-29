@@ -228,6 +228,8 @@ export function isValidExpectedVersion(version: number): boolean {
 export function buildBootstrapBody(scope: {
   publicWidgetId: string
   subjectId: string
+  /** subject_key 为服务端派生注入（cs_widget_handler token_credential），客户端禁止申报。 */
+  subjectKey?: string
 }): { public_widget_id: string; subject_id: string } {
   return {
     public_widget_id: scope.publicWidgetId,

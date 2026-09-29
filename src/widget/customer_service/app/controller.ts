@@ -63,6 +63,9 @@ export type ControllerDeps = {
   storage: StorageLike | null
   nowMs: () => number
   newId: () => string
+  /** subject_key（bootstrap 五参契约）：宿主注入的跨会话持久随机串
+   * （localStorage 等）；缺省空串时服务端按 shape 拒（422）。 */
+  getSubjectKey?: () => string
   io: ControllerIo
   /** 裸 PUT 通道（附件字节直传；测试注入替换）。 */
   fetchImpl: (_input: string, _init?: RequestInit) => Promise<Response>
@@ -179,6 +182,7 @@ export function createWidgetController(deps: ControllerDeps) {
       const result: BootstrapResult = await deps.api.bootstrap({
         publicWidgetId: context.widgetId,
         subjectId,
+        subjectKey: deps.getSubjectKey?.() ?? '',
       })
       // installation_id 只来自 bootstrap 成功响应体（合同 S3 冻结）：
       // 仅内存持有、后续动作以响应值为参，绝不写 storage/URL/log。

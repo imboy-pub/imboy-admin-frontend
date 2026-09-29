@@ -101,6 +101,7 @@ export class WidgetApiClient {
   async bootstrap(body: {
     publicWidgetId: string
     subjectId: string
+    subjectKey: string
   }): Promise<BootstrapResult> {
     const payload = await this.requestJson(`${WIDGET_API_BASE}/bootstrap`, {
       method: 'POST',

@@ -61,11 +61,27 @@ function boot(): void {
   const rootElement = document.getElementById('cs-widget-root')
   if (rootElement === null) return
   const api = new WidgetApiClient()
+  /** subject_key：跨会话持久随机串（localStorage；不可用时每次随机——
+   * 服务端以 hmac(subject_key) 派生 subject 锚定，非持久仅影响回访识别）。 */
+  const subjectKeyProvider = (): string => {
+    const KEY = 'imboy-cs:subject-key'
+    try {
+      const existing = window.localStorage.getItem(KEY)
+      if (existing) return existing
+      const fresh = newId() + newId()
+      window.localStorage.setItem(KEY, fresh)
+      return fresh
+    } catch {
+      return newId() + newId()
+    }
+  }
+
   const controller = createWidgetController({
     api,
     storage: sessionStorageAdapter(),
     nowMs,
     newId,
+    getSubjectKey: subjectKeyProvider,
     fetchImpl: (...args) => fetch(...args),
     io: {
       render: (state) => ui.render(state),
@@ -101,6 +117,25 @@ function boot(): void {
     },
     false
   )
+
+  // 独立打开（无 loader 宿主）：window.parent === window 时自主构造 host-context
+  // （与 loader 的 postMessage 等价），支持 /w/<public_widget_id> 直连访问与验收；
+  // widgetId 取壳根节点的 data-public-widget-id（后端渲染注入），回退 URL 末段。
+  if (window.parent === window) {
+    const widgetId =
+      rootElement.getAttribute('data-public-widget-id') ??
+      window.location.pathname.split('/').filter(Boolean).pop() ??
+      ''
+    if (widgetId !== '') {
+      controller.handleHostMessage(window.location.origin, true, {
+        source: WIDGET_MESSAGE_SOURCE,
+        type: 'host-context',
+        widgetId,
+        locale: (navigator.language ?? 'zh-CN').startsWith('zh') ? 'zh-CN' : 'en',
+        page: { origin: window.location.origin, path: window.location.pathname },
+      })
+    }
+  }
 
   ui.render(controller.currentState())
   try {
