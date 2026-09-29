@@ -54,12 +54,16 @@ BE="${SC153_E2E_BACKEND:-http://127.0.0.1:9801}"
 # REVIEW-2 B-5①：万能验证码与合成密码不再提供跟踪文件内的默认回退——必须
 # 经环境注入（与 helpers/env.ts 同源同值），缺失即刻失败并给出指引。
 require_env() {
+  # bash 3.2 兼容：${!name:-} 间接展开含默认值的形态不受支持（SC-E2E
+  # ENVIRONMENT 的 bash 3.2 同族坑），改走 eval 间接引用。
   local name="$1"
-  if [ -z "${!name:-}" ]; then
+  local val=""
+  eval "val=\"\${$name:-}\""
+  if [ -z "$val" ]; then
     echo "[sc153-harness] ❌ 缺少必需环境变量 ${name}（合成凭据已禁止默认回退；见 README.md 前置清单）" >&2
     exit 1
   fi
-  printf '%s' "${!name}"
+  printf '%s' "$val"
 }
 MASTER_CODE="$(require_env SC153_E2E_MASTER_CODE)"
 SEAT_ACCOUNT="${SC153_E2E_SEAT_ACCOUNT:-19900000002}"
@@ -299,13 +303,13 @@ need docker; need nginx; need openssl; need bun; need curl; need python3
 # ---- 0. 前置检查 -----------------------------------------------------------
 docker ps --format '{{.Names}}' | grep -qx "$PG_CONTAINER" || { echo "docker 容器 $PG_CONTAINER 未运行" >&2; exit 3; }
 curl -sf -o /dev/null "$BE/" || { echo "backend $BE 不可达（请先按 README 启动 scratch 后端节点）" >&2; exit 3; }
-log "前置 OK（pg=$PG_CONTAINER backend=$BE）"
+log "前置 OK（pg=$PG_CONTAINER backend=${BE}）"
 
 # Admin 首启探测（A08 前置；与 P2 同口径由 run 环境提供，脚本不代创建 ——
 # setup/init 密码走 RSA-OAEP 页内加密，不在 bash 里复刻）。
 SETUP_STATUS=$(curl -s "$BE/api/adm/setup/status" 2>/dev/null || true)
 if ! echo "$SETUP_STATUS" | grep -q '"initialized": *true\|"initialized":true'; then
-  log "警告：Admin 治理面疑似未首启（$SETUP_STATUS）——A08 需先经 /api/adm/setup/init 建超管"
+  log "警告：Admin 治理面疑似未首启（${SETUP_STATUS}）——A08 需先经 /api/adm/setup/init 建超管"
 fi
 
 # ---- a. scratch 库 + 扩展（已存在则跳过创建）---------------------------------
@@ -328,7 +332,7 @@ docker exec "$PG_CONTAINER" psql -U "$PG_USER" -d "$PG_DB" -tAc \
   "SELECT to_regclass('public.customer_service_seat_console')" | grep -q customer_service_seat_console || {
   echo "customer_service_seat_console 表不存在：scratch backend 未迁移到 00000153（SC-INT 后才可执行）" >&2; exit 3;
 }
-log "迁移 head：$HEADROW（seat_console 表就位）"
+log "迁移 head：${HEADROW}（seat_console 表就位）"
 
 # ---- c. 种子（默认 id 可经环境覆盖：sed 精确替换三个可变 id）------------------
 WORKDIR="$(mktemp -d /tmp/sc153-seat-embed-harness.XXXXXX)"
@@ -339,7 +343,7 @@ sed -e "s/1603940848519155/$ORG_ID/g" \
     "$HERE/seed-seat-console.sql" > "$SEED_TMP"
 docker exec -i "$PG_CONTAINER" psql -U "$PG_USER" -d "$PG_DB" -v ON_ERROR_STOP=1 \
   -f - < "$SEED_TMP" >/dev/null
-log "种子已应用（org=$ORG_ID ws=$WORKSPACE_ID console=$PUBLIC_ID）"
+log "种子已应用（org=$ORG_ID ws=$WORKSPACE_ID console=${PUBLIC_ID}）"
 
 # ---- d. 坐席绑定（合成坐席，仅本地 scratch）------------------------------------
 SU=$(curl -s -X POST "$BE/api/v1/passport/signup" -H 'content-type: application/json' \
@@ -347,7 +351,7 @@ SU=$(curl -s -X POST "$BE/api/v1/passport/signup" -H 'content-type: application/
 # SC-INT DEF-SC153-04：重跑幂等——账号已存在（code 1 + 手机号已经被占用）不算
 # 失败，直接走下方 login 验证凭据；其余失败照旧 fail-closed。
 echo "$SU" | grep -q '"code":0' || echo "$SU" | grep -q '已经被占用' || {
-  echo "signup 失败: $SU（提示：backend 需配置 {verification_master_code, <<\"$MASTER_CODE\">>}，见 README）" >&2; exit 3; }
+  echo "signup 失败: ${SU}（提示：backend 需配置 {verification_master_code, <<\"$MASTER_CODE\">>}，见 README）" >&2; exit 3; }
 LOGIN=$(curl -s -X POST "$BE/api/v1/passport/login" -H 'content-type: application/json' \
   -d "{\"type\":\"mobile\",\"account\":\"$SEAT_ACCOUNT\",\"pwd\":\"$SEAT_PASSWORD\",\"rsa_encrypt\":\"0\",\"sys_version\":\"sc153-embed\"}")
 UID2=$(echo "$LOGIN" | python3 -c 'import sys,json;print(json.load(sys.stdin)["payload"]["uid"])')
@@ -356,12 +360,12 @@ IDENTITY_ID=$(docker exec "$PG_CONTAINER" psql -U "$PG_USER" -d "$PG_DB" -tAc \
 docker exec "$PG_CONTAINER" psql -U "$PG_USER" -d "$PG_DB" \
   -c "UPDATE organization_member SET user_id=$UID2 WHERE organization_id=$ORG_ID;" \
   -c "UPDATE organization_business_identity_assignment SET user_id=$UID2 WHERE id=1603940848519161;" \
-  -c "UPDATE organization SET owner_id=$UID2 WHERE id=$ORG_ID;" \
-  -c "UPDATE workspace SET owner_id=$UID2 WHERE id=$WORKSPACE_ID;" \
   -c "UPDATE organization_business_identity SET created_by_user_id=$UID2 WHERE id=$IDENTITY_ID;" \
+  -c "UPDATE organization SET owner_id=$UID2 WHERE organization_id=$ORG_ID;" \
+  -c "UPDATE workspace SET owner_id=$UID2 WHERE id=$WORKSPACE_ID;" \
   -c "UPDATE customer_service_seat SET created_by_user_id=$UID2 WHERE organization_id=$ORG_ID;" \
   -c "UPDATE customer_service_seat_console SET created_by_user_id=$UID2 WHERE id=$PUBLIC_ID;" >/dev/null
-log "坐席绑定完成（uid=$UID2 identity=$IDENTITY_ID account=$SEAT_ACCOUNT）"
+log "坐席绑定完成（uid=$UID2 identity=$IDENTITY_ID account=${SEAT_ACCOUNT}）"
 
 # ---- e. 构建 dist-widget（含 mode=seat seat-assets 稳定别名）+ Admin SPA dist --
 ( cd "$ROOT" && bun run build:widget >/dev/null )
@@ -374,7 +378,7 @@ if [ "${SC153_E2E_SKIP_ADMIN_BUILD:-0}" != "1" ]; then
   # /__IMBOY_API_HOST__/api/adm/* 被 SPA fallback 吃成 200 HTML（实测）。
   # admin.test 对 /api/ 是同源代理，本地语义等价 = 全 dist 清空占位符
   # （与开发态 IMBOY_DEV_CSP_API_HOST 缺省行为一致）。
-  find "$ADMIN_DIST" -type f \( -name '*.html' -o -name '*.js' \) -exec sed -i '' 's|__IMBOY_API_HOST__||g' {} +
+  find "$ADMIN_DIST" -type f \( -name '*.html' -o -name '*.js' \) -exec sed -i '' -e 's|__IMBOY_API_HOST__||g' -e "s|https://cs.imboy.pub|$CS_ORIGIN|g" {} +
   log "Admin SPA dist 已构建（admin.test 面；SC153_E2E_SKIP_ADMIN_BUILD=1 可跳过）"
 fi
 
@@ -410,7 +414,7 @@ curl -skf -o /dev/null --resolve cs.test:18443:127.0.0.1 "https://cs.test:18443/
   || { echo "nginx 拓扑冒烟失败（loader 静态面）" >&2; exit 3; }
 SEAT_CODE=$(curl -sk -o /dev/null -w '%{http_code}' --resolve cs.test:18443:127.0.0.1 "https://cs.test:18443/seat/$PUBLIC_ID")
 if [ "$SEAT_CODE" != "200" ]; then
-  echo "seat frame 冒烟失败：GET /seat/$PUBLIC_ID → HTTP $SEAT_CODE（预期 200；404 = backend seat 路由缺位或 console 状态异常）" >&2
+  echo "seat frame 冒烟失败：GET /seat/$PUBLIC_ID → HTTP ${SEAT_CODE}（预期 200；404 = backend seat 路由缺位或 console 状态异常）" >&2
   exit 3
 fi
 log "nginx 五域拓扑就绪（conf=$WORKDIR/nginx.conf；seat frame HTTP 200）"

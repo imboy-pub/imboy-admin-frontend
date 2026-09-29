@@ -84,9 +84,21 @@ export function toSeatConsole(raw: unknown): SeatConsole | null {
   }
 }
 
-/** 容忍 {list:[...]} 与裸数组两种形状；熔断行整体丢弃。 */
+/**
+ * 容忍三种形状；熔断行整体丢弃。
+ * R5 实证修复（F4 snippet 旅程 E2E 抓出）：R3-F5 把 GET 列表改为键集分页
+ * 包装 `{seat_consoles, next_after_id}`（迁移 00000156 索引对齐），前端仍按
+ * 旧 `{list}` / 裸数组解析 → 真实 BE 数据被吞成空列表（管理页"暂无生效中的
+ * 接入"假空态）。三种形状按新→旧顺序兼容。
+ */
 export function toSeatConsoleList(raw: unknown): SeatConsole[] {
-  const list = isRecord(raw) && Array.isArray(raw.list) ? raw.list : Array.isArray(raw) ? raw : []
+  const list = isRecord(raw) && Array.isArray(raw.seat_consoles)
+    ? raw.seat_consoles
+    : isRecord(raw) && Array.isArray(raw.list)
+      ? raw.list
+      : Array.isArray(raw)
+        ? raw
+        : []
   return list.map(toSeatConsole).filter((item): item is SeatConsole => item !== null)
 }
 

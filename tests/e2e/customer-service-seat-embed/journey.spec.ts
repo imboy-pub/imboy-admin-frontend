@@ -229,13 +229,15 @@ test.describe('SC-E2E A01..A10（EXECUTE-GATED）', () => {
       // 浏览器作用域事实：admin.test 的 Cookie 不进 cs.test 域。
       expect((await adminCtx.cookies(`${CS_ORIGIN}/`)).filter((c) => c.name.startsWith('adm_'))).toEqual([])
       // 最坏情况重放：把 adm Cookie 显式附到 seat API —— 后端必须 401/403。
-      // oracle 是「服务端鉴权拒绝」这一真实行为。REVIEW-4 F11：改打
-      // ${CS_ORIGIN} 网关面闭合「经网关的 Cookie 放行路径」——adminCtx.request
-      // 属浏览器上下文（ignoreHTTPSErrors 生效），不再是 node fetch 直连上游
-      // 的拓扑捷径（ENVIRONMENT×4 的 node fetch 自签限制不再适用）。
+      // oracle 是「服务端鉴权拒绝」这一真实行为。REVIEW-4 F11：走网关面闭合
+      // 「经网关的 Cookie 放行路径」——node 侧（adminCtx.request）不享受
+      // Chromium 的 host-resolver-rules，且本机系统代理对 cs.test 做 fake-ip
+      // 劫持 —— 与 negatives-gateway-minimality 同款口径：钉 127.0.0.1:18443
+      // 直连（nginx 首个 vhost 即 cs.test），证书由 context 级
+      // ignoreHTTPSErrors 放行（self-signed harness 证书）。
       const cookieHeader = admCookies.map((c) => `${c.name}=${c.value}`).join('; ')
       const replay = await adminCtx.request.get(
-        `${CS_ORIGIN}/api/v1/cs/organizations/${ORG_ID}/seats/me/heartbeat?workspace_id=${WORKSPACE_ID}`,
+        `https://127.0.0.1:18443/api/v1/cs/organizations/${ORG_ID}/seats/me/heartbeat?workspace_id=${WORKSPACE_ID}`,
         { headers: { cookie: cookieHeader } },
       )
       expect([401, 403], `Admin Cookie 重放 seat API 必须 401/403，got ${replay.status()}`).toContain(replay.status())

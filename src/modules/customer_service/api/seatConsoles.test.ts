@@ -186,10 +186,13 @@ describe('seat console 投影熔断与类型纪律（A06）', () => {
     expect(toSeatConsole(consoleRow({ version: 'NaN-value' }))?.version).toBe(0)
   })
 
-  it('toSeatConsoleList 容忍 {list} 与裸数组；熔断行被剔除', () => {
+  it('toSeatConsoleList 容忍 {seat_consoles}/{list}/裸数组；熔断行被剔除', () => {
+    // R3-F5 键集分页新形状（真实 BE 合同；R5 F4 e2e 抓出前端漏适配）
+    expect(toSeatConsoleList({ seat_consoles: [consoleRow()], next_after_id: null })).toHaveLength(1)
     expect(toSeatConsoleList({ list: [consoleRow()] })).toHaveLength(1)
     expect(toSeatConsoleList([consoleRow(), { ...consoleRow(), id: '2', secret: 'x' }])).toHaveLength(1)
     expect(toSeatConsoleList(null)).toEqual([])
+    expect(toSeatConsoleList({ seat_consoles: 'not-an-array' })).toEqual([])
   })
 
   it('TSID 保持 string（无 Number() 精度回转）', () => {

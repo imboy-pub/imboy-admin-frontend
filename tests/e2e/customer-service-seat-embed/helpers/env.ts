@@ -151,16 +151,18 @@ export async function seatPassportLogin(account: string): Promise<string> {
 }
 
 /**
- * 清理 active 会话（坐席 max_concurrent=1；与 P2 db-proof 同款）。
- * REVIEW-4 F5：只关 `runSince`（本 run 启动时刻）之后创建的会话 —— 全
- * workspace 无差别 UPDATE 会误杀另一 run 正在使用的 active 会话（跨 run
- * 互扰的主害）；更早的残留交给人工/重建口径，不越权代管。
+ * 清理会话（坐席 max_concurrent=1；与 P2 db-proof 同款）。
+ *   * active：全量清（R3 口径）——README 已禁并行执行，单机串行下不存在
+ *     「他 run 的 active」；本 run 前序用例的 active 残留若被时间窗保护，
+ *     会占死坐席唯一并发位导致后续用例 contexts 挂（R5 retry3 实证）。
+ *   * queued：清 `runSince` 之前的残留（F5 第③点——queued 按 id DESC 堆积
+ *     会把本 run 目标会话挤出队列第一页；queued 无主，清理无副作用）。
  */
 export function closeStaleActiveSessions(runSince: Date): number {
   const out = psql(
     `with cls as (update customer_service_session set status='closed', closed_at=now() at time zone 'utc'` +
-      ` where organization_id=${ORG_ID} and workspace_id=${WORKSPACE_ID} and status='active'` +
-      ` and queued_at >= '${runSince.toISOString()}' returning 1)` +
+      ` where organization_id=${ORG_ID} and workspace_id=${WORKSPACE_ID}` +
+      ` and (status='active' or (status='queued' and queued_at < '${runSince.toISOString()}')) returning 1)` +
       ` select count(*) from cls`,
   )
   return Number(out.trim() || 0)

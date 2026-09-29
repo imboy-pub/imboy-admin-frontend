@@ -161,7 +161,7 @@ test.describe('SC-E2E 负例A：访客附件未授权读', () => {
         `?installation_id=${identity.installationId}`,
       { headers: { 'x-cs-visit-token': 'wtok-forged-never-issued-sc153' } },
     )
-    expect(resp.status()).toBe(401)
+    expect(resp.status(), `N2 status=${resp.status()} body=${await resp.text()}`).toBe(401)
     const body = (await resp.json()) as Envelope
     expect(body.msg).toBe('visit_token_invalid')
   })

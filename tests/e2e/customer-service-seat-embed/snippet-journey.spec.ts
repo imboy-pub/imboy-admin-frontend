@@ -11,7 +11,14 @@
  * ⛔ EXECUTE-GATED：同 journey.spec.ts（SC153_E2E_EXECUTE=1 才执行）。
  */
 import { expect, test } from '@playwright/test'
-import { ADMIN_ORIGIN, CONSOLE_PUBLIC_ID, CS_ORIGIN, EXECUTE_ENABLED } from './helpers/env'
+import {
+  ADMIN_ORIGIN,
+  CONSOLE_PUBLIC_ID,
+  CS_ORIGIN,
+  EXECUTE_ENABLED,
+  ORG_ID,
+  WORKSPACE_ID,
+} from './helpers/env'
 import { adminLogin } from './helpers/admin-ui'
 
 test.skip(!EXECUTE_ENABLED, 'EXECUTE-GATED: A0 sets SC153_E2E_EXECUTE=1 after SC-INT PASS + frozen candidate manifest')
@@ -25,14 +32,22 @@ test.describe('SC-E2E snippet 旅程（EXECUTE-GATED）', () => {
     const page = await ctx.newPage()
     try {
       await adminLogin(page)
-      await page.goto(`${ADMIN_ORIGIN}/customer-service/widgets`, { waitUntil: 'domcontentloaded' })
+      // 租户上下文必填（页面要求显式 org/ws 才渲染 seat console 卡；
+      // 上下文写入 URL，刷新与分享后不丢失 —— 首次进入即带齐）。
+      await page.goto(
+        `${ADMIN_ORIGIN}/customer-service/widgets?org=${ORG_ID}&ws=${WORKSPACE_ID}`,
+        { waitUntil: 'domcontentloaded' },
+      )
       // 运营页到达（A08 已断言「网站接入」标题，这里直接等工作台卡片就绪）。
       const seatCard = page.getByTestId('sc-seat-card')
       await expect(seatCard).toBeVisible({ timeout: 30_000 })
 
       // —— 生成端一致性：卡上 public id ↔ embed code 的 src ——
+      // 组件为防泄漏默认不回显 snippet（embedShown 缺省 false），真实旅程即
+      // 「点复制按钮 → 显示 + 进剪贴板」；spec 按同一交互顺序驱动。
       const publicId = (await page.getByTestId('sc-seat-public-id').textContent())?.trim() ?? ''
       expect(publicId.length, 'seat console 卡必须展示 public id').toBeGreaterThan(0)
+      await page.getByRole('button', { name: '复制 iframe 代码' }).click()
       const embedCode = await page.getByTestId('sc-seat-embed-code').inputValue()
       expect(embedCode, 'iframe 接入代码必须已生成').toContain('<iframe')
       const srcMatch = /src="([^"]+)"/.exec(embedCode)
@@ -44,8 +59,7 @@ test.describe('SC-E2E snippet 旅程（EXECUTE-GATED）', () => {
       // sandbox 三值冻结合同在生成端同样成立（S7/S8）。
       expect(embedCode).toContain('allow-scripts allow-same-origin allow-downloads')
 
-      // —— 复制链：真实按钮 → 剪贴板 → 回读逐字一致 ——
-      await page.getByRole('button', { name: '复制 iframe 代码' }).click()
+      // —— 剪贴板链：上一步的真实复制 → 回读逐字一致 ——
       const clipboard = await page.evaluate(() => navigator.clipboard.readText())
       expect(clipboard, '剪贴板内容必须与 embed code 逐字一致').toBe(embedCode)
       // 与 A01 消费端的闭环：种子 console 的 public id 即 journey 全套用的
