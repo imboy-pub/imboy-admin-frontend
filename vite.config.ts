@@ -39,11 +39,16 @@ function devCspPlaceholderFix() {
 }
 
 // ---------------------------------------------------------------------------
-// CSW-01 / CSD-IMG-01：客服 Widget 独立构建（`bun run build:widget`，不与 Admin SPA 混排）
+// CSW-01 / CSD-IMG-01 / SC-BLD：客服 Widget + 坐席工作台独立构建
+// （`bun run build:widget`，不与 Admin SPA 混排）
 // - mode 'widget'        → iframe 聊天应用（widget/index.html → dist-widget/widget/index.html）
 // - mode 'widget-loader' → 宿主页 loader（lib/iife → dist-widget/loader.js）
-// 两种模式只产出独立 artifact 目录 dist-widget/（.gitignore 已忽略，不提交产物）；
-// Admin 默认构建（mode production）与 dev server 完全不受影响。
+// - mode 'seat'          → Web 坐席工作台静态 runtime（seat/index.html →
+//   dist-widget/seat/index.html；薄入口只挂载既有 SeatWorkspacePage，零 Admin
+//   Router/auth/client 依赖；后端 /seat/:id frame 面同源引用）
+// 三种模式只产出独立 artifact 目录 dist-widget/（.gitignore 已忽略，不提交产物）；
+// widget 模式排在链条首位并 emptyOutDir: true，seat/loader 模式 emptyOutDir:
+// false 追加写入同一目录；Admin 默认构建（mode production）与 dev server 完全不受影响。
 //
 // 不可变发布合同（冻结合同 v1 S6）：
 // - loader.js = 稳定文件名入口（内容可变、文件名不变），宿主 snippet 永远指向它；
@@ -93,17 +98,50 @@ function widgetBuildOverrides(mode: string): import('vite').BuildOptions | null 
       },
     }
   }
+  if (mode === 'seat') {
+    return {
+      // SC-BLD：widget 模式已在链条首位 emptyOutDir，此处追加写入同一 dist-widget
+      outDir: 'dist-widget',
+      emptyOutDir: false,
+      sourcemap: false,
+      cssCodeSplit: false,
+      assetsDir: 'assets',
+      copyPublicDir: false,
+      rollupOptions: {
+        input: { seat: path.resolve(__dirname, 'seat/index.html') },
+        // 命名镜像 cs-widget（内容 hash → /assets/* immutable 缓存合同）；
+        // seat/index.html 由 vite 生成并自动引用 hash 后的最终文件名。
+        output: {
+          entryFileNames: 'assets/cs-seat-[hash].js',
+          chunkFileNames: 'assets/cs-seat-[hash].js',
+          assetFileNames: 'assets/cs-seat-[hash][extname]',
+        },
+      },
+    }
+  }
   return null
 }
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const widgetBuild = widgetBuildOverrides(mode)
+  // SC-BLD：seat 模式把 react-router-dom 指向纯 <a> 替身（src/seat/routerStub.tsx）——
+  // 坐席页共享抽屉静态 import { Link } 会把 react-router 库拖进产物，而该页从不
+  // 渲染 Link（无 sections prop）。缺失导出由 rollup 构建期报错兜底（见替身注释）。
+  // Record<string,string> 注解（SC-INT DEF-SC153-03）：无注解时条件表达式被
+  // 推断为 { 'react-router-dom': string } | {} 的 spread union，第二支含
+  // 'react-router-dom'?: undefined，不满足 vite AliasOptions 的索引签名
+  // （tsc -b TS2769，集成 L3 实测）。
+  const seatOnlyAlias: Record<string, string> =
+    mode === 'seat'
+      ? { 'react-router-dom': path.resolve(__dirname, 'src/seat/routerStub.tsx') }
+      : {}
   return {
   plugins: [devCspPlaceholderFix(), spaRouteClashFix(), react(), tailwindcss()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      ...seatOnlyAlias,
     },
   },
   build: widgetBuild ?? {

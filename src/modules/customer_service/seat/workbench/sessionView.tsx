@@ -438,13 +438,9 @@ export function SeatSessionView(props: SeatSessionViewProps) {
       </div>
       <div className="border-t border-border p-3">
         {composerVisible ? (
-          <form
-            className="flex flex-col gap-2"
-            onSubmit={(event) => {
-              event.preventDefault()
-              onSend()
-            }}
-          >
+          // 契约沙箱无 allow-forms：浏览器在 submit 事件触发前就拦截表单提交
+          // （A10 明确断言 form 提交被阻止），因此发送链路不得依赖 form submit。
+          <div className="flex flex-col gap-2">
             {draft.fileName !== null && (
               <span
                 className="inline-flex max-w-full items-center gap-1.5 self-start rounded border border-border bg-muted/50 px-2 py-1 text-xs"
@@ -515,12 +511,13 @@ export function SeatSessionView(props: SeatSessionViewProps) {
                 }}
               />
               <Button
-                type="submit"
+                type="button"
                 size="sm"
                 disabled={sending || !canSubmit}
                 aria-disabled={sending || !canSubmit}
                 aria-label={canSubmit ? '发送' : '请输入正文或添加附件'}
                 data-testid="seat-send"
+                onClick={onSend}
               >
                 {sending ? '发送中…' : '发送'}
               </Button>
@@ -530,7 +527,7 @@ export function SeatSessionView(props: SeatSessionViewProps) {
                 正文与附件不能同时为空
               </p>
             )}
-          </form>
+          </div>
         ) : (
           <p className="text-xs text-muted-foreground" data-testid="seat-write-closed" role="note">
             {writeClosedReason ?? '当前会话不可回复'}

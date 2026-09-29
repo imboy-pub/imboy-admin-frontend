@@ -395,6 +395,17 @@ export type SeatSendDraft = {
 
 const EMPTY_SEND_DRAFT: SeatSendDraft = { body: '', file: null, objectHash: null, confirmedAssetId: null }
 
+/**
+ * 生成唯一 client_msg_id（唯一性不变量：任何发送路径的两条消息绝不共享同一 id——
+ * 常量兜底会被服务端按重放裁决：同 asset_ids 回显旧消息，异 asset_ids 409）。
+ * 生成惯例与 deviceIdentity 同款：randomUUID 优先，不可用退化为时间戳+随机。
+ */
+function newClientMsgId(): string {
+  const cryptoApi = globalThis.crypto
+  if (typeof cryptoApi?.randomUUID === 'function') return `seat-web-${cryptoApi.randomUUID()}`
+  return `seat-web-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
+}
+
 /** 草稿视图投影（File 对象不出 hooks 面；UI 只显示元信息）。 */
 export type SeatSendDraftView = {
   body: string
@@ -464,9 +475,12 @@ export function useSeatSend(
           // confirm 已成功：草稿推进（发送失败重试时跳过整条上传链）。
           setDraft((prev) => (prev === snapshot ? { ...prev, objectHash, confirmedAssetId: assetId } : prev))
         }
+        // ref 未置位（防御性可达路径）时兜底生成并回写：失败后 retry 复用同一 id，
+        // 且任何路径下绝不发出常量/重复 id（唯一性不变量见 newClientMsgId）。
+        if (clientMsgIdRef.current === null) clientMsgIdRef.current = newClientMsgId()
         await api.sendMessage(orgId, conversationId, {
           body: snapshot.body,
-          clientMsgId: clientMsgIdRef.current ?? 'seat-web-empty',
+          clientMsgId: clientMsgIdRef.current,
           workspaceId,
           identityId: myIdentityId,
           assetIds: assetId !== null ? [assetId] : [],
@@ -511,7 +525,7 @@ export function useSeatSend(
     // 前端校验：正文与附件不能同时空（服务端 422 兜底；UI 禁用按钮）。
     if (snapshot.body.length === 0 && snapshot.file === null) return
     if (clientMsgIdRef.current === null) {
-      clientMsgIdRef.current = `seat-web-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
+      clientMsgIdRef.current = newClientMsgId()
     }
     // 发送中的草稿冻结（composer disabled）；快照与 state 同引用则无需写回。
     if (snapshot !== draft) setDraft(snapshot)

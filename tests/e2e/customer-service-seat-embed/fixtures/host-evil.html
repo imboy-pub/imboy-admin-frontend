@@ -1,0 +1,19 @@
+<!doctype html>
+<!--
+  SC-E2E — evil.test 宿主页（负例 origin，A02 用）。
+  同一份 snippet（同一 public id），但 evil.test 永远不在 console allowed_origins
+  里 —— backend 下发的 CSP frame-ancestors 不含它，浏览器必须实际拒绝渲染。
+-->
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>SC153 EVIL 宿主页（origin 不在允许列表）</title></head>
+<body>
+<h1>evil.test — SC153 E2E evil host page（负例 origin）</h1>
+<iframe
+  src="__SC153_CS_ORIGIN__/seat/__SC153_PUBLIC_ID__"
+  title="IMBoy 客服工作台"
+  sandbox="allow-scripts allow-same-origin allow-downloads"
+  referrerpolicy="no-referrer"
+  style="width:100%;height:100vh;border:0"
+></iframe>
+</body>
+</html>

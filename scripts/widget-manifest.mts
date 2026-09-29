@@ -22,7 +22,7 @@
  * （含 sha256/bytes），verify:widget 校验其存在且与入口 chunk 内容一致。
  *
  * 只读业务源码、只写 dist-widget/{manifest.json,manifest.sha256,health.txt}
- * 与版本化别名 widget-assets/cs-widget.v2.js。
+ * 与版本化别名 widget-assets/cs-widget.v2.js、seat-assets/cs-seat.v1.{js,css}。
  */
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
@@ -43,12 +43,27 @@ const STABLE_ASSET_ALIAS = 'widget-assets/cs-widget.v2.js'
 /** widget/index.html 引用的 iframe 应用入口 chunk（内容 hash 文件名）。 */
 const HASHED_JS_REF = /assets\/cs-widget-[A-Za-z0-9_-]+\.js/g
 
+/**
+ * SC-BLD：坐席工作台静态 runtime 的版本化资产别名（seat_console 配对面，
+ * build-contract stable_aliases）。与 cs-widget.v2 同机制：/seat/ frame HTML
+ * 固定引用版本化路径，内容随发布原位更新 + no-cache 重验证。
+ * CSS 别名由 JS 别名派生（同版本位，单一真源；配对门只登记 JS 常量）。
+ */
+const STABLE_SEAT_ASSET_ALIAS = 'seat-assets/cs-seat.v1.js'
+const SEAT_ASSET_ALIAS_CSS = STABLE_SEAT_ASSET_ALIAS.replace(/\.js$/, '.css')
+
+/** seat/index.html 引用的坐席工作台入口 chunk（内容 hash 文件名）。 */
+const HASHED_SEAT_JS_REF = /assets\/cs-seat-[A-Za-z0-9_-]+\.js/g
+const HASHED_SEAT_CSS_REF = /assets\/cs-seat-[A-Za-z0-9_-]+\.css/g
+
 /** S6 缓存策略（照冻结表落 manifest，部署层 nginx 按同表执行）；widget_assets
- * 为 R2-F1/F3 增补：版本化入口资产 no-cache 重验证，热修对已缓存访客立即可达。 */
+ * 为 R2-F1/F3 增补：版本化入口资产 no-cache 重验证，热修对已缓存访客立即可达；
+ * seat_assets 为 SC-BLD 增补：坐席工作台版本化资产同策略。 */
 const CACHE_POLICY = {
   loader: 'no-cache',
   assets: 'public,max-age=31536000,immutable',
   widget_assets: 'no-cache',
+  seat_assets: 'no-cache, must-revalidate',
   html: 'no-store',
 } as const
 
@@ -118,12 +133,54 @@ async function writeStableAssetAlias(): Promise<void> {
   )
 }
 
+/**
+ * SC-BLD：坐席工作台稳定版本名别名（JS + CSS，字节级复制 hash chunk；
+ * 同样必须在 manifest 收集前完成）。manifest.files 覆盖全部产物（含
+ * seat/index.html、两个别名与 hash chunk），与 widget 面同口径。
+ */
+async function writeSeatAssetAliases(): Promise<void> {
+  let html: string
+  try {
+    html = await readFile(path.join(DIST, 'seat', 'index.html'), 'utf8')
+  } catch {
+    console.error('[widget-manifest] FAIL: seat/index.html 不存在，无法定位坐席工作台入口 chunk（需 vite build --mode seat）')
+    process.exit(1)
+  }
+  const jsRefs = [...new Set(html.match(HASHED_SEAT_JS_REF) ?? [])]
+  const cssRefs = [...new Set(html.match(HASHED_SEAT_CSS_REF) ?? [])]
+  if (jsRefs.length !== 1 || cssRefs.length !== 1) {
+    console.error(
+      `[widget-manifest] FAIL: seat/index.html 应引用恰好 1 个 cs-seat-<hash>.js 与 1 个 cs-seat-<hash>.css，` +
+        `实际 js=${JSON.stringify(jsRefs)} css=${JSON.stringify(cssRefs)}`,
+    )
+    process.exit(1)
+  }
+  const jsRel = jsRefs[0]
+  const cssRel = cssRefs[0]
+  if (!jsRel || !cssRel) {
+    console.error('[widget-manifest] FAIL: 坐席工作台入口 chunk 引用为空')
+    process.exit(1)
+  }
+  await mkdir(path.join(DIST, 'seat-assets'), { recursive: true })
+  for (const [sourceRel, aliasRel] of [
+    [jsRel, STABLE_SEAT_ASSET_ALIAS],
+    [cssRel, SEAT_ASSET_ALIAS_CSS],
+  ] as const) {
+    const sourceBytes = await readFile(path.join(DIST, sourceRel))
+    await writeFile(path.join(DIST, aliasRel), sourceBytes)
+    console.log(
+      `[widget-manifest] stable seat alias: ${aliasRel} ← ${sourceRel} ` +
+        `(sha256=${sha256Hex(sourceBytes).slice(0, 12)}…, bytes=${sourceBytes.byteLength})`,
+    )
+  }
+}
+
 async function main(): Promise<void> {
   let distStat
   try {
     distStat = await stat(DIST)
   } catch {
-    console.error(`[widget-manifest] FAIL: ${DIST} 不存在——请先运行 vite build --mode widget && vite build --mode widget-loader`)
+    console.error(`[widget-manifest] FAIL: ${DIST} 不存在——请先运行 vite build --mode widget && vite build --mode widget-loader && vite build --mode seat`)
     process.exit(1)
   }
   if (!distStat.isDirectory()) {
@@ -131,8 +188,10 @@ async function main(): Promise<void> {
     process.exit(1)
   }
 
-  // 0) CSD-IMG-01R：稳定版本名别名（复制入口 chunk → cs-widget.v1.js），先于收集
+  // 0) CSD-IMG-01R + SC-BLD：稳定版本名别名（复制入口 chunk → 版本化稳定名），
+  //    必须先于收集，别名才进 manifest.files
   await writeStableAssetAlias()
+  await writeSeatAssetAliases()
 
   const sourceHead = gitSourceHead()
 

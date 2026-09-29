@@ -425,6 +425,30 @@ describe('SeatWorkspacePage 工作台（A01/A02/A03/A04/A05/A06）', () => {
     expect(backend.sentClientMsgIds).toHaveLength(1)
   })
 
+  it('连续两次发送产生互不相同的 client_msg_id（唯一性不变量；兜底不再是常量）', async () => {
+    const backend = new SeatFakeBackend()
+    backend.state.sessionStatus = 'active'
+    backend.state.version = 8
+    const view = renderWorkspace(backend, new FakeSseStream())
+    fireEvent.click(await waitFor(() => view.getByTestId('seat-tab-active')))
+    fireEvent.click(await waitFor(() => view.getByTestId(`seat-session-item-${SESSION}`)))
+    const composer = await waitFor(() => view.getByTestId('seat-composer'))
+    const user = userEvent.setup()
+    // REVIEW-3 F-3：client_msg_id 无常量兜底——ref 未置位也绝不发出 'seat-web-empty'。
+    await user.type(composer, '第一条')
+    fireEvent.click(view.getByTestId('seat-send'))
+    await waitFor(() => expect(backend.sentClientMsgIds).toHaveLength(1))
+    await user.type(composer, '第二条')
+    fireEvent.click(view.getByTestId('seat-send'))
+    await waitFor(() => expect(backend.sentClientMsgIds).toHaveLength(2))
+    const [first, second] = backend.sentClientMsgIds
+    expect(first?.length).toBeGreaterThan(0)
+    expect(second?.length).toBeGreaterThan(0)
+    expect(first).not.toBe('seat-web-empty')
+    expect(second).not.toBe('seat-web-empty')
+    expect(first).not.toBe(second)
+  })
+
   it('A05：tablist/tab 语义 + 会话列表键盘可达（原生 button 焦点路径）', async () => {
     const backend = new SeatFakeBackend()
     const view = renderWorkspace(backend, new FakeSseStream())
@@ -882,5 +906,62 @@ describe('SeatWorkspacePage CS-WEB-04 客户上下文面板（CS-BE-03 消费 + 
     expect(within(dialog).getByTestId('seat-customer-context')).toBeDefined()
     fireEvent.click(within(dialog).getByRole('button', { name: '关闭' }))
     await waitFor(() => expect(view.queryByRole('dialog')).toBeNull())
+  })
+})
+
+describe('SeatWorkspacePage 退出登录（seat-logout：REVIEW-4 F2 零测试锁定）', () => {
+  beforeEach(() => {
+    spyOn(console, 'error').mockImplementation(() => {})
+    spyOn(console, 'warn').mockImplementation(() => {})
+    loginSeat()
+  })
+  afterEach(() => {
+    cleanup()
+    seatTokenVault.clear()
+    useSeatAuthStore.setState({ status: 'anonymous', userId: null, endReason: null })
+  })
+
+  it('点 seat-logout → 内存 vault 同步清空 + store 复位（endReason=logout）→ 回 QR 登录门给可解释文案', async () => {
+    const backend = new SeatFakeBackend()
+    const view = renderWorkspace(backend, new FakeSseStream())
+    await waitFor(() => expect(view.getByTestId('seat-workspace')).toBeDefined())
+    // 登出前事实：token 在内存 vault（A03 唯一持有点）；写入口（claim）在场。
+    expect(seatTokenVault.getToken()).toBe('eyJh.eyJi.c2ln')
+    expect(view.getByTestId(`seat-claim-${SESSION}`)).toBeDefined()
+    fireEvent.click(view.getByTestId('seat-logout'))
+    // clearSession('logout')：vault 同步清空（token 不残留），store 只留非敏感状态。
+    await waitFor(() => expect(seatTokenVault.getToken()).toBeNull())
+    const authState = useSeatAuthStore.getState()
+    expect(authState.status).toBe('anonymous')
+    expect(authState.userId).toBeNull()
+    expect(authState.endReason).toBe('logout')
+    // 回登录门：QR 面板 + logout 专属文案（区别于 401/expired/forbidden 文案）。
+    await waitFor(() => expect(view.getByTestId('seat-qr-login')).toBeDefined())
+    expect(view.getByTestId('seat-login-notice').textContent).toContain('已退出坐席工作台')
+    expect(view.getByTestId('seat-login-notice').textContent).not.toContain('失效')
+    expect(view.getByTestId('seat-login-notice').textContent).not.toContain('过期')
+  })
+
+  it('登出后写入口不可再操作：工作台 DOM 整体收回（单页状态机，无路由跳转）+ 登录门立即重建 QR 会话', async () => {
+    const backend = new SeatFakeBackend()
+    const view = renderWorkspace(backend, new FakeSseStream())
+    await waitFor(() => expect(view.getByTestId('seat-workspace')).toBeDefined())
+    // 已认证挂载不发 qr_login/create（登录门未挂载）。
+    expect(backend.calls.some((call) => call.path.endsWith('/passport/qr_login/create'))).toBe(false)
+    fireEvent.click(view.getByTestId('seat-logout'))
+    await waitFor(() => expect(view.queryByTestId('seat-workspace')).toBeNull())
+    // 真实实现（注释锁定）：登出是单页状态机切换（无 navigate），登录门取代
+    // 工作台 DOM——全部写入口（claim/composer/send/转接）随之不可达。
+    expect(view.queryByTestId(`seat-claim-${SESSION}`)).toBeNull()
+    expect(view.queryByTestId('seat-composer')).toBeNull()
+    expect(view.queryByTestId('seat-send')).toBeNull()
+    expect(view.queryByTestId('seat-transfer-target-select')).toBeNull()
+    // 登录门立即可用：新 QR 会话已创建（Seat 域请求携带的 Authorization 为空——
+    // qr_login 是免登录白名单面，凭证清空后照常可用）。
+    await waitFor(() =>
+      expect(backend.calls.some((call) => call.path.endsWith('/passport/qr_login/create'))).toBe(true),
+    )
+    const createCall = backend.calls.find((call) => call.path.endsWith('/passport/qr_login/create'))
+    expect(createCall?.auth).toBeNull()
   })
 })
