@@ -219,8 +219,12 @@ async function setupGroupTaskMocks(page: Page, opts: MockOptions = {}): Promise<
 }
 
 async function gotoGroupTaskPage(page: Page): Promise<void> {
-  await page.goto(`/groups/${GROUP_ID}/tasks`)
-  await expect(page.getByRole('heading', { name: '群任务管理' })).toBeVisible()
+  return (async () => {
+    await page.goto(`/groups/${GROUP_ID}/tasks`)
+    // 批跑高峰（workers 并发 + vite transform）下首屏 rbac/me 等真请求慢帧，
+    // heading 10s 偶发不够（adm-12 三轮实证 290/301 随机挂），放宽到 25s
+    await expect(page.getByRole('heading', { name: '群任务管理' })).toBeVisible({ timeout: 25_000 })
+  })()
 }
 
 // ---------------------------------------------------------------------------

@@ -208,7 +208,10 @@ test('批次1 AdminListPage 全量首测', async ({ page }) => {
     let next: string | null = null
     for (const o of options) {
       const v = await o.getAttribute('value')
-      if (v && v !== current && Number(v) > 0) { next = v; break }
+      const label = ((await o.textContent()) ?? '').trim()
+      // 授予 super_admin 会被后端防自我提权 guard 拒绝（403「不能授予超出自身权限集的角色」，
+      // adm_admin_handler 正确安全行为）；本步只验证变更链路，与创建步同口径跳过 super_admin
+      if (v && v !== current && Number(v) > 0 && label !== 'super_admin') { next = v; break }
     }
     test.skip(!next, '无可切换的角色选项')
     const assignResp = page.waitForResponse((r) => r.url().includes('/admin/assign_role'), { timeout: 15_000 })
