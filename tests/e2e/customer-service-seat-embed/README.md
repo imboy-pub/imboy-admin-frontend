@@ -86,6 +86,19 @@ A09 泄漏门（JWT/secret/手机号零泄漏）；A10 sandbox 精确属性 + to
 一键拉起其余环境（幂等）：
 
 ```bash
+# 凭据（合成，仅本地 scratch）：MASTER_CODE / SEAT_PASSWORD / ADMIN_PASSWORD 必填注入
+export SC153_E2E_MASTER_CODE=abc12345 \
+       SC153_E2E_SEAT_PASSWORD=Sc153E2e2026 \
+       SC153_E2E_ADMIN_PASSWORD=Sc153AdmE2e2026
+# 运行口径（缺一即挂，review-2 实证）：
+#   NODE_TLS_REJECT_UNAUTHORIZED=0 —— 网关自签证书；node 侧 fetch/undici 只认该开关
+#   SC153_BE_WORKTREE=<imboy 主仓根> —— 模板漂移用例定位 deploy/nginx 模板
+#   SC153_E2E_GATEWAY_BASE=https://127.0.0.1:18443 —— cs.test 被系统代理 fake-ip
+#     劫持时 node 侧 IP 直连同拓扑（cs.test 块为 nginx 首个 vhost=默认 server）
+export NODE_TLS_REJECT_UNAUTHORIZED=0 \
+       SC153_BE_WORKTREE="$PWD/../imboy" \
+       SC153_E2E_GATEWAY_BASE=https://127.0.0.1:18443
+
 bash tests/e2e/customer-service-seat-embed/fixtures/harness-seat-embed.sh
 SC153_E2E_EXECUTE=1 bunx playwright test --config=playwright.customer-service-seat-embed.config.ts
 ```
@@ -110,6 +123,9 @@ bash tests/e2e/customer-service-seat-embed/fixtures/harness-seat-embed.sh --prin
 | `SC153_E2E_ORG_ID` / `SC153_E2E_WORKSPACE_ID` / `SC153_E2E_CONSOLE_PUBLIC_ID` | `1603940848519155` / `1603940848519156` / `7003004002001001` | 种子 TSID（harness sed 种子；env.ts 同源默认） |
 | `SC153_E2E_WIDGET_ID` | `702000000000000101` | 访客链路 widget installation |
 | `SC153_E2E_CS_ORIGIN` | `https://cs.test:18443` | cs 网关 frame origin |
+| `SC153_E2E_GATEWAY_BASE` | `=$SC153_E2E_CS_ORIGIN` | node 侧 request 的网关基址；cs.test 被代理 fake-ip 劫持时设 `https://127.0.0.1:18443`（IP 直连同拓扑） |
+| `NODE_TLS_REJECT_UNAUTHORIZED` | 未设置 | 网关为自签证书：node 侧 fetch/undici 不吃 playwright 的 ignoreHTTPSErrors，须设 `0`（仅本地 scratch 口径） |
+| `SC153_BE_WORKTREE` | 未设置 | 模板漂移用例（S12/contract）定位 `deploy/nginx/templates` 所需的 imboy 主仓根 |
 | `SC153_E2E_SKIP_ADMIN_BUILD` | `0` | 跳过 Admin SPA 构建（A08 才需要 dist） |
 
 ## 本目录文件
