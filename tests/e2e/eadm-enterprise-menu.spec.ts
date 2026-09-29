@@ -51,23 +51,27 @@ const ENTERPRISE_GROUP_LABEL = '企业管理'
 const SEAT_WORKSPACE_PATH = '/customer-service/workspace'
 
 /**
- * §9-1 中可断言「点击 → 落到该 Admin 页面」的 5 个叶子。
- * 坐席工作台由 §9-6 用例单独验收，见下方 SEAT_LEAF。
- * marker = 该页面自渲染的 data-page 事实标记（证明落到了页面本体，而非只改 URL）。
+ * §9-1 中可断言「点击 → 落到该 Admin 页面」的 5 个叶子（marker = 页面 data-page）。
+ * PR-W2-C05 对齐：后端 default_sidebar_config 已演进为 9 叶子（组织治理/工作区/
+ * 企业项目/企业群/企业频道/客服坐席/应用与集成/离岗交接/企业审计业务数据），
+ * 旧 6 叶子标签（企业组织/在线客服/坐席工作台）已不存在，按现行合同改写。
  */
 const ADMIN_LEAF_MENUS = [
-  { label: '企业组织', path: '/organizations', marker: '[data-page="organization-list"]' },
-  { label: '企业业务数据', path: '/enterprise-business', marker: '[data-page="enterprise-business-readonly"]' },
+  { label: '组织治理', path: '/organizations', marker: '[data-page="organization-list"]' },
+  { label: '企业审计/业务数据', path: '/enterprise-business', marker: '[data-page="enterprise-business-readonly"]' },
   { label: '离岗交接', path: '/enterprise-business/offboarding', marker: '[data-page="eb-offboarding-cases"]' },
-  { label: '企业应用治理', path: '/enterprise/applications', marker: '[data-page="enterprise-applications"]' },
-  { label: '在线客服', path: '/customer-service', marker: '[data-page="customer-service-home"]' },
+  { label: '应用与集成', path: '/enterprise/applications', marker: '[data-page="enterprise-applications"]' },
+  { label: '客服坐席', path: '/customer-service', marker: '[data-page="customer-service-home"]' },
 ] as const
 
-/** 独立 Seat 入口：菜单可达，但落地为 Seat 登录门（§9-6）。 */
+/** 现行 9 叶子中无独立 data-page 标记的 4 个（presence-only：入口存在即菜单合同成立）。 */
+const PRESENCE_ONLY_LEAVES = ['工作区', '企业项目', '企业群', '企业频道'] as const
+
+/** 独立 Seat 入口：/customer-service/workspace 直达（现行侧栏无该叶子；Seat 域独立路由）。 */
 const SEAT_LEAF = { label: '坐席工作台', path: SEAT_WORKSPACE_PATH } as const
 
 /** 「企业管理」叶子（顺序即 sidebarSchema 下发顺序）。 */
-const ENTERPRISE_LEAF_MENUS = [...ADMIN_LEAF_MENUS, SEAT_LEAF] as const
+const ENTERPRISE_LEAF_MENUS = [...ADMIN_LEAF_MENUS, ...PRESENCE_ONLY_LEAVES.map((label) => ({ label, path: '', marker: '' }))] as const
 
 /**
  * §9-5：需要 org/ws 上下文的 3 个叶子。
@@ -76,13 +80,13 @@ const ENTERPRISE_LEAF_MENUS = [...ADMIN_LEAF_MENUS, SEAT_LEAF] as const
  */
 const ORG_WS_LEAF_MENUS = [
   {
-    label: '在线客服',
+    label: '客服坐席',
     path: '/customer-service',
     marker: '[data-page="customer-service-home"]',
     scopeProbe: null,
   },
   {
-    label: '企业业务数据',
+    label: '企业审计/业务数据',
     path: '/enterprise-business',
     marker: '[data-page="enterprise-business-readonly"]',
     scopeProbe: '[data-testid="eb-scope-troubleshooting"]',
@@ -127,11 +131,11 @@ test.describe('EADM-07 §9-1 · 企业管理菜单可达性（6 个叶子）', (
       '侧边栏应呈现「企业管理」分组（C1 冻结顶级组名）',
     ).toBeVisible()
 
-    // 行为断言 2：6 个叶子的菜单入口全部存在（含坐席工作台）。
+    // 行为断言 2：9 个叶子的菜单入口全部存在（现行 default_sidebar_config 合同）。
     for (const menu of ENTERPRISE_LEAF_MENUS) {
       await expect(
         page.getByRole('link', { name: menu.label, exact: true }).first(),
-        `侧边栏应含「${menu.label}」菜单项（C1 冻结叶子）`,
+        `侧边栏应含「${menu.label}」菜单项（现行冻结叶子）`,
       ).toBeVisible()
     }
 
@@ -216,8 +220,9 @@ test.describe('EADM-07 §9-6 · Seat 域不继承 Admin Cookie', () => {
     await expect(page, '前置：Admin 会话应已就绪（/dashboard）').toHaveURL(/\/dashboard(?:\?.*)?$/)
     await expect(page.getByRole('heading', { name: '仪表盘' })).toBeVisible()
 
-    // 行为断言 1：菜单入口可见（属于「企业管理」菜单）。
-    await page.getByRole('link', { name: SEAT_LEAF.label, exact: true }).first().click()
+    // 行为断言 1：直链进入独立 Seat 路由（现行侧栏已无「坐席工作台」叶子，2026-09
+    // 演进为 9 叶子合同；Seat 域独立路由合同不变，见 src/App.tsx）。
+    await page.goto(SEAT_WORKSPACE_PATH)
 
     // 行为断言 2：落到独立 Seat 路由（不在 Admin 保护路由内）。
     await expect

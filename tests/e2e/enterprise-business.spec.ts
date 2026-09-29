@@ -3,17 +3,22 @@ import { expect, test } from '@playwright/test'
 import { loginAsAdmin, requireAdminCredentials } from './support/adminAuth'
 
 /**
- * CS-03 e2e：imboyadmin 企业业务平台只读面（/enterprise-business）。
+ * 企业业务平台只读面（/enterprise-business）真实后端 E2E。
  *
- * 覆盖验收点：
- * - CS-03-A02：直链门（无 enterprise_business:read 权限时跳 /forbidden）；
- * - CS-03-A04：空态/引导态可用；
- * - CS-03-A05：页面不出现 profile_cipher/body_cipher/object_key/HMAC 等敏感字样。
+ * PR-W2-C05 改写说明：原 spec 断言旧版「组织 ID / 工作区 ID 手填输入框」租户表单；
+ * 页面已演进为 EADM-06 URL codec + OrganizationWorkspacePicker（组合选择器，
+ * scope 真源是 URL 的 org/ws 查询参数）。旧 getByLabel('组织 ID（organization_id）')
+ * 在 src 中零命中。现按现行合同改写：
+ *   - 无 scope 直链 → 显式引导空态「请先填写组织与工作区」；
+ *   - URL 携带 org/ws → 高级排障事实域原样回显 + 四只读 Tab 渲染；
+ *   - 会话消息/附件 Tab 的显式 ID 前置条件合同不变。
  *
- * 运行前提（BLOCKED_BACKEND）：需要 imboy 后端实例（登录 + RBAC profile +
- * enterprise_business 平台面读端点），以及
- * IMBOY_ADMIN_E2E_ACCOUNT / IMBOY_ADMIN_E2E_PASSWORD。凭据缺失时本文件全部 skip。
+ * 运行前提：imboy 后端实例 + IMBOY_ADMIN_E2E_ACCOUNT / _PASSWORD；
+ * scope 用 IMBOY_ADMIN_E2E_EADM_ORG_ID / _WS_ID（seed 脚本落库的 org/ws 对）。
  */
+const SCOPE_ORG = process.env.IMBOY_ADMIN_E2E_EADM_ORG_ID?.trim() || ''
+const SCOPE_WS = process.env.IMBOY_ADMIN_E2E_EADM_WS_ID?.trim() || ''
+
 test.describe('企业业务平台只读面', () => {
   async function openPage(page: import('@playwright/test').Page): Promise<boolean> {
     await page.goto('/enterprise-business')
@@ -34,34 +39,38 @@ test.describe('企业业务平台只读面', () => {
     }
 
     await expect(page.getByRole('heading', { name: '企业业务数据' })).toBeVisible()
-    await expect(page.getByLabel('组织 ID（organization_id）')).toBeVisible()
-    await expect(page.getByLabel('工作区 ID（workspace_id）')).toBeVisible()
 
-    // A04：未填租户范围时给引导空态（.first()：页面可能在多个区块各渲染一个引导）
+    // 租户范围组合选择器（scope 真源 = URL org/ws，非手填 ID 输入框）
+    await expect(page.getByLabel('选择组织与工作区')).toBeVisible()
+
+    // A04：无 scope 时给引导空态（平台面不存在无租户条件的全局列举）
     await expect(page.getByText('请先填写组织与工作区').first()).toBeVisible()
 
     // A05：页面骨架无敏感字段「取值」（键值形态：字段名后跟引号/冒号/等号）。
-    // 帮助文案中的字段名词提（如「HMAC 字段平台不可读」）不构成泄漏，不纳入断言。
     const bodyText = await page.locator('body').innerText()
     expect(bodyText).not.toMatch(/(?:profile_cipher|body_cipher|object_key|hmac|secret)["']?\s*[:=]/i)
   })
 
-  test('四个只读 Tab 均渲染且会话消息区需显式 conversation_id', async ({ page }) => {
+  test('URL 携带 org/ws 后四个只读 Tab 均渲染且排障事实域回显', async ({ page }) => {
+    test.skip(SCOPE_ORG.length === 0 || SCOPE_WS.length === 0, '缺 scope org/ws（IMBOY_ADMIN_E2E_EADM_ORG_ID / _WS_ID，由 seed 脚本提供）')
     const credentials = requireAdminCredentials()
     await loginAsAdmin(page, credentials)
     if (!(await openPage(page))) return
 
-    await page.getByLabel('组织 ID（organization_id）').fill('1')
-    await page.getByLabel('工作区 ID（workspace_id）').fill('1')
+    await page.goto(`/enterprise-business?org=${SCOPE_ORG}&ws=${SCOPE_WS}`)
+    // scope 就位：高级排障事实域原样回显 URL 的 org/ws（不互换、不重算）
+    const probe = page.getByTestId('eb-scope-troubleshooting')
+    await expect(probe).toBeVisible({ timeout: 15_000 })
+    await expect(probe).toContainText(`org: ${SCOPE_ORG}`)
+    await expect(probe).toContainText(`ws: ${SCOPE_WS}`)
 
     await expect(page.getByRole('tab', { name: '业务身份' })).toBeVisible()
     await page.getByRole('tab', { name: '企业客户' }).click()
-    await expect(page.getByText('企业客户（只读）')).toBeVisible()
     await page.getByRole('tab', { name: '会话消息' }).click()
-    await expect(page.getByLabel('会话 ID（conversation_id）')).toBeVisible()
-    await expect(page.getByText('尚未查询')).toBeVisible()
+    await expect(page.getByText('会话 ID（conversation_id）')).toBeVisible()
+    await expect(page.getByText('尚未查询').first()).toBeVisible()
     await page.getByRole('tab', { name: '附件内容' }).click()
-    await expect(page.getByLabel('附件 ID（asset_id）')).toBeVisible()
-    await expect(page.getByLabel(/责任人 user ID/)).toBeVisible()
+    await expect(page.getByText('附件 ID（asset_id）')).toBeVisible()
+    await expect(page.getByText(/责任人 user ID/)).toBeVisible()
   })
 })

@@ -112,9 +112,11 @@ function freshState(role: Role): GovernanceState {
 }
 
 function rolePermissions(role: Role): string[] {
+  // dashboard:view：登录成功后统一重定向 /dashboard（PermissionRoute 门槛），
+  // 缺它会让 login() 竞态性落到 /forbidden（PR-W2-C05 实测 flaky 根因）。
   // super 额外带 settings:view —— 推送 token 页的门（同一 harness 复用）
-  if (role === 'super') return [PERM_READ, PERM_WRITE, 'settings:view']
-  if (role === 'readonly') return [PERM_READ]
+  if (role === 'super') return [PERM_READ, PERM_WRITE, 'settings:view', 'dashboard:view']
+  if (role === 'readonly') return [PERM_READ, 'dashboard:view']
   return []
 }
 
@@ -166,6 +168,22 @@ async function installGovernanceRoutes(page: Page, state: GovernanceState) {
   })
 
   // 登录 / 会话 / 权限 / 侧边栏
+  // PR-W2-C05：SPA 外壳在受保护路由启动时会拉取 ambient 端点（feature 清单、
+  // 侧栏徽章、license 状态）。此前未 mock → 请求落到真实后端且无合成会话
+  // cookie → 401 → AUTH_EXPIRED_EVENT 把合成会话踢回 /login（V1.2 D 类 8 连败
+  // 根因）。按真实后端响应形态补齐 mock，spec 恢复「全合成、零后端依赖」。
+  await page.route(`**${ADM}/admin/config/features*`, (route) =>
+    route.fulfill(envelope({ appeal: false, channel: true, moment: true, report: true, feedback: true }))
+  )
+  await page.route(`**${ADM}/moment/report/list*`, (route) =>
+    route.fulfill(envelope({ list: [], size: 1, total: 0, page: 1, total_pages: 0 }))
+  )
+  await page.route(`**${ADM}/feedback/index*`, (route) =>
+    route.fulfill(envelope({ list: [], size: 1, total: 0, page: 1 }))
+  )
+  await page.route(`**${ADM}/stats/license*`, (route) =>
+    route.fulfill(envelope({ status: 'trial', valid: true, current_nodes: 1, current_users: 0, edition: 'trial' }))
+  )
   await page.route(`**${ADM}/setup/status*`, (route) => route.fulfill(envelope({ initialized: true })))
   await page.route(`**${ADM}/passport/meta*`, (route) =>
     route.fulfill(
@@ -555,10 +573,12 @@ test.describe('FULL-04 主链：登录 → 治理 → 签发 → 撤销 → 审�
     expect(afterLeak).not.toContain(PAYLOAD_CANARY)
   })
 
-  test('聚合面未接线（404）：诚实失败提示，不伪造数据', async ({ page }) => {
+  test('聚合面 404：诚实失败提示，不伪造数据', async ({ page }) => {
     const state = freshState('super')
     await installGovernanceRoutes(page, state)
-    // 覆盖列表路由为 404（模拟 A0 尚未接线的真实状态）
+    // 覆盖列表路由为 404。PR-W2-C05：聚合面已接线（GOVERNANCE_BACKEND_WIRED=true，
+    // A0 wiring 完成），404 现归类 notFound（资源不存在/跨组织），不再是历史的
+    // 「聚合面未接线」文案——按现行合同断言诚实失败 + 零伪造行。
     await page.route(`**${ADM}/enterprise/organizations/${ORG}/applications?*`, (route) =>
       route.fulfill(httpStatus(404, 'not_found'))
     )
@@ -566,8 +586,7 @@ test.describe('FULL-04 主链：登录 → 治理 → 签发 → 撤销 → 审�
     await page.goto('/enterprise/applications')
     await page.getByLabel('组织 ID（organization_id）').fill(ORG)
 
-    await expect(page.getByText(/聚合面未接线/)).toBeVisible({ timeout: 15_000 })
-    await expect(page.getByText(/不展示伪造数据/)).toBeVisible()
+    await expect(page.getByText(/资源不存在或不在当前组织作用域内/)).toBeVisible({ timeout: 15_000 })
     // 不伪造：不出现任何应用行
     await expect(page.getByRole('button', { name: '详情' })).toHaveCount(0)
   })

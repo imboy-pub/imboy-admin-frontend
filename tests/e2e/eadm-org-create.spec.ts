@@ -89,10 +89,12 @@ test.describe('EADM-07 §9-3 · 创建 Organization 仅能从 active Human 选�
     await expect(page.getByRole('heading', { name: '组织治理' })).toBeVisible()
 
     // 行为断言 2：存在创建入口（organizations:write），点击后打开创建对话框。
+    // PR-W2-C05：对话框已演进为 V2（org-create2-* testid；新增 Owner 模式切换
+    // registered/pending_phone；默认 registered），旧 org-create-dialog 标记零命中。
     await page.getByTestId('org-create-entry').click()
-    const dialog = page.getByTestId('org-create-dialog')
-    await expect(dialog, '应打开创建组织对话框').toBeVisible({ timeout: 15_000 })
-    await expect(dialog.getByText('创建组织', { exact: true })).toBeVisible()
+    const dialog = page.getByTestId('org-create2-dialog')
+    await expect(dialog, '应打开创建组织对话框（V2）').toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId('mode-registered'), '默认应为已注册 Owner 模式').toBeVisible()
 
     // 行为断言 3（核心）：Owner 必须是**用户搜索选择器**，而不是可手填 TSID 的裸输入框。
     const ownerSearch = page.getByTestId('owner-search-input')
@@ -113,35 +115,21 @@ test.describe('EADM-07 §9-3 · 创建 Organization 仅能从 active Human 选�
     await expect(activeOption, 'active 用户必须可选（非 active 项才 disabled）').toBeEnabled()
     await activeOption.click()
 
-    // 行为断言 5：选中后进入「已选 Owner」形态；其 TSID 只以 **readOnly** 输入展示，
-    // 证明正常流程无法手填/改写 Owner TSID。
+    // 行为断言 5：选中后进入「已选 Owner」形态（V2 移除了「TSID 只读排障块」，
+    // TSID 不再进 DOM——更强的不泄漏口径；owner_user_id 由请求体断言兜底对账）。
     const ownerSelected = page.getByTestId('owner-selected')
-    await expect(ownerSelected).toBeVisible()
-    // Owner TSID 只在「已选 Owner」块内的**折叠**排障区里展示（<details> 默认收起）
-    // ⇒ 先展开，再断言其只读形态；断言内容不变，只是把 UI 走到那个状态。
-    await ownerSelected.getByText('高级排障（只读）：Owner TSID').click()
-    const ownerTsidInput = page.getByTestId('owner-tsid-readonly')
-    await expect(ownerTsidInput, 'Owner TSID 仅只读展示').toBeVisible()
-    expect(
-      await ownerTsidInput.getAttribute('readonly'),
-      'Owner TSID 输入必须带 readonly（禁止手填）',
-    ).not.toBeNull()
+    await expect(ownerSelected, 'Owner 必须经搜索选择（已选形态）').toBeVisible()
 
-    const ownerTsid = (await ownerTsidInput.inputValue()).trim()
-    expect(ownerTsid.length, 'Owner TSID 不得为空').toBeGreaterThan(0)
-    expect(/^[A-Za-z0-9_-]{1,64}$/.test(ownerTsid), `Owner TSID 形态非法：${ownerTsid}`).toBe(true)
-
-    // 行为断言 6：组织名 / 默认 Workspace 名称填写。
-    await page.getByTestId('org-create-name').fill(orgName)
-    await page.getByTestId('org-create-ws').fill(wsName)
+    // 行为断言 6：组织名 / 默认 Workspace 名称填写（V2 testid）。
+    await page.getByTestId('org-create2-name').fill(orgName)
+    await page.getByTestId('org-create2-ws').fill(wsName)
 
     // 行为断言 7：提交前展示「Organization / Owner / 默认 Workspace」摘要并二次确认。
-    await page.getByTestId('org-create-next').click()
+    await page.getByTestId('org-create2-next').click()
     const summary = page.getByTestId('create-summary')
     await expect(summary, '提交前应展示创建摘要（二次确认）').toBeVisible({ timeout: 15_000 })
     await expect(summary, '摘要应含组织名').toContainText(orgName)
     await expect(summary, '摘要应含默认 Workspace').toContainText(wsName)
-    await expect(summary, '摘要应含 Owner 事实').toContainText(ownerTsid)
 
     // 捕获真实发出的创建请求（不拦截，让后端真实处理）。
     const requestBodies: Array<Record<string, unknown>> = []
@@ -156,6 +144,7 @@ test.describe('EADM-07 §9-3 · 创建 Organization 仅能从 active Human 选�
     // 收集创建响应投影（用于把详情 URL 的 org/ws 与后端返回的 id 对齐）。
     let createdOrgId: string | null = null
     let createdDefaultWsId: string | null = null
+    let createdOrgOwnerId: string | null = null
     const onResponse = (res: Response): void => {
       if (res.request().method() !== 'POST' || !CREATE_ORG_URL_RE.test(res.url())) return
       void (async () => {
@@ -170,6 +159,9 @@ test.describe('EADM-07 §9-3 · 创建 Organization 仅能从 active Human 选�
           const wsId = ws?.['id']
           if (typeof orgId === 'string') createdOrgId = orgId
           if (typeof wsId === 'string') createdDefaultWsId = wsId
+          // 服务端回显的 owner（对账请求体 owner_user_id；V2 不再把 TSID 渲染进 DOM）
+          const orgOwnerId = org?.['owner_id']
+          if (typeof orgOwnerId === 'string') createdOrgOwnerId = orgOwnerId
         } catch {
           // 响应非 JSON 时不在此处报错：由后续 expect.poll 超时暴露真实原因。
         }
@@ -177,7 +169,7 @@ test.describe('EADM-07 §9-3 · 创建 Organization 仅能从 active Human 选�
     }
     page.on('response', onResponse)
 
-    await page.getByTestId('org-create-confirm').click()
+    await page.getByTestId('org-create2-confirm').click()
 
     // 行为断言 8：请求体 = 严格三键合同，owner_user_id 即选择器选中的 TSID。
     await expect.poll(() => requestBodies.length, { timeout: 20_000 }).toBeGreaterThan(0)
@@ -187,9 +179,14 @@ test.describe('EADM-07 §9-3 · 创建 Organization 仅能从 active Human 选�
       '创建请求体必须严格三键（C2 冻结合同）',
     ).toEqual(['default_workspace_name', 'name', 'owner_user_id'])
     expect(body['name'], 'name 应为本次运行期唯一组织名').toBe(orgName)
-    expect(body['owner_user_id'], 'owner_user_id 应等于选择器选中的 active 用户 TSID').toBe(ownerTsid)
     expect(typeof body['owner_user_id'], 'owner_user_id 必须是 TSID string（不得裸 number）').toBe('string')
+    // 服务端回显的 organization.owner_id 与请求体 owner_user_id 对账（同一创建事务）
+    await expect
+      .poll(() => createdOrgOwnerId, { timeout: 20_000 })
+      .toBe(String(body['owner_user_id']))
     expect(body['default_workspace_name'], 'default_workspace_name 应为填写的默认工作区名').toBe(wsName)
+    // V2 不再把 Owner TSID 渲染进 DOM；后续详情断言以请求体 owner_user_id 为准
+    const ownerTsid = String(body['owner_user_id'])
 
     // 行为断言 9：创建成功 → 跳转组织详情页（路由携带 org/ws 上下文）。
     await page.waitForURL(/\/organizations\/[^/?#]+/, { timeout: 20_000 })

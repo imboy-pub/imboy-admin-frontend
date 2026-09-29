@@ -56,9 +56,12 @@ const MAX_CONCURRENT_MAX = 20
  * 组织/工作区 TSID：**必须由 seed 脚本落库**（本用例不再用「形态合法的假 TSID」，
  * 因为步骤 1/2 的选择器要能预选到它们、且成员选择器要有真实 active member）。
  * 前置：`W4/scripts/seed_org_ws.sql`（idempotent，可重复执行）。
+ * PR-W2-C05：支持 env 覆盖（IMBOY_ADMIN_E2E_EADM_ORG_ID / _WS_ID）——统一隔离
+ * 后端下，默认常量 1234567890123456789 与 admin-organization-governance 的
+ * INVALID_TSID（必须不存在）冲突，故 seed 用独立 TSID 并经 env 注入。
  */
-const ORG_TSID = '1234567890123456789'
-const WS_TSID = '1234567890123456788'
+const ORG_TSID = process.env.IMBOY_ADMIN_E2E_EADM_ORG_ID?.trim() || '1234567890123456789'
+const WS_TSID = process.env.IMBOY_ADMIN_E2E_EADM_WS_ID?.trim() || '1234567890123456788'
 
 /** 需要开通的坐席数（§9-4 明确要求「选两个 active member」）。 */
 const REQUIRED_MEMBER_COUNT = 2

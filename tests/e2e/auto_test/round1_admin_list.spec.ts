@@ -107,8 +107,18 @@ test('批次1 AdminListPage 全量首测', async ({ page }) => {
     await expect(page.getByText('账号长度至少 3 位')).toBeVisible()
     expect(hitsSince(/\/admin\/create/), '校验失败不应发创建请求').toHaveLength(0)
 
-    // 正常创建
+    // 正常创建（PR-W2-C05：角色下拉默认第一个选项是 super_admin——后续禁用步骤
+    // 会被「不能禁用超级管理员」防护拒绝，故显式选第一个非 super_admin 角色，
+    // 与 admin-rbac.spec 的运行时取角色模式一致）
     createdAccount = `pw_e2e_b1_${Math.floor(Date.now() / 1000) % 100000}`
+    const drawerRoleSelect = page.locator('aside').filter({ hasText: '创建后台管理员账号并分配初始角色' }).locator('select').first()
+    const nonSuperLabel = await drawerRoleSelect.locator('option').evaluateAll((nodes) => {
+      const hit = nodes.map((n) => n.textContent?.trim() || '').find((t) => t.length > 0 && t !== 'super_admin')
+      return hit ?? ''
+    })
+    if (nonSuperLabel.length > 0) {
+      await drawerRoleSelect.selectOption({ label: nonSuperLabel })
+    }
     const createRespPromise = page.waitForResponse((r) => r.url().includes('/admin/create'), { timeout: 15_000 })
     const listRespPromise = page.waitForResponse((r) => r.url().includes('/admin/list'), { timeout: 15_000 })
     await page.getByPlaceholder('请输入管理员账号').fill(createdAccount)
