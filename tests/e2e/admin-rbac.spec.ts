@@ -25,18 +25,28 @@ async function resolveAssignableRoleName(
   let resolved = ''
 
   await expect.poll(async () => {
-    const optionLabels = await roleSelect.locator('option').evaluateAll((nodes) =>
-      nodes
-        .map((node) => node.textContent?.trim() || '')
-        .filter((label) => label.length > 0),
+    const options = await roleSelect.locator('option').evaluateAll((nodes) =>
+      nodes.map((node) => ({
+        label: (node as HTMLOptionElement).textContent?.trim() || '',
+        value: (node as HTMLOptionElement).getAttribute('value') || '',
+      })),
     )
 
-    if (preferredRoleName && preferredRoleName !== currentRoleName && optionLabels.includes(preferredRoleName)) {
-      resolved = preferredRoleName
+    const preferred = options.find(
+      (o) => preferredRoleName !== undefined && o.label === preferredRoleName && o.label !== currentRoleName,
+    )
+    if (preferred) {
+      resolved = preferred.label
       return resolved
     }
 
-    resolved = optionLabels.find((label) => label !== currentRoleName) || ''
+    // 内置角色（role_id 2..6）优先：scratch DB 自定义角色存在脏 permissions
+    // override 历史（assign 403 根因，见
+    // patches/admin-list-403-dirty-role-forensics-20260929.md）。
+    const builtin = options.find(
+      (o) => o.label !== currentRoleName && Number(o.value) >= 2 && Number(o.value) <= 6,
+    )
+    resolved = builtin?.label || options.find((o) => o.label !== currentRoleName)?.label || ''
     return resolved
   }, {
     message: '等待可用于重新分配的目标角色出现在下拉框中',
@@ -77,11 +87,16 @@ test('超级管理员可创建管理员并重新分配角色', async ({ page }) 
   }, {
     message: '等待可分配的非 super_admin 角色出现',
   }).not.toBe('')
+  // 内置角色优先（role_id 2..6），理由同 resolveAssignableRoleName
   const initialOption = await drawerRoleSelect.locator('option').evaluateAll((nodes) => {
-    const label = nodes
-      .map((node) => node.textContent?.trim() || '')
-      .find((text) => text.length > 0 && text !== 'super_admin')
-    return label || initialRoleName
+    const options = nodes.map((node) => ({
+      label: (node as HTMLOptionElement).textContent?.trim() || '',
+      value: (node as HTMLOptionElement).getAttribute('value') || '',
+    }))
+    const builtin = options.find(
+      (o) => o.label.length > 0 && o.label !== 'super_admin' && Number(o.value) >= 2 && Number(o.value) <= 6,
+    )
+    return builtin?.label || initialRoleName
   })
   await drawerRoleSelect.selectOption({ label: initialOption })
   await adminDrawer.getByRole('button', { name: '确认创建' }).click()
