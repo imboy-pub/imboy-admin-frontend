@@ -105,15 +105,30 @@ async function realApiRoundTrip(
   const res = await pending
   // 无 mock Oracle：真实 imboy 后端是 Cowboy；page.route fulfill 不带该头。
   expect(res.headers()['server'] ?? '').toContain('Cowboy')
+  // pending resolve 后立刻取响应体：trigger 的再次 goto 会回收页面，此后
+  // res.json() 将永久失败得到 undefined（prodready run 第十/十一轮实证），
+  // 必须赶在回收窗口前物化文本。
+  let resText: string | null
+  try {
+    resText = await res.text()
+  } catch {
+    resText = null
+  }
   // code=0 Oracle：优先用 watchApi 已在回调内缓冲的信封（不受导航回收影响）；
-  // 兜底再试当次响应体。
-  let body: { code?: number } | undefined
+  // 兜底用上方已物化的响应体文本，仍拿不到则显式失败（不伪装 undefined）。
   const buffered = apiCalls.find((c) => c.url === res.url() && c.code !== null)
   if (buffered) {
     expect(buffered.code).toBe(0)
+  } else if (resText !== null) {
+    let parsed: { code?: number } | undefined
+    try {
+      parsed = JSON.parse(resText) as { code?: number }
+    } catch {
+      parsed = undefined
+    }
+    expect(parsed?.code).toBe(0)
   } else {
-    body = (await res.json().catch(() => undefined)) as { code?: number } | undefined
-    expect(body?.code).toBe(0)
+    throw new Error(`响应体不可读且 watchApi 未缓冲到匹配信封: ${res.url()}`)
   }
   return res.url()
 }
