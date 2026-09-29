@@ -10,8 +10,13 @@
  *      public id（origin 轮换/负例不改 snippet）。
  *   3. 种子↔常量↔宿主页一致性：同一段 TSID 在 seed SQL、helpers/env.ts、
  *      host fixtures 三处同源（防止漂移出「测试测错了行」的假绿）。
+ *   4. 生产模板↔harness conf 一致性（REVIEW-2 P1 机制闭环）：BE 仓生产
+ *      cs-widget.conf.template 与 harness 渲染 conf 的合同要素逐项一致
+ *      （两条 SSE 正则骨架、四组精确代理前缀、无全量 /api/v1/ 通配）——
+ *      harness conf 是生产模板的本地等价物，两者漂移 = E2E 测的网关与
+ *      生产上的网关不再是同一份合同。
  */
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 import { expect, test } from '@playwright/test'
@@ -190,5 +195,92 @@ test.describe('SC-E2E 静态合同：种子 / 常量 / 宿主页同源', () => {
     for (const g of groups) {
       expect(conf, `网关缺 seat API 组 ${g}`).toContain(`location ${g} {`)
     }
+  })
+})
+
+// ---------------------------------------------------------------------------
+// 4. 生产模板 ↔ harness conf 逐合同一致（REVIEW-2 P1 机制闭环）
+// ---------------------------------------------------------------------------
+test.describe('SC-E2E 静态合同：生产 nginx 模板 ↔ harness conf 逐合同一致', () => {
+  /**
+   * BE 仓（imboy 主仓）生产模板定位：
+   *   1. 优先 SC153_BE_WORKTREE 环境变量（沿用 harness 的 SC153_* 前缀约定）；
+   *   2. 回退 run worktree 布局：AD / BE worktree 是 worktrees/ 下的兄弟目录
+   *      （../integration-backend，相对 AD 仓根，即 harness conf 头注释指名的
+   *      「生产等价模板」所在仓）；
+   *   3. 再回退伞形工作区标准布局（../imboy，AD 主检出与 BE 主仓为兄弟），
+   *      让本用例在非 run 工作树的常规检出里同样开箱即跑。
+   * 解析失败直接抛可读错误（列出全部候选路径与覆盖方法），绝不静默 skip ——
+   * 静态一致性断言必须真实执行，skip 等于没闭环。
+   */
+  function readProdTemplate(): string {
+    const rel = 'deploy/nginx/templates/cs-widget.conf.template'
+    const candidates = [
+      process.env.SC153_BE_WORKTREE,
+      path.join(ROOT, '..', 'integration-backend'),
+      path.join(ROOT, '..', 'imboy'),
+    ].filter((d): d is string => Boolean(d))
+    for (const dir of candidates) {
+      const p = path.join(dir, rel)
+      if (existsSync(p)) return readFileSync(p, 'utf8')
+    }
+    throw new Error(
+      `找不到生产 nginx 模板 ${rel}；已尝试：\n` +
+        candidates.map((d) => `  - ${path.join(d, rel)}`).join('\n') +
+        `\n请设置 SC153_BE_WORKTREE 指向 imboy 主仓（worktree）根后重试。`,
+    )
+  }
+
+  test('S12 两条 SSE 正则 + 四组精确代理前缀 + 无全量 /api/v1/ 通配，生产模板与 harness conf 双侧一致', () => {
+    const prod = readProdTemplate()
+    const local = renderNginxConf()
+
+    // —— 断言粒度说明 ————————————————————————————————————————————
+    // 选「合同要素一致」（正则骨架 / 代理组清单）而非逐字节：两侧是同一份
+    // SC-OPS 合同的两种本地等价实现 —— 生产模板带 TLS/ACME、upstream 容器名
+    // （imboy_backend:9800）与 hosted-widget 既有面（/w/ 动态 frame、
+    // /api/v1/cs/widget/ 精化块等），harness 换成 127.0.0.1:9801、五域 scratch
+    // 拓扑并把 widget API 并入 /api/v1/cs/ 前缀（Seat 合同范围内功能等价）。
+    // 逐字节对照会把这些已知等价差异误报为漂移；真正不许漂移的合同要素是
+    // 下面三项，逐项钉死。
+
+    // 1) 两条 SSE 正则：双侧各自抽取全部 regex location 骨架，先比两侧集合
+    //    相等（防单侧漂移），再钉死期望清单（防双侧同向漂移）。正则骨架是
+    //    SSE 路由合同的唯一载体，差一个字符就是不同的路由面，故骨架逐字符
+    //    精确相等（这属于「合同要素一致」，不是整块逐字节）。
+    const sseOf = (text: string): string[] => {
+      const skeletons: string[] = []
+      const re = /location ~ (\^[^\s{]+)\s*\{/g
+      let m: RegExpExecArray | null
+      while ((m = re.exec(text)) !== null) skeletons.push(m[1]!)
+      return skeletons.sort()
+    }
+    const prodSse = sseOf(prod)
+    const localSse = sseOf(local)
+    expect(localSse, 'harness conf 的 SSE 正则集合与生产模板不一致').toEqual(prodSse)
+    expect(prodSse).toEqual([
+      '^/api/v1/cs/organizations/[0-9A-Za-z_-]+/seats/me/events$', // Seat SSE（SC-OPS-A03）
+      '^/api/v1/cs/widget/sessions/[0-9A-Za-z_-]+/events$', // Widget SSE（既有回归不变）
+    ])
+
+    // 2) 四组精确代理前缀：双侧齐全（清单即白名单合同，少一组 = 功能缺失，
+    //    多一组 = 攻击面放大，故以 contains 逐组钉死而非数量计数 —— 生产侧
+    //    另有 hosted-widget 的 /api/v1/cs/widget/ 精化块，属既有合同、不在
+    //    seat 四组清单内）。
+    const groups = [
+      '/api/v1/cs/',
+      '/api/v1/passport/qr_login/',
+      '/api/v1/enterprise/conversations/',
+      '/api/v1/enterprise/organizations/',
+    ]
+    for (const g of groups) {
+      expect(prod, `生产模板缺 seat API 组 ${g}`).toContain(`location ${g} {`)
+      expect(local, `harness conf 缺 seat API 组 ${g}`).toContain(`location ${g} {`)
+    }
+
+    // 3) 无全量 /api/v1/ 通配：双侧成立（四组之外一律不达 backend，fail-closed；
+    //    与 S3 对 harness 侧的负例断言同款正则，这里补齐生产侧并双侧并列）。
+    expect(prod, '生产模板出现全量 /api/v1/ 通配代理').not.toMatch(/location\s+\/api\/v1\/\s*\{/)
+    expect(local, 'harness conf 出现全量 /api/v1/ 通配代理').not.toMatch(/location\s+\/api\/v1\/\s*\{/)
   })
 })
