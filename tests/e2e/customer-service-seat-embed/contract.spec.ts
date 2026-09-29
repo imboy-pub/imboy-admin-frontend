@@ -3,8 +3,9 @@
  *
  * 两类静态 oracle：
  *   1. 渲染产物合同：harness --print-config-only 渲染的 nginx 模板文本逐条实现
- *      SC-OPS 合同（/seat/ 动态 frame、四组精确 API 白名单、无全量 /api/v1/ 代理、
- *      seat-assets 缓存头、SSE buffering off、网关零注入 CSP/XFO）；
+ *      SC-OPS 合同（/seat/ 动态 frame、坐席 API 精确子路径白名单（r3-B1 收敛：
+ *      2 正则 + 3 前缀，无整族前缀/无全量 /api/v1/ 代理）、seat-assets 缓存头、
+ *      SSE buffering off、网关零注入 CSP/XFO）；
  *   2. snippet 合同：宿主页 fixture 嵌入的 iframe 与计划 §1.1 冻结片段逐属性一致
  *      （sandbox 精确三值、no-referrer、零凭证标记），且三张宿主页共用同一
  *      public id（origin 轮换/负例不改 snippet）。
@@ -12,9 +13,14 @@
  *      host fixtures 三处同源（防止漂移出「测试测错了行」的假绿）。
  *   4. 生产模板↔harness conf 一致性（REVIEW-2 P1 机制闭环）：BE 仓生产
  *      cs-widget.conf.template 与 harness 渲染 conf 的合同要素逐项一致
- *      （两条 SSE 正则骨架、四组精确代理前缀、无全量 /api/v1/ 通配）——
- *      harness conf 是生产模板的本地等价物，两者漂移 = E2E 测的网关与
+ *      （两条 SSE 正则骨架、坐席 API 代理组清单逐行一致、无全量 /api/v1/ 通配）
+ *      ——harness conf 是生产模板的本地等价物，两者漂移 = E2E 测的网关与
  *      生产上的网关不再是同一份合同。
+ *
+ * 网关最小性（r3-B1，REVIEW-2 P2）：S3/S11/S12 以「网关允许集 = 客户端实际
+ * 所需集」双向断言取代旧的单向「客户端白名单 ⊆ 网关四组」——允许集真源 =
+ * AD seatApiClient 域白名单 ∩ BE imboy_router 坐席真实路由 ∩ journey 调用面，
+ * 收敛后的形状冻结在 API_PROXY_GROUPS，任何多余组/整族前缀回潮一律 fail。
  */
 import { existsSync, readFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
@@ -53,6 +59,59 @@ function attrValue(tag: string, name: string): string | null {
 }
 
 // ---------------------------------------------------------------------------
+// 坐席 API 网关允许集（r3-B1 收敛后的冻结合同；REVIEW-2 P2 攻击面最小化）。
+// 真源三交叉：AD seatApiClient SEAT_PATH_PREFIXES ∩ BE imboy_router 坐席真实
+// 路由 ∩ journey/workbench 实际调用面。任何一侧新增调用或新增代理组都必须
+// 同步改这份清单 —— 清单即双向最小性合同（多余组 / 缺组 / 整族前缀回潮都 fail）。
+// 正则形状与生产模板 cs-widget.conf.template 逐字符一致（S12 双侧比对）。
+const SEAT_CS_API_REGEX =
+  '^/api/v1/cs/(me/seat-contexts|organizations/[0-9A-Za-z_-]+/(transfer-targets|sessions/(queue|[0-9A-Za-z_-]+(/(claim|transfer|close|read-cursor|context))?)|seats/(sessions|me/(heartbeat|presence))))$'
+const SEAT_ENTERPRISE_API_REGEX =
+  '^/api/v1/enterprise/organizations/[0-9A-Za-z_-]+/(assets/(presign|confirm|[0-9A-Za-z_-]+/content)|conversations/[0-9A-Za-z_-]+/messages)$'
+
+/** 网关坐席 API 代理组冻结清单（normalized location 指令形状；排序无关）。 */
+const API_PROXY_GROUPS: readonly string[] = [
+  `location ~ ${SEAT_CS_API_REGEX}`,
+  `location ~ ${SEAT_ENTERPRISE_API_REGEX}`,
+  'location /api/v1/cs/widget/',
+  'location /api/v1/passport/qr_login/',
+  'location /api/v1/enterprise/conversations/',
+]
+
+/** 客户端域白名单族冻结清单（= seatApiClient.ts SEAT_PATH_PREFIXES 的合同投影）。 */
+const CLIENT_DOMAIN_FAMILIES: readonly string[] = [
+  '/api/v1/cs/',
+  '/api/v1/passport/qr_login/',
+  '/api/v1/enterprise/conversations/',
+  '/api/v1/enterprise/organizations/',
+]
+
+/**
+ * 从渲染 conf 抽取 /api/v1 代理组 location 指令形状：
+ * 取「location … {」指令 token（首个 { 之前），折叠空白后 trim；
+ * 只保留路径含 /api/v1 的行（静态面/admin 面等无关 location 不进集合）。
+ * 生产模板与 harness 的 location 指令文本经此归一后逐字符可比（S12）。
+ */
+function apiProxyLocations(conf: string): string[] {
+  // 先剥整行注释：模板/harness 的注释里大量出现 "location /" 等说明文字，
+  // 不剥会把注释文本连同下一个真 location 的 { 误并成一个指令。
+  const code = conf
+    .split('\n')
+    .filter((line: string) => !line.trim().startsWith('#'))
+    .join('\n')
+  const out: string[] = []
+  const re = /\b(location\b[^{}]*?)\s*\{/g
+  let m: RegExpExecArray | null
+  while ((m = re.exec(code)) !== null) {
+    const directive = m[1]!.replace(/\s+/g, ' ').trim()
+    // SSE 正则 location（…/events$）是独立冻结合同（S4/S12 第 1 项），
+    // 不属于「坐席 API 代理组」集合 —— 排除，避免与代理组清单双重计数。
+    if (directive.includes('/api/v1') && !/events\$$/.test(directive)) out.push(directive)
+  }
+  return out.sort()
+}
+
+// ---------------------------------------------------------------------------
 // 1. 渲染产物合同（nginx 模板 = SC-OPS 合同的本地等价实现）
 // ---------------------------------------------------------------------------
 test.describe('SC-E2E 静态合同：harness 渲染的 nginx 模板', () => {
@@ -79,13 +138,16 @@ test.describe('SC-E2E 静态合同：harness 渲染的 nginx 模板', () => {
     expect(conf).toMatch(/add_header Referrer-Policy strict-origin-when-cross-origin always;/)
   })
 
-  test('S3 四组 Seat API 精确代理齐全；不存在全量 /api/v1/ 代理', () => {
-    expect(conf).toMatch(/location \/api\/v1\/cs\/ \{[^}]*proxy_pass/)
-    expect(conf).toMatch(/location \/api\/v1\/passport\/qr_login\/ \{[^}]*proxy_pass/)
-    expect(conf).toMatch(/location \/api\/v1\/enterprise\/conversations\/ \{[^}]*proxy_pass/)
-    expect(conf).toMatch(/location \/api\/v1\/enterprise\/organizations\/ \{[^}]*proxy_pass/)
-    // 全量代理禁令：不得出现裸 `/api/v1/` 前缀 location（漏一个字都算放大攻击面）
-    expect(conf).not.toMatch(/location\s+\/api\/v1\/\s*\{/)
+  test('S3 坐席 API 网关允许集 = 冻结最小集（r3-B1 双向）：2 正则 + 3 前缀；整族前缀/全量代理零容忍', () => {
+    // 双向最小性（REVIEW-2 P2）：网关允许集必须**恰好等于**坐席工作台实际
+    // 所需集 —— 多一组 = 攻击面放大；少一组 = 功能缺失；整族前缀回潮
+    // （/api/v1/cs/ 或 /api/v1/enterprise/organizations/ 前缀 location）=
+    // 收敛失效。故以排序集合精确相等断言，而非旧的 contains 单向覆盖。
+    expect(apiProxyLocations(conf)).toEqual([...API_PROXY_GROUPS].sort())
+    // 负例锁（防回潮）：三类被禁形状逐条钉死。
+    expect(conf).not.toMatch(/location\s+\/api\/v1\/\s*\{/) // 全量通配
+    expect(conf).not.toMatch(/location\s+\/api\/v1\/cs\/\s*\{/) // cs 整族前缀
+    expect(conf).not.toMatch(/location\s+\/api\/v1\/enterprise\/organizations\/\s*\{/) // org 整族前缀
   })
 
   test('S4 Seat SSE 与 Widget SSE buffering/cache off + 长超时；普通 API 不误套', () => {
@@ -182,19 +244,89 @@ test.describe('SC-E2E 静态合同：种子 / 常量 / 宿主页同源', () => {
     expect(visitor).toContain('__SC153_CS_ORIGIN__')
   })
 
-  test('S11 seat 客户端 API 白名单 ⊆ 网关四组代理（路径合同与 src 同源）', () => {
-    // 真源：src/modules/customer_service/seat/seatApiClient.ts 的 ALLOWED 前缀族；
-    // 网关四组必须完整覆盖（本测试只做静态一致性，不 import src 以免构建耦合）。
+  test('S11 双向最小性：客户端域白名单与子路径调用面 ↔ 网关允许集互为充要（真源绑定 src）', () => {
+    // —— 方向 1（客户端域 → 网关）：真源 = seatApiClient.ts 的
+    //    SEAT_PATH_PREFIXES（源文本抽取，不 import 以免构建耦合）；
+    //    客户端每族必须至少被一个网关组覆盖（缺 = 功能缺失）。
+    const clientSrc = readFileSync(
+      path.join(ROOT, 'src/modules/customer_service/seat/seatApiClient.ts'),
+      'utf8',
+    )
+    const prefixesBlock = /const SEAT_PATH_PREFIXES = \[([\s\S]*?)\] as const/.exec(clientSrc)
+    expect(prefixesBlock, 'seatApiClient.ts 必须含 SEAT_PATH_PREFIXES 白名单').toBeTruthy()
+    const clientFamilies = [...prefixesBlock![1]!.matchAll(/'([^']+)'/g)].map((m) => m[1]!)
+    expect(clientFamilies).toEqual([...CLIENT_DOMAIN_FAMILIES])
+
     const conf = renderNginxConf()
-    const groups = [
-      '/api/v1/cs/',
+    const groups = apiProxyLocations(conf)
+    for (const family of clientFamilies) {
+      const covered = groups.some((g) => g.replace(/^location ~ \^?/, '').startsWith(family) ||
+        g.startsWith(`location ${family}`))
+      expect(covered, `网关缺客户端族 ${family} 的覆盖组`).toBe(true)
+    }
+
+    // —— 方向 2（网关 → 客户端）：每个网关组必须落在客户端域白名单族内
+    //    （多余族 = 攻击面放大，直接 fail）。
+    for (const g of groups) {
+      const shape = g.replace(/^location ~ \^?/, '').replace(/^location /, '')
+      const justified = clientFamilies.some((f) => shape.startsWith(f))
+      expect(justified, `网关组越出客户端域白名单：${g}`).toBe(true)
+    }
+
+    // —— 方向 3（子路径级功能绑定）：客户端真实构造的每条调用路径（源文本
+    //    抽取路径字面量，${…}/:param 段以样本 TSID 实例化）必须被网关允许集
+    //    （2 收敛正则 + 2 SSE 正则 + 3 前缀族）放行 —— 否则 EXECUTE 阶段
+    //    journey 会在网关吃 404。反向不成立：正则允许的治理子路径
+    //    （如 sessions/:id/claim 之外的动作、seats/presence）没有客户端
+    //    构造点，落在负例 spec 钉死（negatives-gateway-minimality.spec.ts）。
+    const sampleId = '1700000000000001'
+    const admitted: RegExp[] = [
+      new RegExp(SEAT_CS_API_REGEX),
+      new RegExp(SEAT_ENTERPRISE_API_REGEX),
+      /^\/api\/v1\/cs\/organizations\/[0-9A-Za-z_-]+\/seats\/me\/events$/,
+      /^\/api\/v1\/cs\/widget\/sessions\/[0-9A-Za-z_-]+\/events$/,
+    ]
+    const prefixFamilies = [
+      '/api/v1/cs/widget/',
       '/api/v1/passport/qr_login/',
       '/api/v1/enterprise/conversations/',
-      '/api/v1/enterprise/organizations/',
     ]
-    for (const g of groups) {
-      expect(conf, `网关缺 seat API 组 ${g}`).toContain(`location ${g} {`)
+    const pathSources = [
+      'src/modules/customer_service/seat/seatContexts.ts',
+      'src/modules/customer_service/seat/qrLoginSession.ts',
+      'src/modules/customer_service/seat/seatSseClient.ts',
+      'src/modules/customer_service/seat/workbench/contract.ts',
+    ]
+    const ignore = new Set(['/api/v1']) // SEAT_API_BASE 常量本身不是调用路径
+    let extracted = 0
+    for (const rel of pathSources) {
+      const src = readFileSync(path.join(ROOT, rel), 'utf8')
+        .replace(/\/\*[\s\S]*?\*\//g, '') // 块注释（含旧路由合同引文）不参与
+        .split('\n')
+        .map((line) => line.replace(/(^|[^:])\/\/.*$/, '$1')) // 行注释（容忍 path 中无 //）
+        .join('\n')
+      const literals = [
+        ...src.matchAll(/'((?:\/[a-z0-9_][a-z0-9_/:.-]*))'/g),
+        ...src.matchAll(/`(\/[a-z0-9_][^`]*)`/g),
+      ].map((m) => m[1]!)
+      expect(literals.length, `${rel} 应含路径字面量（抽取失效即 fail）`).toBeGreaterThan(0)
+      for (const raw of literals) {
+        // ${…} 占位段以样本 TSID 原位实例化（不带前导斜杠，避免产生空路径段）；
+        // ${action} 是 TS 字面量联合（claim/transfer/close/read-cursor），按其一
+        // 实例化 —— 网关正则对动作段做字面量门控，TSID 形状本就不该放行。
+        const withParams = raw
+          .replace(/\$\{action\}/g, 'claim')
+          .replace(/\$\{[^}]*\}/g, sampleId)
+          .replace(/:([a-z_]+)/g, sampleId)
+        const full = withParams.startsWith('/api/v1') ? withParams : `/api/v1${withParams}`
+        if (ignore.has(full)) continue
+        extracted += 1
+        const ok =
+          admitted.some((re) => re.test(full)) || prefixFamilies.some((f) => full.startsWith(f))
+        expect(ok, `客户端调用路径未被网关允许集放行（会 404）：${full}（来自 ${rel}）`).toBe(true)
+      }
     }
+    expect(extracted, '子路径功能绑定必须覆盖到真实调用面（>0）').toBeGreaterThan(0)
   })
 })
 
@@ -217,6 +349,10 @@ test.describe('SC-E2E 静态合同：生产 nginx 模板 ↔ harness conf 逐合
     const rel = 'deploy/nginx/templates/cs-widget.conf.template'
     const candidates = [
       process.env.SC153_BE_WORKTREE,
+      // 本 run 车道 worktree（r3-B1 收敛改动所在）：主 worktree 未合入前，
+      // 兄弟目录 integration-backend/imboy 仍是收敛前的旧模板 —— 车道
+      // worktree 存在时必须优先，否则 S12 会比对到陈旧合同产生假失败。
+      path.join(ROOT, '..', 'r3-b1'),
       path.join(ROOT, '..', 'integration-backend'),
       path.join(ROOT, '..', 'imboy'),
     ].filter((d): d is string => Boolean(d))
@@ -231,29 +367,31 @@ test.describe('SC-E2E 静态合同：生产 nginx 模板 ↔ harness conf 逐合
     )
   }
 
-  test('S12 两条 SSE 正则 + 四组精确代理前缀 + 无全量 /api/v1/ 通配，生产模板与 harness conf 双侧一致', () => {
+  test('S12 两条 SSE 正则 + 坐席 API 代理组逐行一致 + 无通配/无整族前缀，生产模板与 harness conf 双侧一致', () => {
     const prod = readProdTemplate()
     const local = renderNginxConf()
 
     // —— 断言粒度说明 ————————————————————————————————————————————
-    // 选「合同要素一致」（正则骨架 / 代理组清单）而非逐字节：两侧是同一份
+    // 选「合同要素一致」（正则骨架 / 代理组指令逐行）而非逐字节：两侧是同一份
     // SC-OPS 合同的两种本地等价实现 —— 生产模板带 TLS/ACME、upstream 容器名
     // （imboy_backend:9800）与 hosted-widget 既有面（/w/ 动态 frame、
     // /api/v1/cs/widget/ 精化块等），harness 换成 127.0.0.1:9801、五域 scratch
-    // 拓扑并把 widget API 并入 /api/v1/cs/ 前缀（Seat 合同范围内功能等价）。
-    // 逐字节对照会把这些已知等价差异误报为漂移；真正不许漂移的合同要素是
-    // 下面三项，逐项钉死。
+    // 拓扑。逐字节对照会把这些已知等价差异误报为漂移；真正不许漂移的合同要素是
+    // 下面三项，逐项钉死（r3-B1 起代理组升级为逐行集合相等 —— location 指令
+    // 文本两侧逐字符一致，FIX-1 回归锁语义）。
 
-    // 1) 两条 SSE 正则：双侧各自抽取全部 regex location 骨架，先比两侧集合
-    //    相等（防单侧漂移），再钉死期望清单（防双侧同向漂移）。正则骨架是
-    //    SSE 路由合同的唯一载体，差一个字符就是不同的路由面，故骨架逐字符
-    //    精确相等（这属于「合同要素一致」，不是整块逐字节）。
+    // 1) 两条 SSE 正则：双侧各自抽取全部 regex location 骨架（只取 /events$
+    //    结尾的流式合同 —— r3-B1 起另有坐席子路径收敛正则，属代理组合同，
+    //    由下方第 2 项逐行比对，不混入 SSE 骨架），先比两侧集合相等（防单侧
+    //    漂移），再钉死期望清单（防双侧同向漂移）。正则骨架是 SSE 路由合同的
+    //    唯一载体，差一个字符就是不同的路由面，故骨架逐字符精确相等（这属于
+    //    「合同要素一致」，不是整块逐字节）。
     const sseOf = (text: string): string[] => {
       const skeletons: string[] = []
       const re = /location ~ (\^[^\s{]+)\s*\{/g
       let m: RegExpExecArray | null
       while ((m = re.exec(text)) !== null) skeletons.push(m[1]!)
-      return skeletons.sort()
+      return skeletons.filter((s) => s.endsWith('/events$')).sort()
     }
     const prodSse = sseOf(prod)
     const localSse = sseOf(local)
@@ -263,24 +401,21 @@ test.describe('SC-E2E 静态合同：生产 nginx 模板 ↔ harness conf 逐合
       '^/api/v1/cs/widget/sessions/[0-9A-Za-z_-]+/events$', // Widget SSE（既有回归不变）
     ])
 
-    // 2) 四组精确代理前缀：双侧齐全（清单即白名单合同，少一组 = 功能缺失，
-    //    多一组 = 攻击面放大，故以 contains 逐组钉死而非数量计数 —— 生产侧
-    //    另有 hosted-widget 的 /api/v1/cs/widget/ 精化块，属既有合同、不在
-    //    seat 四组清单内）。
-    const groups = [
-      '/api/v1/cs/',
-      '/api/v1/passport/qr_login/',
-      '/api/v1/enterprise/conversations/',
-      '/api/v1/enterprise/organizations/',
-    ]
-    for (const g of groups) {
-      expect(prod, `生产模板缺 seat API 组 ${g}`).toContain(`location ${g} {`)
-      expect(local, `harness conf 缺 seat API 组 ${g}`).toContain(`location ${g} {`)
-    }
+    // 2) 坐席 API 代理组：双侧 /api/v1 location 指令集合**逐行相等**且恰为
+    //    冻结清单（r3-B1 收敛后双侧同形：2 收敛正则 + 3 前缀，含访客
+    //    /api/v1/cs/widget/ 独立前缀）。少一组 = 功能缺失，多一组 / 整族
+    //    前缀回潮 = 攻击面放大 —— 排序集合相等把三个方向全部钉死。
+    expect(apiProxyLocations(prod), '生产模板坐席 API 代理组漂移').toEqual([...API_PROXY_GROUPS].sort())
+    expect(apiProxyLocations(local), 'harness conf 坐席 API 代理组漂移').toEqual([...API_PROXY_GROUPS].sort())
 
-    // 3) 无全量 /api/v1/ 通配：双侧成立（四组之外一律不达 backend，fail-closed；
-    //    与 S3 对 harness 侧的负例断言同款正则，这里补齐生产侧并双侧并列）。
-    expect(prod, '生产模板出现全量 /api/v1/ 通配代理').not.toMatch(/location\s+\/api\/v1\/\s*\{/)
-    expect(local, 'harness conf 出现全量 /api/v1/ 通配代理').not.toMatch(/location\s+\/api\/v1\/\s*\{/)
+    // 3) 禁止形状双侧成立：全量 /api/v1/ 通配 + 被收敛掉的两族整族前缀
+    //    （四组之外/收敛组之外一律不达 backend，fail-closed）。
+    for (const [name, text] of [['生产模板', prod], ['harness conf', local]] as const) {
+      expect(text, `${name}出现全量 /api/v1/ 通配代理`).not.toMatch(/location\s+\/api\/v1\/\s*\{/)
+      expect(text, `${name}出现 /api/v1/cs/ 整族前缀回潮`).not.toMatch(/location\s+\/api\/v1\/cs\/\s*\{/)
+      expect(text, `${name}出现 /api/v1/enterprise/organizations/ 整族前缀回潮`).not.toMatch(
+        /location\s+\/api\/v1\/enterprise\/organizations\/\s*\{/,
+      )
+    }
   })
 })

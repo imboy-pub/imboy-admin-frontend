@@ -11,14 +11,17 @@
 #   负例宿主                   →  本地 https://evil.test:18443
 #   Admin SPA                  →  本地 https://admin.test:18443
 #
-# cs.test vhost 实现 SC-OPS 合同（plan §5.4）：
+# cs.test vhost 实现 SC-OPS 合同（plan §5.4；代理组经 r3-B1 收敛为攻击面
+# 最小化，与生产模板逐合同一致 —— location 指令文本逐字符相同）：
 #   /seat/*                     → backend（动态 frame；CSP frame-ancestors 由 backend 按允许 origin 下发）
-#   /api/v1/cs/*                → backend（含 seat SSE regex location，buffering/cache off）
+#   /api/v1/cs/widget/*         → backend（访客 Widget API，既有独立前缀）
+#   /api/v1/cs/…（坐席子路径正则）→ backend（含 seat SSE regex location，buffering/cache off）
 #   /api/v1/passport/qr_login/* → backend
 #   /api/v1/enterprise/conversations/* → backend
-#   /api/v1/enterprise/organizations/* → backend
+#   /api/v1/enterprise/organizations/…（坐席子路径正则）→ backend
 #   /seat-assets/* /assets/ /v1/loader.js /widget* → dist-widget 静态（18080 静态面）
-#   其余 /api/v1/* 一律不代理（fail-closed 落静态 404）
+#   其余 /api/v1/* 一律不代理（fail-closed 落静态 404；含被收敛掉的
+#   /api/v1/cs/ 与 /api/v1/enterprise/organizations/ 整族前缀）
 #
 # 用法：
 #   bash fixtures/harness-seat-embed.sh [--print-config-only]
@@ -159,14 +162,24 @@ http {
             proxy_read_timeout 300s; proxy_send_timeout 300s;
         }
 
-        # ── 四组 Seat 客户端同源 API（精确白名单；不存在全量 /api/v1/ 代理）──
-        location /api/v1/cs/ { proxy_pass $BE; proxy_http_version 1.1; proxy_set_header Host \$http_host;
+        # ── 坐席子路径精确正则 ×2 + 前缀白名单 ×3（r3-B1 收敛；与生产模板──
+        #    cs-widget.conf.template 的 location 指令逐字符一致，FIX-1 语义）。
+        #    坐席工作台实际子路径：seat-contexts / transfer-targets /
+        #    sessions(queue|:id|:id/(claim|transfer|close|read-cursor|context)) /
+        #    seats(sessions|me/heartbeat|me/presence)；enterprise 侧 assets
+        #    (presign|confirm|:id/content) + conversations/:conv/messages。
+        #    治理面/访客面/整族前缀一律不匹配 → 落 location / → 静态 404。
+        location ~ ^/api/v1/cs/(me/seat-contexts|organizations/[0-9A-Za-z_-]+/(transfer-targets|sessions/(queue|[0-9A-Za-z_-]+(/(claim|transfer|close|read-cursor|context))?)|seats/(sessions|me/(heartbeat|presence))))\$ { proxy_pass $BE; proxy_http_version 1.1; proxy_set_header Host \$http_host;
+            proxy_set_header X-Forwarded-Proto \$scheme; }
+        location ~ ^/api/v1/enterprise/organizations/[0-9A-Za-z_-]+/(assets/(presign|confirm|[0-9A-Za-z_-]+/content)|conversations/[0-9A-Za-z_-]+/messages)\$ { proxy_pass $BE; proxy_http_version 1.1; proxy_set_header Host \$http_host;
+            proxy_set_header X-Forwarded-Proto \$scheme; }
+        # 访客 Widget API 既有独立前缀（原并入 /api/v1/cs/ 前缀，收敛后与
+        # 生产模板同形独立列出 —— 访客链路 /api/v1/cs/widget/* 回归不变）。
+        location /api/v1/cs/widget/ { proxy_pass $BE; proxy_http_version 1.1; proxy_set_header Host \$http_host;
             proxy_set_header X-Forwarded-Proto \$scheme; }
         location /api/v1/passport/qr_login/ { proxy_pass $BE; proxy_http_version 1.1; proxy_set_header Host \$http_host;
             proxy_set_header X-Forwarded-Proto \$scheme; }
         location /api/v1/enterprise/conversations/ { proxy_pass $BE; proxy_http_version 1.1; proxy_set_header Host \$http_host;
-            proxy_set_header X-Forwarded-Proto \$scheme; }
-        location /api/v1/enterprise/organizations/ { proxy_pass $BE; proxy_http_version 1.1; proxy_set_header Host \$http_host;
             proxy_set_header X-Forwarded-Proto \$scheme; }
 
         # ── 静态产物 → 18080（缓存头由静态面下发，网关不覆写）────────────────
