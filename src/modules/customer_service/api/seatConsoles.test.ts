@@ -116,6 +116,25 @@ describe('seat console API 路径与方法（A06）', () => {
     expect(Object.keys(revokeBody).sort()).toEqual(['organization_id', 'workspace_id'])
   })
 
+  it('update 提供 expectedVersion 时随请求携带 expected_version（F-6 乐观并发控制）；缺省不携带（LWW 兼容）', async () => {
+    const calls = captureCalls((_url) => ({ seat_console: consoleRow() }))
+    await updateSeatConsole(CONSOLE_ID, {
+      ...SCOPE,
+      allowedOrigins: ['https://cas.example.com'],
+      expectedVersion: 3,
+    })
+    await updateSeatConsole(CONSOLE_ID, { ...SCOPE, allowedOrigins: ['https://lww.example.com'] })
+    await updateSeatConsole(CONSOLE_ID, {
+      ...SCOPE,
+      allowedOrigins: ['https://nan.example.com'],
+      expectedVersion: Number.NaN,
+    })
+    const putBodies = calls.map((c) => c.body as Record<string, unknown>)
+    expect(putBodies[0]?.expected_version).toBe(3)
+    expect(putBodies[1]).not.toHaveProperty('expected_version')
+    expect(putBodies[2]).not.toHaveProperty('expected_version')
+  })
+
   it('客户端 fail-closed：缺 organization_id / workspace_id 直接抛错且不发请求', async () => {
     const calls = captureCalls()
     await expect(listSeatConsoles({ organizationId: '', workspaceId: SCOPE.workspaceId })).rejects.toThrow(

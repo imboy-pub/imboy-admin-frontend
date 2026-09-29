@@ -756,17 +756,27 @@ function SeatConsoleSection(props: SeatConsoleSectionProps) {
     onError: (error) => toast.error(`创建失败：${getErrorMessage(error)}`),
   })
   const updateMutation = useMutation({
-    mutationFn: (input: { seatConsoleId: EntityId; allowedOrigins: string[] }) =>
+    mutationFn: (input: { seatConsoleId: EntityId; allowedOrigins: string[]; expectedVersion?: number }) =>
       updateSeatConsole(input.seatConsoleId, {
         organizationId: props.organizationId,
         workspaceId: props.workspaceId,
         allowedOrigins: input.allowedOrigins,
+        expectedVersion: input.expectedVersion,
       }),
     onSuccess: () => {
       toast.success('允许来源已更新；接入代码保持不变')
       invalidateSeatConsoles()
     },
-    onError: (error) => toast.error(`更新失败：${getErrorMessage(error)}`),
+    onError: (error) => {
+      // F-6 乐观并发控制：随请求携带其已持有的 version，他人已推进 → 409
+      // （提示刷新重试，列表随后由 invalidate 之前的 refetch 收敛）。
+      if (isSeatConsoleConflict(error)) {
+        toast.error('允许来源已被他人更新，请刷新页面后重试')
+        invalidateSeatConsoles()
+        return
+      }
+      toast.error(`更新失败：${getErrorMessage(error)}`)
+    },
   })
   const revokeMutation = useMutation({
     mutationFn: (seatConsoleId: EntityId) =>
@@ -838,7 +848,11 @@ function SeatConsoleSection(props: SeatConsoleSectionProps) {
             canWrite={props.canWrite}
             updatePending={updateMutation.isPending}
             onSaveOrigins={(allowedOrigins) =>
-              updateMutation.mutate({ seatConsoleId: activeConsole.id, allowedOrigins })
+              updateMutation.mutate({
+                seatConsoleId: activeConsole.id,
+                allowedOrigins,
+                expectedVersion: activeConsole.version,
+              })
             }
             onRevoke={() => setRevokeOpen(true)}
           />

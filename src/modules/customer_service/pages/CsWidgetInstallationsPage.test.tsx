@@ -413,7 +413,14 @@ describe('CsWidgetInstallationsPage — SC-FE 客服工作台接入块', () => {
     expect(writeCalls[0]?.method).toBe('PUT')
     expect(writeCalls[0]?.url).toBe(`/customer-service/seat-consoles/${CONSOLE_ID}`)
     const body = writeCalls[0]?.body as Record<string, unknown>
-    expect(Object.keys(body).sort()).toEqual(['allowed_origins', 'organization_id', 'workspace_id'])
+    // F-6：页面随请求携带其已持有的 version（乐观并发控制；他人已推进 → 409）
+    expect(Object.keys(body).sort()).toEqual([
+      'allowed_origins',
+      'expected_version',
+      'organization_id',
+      'workspace_id',
+    ])
+    expect(body.expected_version).toBe(3)
     expect(body.allowed_origins).toEqual(['https://ops.example.com'])
     // 公开标识与 iframe 代码不受 origins 编辑影响
     expect(view.getByTestId('sc-seat-public-id').textContent).toBe(PUBLIC_ID)

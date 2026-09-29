@@ -8,8 +8,9 @@
  *        body {organization_id, workspace_id, allowed_origins: string[]}
  *        → payload {seat_console}（同工作区已有 active → 409）
  *   PUT  /customer-service/seat-consoles/:id                              (write)
- *        body {organization_id, workspace_id, allowed_origins}
- *        （id 只在路径；allowed_origins 变更不影响 public id / 嵌入代码）
+ *        body {organization_id, workspace_id, allowed_origins[, expected_version]}
+ *        （id 只在路径；allowed_origins 变更不影响 public id / 嵌入代码；
+ *         expected_version 可选——提供即乐观并发控制，他人已更新 → 409）
  *   POST /customer-service/seat-consoles/:id/revoke                       (write)
  *        body {organization_id, workspace_id}
  *
@@ -71,18 +72,29 @@ export async function createSeatConsole(
   return seatConsole
 }
 
-/** PUT 更新 console 的 allowed_origins（id 只在路径；public id / 嵌入代码不变）。 */
+/**
+ * PUT 更新 console 的 allowed_origins（id 只在路径；public id / 嵌入代码不变）。
+ *
+ * F-6（REVIEW-3）乐观并发控制：input.expectedVersion 提供时随请求携带
+ * `expected_version`（后端按 version CAS 裁决）；version 已被他人推进 →
+ * 后端 409（envelope payload 携带当前 version），调用方刷新列表后重试。
+ * 缺省 = 旧 LWW 行为（向后兼容）。
+ */
 export async function updateSeatConsole(
   seatConsoleId: EntityId,
-  input: SeatConsoleScope & { allowedOrigins: string[] }
+  input: SeatConsoleScope & { allowedOrigins: string[]; expectedVersion?: number }
 ): Promise<SeatConsole | null> {
+  const body: Record<string, unknown> = {
+    organization_id: requireNonEmptyId(input.organizationId, 'organization_id'),
+    workspace_id: requireNonEmptyId(input.workspaceId, 'workspace_id'),
+    allowed_origins: input.allowedOrigins,
+  }
+  if (typeof input.expectedVersion === 'number' && Number.isFinite(input.expectedVersion)) {
+    body.expected_version = input.expectedVersion
+  }
   const response = await client.put<ApiResponse<unknown>>(
     `${SEAT_CONSOLES_BASE}/${encodeURIComponent(requireNonEmptyId(seatConsoleId, 'seat_console_id'))}`,
-    {
-      organization_id: requireNonEmptyId(input.organizationId, 'organization_id'),
-      workspace_id: requireNonEmptyId(input.workspaceId, 'workspace_id'),
-      allowed_origins: input.allowedOrigins,
-    }
+    body,
   )
   const payload = requireApiPayload(response.data, 'PUT seat consoles')
   return consoleFromPayload(payload)
