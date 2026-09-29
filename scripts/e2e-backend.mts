@@ -171,6 +171,11 @@ function cmdStart(): void {
         // 实证：status 期望 pending 实收 sms_failed）。eunit 口径同为 fake。
         IMBOY_SMS_PLATFORM: 'fake',
         IMBOY_SMS_SWITCH: 'on',
+        // W2R2 插件复验前置（b3 取证 20260929）：sys.config 默认 plugin_lifecycle_enabled=false，
+        // spec 假设隔离后端门禁由启动 env 供给；受控插件根按 daemon CWD（release 目录，
+        // 无 priv/）相对解析必落空，故显式注入仓内受控根绝对路径。
+        IMBOY_PLUGIN_LIFECYCLE_ENABLED: 'true',
+        IMBOY_PLUGIN_ROOT: path.join(BACKEND_DIR, 'priv', 'plugins'),
       },
     },
   )
@@ -242,6 +247,7 @@ const MANAGED_ENV_KEYS = [
   'IMBOY_ADMIN_E2E_NEW_ROLE_DESCRIPTION',
   'IMBOY_ADMIN_E2E_ROLE_PERMISSION_KEY',
   'IMBOY_ADMIN_E2E_OWNER_SEARCH_KEYWORD',
+  'IMBOY_ADMIN_E2E_PLUGIN_LOCATION_PATH',
 ] as const
 
 function writeEnvFile(account: string, password: string): void {
@@ -267,6 +273,9 @@ function writeEnvFile(account: string, password: string): void {
     // Owner 搜索关键字：种子人类用户（prodready-org-u*）可命中；默认 'e2e'
     // 会命中 ai-agent spec 留下的 bot 用户（account_type=1，不可为 Owner）。
     'IMBOY_ADMIN_E2E_OWNER_SEARCH_KEYWORD=prodready',
+    // W2R2 插件 spec：安装路径给绝对路径——daemon CWD 是 release 目录（无 priv/），
+    // 相对路径会被 plugin_root_invalid 拒绝（b3 取证 20260929 第二道坎）。
+    `IMBOY_ADMIN_E2E_PLUGIN_LOCATION_PATH=${path.join(BACKEND_DIR, 'priv', 'plugins', 'location')}`,
   ]
   // 保留未管理行（seed-data 写入的锚点 env、FC_* 等手工旋钮），丢弃旧的管理键
   // 行与旧注释头，避免轮换重写时累积重复。
@@ -679,10 +688,28 @@ function cmdStop(): void {
 
 // ---------------------------------------------------------------------------
 
+/** Garage 就绪预检（b3 取证 20260929）：宿主重启后 garage-local 不自启，宕机时
+ * 上传类用例确定性挂（HTTP 200 + code:950），start 即 fail-fast 并给修复指引。 */
+async function garageReadyOrDie(): Promise<void> {
+  const up = await new Promise<boolean>((resolve) => {
+    const probe = spawn('nc', ['-z', '127.0.0.1', '3900'], { stdio: 'ignore' })
+    probe.on('exit', (code) => resolve(code === 0))
+    probe.on('error', () => resolve(false))
+  })
+  if (!up) {
+    console.error(
+      '[start][FATAL] Garage(127.0.0.1:3900) 未就绪——先 `docker start garage-local` 再重跑' +
+        '（宿主重启后不会自启，建议 `docker update --restart unless-stopped garage-local`）',
+    )
+    process.exit(1)
+  }
+  console.log('[start] Garage(127.0.0.1:3900) 就绪')
+}
+
 const command = process.argv[2] ?? ''
 switch (command) {
   case 'db': cmdDb(); break
-  case 'start': cmdStart(); break
+  case 'start': cmdStart(); await garageReadyOrDie(); break
   case 'seed': await cmdSeed(); break
   case 'seed-data': cmdSeedData(); break
   case 'status': await cmdStatus(); break

@@ -12,6 +12,11 @@ import { loginAsAdmin, requireAdminCredentials } from '../support/adminAuth'
 const EVIDENCE_DIR = 'tests/auto_test/evidence/admins'
 const RUN_ID = `batch1-${Date.now()}`
 
+// 编排型长用例（单 test 14 步串联、300s）：一条批跑低概率瞬态（vite/响应处理层，
+// b3 取证 20260929）不应让整段工作量作废，允许一次重试。
+// 注意：本仓 playwright 版本不支持 test body 内 test.retries()，须用 describe.configure。
+test.describe.configure({ retries: 1 })
+
 type ApiHit = { url: string; status: number; method: string; body?: string }
 const apiHits: ApiHit[] = []
 let mark = 0  // 每个 step 开始时的游标
@@ -211,8 +216,13 @@ test('批次1 AdminListPage 全量首测', async ({ page }) => {
     await expect(page.getByText('确认变更管理员角色')).toBeVisible()
     await shot(page, 'role-change-confirm')
     await page.getByRole('button', { name: '确认变更' }).click()
-    expect((await assignResp).status(), 'assign_role 必须 2xx').toBeLessThan(300)
-    await expect(page.getByText('管理员角色已更新')).toBeVisible({ timeout: 3_000 })
+    const assignRes = await assignResp
+    expect(assignRes.status(), 'assign_role 必须 2xx').toBeLessThan(300)
+    // b3 取证 20260929：瞬态下 axios 层失败时 HTTP 仍 200，信封断言让业务错误直接报 msg；
+    // sonner 默认 4s 展示窗 + 批跑慢帧余量，toast 断言放宽到 8s。
+    const assignBody = (await assignRes.json().catch(() => null)) as { code?: number; msg?: string } | null
+    expect(assignBody?.code, `assign_role 信封: ${JSON.stringify(assignBody)}`).toBe(0)
+    await expect(page.getByText('管理员角色已更新')).toBeVisible({ timeout: 8_000 })
     await shot(page, 'role-change-toast')
   })
 

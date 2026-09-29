@@ -51,6 +51,18 @@ test('编辑 Dialog 头像上传后 403 降级 blob 预览不裂图', async ({ p
   fs.mkdirSync(EVID, { recursive: true })
   await page.screenshot({ path: path.join(EVID, `${TAG}-dialog-before-upload.png`) })
 
+  // 确定性 mock（b3 取证 20260929）：本用例判据是纯前端降级链（403→onError→blob 回退），
+  // 不应被 Garage 可用性绑架（宿主重启后 garage-local 不自启时上传必挂 code:950）。
+  // upload 与对象 GET 都 mock：成功信封给 Garage 形态裸 URL，随后对该 URL 回 403。
+  await page.route('**/api/adm/ai_agent/upload_avatar', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ code: 0, msg: 'success', payload: { url: 'http://127.0.0.1:3900/imboy/e2e-avatar.png' } }),
+    }),
+  )
+  await page.route('**/imboy/e2e-avatar.png*', (route) => route.fulfill({ status: 403, body: '' }))
+
   // 上传 1x1 PNG：应看到 POST avatar 2xx + toast
   const input = page.locator('input[type="file"]')
   await input.setInputFiles({ name: 'avatar-e2e.png', mimeType: 'image/png', buffer: PNG_1PX })
