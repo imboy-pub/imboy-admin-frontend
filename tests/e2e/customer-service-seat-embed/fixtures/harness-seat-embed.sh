@@ -361,7 +361,7 @@ docker exec "$PG_CONTAINER" psql -U "$PG_USER" -d "$PG_DB" \
   -c "UPDATE organization_member SET user_id=$UID2 WHERE organization_id=$ORG_ID;" \
   -c "UPDATE organization_business_identity_assignment SET user_id=$UID2 WHERE id=1603940848519161;" \
   -c "UPDATE organization_business_identity SET created_by_user_id=$UID2 WHERE id=$IDENTITY_ID;" \
-  -c "UPDATE organization SET owner_id=$UID2 WHERE organization_id=$ORG_ID;" \
+  -c "UPDATE organization SET owner_id=$UID2 WHERE id=$ORG_ID;" \
   -c "UPDATE workspace SET owner_id=$UID2 WHERE id=$WORKSPACE_ID;" \
   -c "UPDATE customer_service_seat SET created_by_user_id=$UID2 WHERE organization_id=$ORG_ID;" \
   -c "UPDATE customer_service_seat_console SET created_by_user_id=$UID2 WHERE id=$PUBLIC_ID;" >/dev/null
