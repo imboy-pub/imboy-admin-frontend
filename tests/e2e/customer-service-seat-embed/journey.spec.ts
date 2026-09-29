@@ -344,11 +344,26 @@ test.describe('SC-E2E A01..A10（EXECUTE-GATED）', () => {
   })
 
   // ---------------------------------------------------------------- A07
-  test('A07 revoke：新加载 404（seat_console_unavailable）；已打开 frame 不被强制终止', async ({ browser }) => {
+  test('A07 revoke：新加载 404（seat_console_unavailable）；已打开 frame 不被强制终止且可续用发消息', async ({ browser }) => {
     test.setTimeout(240_000)
-    // 已打开的工作台（revoke 前登录成功）。
-    const openPage = await openLoggedWorkspace(browser)
+    closeStaleActiveSessions()
+    const visitorCtx = await browser.newContext()
+    const visitorPage = await visitorCtx.newPage()
+    let openPage: Page | null = null
     try {
+      // REVIEW-4 F3：先按 A04 模式建真实访客会话并 claim，让「已打开会话」具备
+      // 续用发消息的前提（此前仅断言 frame 存活，证明不了已打开会话仍工作）。
+      const { sessionId } = await newVisitorSession(visitorPage)
+      // 已打开的工作台（revoke 前登录成功）。
+      openPage = await openLoggedWorkspace(browser)
+      const frame = embedFrame(openPage)
+      // claim（A04 同款）：queued 队列可见 → claim → 进行中 tab → 打开会话 → 消息列表就绪。
+      await expect(frame.getByTestId(`seat-session-item-${sessionId}`)).toBeVisible({ timeout: 30_000 })
+      await frame.getByTestId(`seat-claim-${sessionId}`).click()
+      await frame.getByTestId('seat-tab-active').click()
+      await expect(frame.getByTestId(`seat-session-item-${sessionId}`)).toBeVisible({ timeout: 30_000 })
+      await frame.getByTestId(`seat-session-item-${sessionId}`).click()
+      await expect(frame.getByTestId('seat-message-list')).toBeVisible({ timeout: 30_000 })
       const before = setConsoleStatus(CONSOLE_PUBLIC_ID, 'revoked')
       try {
         // 新加载：统一 404（不可区分非法/缺失/revoked —— 状态枚举禁令）。
@@ -367,12 +382,33 @@ test.describe('SC-E2E A01..A10（EXECUTE-GATED）', () => {
         const stillFrame = openPage.frames().find((f) => f.url().includes(`/seat/${CONSOLE_PUBLIC_ID}`))
         expect(stillFrame, '已打开的 seat frame 文档必须仍在（不被强制导航/终止）').toBeTruthy()
         await expect(embedFrame(openPage).getByTestId('seat-workspace')).toBeVisible({ timeout: 15_000 })
-        console.log('[sc153][A07] 已打开 frame 在 revoke 后保持存活（仅阻止新加载）——实际行为已记录')
+        // REVIEW-4 F3：正向续用 —— revoke 置位后坐席对已打开会话再发一条消息，
+        // 证明「仅阻止新加载，已打开会话续用仍工作」。
+        const reply = `sc153 revoke 续用回复 ${RUN_UNIQ}`
+        await frame.getByTestId('seat-composer').fill(reply)
+        await frame.getByTestId('seat-send').click()
+        await expect(frame.getByTestId('seat-send-error')).toHaveCount(0)
+        // DB oracle（A04 同款）：business_identity + 密文非空 = 本轮坐席回复落库。
+        await expect
+          .poll(
+            () =>
+              Number(
+                psql(
+                  `SELECT count(*) FROM enterprise_message WHERE conversation_id =` +
+                    ` (SELECT conversation_id FROM customer_service_session WHERE id = ${sessionId})` +
+                    ` AND sender_type = 'business_identity' AND body_cipher IS NOT NULL`,
+                ),
+              ),
+            { timeout: 20_000, message: 'revoke 后已打开会话的坐席回复必须落库（续用链路真实工作）' },
+          )
+          .toBeGreaterThanOrEqual(1)
+        console.log('[sc153][A07] 已打开 frame 在 revoke 后保持存活且续用发消息落库成功（仅阻止新加载）——实际行为已记录')
       } finally {
         setConsoleStatus(CONSOLE_PUBLIC_ID, before === 'revoked' ? 'active' : before)
       }
     } finally {
-      await openPage.context().close().catch(() => {})
+      await visitorCtx.close().catch(() => {})
+      await openPage?.context().close().catch(() => {})
     }
   })
 
@@ -383,12 +419,25 @@ test.describe('SC-E2E A01..A10（EXECUTE-GATED）', () => {
     const page = await ctx.newPage()
     try {
       await adminLogin(page)
+      // REVIEW-4 F9：具体 fallback 特征替代 innerText 长度（区分 SPA fallback 与白屏报错）。
+      // 路由事实（src/App.tsx）：/customer-service/workspace 无对应路由，落 `*` 通配
+      // NotFoundPage —— URL 原地保持，渲染「404 / 页面不存在 / 返回首页」。
+      const fallbackErrors: string[] = []
+      page.on('console', (m) => {
+        if (m.type() === 'error') fallbackErrors.push(m.text())
+      })
       // 旧公开路由：不再渲染坐席工作台（QR/工作台 UI 均不存在；SPA 走 fallback）。
       await page.goto(`${ADMIN_ORIGIN}/customer-service/workspace`, { waitUntil: 'domcontentloaded' })
-      await page.waitForTimeout(2_000) // 给 SPA 路由/懒加载充分的落位时间
+      await page.waitForTimeout(2_000) // 给 SPA 路由落位时间（下方正断言自带可见性重试兜底）
       expect(await page.getByTestId('seat-workspace').count(), 'workspace UI 必须不存在').toBe(0)
       expect(await page.getByTestId('seat-qr-code').count(), 'QR 登录面板必须不存在').toBe(0)
-      expect((await page.locator('body').innerText()).length, 'SPA 必须仍渲染（fallback UI，非空白）').toBeGreaterThan(0)
+      // fallback 特征 1：URL 不被重定向（`*` 通配原地渲染，非跳首页）。
+      expect(page.url(), '移除路由必须原地落 SPA fallback（不重定向）').toBe(`${ADMIN_ORIGIN}/customer-service/workspace`)
+      // fallback 特征 2：NotFoundPage 特征结构可见（非空白、非报错态）。
+      await expect(page.getByRole('heading', { name: '页面不存在' })).toBeVisible({ timeout: 15_000 })
+      await expect(page.getByRole('link', { name: /返回首页/ })).toBeVisible({ timeout: 15_000 })
+      // fallback 特征 3：该页零新增 console error（白屏/资源报错会被此门拦下）。
+      expect(fallbackErrors, `fallback 页不得有 console error: ${JSON.stringify(fallbackErrors).slice(0, 300)}`).toEqual([])
       // Admin 运营页（网站接入）不受影响。
       await page.goto(`${ADMIN_ORIGIN}/customer-service/widgets`, { waitUntil: 'domcontentloaded' })
       await expect(page.getByText('网站接入').first()).toBeVisible({ timeout: 30_000 })
@@ -464,6 +513,12 @@ test.describe('SC-E2E A01..A10（EXECUTE-GATED）', () => {
       const topUrlBefore = page.url()
 
       // 负能力 1：top 导航 —— 无 allow-top-navigation，浏览器必须阻止。
+      // REVIEW-4 F8：监听先挂（消 evaluate 与注册间的竞态窗）+ catch 兜底，
+      // 3s 内零 framenavigated 事件 = 阻止成立；替代 waitForTimeout 定时脆点。
+      const navEventP = page
+        .waitForEvent('framenavigated', { timeout: 3_000 })
+        .then((f) => `navigated:${f.url()}`)
+        .catch(() => null)
       const navProbe = await seatFrame.evaluate(async () => {
         try {
           window.top!.location.href = 'https://evil.test:18443/sc153-top-pwned'
@@ -472,7 +527,11 @@ test.describe('SC-E2E A01..A10（EXECUTE-GATED）', () => {
         }
         return 'no-throw'
       })
-      await page.waitForTimeout(1_500)
+      const navEvent = await navEventP
+      expect(
+        navEvent,
+        `top 导航必须被浏览器阻止（probe=${navProbe}；事件=${navEvent ?? '无'}；top=${page.url()}）`,
+      ).toBeNull()
       expect(
         page.url(),
         `top 导航必须被浏览器阻止（probe=${navProbe}；top=${page.url()}）`,
@@ -490,6 +549,11 @@ test.describe('SC-E2E A01..A10（EXECUTE-GATED）', () => {
       expect(popup, '不得产生任何 popup 页面').toBeNull()
 
       // 负能力 3：表单 GET 提交到 evil —— 无 allow-forms，浏览器阻止提交。
+      // REVIEW-4 F8：同款短窗负事件断言（监听先挂 + catch，3s 内零导航事件）。
+      const formNavEventP = page
+        .waitForEvent('framenavigated', { timeout: 3_000 })
+        .then((f) => `navigated:${f.url()}`)
+        .catch(() => null)
       const formProbe = await seatFrame.evaluate(async () => {
         const form = document.createElement('form')
         form.method = 'GET'
@@ -502,7 +566,11 @@ test.describe('SC-E2E A01..A10（EXECUTE-GATED）', () => {
         }
         return 'submitted'
       })
-      await page.waitForTimeout(1_500)
+      const formNavEvent = await formNavEventP
+      expect(
+        formNavEvent,
+        `表单提交必须被浏览器阻止（probe=${formProbe}；事件=${formNavEvent ?? '无'}）`,
+      ).toBeNull()
       expect(
         seatFrame.url(),
         `frame 不得被表单导航走（probe=${formProbe}）`,
