@@ -444,6 +444,14 @@ function cmdSeedData(): void {
   }
   updateEnvLine('IMBOY_ADMIN_E2E_ORG_SEED_NAME', SEED_ORG_NAME)
 
+  // 坐席空态复位：customer-service.spec 直链用例要求全平台坐席为空（空态文案断言），
+  // 而历史轮次/widget 配对遗留的 seat 行会让该用例稳定挂（prodready run 实证：
+  // 昨日遗留 2 行 seat → 空态永不渲染）。无任何 spec 依赖预置坐席——provisioning
+  // spec 走向导自建。presence 为衍生表一并清；seat_limit 限额配置不动。
+  psql(DB, 'DELETE FROM customer_service_seat_presence;', '-1')
+  psql(DB, 'DELETE FROM customer_service_seat;', '-1')
+  console.log('[seed-data] 坐席空态复位: customer_service_seat(-presence) 已清空')
+
   // eadm-cs-provisioning §9-4：组织 + 工作区 + 默认工作区关系 + 2 个 active member
   psql(
     DB,
