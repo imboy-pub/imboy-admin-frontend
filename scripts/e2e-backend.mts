@@ -162,6 +162,9 @@ function cmdStart(): void {
         // /current、rbac/me 等高频轮询同 IP），429 噪声淹没真实断言。
         IMBOY_THROTTLE_API_PER_USER: '100000',
         IMBOY_THROTTLE_API_PER_IP: '100000',
+        // GAP-09：passport/meta+captcha+do_login 走独立 passport_per_ip=5/min/IP，
+        // 每用例 goto /login 即 2-3 请求，多 worker 齐发秒穿 → 登录链路全挂。
+        IMBOY_THROTTLE_PASSPORT_PER_IP: '100000',
         // SMS fake：owner_activation（GZAPP-06 API 合同）在无真实短信凭据的隔离
         // 后端上必须走 imboy_sms_fake（platform=fake + switch=on），否则
         // organization_owner_activation 创建即 sms_failed（gzadm-pending-owner
