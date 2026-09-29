@@ -240,12 +240,14 @@ test.describe('SC-E2E A01..A10（EXECUTE-GATED）', () => {
           .getByTestId('cs-message-list')
           .getByText(reply),
       ).toBeVisible({ timeout: 20_000 })
-      // DB 直证：坐席回复落库（eb 真源）。
+      // DB 直证：坐席回复落库（eb 真源）。正文列是 body_cipher（E2EE 密文），
+      // 明文 LIKE 永不匹配（DEF-SC153-13：测试 SQL 笔误，r9 首次触达即暴露）；
+      // 每轮全新会话：business_identity 且密文非空 = 本轮坐席回复。
       const dbCount = Number(
         psql(
           `SELECT count(*) FROM enterprise_message WHERE conversation_id =` +
             ` (SELECT conversation_id FROM customer_service_session WHERE id = ${sessionId})` +
-            ` AND body LIKE '%${RUN_UNIQ}%' AND sender_type = 'business_identity'`,
+            ` AND sender_type = 'business_identity' AND body_cipher IS NOT NULL`,
         ),
       )
       expect(dbCount).toBeGreaterThanOrEqual(1)
