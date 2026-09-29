@@ -13,7 +13,7 @@
  * seat 网关）/ evil.test:18443（负例宿主）/ shop2.test:18443（A06 轮换目标）/
  * admin.test:18443（Admin SPA）。前置与一键拉起见 README.md。
  */
-import { expect, test, type Browser, type Page } from '@playwright/test'
+import { expect, test, type Browser, type FrameLocator, type Page } from '@playwright/test'
 import {
   ADMIN_ORIGIN,
   BE_MAIN,
@@ -71,6 +71,31 @@ async function newVisitorSession(visitorPage: Page): Promise<{ sessionId: string
   const [sessionId, conversationId] = row.split('|')
   expect(sessionId?.length ?? 0).toBeGreaterThan(0)
   return { sessionId, conversationId }
+}
+
+/** claim 链（A04/A05/A07/A09 同款，REVIEW-4 F10 抽取）：队列可见 → claim →
+ *  进行中 tab → 打开会话 → 消息列表就绪。 */
+async function claimAndOpenSession(frame: FrameLocator, sessionId: string): Promise<void> {
+  await expect(frame.getByTestId(`seat-session-item-${sessionId}`)).toBeVisible({ timeout: 30_000 })
+  // claim（真实 CAS 写）→ 进行中 tab → 打开会话。
+  await frame.getByTestId(`seat-claim-${sessionId}`).click()
+  await frame.getByTestId('seat-tab-active').click()
+  await expect(frame.getByTestId(`seat-session-item-${sessionId}`)).toBeVisible({ timeout: 30_000 })
+  await frame.getByTestId(`seat-session-item-${sessionId}`).click()
+  await expect(frame.getByTestId('seat-message-list')).toBeVisible({ timeout: 30_000 })
+}
+
+/** DB 直证 oracle（REVIEW-4 F10 抽取）：本会话 business_identity 且密文非空的
+ *  落库计数——正文列是 body_cipher（E2EE 密文），明文 LIKE 永不匹配
+ *  （DEF-SC153-13）；每轮全新会话，计数 ≥1 即本轮坐席回复。 */
+function countBusinessIdentityMessages(sessionId: string): number {
+  return Number(
+    psql(
+      `SELECT count(*) FROM enterprise_message WHERE conversation_id =` +
+        ` (SELECT conversation_id FROM customer_service_session WHERE id = ${sessionId})` +
+        ` AND sender_type = 'business_identity' AND body_cipher IS NOT NULL`,
+    ),
+  )
 }
 
 /** 浏览器强制的 frame 拒绝断言：console enforcement message + frame 未提交。 */
@@ -220,14 +245,8 @@ test.describe('SC-E2E A01..A10（EXECUTE-GATED）', () => {
       const { sessionId } = await newVisitorSession(visitorPage)
       page = await openLoggedWorkspace(browser)
       const frame = embedFrame(page)
-      // contexts/queue：队列 tab（queued）出现该会话。
-      await expect(frame.getByTestId(`seat-session-item-${sessionId}`)).toBeVisible({ timeout: 30_000 })
-      // claim（真实 CAS 写）→ 进行中 tab → 打开会话。
-      await frame.getByTestId(`seat-claim-${sessionId}`).click()
-      await frame.getByTestId('seat-tab-active').click()
-      await expect(frame.getByTestId(`seat-session-item-${sessionId}`)).toBeVisible({ timeout: 30_000 })
-      await frame.getByTestId(`seat-session-item-${sessionId}`).click()
-      await expect(frame.getByTestId('seat-message-list')).toBeVisible({ timeout: 30_000 })
+      // contexts/queue：队列 tab（queued）出现该会话 → claim → 打开会话。
+      await claimAndOpenSession(frame, sessionId)
       // 坐席发文本（UI 真实通道）。
       const reply = `sc153 坐席回复 ${RUN_UNIQ}`
       await frame.getByTestId('seat-composer').fill(reply)
@@ -240,17 +259,8 @@ test.describe('SC-E2E A01..A10（EXECUTE-GATED）', () => {
           .getByTestId('cs-message-list')
           .getByText(reply),
       ).toBeVisible({ timeout: 20_000 })
-      // DB 直证：坐席回复落库（eb 真源）。正文列是 body_cipher（E2EE 密文），
-      // 明文 LIKE 永不匹配（DEF-SC153-13：测试 SQL 笔误，r9 首次触达即暴露）；
-      // 每轮全新会话：business_identity 且密文非空 = 本轮坐席回复。
-      const dbCount = Number(
-        psql(
-          `SELECT count(*) FROM enterprise_message WHERE conversation_id =` +
-            ` (SELECT conversation_id FROM customer_service_session WHERE id = ${sessionId})` +
-            ` AND sender_type = 'business_identity' AND body_cipher IS NOT NULL`,
-        ),
-      )
-      expect(dbCount).toBeGreaterThanOrEqual(1)
+      // DB 直证：坐席回复落库（eb 真源，DEF-SC153-13 密文口径）。
+      expect(countBusinessIdentityMessages(sessionId)).toBeGreaterThanOrEqual(1)
     } finally {
       await visitorCtx.close().catch(() => {})
       await page?.context().close().catch(() => {})
@@ -273,11 +283,7 @@ test.describe('SC-E2E A01..A10（EXECUTE-GATED）', () => {
       const { sessionId, conversationId } = await newVisitorSession(visitorPage)
       page = await openLoggedWorkspace(browser)
       const frame = embedFrame(page)
-      await expect(frame.getByTestId(`seat-session-item-${sessionId}`)).toBeVisible({ timeout: 30_000 })
-      await frame.getByTestId(`seat-claim-${sessionId}`).click()
-      await frame.getByTestId('seat-tab-active').click()
-      await frame.getByTestId(`seat-session-item-${sessionId}`).click()
-      await expect(frame.getByTestId('seat-message-list')).toBeVisible({ timeout: 30_000 })
+      await claimAndOpenSession(frame, sessionId)
       // 附件上传全链（presign → 裸 PUT → confirm → 随消息发送）。
       await frame.getByTestId('seat-attach-input').setInputFiles({ name: fileName, mimeType: 'image/png', buffer: PNG_1PX })
       await expect(frame.getByTestId('seat-attach-chip')).toBeVisible({ timeout: 15_000 })
@@ -357,13 +363,7 @@ test.describe('SC-E2E A01..A10（EXECUTE-GATED）', () => {
       // 已打开的工作台（revoke 前登录成功）。
       openPage = await openLoggedWorkspace(browser)
       const frame = embedFrame(openPage)
-      // claim（A04 同款）：queued 队列可见 → claim → 进行中 tab → 打开会话 → 消息列表就绪。
-      await expect(frame.getByTestId(`seat-session-item-${sessionId}`)).toBeVisible({ timeout: 30_000 })
-      await frame.getByTestId(`seat-claim-${sessionId}`).click()
-      await frame.getByTestId('seat-tab-active').click()
-      await expect(frame.getByTestId(`seat-session-item-${sessionId}`)).toBeVisible({ timeout: 30_000 })
-      await frame.getByTestId(`seat-session-item-${sessionId}`).click()
-      await expect(frame.getByTestId('seat-message-list')).toBeVisible({ timeout: 30_000 })
+      await claimAndOpenSession(frame, sessionId)
       const before = setConsoleStatus(CONSOLE_PUBLIC_ID, 'revoked')
       try {
         // 新加载：统一 404（不可区分非法/缺失/revoked —— 状态枚举禁令）。
@@ -388,23 +388,18 @@ test.describe('SC-E2E A01..A10（EXECUTE-GATED）', () => {
         await frame.getByTestId('seat-composer').fill(reply)
         await frame.getByTestId('seat-send').click()
         await expect(frame.getByTestId('seat-send-error')).toHaveCount(0)
-        // DB oracle（A04 同款）：business_identity + 密文非空 = 本轮坐席回复落库。
+        // DB oracle（A04 同款，F10 抽取）：business_identity + 密文非空 = 本轮坐席回复落库。
         await expect
-          .poll(
-            () =>
-              Number(
-                psql(
-                  `SELECT count(*) FROM enterprise_message WHERE conversation_id =` +
-                    ` (SELECT conversation_id FROM customer_service_session WHERE id = ${sessionId})` +
-                    ` AND sender_type = 'business_identity' AND body_cipher IS NOT NULL`,
-                ),
-              ),
-            { timeout: 20_000, message: 'revoke 后已打开会话的坐席回复必须落库（续用链路真实工作）' },
-          )
+          .poll(() => countBusinessIdentityMessages(sessionId), {
+            timeout: 20_000,
+            message: 'revoke 后已打开会话的坐席回复必须落库（续用链路真实工作）',
+          })
           .toBeGreaterThanOrEqual(1)
         console.log('[sc153][A07] 已打开 frame 在 revoke 后保持存活且续用发消息落库成功（仅阻止新加载）——实际行为已记录')
       } finally {
-        setConsoleStatus(CONSOLE_PUBLIC_ID, before === 'revoked' ? 'active' : before)
+        // 夹具复原到真实前值（F12）：若前值本就是 revoked，不伪造 active——
+        // 后续用例各自自建状态，掩盖会导致「假绿外推」。
+        setConsoleStatus(CONSOLE_PUBLIC_ID, before)
       }
     } finally {
       await visitorCtx.close().catch(() => {})
@@ -462,10 +457,7 @@ test.describe('SC-E2E A01..A10（EXECUTE-GATED）', () => {
       watchPage(collector, page)
       await qrLoginSeatInFrame(await reopenOnShop(page), SEAT.account)
       const frame = embedFrame(page)
-      await expect(frame.getByTestId(`seat-session-item-${sessionId}`)).toBeVisible({ timeout: 30_000 })
-      await frame.getByTestId(`seat-claim-${sessionId}`).click()
-      await frame.getByTestId('seat-tab-active').click()
-      await frame.getByTestId(`seat-session-item-${sessionId}`).click()
+      await claimAndOpenSession(frame, sessionId)
       const reply = `sc153 leakgate 回复 ${RUN_UNIQ}`
       await frame.getByTestId('seat-composer').fill(reply)
       await frame.getByTestId('seat-send').click()
