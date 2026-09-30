@@ -339,9 +339,12 @@ export class SeatWorkbenchApi {
   /**
    * CS-WEB-05：手动状态 set/clear（PUT；manual_status 缺省 = clear 回自动）。
    * manual away 优先于自动派生（CS-DEC-02），clear 后回到心跳/负载派生。
+   * workspace_id 是后端必填 query——缺参 422 missing_workspace_id，
+   * 与 heartbeat 的 CS-INT-03 同类（F12-B03 e2e 实证补齐）。
    */
   async setManualStatus(
     orgId: EntityId,
+    workspaceId: EntityId,
     manualStatus: 'away' | null,
   ): Promise<SeatPresence> {
     const body =
@@ -350,6 +353,7 @@ export class SeatWorkbenchApi {
         : {}
     const payload = await this.client.request(buildSeatMyPresencePath(orgId), {
       method: 'PUT',
+      query: { workspace_id: workspaceId },
       body,
     })
     return toSeatPresence(payload)

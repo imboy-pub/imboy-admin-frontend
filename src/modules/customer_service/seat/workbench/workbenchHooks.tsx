@@ -757,7 +757,8 @@ export function useSeatManualStatus(orgId: EntityId | null, workspaceId: EntityI
   return useMutation({
     mutationFn: async (manualStatus: 'away' | null) => {
       if (orgId === null) throw new Error('manual status without org')
-      return api.setManualStatus(orgId, manualStatus)
+      if (workspaceId === null) throw new Error('manual status without workspace')
+      return api.setManualStatus(orgId, workspaceId, manualStatus)
     },
     onSuccess: (presence) => {
       if (orgId !== null) {
