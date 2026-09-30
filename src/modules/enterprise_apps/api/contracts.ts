@@ -39,22 +39,28 @@ export const WRITE_PERMISSION = 'enterprise_business:write'
 export const GOVERNANCE_BACKEND_WIRED = true
 
 /**
- * 冻结 scope 全集（10 值）。
+ * 固定 scope 全集（16 值，读写分别授权）。
  * 真源：`src/api/enterprise_internal_scope.erl:?SCOPES` +
- * `priv/migrations/00000139_enterprise_application_grant.up.sql` 的 DB CHECK。
+ * `priv/migrations/00000159_customer_service_internal_api.up.sql` 的 DB CHECK。
  * 无 wildcard（INV-4）。
  */
 export const SCOPE_CATALOG = [
   'application:read',
   'identities:read',
   'identities:write',
+  'groups:read',
   'groups:write',
+  'workspaces:read',
+  'projects:read',
+  'channels:read',
   'files:write',
   'messages:send',
   'messages:send_as_human',
   'friend_requests:create',
   'webhooks:manage',
   'sso:exchange',
+  'customer_service:read',
+  'customer_service:write',
 ] as const
 
 export type EnterpriseScope = (typeof SCOPE_CATALOG)[number]
@@ -74,13 +80,19 @@ export const SCOPE_LABELS: Record<EnterpriseScope, string> = {
   'application:read': '读取自身应用上下文',
   'identities:read': '读取身份映射',
   'identities:write': '写入身份映射',
+  'groups:read': '读取企业群与成员',
   'groups:write': '企业群写',
+  'workspaces:read': '读取已授权工作空间',
+  'projects:read': '读取已授权企业项目',
+  'channels:read': '读取已授权企业频道',
   'files:write': '企业附件写',
   'messages:send': '以应用身份发消息',
   'messages:send_as_human': '代同组织已映射 Human 发消息',
   'friend_requests:create': '代已映射 Human 发起好友申请（不可自动接受）',
   'webhooks:manage': 'Webhook 管理',
   'sso:exchange': '一次性 SSO 交换',
+  'customer_service:read': '读取企业客服坐席（企业全域授权）',
+  'customer_service:write': '管理企业客服坐席（企业全域授权）',
 }
 
 /** Application 生命周期（plan-full §3.1）。 */
