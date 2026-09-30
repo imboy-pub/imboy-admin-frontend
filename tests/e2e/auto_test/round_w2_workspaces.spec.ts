@@ -679,7 +679,12 @@ test('W2R1 首测：bots + product-experience + workspaces 4 页', async ({ page
     for (const h of ['ID', '名称', '主 Owner', '资源', '状态', '创建时间']) {
       await expect(page.getByRole('columnheader', { name: h, exact: false }).first()).toBeVisible()
     }
-    await expect(page.getByRole('cell', { name: WS_NAME, exact: false }).first()).toBeVisible({ timeout: 10_000 })
+    // 种子行可能被共享 scratch DB 跨轮累积的数据挤出第 1 页（created_at 倒序，
+    // 新于种子的行 ≥ size 时种子落在后面的页）；第 1 页可见性仅在能保证时断言，
+    // 种子行本身由紧随的 keyword 搜索步兜底覆盖，无覆盖损失（b3 取证 20260929）。
+    if ((wsInfo?.total ?? 0) <= 10) {
+      await expect(page.getByRole('cell', { name: WS_NAME, exact: false }).first()).toBeVisible({ timeout: 10_000 })
+    }
     await shot(page, 'workspaces', 'wslist-render')
   })
 

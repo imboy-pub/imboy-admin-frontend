@@ -38,6 +38,30 @@ const executablePath = process.env.PLAYWRIGHT_EXECUTABLE_PATH
 
 export default defineConfig({
   testDir: './tests/e2e',
+  // 生产健康检查属 prod 专用套件（test:e2e:prod → playwright.prod-check.config.ts，
+  // 依赖生产凭据/域名）。默认 test:e2e 收集它属范围错配：V1.2 曾把「外部生产登录
+  // 被拒」记成默认套件失败（CP-FINAL-A03 F 类）。prod config 用 testMatch 精选，
+  // 此处 testIgnore 只影响默认收集。
+  //
+  // PR-W2-C05：同理排除**专属集成栈套件**——它们硬依赖各自的专用运行环境
+  // （宿主 origin/DB 直种坐席/QR 登录 Token/专用种子组织），任何单节点隔离
+  // 后端都无法满足，在默认收集里只能产生环境性红（V1.2 B 类 23 败的根源）。
+  // 各自的专属入口保留：
+  //   customer-service-real/  → bun run test:e2e:customer-service:real（专属 config）
+  //   customer-service-p2/    → bun run test:e2e:customer-service:p2（专属 config）
+  //   customer-service-hosted/→ playwright.customer-service-hosted.config.ts（专属 config）
+  //   customer-service-int02/ → playwright.customer-service-int03.config.ts（a09b）+
+  //                             a08/a09 需 INT02_* 专属种子环境（ent-int01 同源栈）
+  //   enterprise-ent-int01/   → ENT-INT-01 专用运行环境（数据锚 int02-org1/org2、
+  //                             int02-94213488575060 等硬编码，见各 spec 头注释）
+  testIgnore: [
+    '**/prod-health-check.spec.ts',
+    '**/customer-service-real/**',
+    '**/customer-service-p2/**',
+    '**/customer-service-hosted/**',
+    '**/customer-service-int02/**',
+    '**/enterprise-ent-int01/**',
+  ],
   fullyParallel: false,
   workers: process.env.CI ? 2 : '50%',
   timeout: 60_000,

@@ -9,7 +9,11 @@ import { loginAsAdmin, requireAdminCredentials } from './support/adminAuth'
 
 const EXPECT_OPTIONAL = process.env.FC_EXPECT_OPTIONAL === '1'
 
-const CANONICAL_HASH = 'sha256:b59aae27976015823e315e9a5ee42bb2af3970cec92c97df04b517b4674d1457'
+// PR-W2-C05：manifest 已随产品演进（984d40e6），canonical hash 按
+// imboy config/product-feature-manifest.json 现值重锚；冻结语义不变——
+// manifest 再变时本断言应红，强制有意识更新此字面量。
+const CANONICAL_HASH = process.env.FC_EXPECT_MANIFEST_HASH
+  || 'sha256:ecf552c01018513a34e445b49cedbb985962758542c9b64a93951185dc8f0ca8'
 const BASE_ONLY_HASH = 'sha256:e943ee9541241206e6f0b91502ddb173f06c086e83195c7a7cc95de2f4623712'
 
 const OPTIONAL_MENUS = [

@@ -512,6 +512,11 @@ test.describe('平台组织治理面 · 六旅程（/api/adm/organizations）', 
     })
     expect(envelopeCode(duplicate.status, duplicate.body)).toBe(409)
 
+    // API 直建绕过了页面 react-query 缓存——reload 使列表重新拉取（PR-W2-C05：
+    // 原断言在无刷新下等待新行，列表永不重取，用例恒败）。
+    await page.reload()
+    await waitPageRoot(page, '[data-page="organization-invitations"]')
+
     // 列表：pending 行可见（badge data-status）
     const inviteeRow = page.locator('tr', { hasText: invitee }).first()
     await expect(inviteeRow).toBeVisible({ timeout: 15_000 })

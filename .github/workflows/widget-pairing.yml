@@ -1,0 +1,56 @@
+name: Widget Asset Pairing Gate
+
+# 跨仓 Widget 资产配对门（计划 CP-ASSET-04，admin 侧 CI 接线 / CP-ASSET-A08 整改）。
+#
+# 与 imboy 仓 .github/workflows/widget-pairing.yml 对称的互验入口：本仓
+# scripts/check-widget-asset-pairing.mts 运行时实时提取 imboy 后端
+# -define(PUBLIC_FRAME_ASSET_JS) 与本仓 manifest/verify 常量互比，脚本只登记
+# 接线不携带常量值，无双真源。任一侧漂移 exit 2，后端仓不可达 exit 3。
+#
+# 跨仓 checkout 同 contract-gate 口径：两仓 GitHub 远端均 PUBLIC
+# （imboy-pub/imboy），只读 checkout；CI 校验兄弟仓远端 main 快照，
+# 本地未推送改动不在覆盖范围（本地跑
+# IMBOY_REPO_DIR=../imboy bun run verify:widget-pairing 补位）。
+# exit 3 在本 workflow 不应出现——checkout 失败即红，"没核对"不冒充"一致"。
+#
+# 无需 bun install：脚本仅 import node:fs / node:path，零第三方依赖。
+#
+# 触发器口径（V1.3 PR-W2-C03）：仅 pull_request / 手动，不挂 push 与 cron；
+# 远端 run 需后续授权后才实际生效。
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  widget-pairing:
+    name: Widget asset pairing (admin manifest vs backend macro)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout imboyadmin (asset-name mirror side)
+        uses: actions/checkout@v7
+        with:
+          path: admin
+
+      - name: Checkout imboy (PUBLIC, backend macro source)
+        uses: actions/checkout@v7
+        with:
+          repository: imboy-pub/imboy
+          path: imboy
+          ref: main
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Run pairing gate
+        working-directory: admin
+        run: |
+          set -euo pipefail
+          IMBOY_REPO_DIR="$GITHUB_WORKSPACE/imboy" bun run verify:widget-pairing

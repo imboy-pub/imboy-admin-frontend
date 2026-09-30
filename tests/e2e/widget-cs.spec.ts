@@ -35,31 +35,60 @@ const APP_HTML = path.join(DIST_WIDGET, 'widget', 'index.html')
 const APP_JS = path.join(DIST_WIDGET, 'assets', 'cs-widget.js')
 
 function requireArtifacts(): { loaderJs: string; appHtml: string; appJs: string } {
-  const ready = existsSync(LOADER_JS) && existsSync(APP_HTML) && existsSync(APP_JS)
+  // PR-W2-C05：构建产物已按 S6 不可变发布合同演进——assets/ 下是内容 hash
+  // 文件名（cs-widget-<hash>.js），稳定文件名只剩 widget-assets/ 别名；旧
+  // dist-widget/assets/cs-widget.js 恒不存在导致全组 skip。改经 manifest.json
+  // 解析实际 hash 文件。
+  let appJsPath = APP_JS
+  const manifestPath = path.join(DIST_WIDGET, 'manifest.json')
+  if (!existsSync(appJsPath) && existsSync(manifestPath)) {
+    try {
+      const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as {
+        files?: Array<{ path?: string }>
+      }
+      appJsPath = path.join(
+        DIST_WIDGET,
+        manifest.files?.find((f) => f.path?.startsWith('assets/cs-widget-') && f.path.endsWith('.js'))?.path ?? ''
+      )
+    } catch {
+      // manifest 损坏时回落原路径，由下方 skip 兜底
+    }
+  }
+  const ready = existsSync(LOADER_JS) && existsSync(APP_HTML) && existsSync(appJsPath)
   test.skip(!ready, '缺少 dist-widget 产物：请先运行 bun run build:widget')
   return {
     loaderJs: existsSync(LOADER_JS) ? readFileSync(LOADER_JS, 'utf8') : '',
     appHtml: existsSync(APP_HTML) ? readFileSync(APP_HTML, 'utf8') : '',
-    appJs: existsSync(APP_JS) ? readFileSync(APP_JS, 'utf8') : '',
+    appJs: existsSync(appJsPath) ? readFileSync(appJsPath, 'utf8') : '',
   }
 }
 
+/**
+ * 冻结合同（hosted-widget-contract-v1 / loader.ts 现行实现，PR-W2-C05 重锚）：
+ * - loader 唯一配置键 = data-widget-id（纯数字 TSID 十进制 string，1-26 位）；
+ *   历史 data-org-id / data-widget-origin / data-widget-path 均为未知键（忽略+warn）；
+ * - Widget origin 唯一真源 = loader 自身 script.src 的 origin；iframe src =
+ *   `<origin>/w/<public_widget_id>` 固定路径（不再有 /widget/index.html）；
+ * - 浏览器请求面绝不申报 organization/workspace——作用域唯一键 =
+ *   installation_id（bootstrap 响应派生）；org 由服务端按 public_widget_id
+ *   反查派生。rating 请求体 = {installation_id, rating, expected_version}。
+ */
+const PUBLIC_WIDGET_ID = '72057594037928003'
+
 const SESSION_ID = '72057594037927936'
 
-/** 冻结合同形状（cs_widget_app:bootstrap_view/1）：consent_version 非空 → UI 展示同意门。 */
+/** 冻结响应形状（cs_widget_app:bootstrap_view/1）：consent_version 非空 → UI 展示同意门。 */
 const BOOTSTRAP_PAYLOAD = {
   installation_id: '72057594037928001',
-  public_widget_id: 'wgt_pub_e2e',
+  public_widget_id: PUBLIC_WIDGET_ID,
   display_name: 'E2E 商城客服',
   consent_version: 'v1',
   branding: { display_name: 'E2E 商城客服', primary_color: '#2563eb', welcome_text: '您好' },
   contact_id: '72057594037928002',
   secret: 'e2e-visit-token-stub',
-  expires_at: 1789600000000,
   reused: false,
 }
 
-const ORG_ID = '1234567890123456789'
 const INSTALLATION_ID = '72057594037928001'
 const CONTACT_ID = '72057594037928002'
 
@@ -77,13 +106,10 @@ function envelope(payload: unknown): string {
   return JSON.stringify({ code: 0, msg: 'success', payload })
 }
 
-/** message row（message_fields/0 投影；读面是 body_cipher——D5 为后端缺口）。 */
+/** message row（message_fields/0 投影；单发响应兼容 {message:{...}} 嵌套形）。 */
 function messageRow(id: string, senderType: string, clientMsgId: string | null): Record<string, unknown> {
   return {
     id,
-    organization_id: ORG_ID,
-    workspace_id: '72057594037927938',
-    conversation_id: '72057594037927937',
     sender_type: senderType,
     sender_contact_id: senderType === 'contact' ? CONTACT_ID : null,
     client_msg_id: clientMsgId,
@@ -105,10 +131,12 @@ type StubOptions = {
   hostFixture?: HostFixtureOptions
 }
 
-function hostFixtureHtml(origin: string, options: HostFixtureOptions = {}): string {
+function hostFixtureHtml(options: HostFixtureOptions = {}): string {
   const { scriptCount = 1, extraAttrs = '' } = options
+  // 现行 loader snippet：唯一配置键 data-widget-id（纯数字 TSID）；origin 由
+  // script.src 自身推导（本 stub 中 /loader.js 与宿主页同源）。
   const scripts = Array.from({ length: scriptCount }, () =>
-    `  <script async src="/loader.js" data-widget-id="wgt_pub_e2e" data-org-id="1234567890123456789" data-widget-origin="${origin}"${extraAttrs}></script>`
+    `  <script async src="/loader.js" data-widget-id="${PUBLIC_WIDGET_ID}"${extraAttrs}></script>`
   ).join('\n')
   return [
     '<!doctype html>',
@@ -134,20 +162,22 @@ async function stubWidgetRoutes(
   const apiRequests: CapturedRequest[] = []
 
   await page.route('**/cs-host-fixture.html', (route) => {
-    // 在请求时构造 fixture，origin 取自实际 baseURL（与 webServer 端口解耦）
-    const requestOrigin = new URL(route.request().url()).origin
+    // 在请求时构造 fixture（与 webServer 端口解耦，origin 无关：现行合同
+    // widget origin 从 script.src 推导，不再有 data-widget-origin 属性）
     void route.fulfill({
       contentType: 'text/html; charset=utf-8',
-      body: hostFixtureHtml(requestOrigin, options.hostFixture ?? {}),
+      body: hostFixtureHtml(options.hostFixture ?? {}),
     })
   })
   await page.route('**/loader.js', (route) =>
     route.fulfill({ contentType: 'text/javascript; charset=utf-8', body: artifacts.loaderJs })
   )
-  await page.route('**/widget/index.html', (route) =>
+  // 现行固定路径（合同 v1 S2）：iframe src = <origin>/w/<public_widget_id>
+  await page.route(`**/w/${PUBLIC_WIDGET_ID}`, (route) =>
     route.fulfill({ contentType: 'text/html; charset=utf-8', body: artifacts.appHtml })
   )
-  await page.route('**/assets/cs-widget.js', (route) =>
+  // S6 不可变发布合同：iframe HTML 引用的是内容 hash 文件名（cs-widget-<hash>.js）
+  await page.route('**/assets/cs-widget*.js', (route) =>
     route.fulfill({ contentType: 'text/javascript; charset=utf-8', body: artifacts.appJs })
   )
 
@@ -402,14 +432,15 @@ test.describe('CSW-01 Widget 宿主页闭环', () => {
     await expect(frame.getByText('感谢您的评价！')).toBeVisible({ timeout: 15_000 })
     const ratingRequest = apiRequests.find((request) => /\/rating$/.test(request.url))
     expect(ratingRequest).toBeDefined()
-    // 评分请求体按真实契约（widget submitRating，与 A10-D2 后端对齐）：
-    // {rating, expected_version, installation_id, organization_id}（org_source=param 每请求申报）。
-    // （2026-09-18 修正：旧断言 {score:5} 为臆造键名——widget/stub/后端三侧一致用 rating。）
+    // 评分请求体按现行契约（widget buildRatingBody / hosted-widget-contract-v1 S5）：
+    // {installation_id, rating, expected_version}——作用域唯一键 installation_id
+    // （bootstrap 响应派生）；浏览器请求面绝不申报 organization（服务端按
+    // public_widget_id 反查派生，客户端申报即 400 server_derived_key_rejected）。
     const ratingBody = JSON.parse(ratingRequest?.body ?? '{}') as Record<string, unknown>
+    expect(Object.keys(ratingBody).sort()).toEqual(['expected_version', 'installation_id', 'rating'])
     expect(ratingBody.rating).toBe(5)
-    expect(typeof ratingBody.expected_version).toBe('number')
+    expect(ratingBody.expected_version).toBe(2)
     expect(ratingBody.installation_id).toBe(BOOTSTRAP_PAYLOAD.installation_id)
-    expect(ratingBody.organization_id).toBe('1234567890123456789')
   })
 })
 

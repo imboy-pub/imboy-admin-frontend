@@ -27,6 +27,7 @@ import {
   SHOP,
   WID_A,
   WID_B,
+  type BackendEnvelope,
 } from './helpers/env'
 
 // ---- 采集器 -------------------------------------------------------------
@@ -42,7 +43,7 @@ function wire(page: Page) {
   return { consoleErrors, failed, responses }
 }
 
-async function jsonOf(r: Response): Promise<unknown> {
+async function jsonOf(r: Response): Promise<BackendEnvelope | null> {
   try {
     const t = await r.text()
     return t ? JSON.parse(t) : null

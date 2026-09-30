@@ -82,11 +82,14 @@ for (const targetType of ['group', 'channel', 'user'] as const) {
     const row = getReportRow(page, fixture.reportId)
     await expect(row).toBeVisible()
 
-    page.once('dialog', async (dialog) => {
-      await dialog.accept(`playwright_${targetType}_${fixture.reportId}`)
-    })
-
+    // PR-W2-C05：单条处置已从原生 confirm 演进为 Radix Dialog（可选备注 +
+    // 确认按钮；batch 用例的 alertdialog 形态不变）。按现行合同改写。
     await row.getByTitle(actionTitle).click()
+    const dialog = page.getByRole('dialog')
+    await expect(dialog).toBeVisible()
+    await dialog.getByPlaceholder('处理备注（可选，Ctrl+Enter 确认）')
+      .fill(`playwright_${targetType}_${fixture.reportId}`)
+    await dialog.getByRole('button', { name: fixture.expectedResult === 'violation' ? '确认违规' : '驳回' }).click()
 
     await expect(page.getByText('举报处理成功')).toBeVisible()
     await expect(row).toContainText(resultLabel)

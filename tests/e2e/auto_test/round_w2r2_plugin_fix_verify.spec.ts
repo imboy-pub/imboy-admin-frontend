@@ -10,7 +10,7 @@
  * 测后：gate-off 恢复门禁默认关闭。
  */
 import { expect, test, type Page, type Response } from '@playwright/test'
-import { execSync } from 'node:child_process'
+import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import { loginAsAdmin, requireAdminCredentials } from '../support/adminAuth'
 
@@ -21,8 +21,49 @@ type ApiHit = { url: string; status: number; method: string }
 const apiHits: ApiHit[] = []
 let mark = 0
 
+/**
+ * PR-W2-C05：原 probe 经 tests/auto_test/scripts/plugin_gate_probe.escript，
+ * 其节点名/cookie 硬编码 imboy@127.0.0.1/imboy（主树常驻节点），对隔离后端
+ * （prodready_e2e@127.0.0.1/imboycookie，E2E_NODE_NAME/E2E_COOKIE 可覆盖）
+ * 不可达。此处内联等价 RPC（gate/fail/cleanup 三命令语义与 escript 相同），
+ * 不修改 tests/auto_test/scripts/**（超出本卡独占路径）。
+ */
+const GATE_NODE = process.env.E2E_NODE_NAME || 'prodready_e2e'
+const GATE_COOKIE = process.env.E2E_COOKIE || 'imboycookie'
+/** 安装 path 按节点 CWD 的绝对路径解析（旧主树 make run 时 CWD=仓根可用相对
+ *  路径；隔离后端 daemon 的 CWD 是 release 目录）——绝对路径经 env 注入。 */
+const LOCATION_PLUGIN_PATH = process.env.IMBOY_ADMIN_E2E_PLUGIN_LOCATION_PATH || 'priv/plugins/location'
+
+function erlRpc(expr: string): string {
+  const self = `ctl_w2r2_${Date.now() % 100000}@127.0.0.1`
+  const res = spawnSync('erl', [
+    '-noshell', '-name', self, '-setcookie', GATE_COOKIE,
+    '-eval', `N=list_to_atom("${GATE_NODE}@127.0.0.1"), case net_adm:ping(N) of pong -> io:format("~p~n",[${expr}]); pang -> io:format("pang~n"), halt(1) end, halt().`,
+  ], { encoding: 'utf8', timeout: 30_000 })
+  return `${res.stdout}${res.stderr}`.trim()
+}
+
+function gate(): boolean {
+  return erlRpc('rpc:call(N, application, get_env, [imboy, plugin_lifecycle_enabled])').includes('true')
+}
+
 function probe(args: string): string {
-  return execSync(`escript tests/auto_test/scripts/plugin_gate_probe.escript ${args}`, { encoding: 'utf8' }).trim()
+  const [cmd, name] = args.split(/\s+/)
+  if (cmd === 'gate') return `gate=${gate()}`
+  if (cmd === 'fail') {
+    const pidOut = erlRpc('rpc:call(N, imboy_plugin_manager, find_lifecycle, [location])')
+    if (pidOut.includes('undefined') || pidOut.includes('pang')) return 'no_lifecycle'
+    const cast = erlRpc('rpc:call(N, gen_statem, cast, [rpc:call(N, imboy_plugin_manager, find_lifecycle, [location]), {inject_failure, w2r2_verify_failure}])')
+    return `injected (${cast.includes('ok') ? 'ok' : cast})`
+  }
+  if (cmd === 'cleanup') {
+    const pidOut = erlRpc(`rpc:call(N, imboy_plugin_manager, find_lifecycle, [${name}])`)
+    if (pidOut.includes('undefined') || pidOut.includes('pang')) return `${name} no_lifecycle`
+    erlRpc(`rpc:call(N, gen_statem, cast, [rpc:call(N, imboy_plugin_manager, find_lifecycle, [${name}]), {inject_failure, w2r2_cleanup}])`)
+    const r = erlRpc(`rpc:call(N, imboy_plugin_manager, force_uninstall, [${name}, hard])`)
+    return `cleanup ${name} => ${r}`
+  }
+  return `unknown args: ${args}`
 }
 
 async function shot(page: Page, name: string) {
@@ -103,11 +144,11 @@ test('W2R2 复验：PluginManagementPage 5 项修复', async ({ page }) => {
     mark = apiHits.length
     const installResp = page.waitForResponse((r) => r.url().includes('/api/adm/plugin/install'), { timeout: 20_000 })
     const refetchResp = page.waitForResponse((r) => r.url().includes('/api/adm/plugin/list'), { timeout: 20_000 })
-    await page.getByLabel('插件路径').fill('priv/plugins/location')
+    await page.getByLabel('插件路径').fill(LOCATION_PLUGIN_PATH)
     await page.getByRole('dialog').getByRole('button', { name: '安装', exact: true }).click()
     expect((await installResp).status(), 'plugin/install 必须 2xx').toBeLessThan(300)
     await expect(page.getByText('插件安装成功').first()).toBeVisible({ timeout: 3_000 }).catch(async (e) => {
-      const irBody = await installResp.text().catch(() => '(gone)')
+      const irBody = await (await installResp).text().catch(() => '(gone)')
       console.log(`[dbg] url=${page.url()} installBody=${irBody.slice(0, 200)} recentHits=${JSON.stringify(apiHits.slice(-6))}`)
       await page.screenshot({ path: `${EVIDENCE_DIR}/${RUN_ID}-debug-install-no-toast.png` })
       throw e
@@ -168,7 +209,7 @@ test('W2R2 复验：PluginManagementPage 5 项修复', async ({ page }) => {
     const installResp = page.waitForResponse((r) => r.url().includes('/api/adm/plugin/install'), { timeout: 20_000 })
     const refetch1 = page.waitForResponse((r) => r.url().includes('/api/adm/plugin/list'), { timeout: 20_000 })
     await page.getByLabel('插件名称').fill('location')
-    await page.getByLabel('插件路径').fill('priv/plugins/location')
+    await page.getByLabel('插件路径').fill(LOCATION_PLUGIN_PATH)
     await dialog.getByRole('button', { name: '安装', exact: true }).click()
     expect((await installResp).status(), 'location 安装必须 2xx').toBeLessThan(300)
     await expect(page.getByText('插件安装成功').first()).toBeVisible({ timeout: 3_000 })
@@ -237,7 +278,10 @@ test('W2R2 复验：PluginManagementPage 5 项修复', async ({ page }) => {
 test.afterAll(() => {
   // 门禁恢复默认关闭（W2R2 会话测后同款处理）
   try {
-    console.log(`[probe] ${execSync('escript tests/auto_test/scripts/plugin_gate_probe.escript gate-off', { encoding: 'utf8' }).trim()}`)
+    // 隔离后端的门禁由启动 env（IMBOY_PLUGIN_LIFECYCLE_ENABLED=true）供给并
+    // 保持——不再运行时 unset（旧 imboy 主树口径），否则同轮后续/重跑会回到
+    // 关闭态而 install 全链失败。此处仅报告终态。
+    console.log(`[probe] gate-final=${gate()}`)
   } catch { /* 后端不可达时不阻塞收尾 */ }
   fs.mkdirSync(EVIDENCE_DIR, { recursive: true })
   fs.writeFileSync(`${EVIDENCE_DIR}/${RUN_ID}-api-hits.json`, JSON.stringify(apiHits, null, 2))

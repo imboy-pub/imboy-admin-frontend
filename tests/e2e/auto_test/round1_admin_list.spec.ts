@@ -12,6 +12,11 @@ import { loginAsAdmin, requireAdminCredentials } from '../support/adminAuth'
 const EVIDENCE_DIR = 'tests/auto_test/evidence/admins'
 const RUN_ID = `batch1-${Date.now()}`
 
+// 编排型长用例（单 test 14 步串联、300s）：一条批跑低概率瞬态（vite/响应处理层，
+// b3 取证 20260929）不应让整段工作量作废，允许一次重试。
+// 注意：本仓 playwright 版本不支持 test body 内 test.retries()，须用 describe.configure。
+test.describe.configure({ retries: 1 })
+
 type ApiHit = { url: string; status: number; method: string; body?: string }
 const apiHits: ApiHit[] = []
 let mark = 0  // 每个 step 开始时的游标
@@ -107,8 +112,18 @@ test('批次1 AdminListPage 全量首测', async ({ page }) => {
     await expect(page.getByText('账号长度至少 3 位')).toBeVisible()
     expect(hitsSince(/\/admin\/create/), '校验失败不应发创建请求').toHaveLength(0)
 
-    // 正常创建
+    // 正常创建（PR-W2-C05：角色下拉默认第一个选项是 super_admin——后续禁用步骤
+    // 会被「不能禁用超级管理员」防护拒绝，故显式选第一个非 super_admin 角色，
+    // 与 admin-rbac.spec 的运行时取角色模式一致）
     createdAccount = `pw_e2e_b1_${Math.floor(Date.now() / 1000) % 100000}`
+    const drawerRoleSelect = page.locator('aside').filter({ hasText: '创建后台管理员账号并分配初始角色' }).locator('select').first()
+    const nonSuperLabel = await drawerRoleSelect.locator('option').evaluateAll((nodes) => {
+      const hit = nodes.map((n) => n.textContent?.trim() || '').find((t) => t.length > 0 && t !== 'super_admin')
+      return hit ?? ''
+    })
+    if (nonSuperLabel.length > 0) {
+      await drawerRoleSelect.selectOption({ label: nonSuperLabel })
+    }
     const createRespPromise = page.waitForResponse((r) => r.url().includes('/admin/create'), { timeout: 15_000 })
     const listRespPromise = page.waitForResponse((r) => r.url().includes('/admin/list'), { timeout: 15_000 })
     await page.getByPlaceholder('请输入管理员账号').fill(createdAccount)
@@ -191,18 +206,31 @@ test('批次1 AdminListPage 全量首测', async ({ page }) => {
     const current = await roleSelect.inputValue()
     const options = await roleSelect.locator('option').all()
     let next: string | null = null
+    // 优先选内置角色（value 1..6，权限集代码硬编码且 ⊆ super 全集）：自定义角色的
+    // permissions override 存在测试轮写脏的先例（e2e_369730_1 实测 permissions 为一串
+    // 中文描述文本 → 防提权 guard 403「不能授予超出自身权限集的角色」，adm-12 第四轮
+    // 实证）；super_admin（value=1）跳过——授 super 无业务意义。
     for (const o of options) {
       const v = await o.getAttribute('value')
-      if (v && v !== current && Number(v) > 0) { next = v; break }
+      const n = Number(v)
+      if (v && v !== current && n >= 2 && n <= 6) { next = v; break }
     }
     test.skip(!next, '无可切换的角色选项')
+    const optDump = await roleSelect.locator('option').evaluateAll((ns) =>
+      ns.map((n) => `${(n as HTMLOptionElement).value}:${((n as HTMLOptionElement).textContent ?? '').trim()}`))
+    console.log(`[dbg] role options=[${optDump.join(', ')}] current=${current} next=${next}`)
     const assignResp = page.waitForResponse((r) => r.url().includes('/admin/assign_role'), { timeout: 15_000 })
     await roleSelect.selectOption(next!)
     await expect(page.getByText('确认变更管理员角色')).toBeVisible()
     await shot(page, 'role-change-confirm')
     await page.getByRole('button', { name: '确认变更' }).click()
-    expect((await assignResp).status(), 'assign_role 必须 2xx').toBeLessThan(300)
-    await expect(page.getByText('管理员角色已更新')).toBeVisible({ timeout: 3_000 })
+    const assignRes = await assignResp
+    expect(assignRes.status(), 'assign_role 必须 2xx').toBeLessThan(300)
+    // b3 取证 20260929：瞬态下 axios 层失败时 HTTP 仍 200，信封断言让业务错误直接报 msg；
+    // sonner 默认 4s 展示窗 + 批跑慢帧余量，toast 断言放宽到 8s。
+    const assignBody = (await assignRes.json().catch(() => null)) as { code?: number; msg?: string } | null
+    expect(assignBody?.code, `assign_role 信封: ${JSON.stringify(assignBody)}`).toBe(0)
+    await expect(page.getByText('管理员角色已更新')).toBeVisible({ timeout: 8_000 })
     await shot(page, 'role-change-toast')
   })
 

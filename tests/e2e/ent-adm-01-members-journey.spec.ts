@@ -84,7 +84,11 @@ test.describe('ENT-ADM-01 成员页旅程（复合筛选 → 列持久化 → �
   test('筛选 → 列持久化（重载生效）→ 关系 Drawer', async ({ page }) => {
     test.skip(skipInBody, 'admin 前端 / adm 后端不可达——由 ENT-INT-01 提供真实环境后集中执行')
 
-    await loginAsAdmin(page)
+    // PR-W2-C05：loginAsAdmin 需要显式凭据（原 `loginAsAdmin(page)` 漏参，
+    // credentials.account undefined → TypeError，旅程从未真正执行过）。
+    const credentials = getAdminCredentials()
+    test.skip(credentials == null, '缺 super_admin 凭据（IMBOY_ADMIN_E2E_ACCOUNT / IMBOY_ADMIN_E2E_PASSWORD）')
+    await loginAsAdmin(page, credentials as { account: string; password: string })
     const seed = await findSeedOrg(page)
     test.skip(seed == null, `seed 组织 ${SEED_ORG_NAME} 不存在（IMBOY_ADMIN_E2E_ORG_SEED_NAME）`)
     const orgId = (seed as { id: string }).id
