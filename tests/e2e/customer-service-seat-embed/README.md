@@ -89,7 +89,8 @@ A09 泄漏门（JWT/secret/手机号零泄漏）；A10 sandbox 精确属性 + to
 # 凭据（合成，仅本地 scratch）：MASTER_CODE / SEAT_PASSWORD / ADMIN_PASSWORD 必填注入
 export SC153_E2E_MASTER_CODE=abc12345 \
        SC153_E2E_SEAT_PASSWORD=Sc153E2e2026 \
-       SC153_E2E_ADMIN_PASSWORD=Sc153AdmE2e2026
+       SC153_E2E_ADMIN_PASSWORD=Sc153AdmE2e2026 \
+       SC153_E2E_SEAT2_PASSWORD=Sc153Seat2E2e2026
 # 运行口径（缺一即挂，review-2 实证）：
 #   NODE_TLS_REJECT_UNAUTHORIZED=0 —— 网关自签证书；node 侧 fetch/undici 只认该开关
 #   SC153_BE_WORKTREE=<imboy 主仓根> —— 模板漂移用例定位 deploy/nginx 模板
@@ -119,6 +120,7 @@ bash tests/e2e/customer-service-seat-embed/fixtures/harness-seat-embed.sh --prin
 | `SC153_E2E_PG_CONTAINER` / `SC153_E2E_PG_USER` | `imboy_pg18` / `imboy_user` | PG 容器/用户 |
 | `SC153_E2E_MASTER_CODE` | `abc12345` | 万能验证码（与 backend 配置一致） |
 | `SC153_E2E_SEAT_ACCOUNT` / `SC153_E2E_SEAT_PASSWORD` | `19900000002` / `Sc153E2e2026` | 合成坐席（仅本地 scratch） |
+| `SC153_E2E_SEAT2_ACCOUNT` / `SC153_E2E_SEAT2_PASSWORD` | `19900000003` / **无默认（必填注入）** | 第二坐席（F7 双坐席 claim 竞争用；harness d2 段建户绑定，须与 spec 同源同值，缺省时 harness/spec 均 fail-fast） |
 | `SC153_E2E_ADMIN_ACCOUNT` / `SC153_E2E_ADMIN_PASSWORD` | `sc153-admin-e2e@imboy.local` / `Sc153AdmE2e2026` | Admin 治理面账号（A08） |
 | `SC153_E2E_ORG_ID` / `SC153_E2E_WORKSPACE_ID` / `SC153_E2E_CONSOLE_PUBLIC_ID` | `1603940848519155` / `1603940848519156` / `7003004002001001` | 种子 TSID（harness sed 种子；env.ts 同源默认） |
 | `SC153_E2E_WIDGET_ID` | `702000000000000101` | 访客链路 widget installation |

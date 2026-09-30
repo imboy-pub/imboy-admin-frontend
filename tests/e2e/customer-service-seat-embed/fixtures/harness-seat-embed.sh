@@ -367,6 +367,33 @@ docker exec "$PG_CONTAINER" psql -U "$PG_USER" -d "$PG_DB" \
   -c "UPDATE customer_service_seat_console SET created_by_user_id=$UID2 WHERE id=$PUBLIC_ID;" >/dev/null
 log "坐席绑定完成（uid=$UID2 identity=$IDENTITY_ID account=${SEAT_ACCOUNT}）"
 
+# ---- d2. 第二坐席绑定（REVIEW-4 F7：双坐席 claim 竞争；与 d 段同款手法，幂等）----
+# 第二坐席凭据与 helpers 无关：spec 侧（dual-seat-claim.spec.ts）读同名环境
+# 变量 SC153_E2E_SEAT2_ACCOUNT / SC153_E2E_SEAT2_PASSWORD，二者必须同源同值
+# （B-5① 口径：密码无跟踪文件默认回退，缺失即刻 fail-fast）。
+# 幂等口径：重跑时 d 段的全表 UPDATE organization_member（WHERE 仅 org）会因
+# 本段建过的 (org, uid_seat2) 行改写撞 A 行主键而整条语句回滚——A/B 两行均
+# 保持原状（A 行本已是坐席A uid 的 no-op），psql 无 ON_ERROR_STOP 时单条 -c
+# 失败退出码仍为 0（实测），harness 继续走到本段按 (organization_id, user_id)
+# 定向重绑，语义幂等；仅 stderr 多一条 duplicate key 噪音，无害。
+SEAT2_ACCOUNT="${SC153_E2E_SEAT2_ACCOUNT:-19900000003}"
+SEAT2_PASSWORD="$(require_env SC153_E2E_SEAT2_PASSWORD)"
+SEAT2_IDENTITY_ID=1603940848519162
+SEAT2_ASSIGNMENT_ID=1603940848519163
+SU2=$(curl -s -X POST "$BE/api/v1/passport/signup" -H 'content-type: application/json' \
+  -d "{\"type\":\"mobile\",\"account\":\"$SEAT2_ACCOUNT\",\"code\":\"$MASTER_CODE\",\"pwd\":\"$SEAT2_PASSWORD\",\"rsa_encrypt\":\"0\",\"nickname\":\"sc153-seat2\",\"sys_version\":\"sc153-embed\"}")
+echo "$SU2" | grep -q '"code":0' || echo "$SU2" | grep -q '已经被占用' || {
+  echo "seat2 signup 失败: ${SU2}（与坐席A 同用 SC153_E2E_MASTER_CODE 万能码，见 README）" >&2; exit 3; }
+LOGIN2=$(curl -s -X POST "$BE/api/v1/passport/login" -H 'content-type: application/json' \
+  -d "{\"type\":\"mobile\",\"account\":\"$SEAT2_ACCOUNT\",\"pwd\":\"$SEAT2_PASSWORD\",\"rsa_encrypt\":\"0\",\"sys_version\":\"sc153-embed\"}")
+UID3=$(echo "$LOGIN2" | python3 -c 'import sys,json;print(json.load(sys.stdin)["payload"]["uid"])')
+docker exec "$PG_CONTAINER" psql -U "$PG_USER" -d "$PG_DB" \
+  -c "INSERT INTO organization_member (organization_id, user_id, role, status, joined_at) VALUES ($ORG_ID, $UID3, 'member', 'active', now()) ON CONFLICT (organization_id, user_id) DO NOTHING;" \
+  -c "UPDATE organization_business_identity_assignment SET user_id=$UID3 WHERE id=$SEAT2_ASSIGNMENT_ID;" \
+  -c "UPDATE organization_business_identity SET created_by_user_id=$UID3 WHERE id=$SEAT2_IDENTITY_ID;" \
+  -c "UPDATE customer_service_seat SET created_by_user_id=$UID3 WHERE organization_id=$ORG_ID AND business_identity_id=$SEAT2_IDENTITY_ID;" >/dev/null
+log "第二坐席绑定完成（uid=${UID3} identity=${SEAT2_IDENTITY_ID} account=${SEAT2_ACCOUNT}）"
+
 # ---- e. 构建 dist-widget（含 mode=seat seat-assets 稳定别名）+ Admin SPA dist --
 ( cd "$ROOT" && bun run build:widget >/dev/null )
 log "dist-widget 已构建"

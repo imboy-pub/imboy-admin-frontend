@@ -81,4 +81,32 @@ INSERT INTO customer_service_seat
 VALUES (1603940848519155, 1603940848519157, 'customer_service', true, 1, 1603940848519154)
 ON CONFLICT DO NOTHING;
 
+-- 第二坐席（REVIEW-4 F7：双坐席 claim 竞争 e2e，dual-seat-claim.spec.ts）。
+-- 独立 business_identity —— assignment 表唯一索引 uq_obia_active_identity 限定
+-- 每 (org, business_identity_id) 只一条 active 行，A/B 不能共享身份；identity_B
+-- 有自己的 seat 行（PK=business_identity_id）承载独立 max_concurrent=1，claim
+-- 归属（session.business_identity_id）也因此可区分到坐席个人。
+-- assignment 行 user_id 是种子占位 uid（1603940848519154，与 A 行同款——
+-- fk_obia_user 要求占位 uid 必须是 user 表内真实存在的种子账号），由
+-- harness-seat-embed.sh 第二坐席绑定段
+-- UPDATE 为 signup 产出的真实 uid（与 1603940848519161 行同款手法）。
+-- member 行刻意不进 seed：既有 harness 绑定段是全表
+-- `UPDATE organization_member ... WHERE organization_id=`（无 user 条件），
+-- seed 占位 member 行会被改写到坐席A 的 uid；member 行由 harness 段按真实
+-- uid 定向 INSERT（role=member —— organization_member 每 active owner 唯一
+-- 约束 uq_organization_member_single_active_owner 禁止第二个 owner 行）。
+INSERT INTO organization_business_identity (id, organization_id, function_key, display_name, created_by_user_id)
+VALUES (1603940848519162, 1603940848519155, 'customer_service', 'SC153 CS Seat B', 1603940848519154)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO organization_business_identity_assignment
+  (id, organization_id, business_identity_id, function_key, user_id, status, assigned_at, assigned_by)
+VALUES (1603940848519163, 1603940848519155, 1603940848519162, 'customer_service', 1603940848519154, 'active', now(), 1603940848519154)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO customer_service_seat
+  (organization_id, business_identity_id, function_key, enabled, max_concurrent, created_by_user_id)
+VALUES (1603940848519155, 1603940848519162, 'customer_service', true, 1, 1603940848519154)
+ON CONFLICT DO NOTHING;
+
 COMMIT;

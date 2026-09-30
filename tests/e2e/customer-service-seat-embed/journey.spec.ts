@@ -447,9 +447,19 @@ test.describe('SC-E2E A01..A10（EXECUTE-GATED）', () => {
           .toBeGreaterThanOrEqual(1)
         console.log('[sc153][A07] 已打开 frame 在 revoke 后保持存活且续用发消息落库成功（仅阻止新加载）——实际行为已记录')
       } finally {
-        // 夹具复原到真实前值（F12）：若前值本就是 revoked，不伪造 active——
-        // 后续用例各自自建状态，掩盖会导致「假绿外推」。
-        setConsoleStatus(CONSOLE_PUBLIC_ID, before)
+        // 夹具复原到真实前值（F12）：前值 revoked → revoked、active → active
+        // （原样复原，绝不伪造 active）；前值不在两态枚举内（psql 空值 / 行
+        // 缺失等夹具异常）则拒绝写库——把异常 status 写出去本身就是伪造状态，
+        // 让异常浮出而非假绿（finally 里 throw 会吞掉 try 的原始异常，故以
+        // error 日志浮出）。收窄同时消除 string 直传 'active' | 'revoked' 的
+        // 类型边角。
+        if (before === 'active' || before === 'revoked') {
+          setConsoleStatus(CONSOLE_PUBLIC_ID, before)
+        } else {
+          console.error(
+            `[sc153][A07] console status 前值非两态枚举（${JSON.stringify(before)}），跳过复原以拒绝伪造状态（F12）`,
+          )
+        }
       }
     } finally {
       await visitorCtx.close().catch(() => {})
