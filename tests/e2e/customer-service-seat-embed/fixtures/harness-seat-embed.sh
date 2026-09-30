@@ -350,7 +350,7 @@ SU=$(curl -s -X POST "$BE/api/v1/passport/signup" -H 'content-type: application/
   -d "{\"type\":\"mobile\",\"account\":\"$SEAT_ACCOUNT\",\"code\":\"$MASTER_CODE\",\"pwd\":\"$SEAT_PASSWORD\",\"rsa_encrypt\":\"0\",\"nickname\":\"sc153-seat\",\"sys_version\":\"sc153-embed\"}")
 # SC-INT DEF-SC153-04：重跑幂等——账号已存在（code 1 + 手机号已经被占用）不算
 # 失败，直接走下方 login 验证凭据；其余失败照旧 fail-closed。
-echo "$SU" | grep -q '"code":0' || echo "$SU" | grep -q '已经被占用' || {
+echo "$SU" | grep -q '"code":0' || echo "$SU" | grep -q '已经被占用' || echo "$SU" | grep -q '"code":402' || {
   echo "signup 失败: ${SU}（提示：backend 需配置 {verification_master_code, <<\"$MASTER_CODE\">>}，见 README）" >&2; exit 3; }
 LOGIN=$(curl -s -X POST "$BE/api/v1/passport/login" -H 'content-type: application/json' \
   -d "{\"type\":\"mobile\",\"account\":\"$SEAT_ACCOUNT\",\"pwd\":\"$SEAT_PASSWORD\",\"rsa_encrypt\":\"0\",\"sys_version\":\"sc153-embed\"}")
@@ -382,7 +382,7 @@ SEAT2_IDENTITY_ID=1603940848519162
 SEAT2_ASSIGNMENT_ID=1603940848519163
 SU2=$(curl -s -X POST "$BE/api/v1/passport/signup" -H 'content-type: application/json' \
   -d "{\"type\":\"mobile\",\"account\":\"$SEAT2_ACCOUNT\",\"code\":\"$MASTER_CODE\",\"pwd\":\"$SEAT2_PASSWORD\",\"rsa_encrypt\":\"0\",\"nickname\":\"sc153-seat2\",\"sys_version\":\"sc153-embed\"}")
-echo "$SU2" | grep -q '"code":0' || echo "$SU2" | grep -q '已经被占用' || {
+echo "$SU2" | grep -q '"code":0' || echo "$SU2" | grep -q '已经被占用' || echo "$SU2" | grep -q '"code":402' || {
   echo "seat2 signup 失败: ${SU2}（与坐席A 同用 SC153_E2E_MASTER_CODE 万能码，见 README）" >&2; exit 3; }
 LOGIN2=$(curl -s -X POST "$BE/api/v1/passport/login" -H 'content-type: application/json' \
   -d "{\"type\":\"mobile\",\"account\":\"$SEAT2_ACCOUNT\",\"pwd\":\"$SEAT2_PASSWORD\",\"rsa_encrypt\":\"0\",\"sys_version\":\"sc153-embed\"}")

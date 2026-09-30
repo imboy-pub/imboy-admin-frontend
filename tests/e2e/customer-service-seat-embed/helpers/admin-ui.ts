@@ -17,5 +17,8 @@ export async function adminLogin(page: Page): Promise<void> {
   await page.getByLabel('密码', { exact: true }).fill(ADMIN.password)
   await page.getByLabel('验证码', { exact: true }).fill(ADMIN.captcha)
   await page.getByRole('button', { name: '登录' }).click()
-  await expect(page).toHaveURL(/\/dashboard/, { timeout: 30_000 })
+  // 登录成功的真实合同是「离开 /login」（SPA 会话 Cookie 已建立）；落地路由
+  // 是前端内部细节（/dashboard 仅为常见落点，观测到过 `/` 落点的 flake），
+  // adm_* 会话 Cookie 由调用方（如 adminCookieHeader）另行断言。
+  await expect(page).not.toHaveURL(/\/login/, { timeout: 30_000 })
 }

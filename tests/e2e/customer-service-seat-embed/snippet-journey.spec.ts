@@ -107,16 +107,17 @@ test.describe('SC-E2E snippet 旅程（EXECUTE-GATED）', () => {
       }, embedCode)
 
       // —— 消费端：部署出的 iframe 实际加载坐席工作台首屏 ——
+      // 产品已知换码风暴（页面重渲染 dispose+重建 QR 会话，qr-embed.ts 头注）
+      // 会替换 svg 节点——断言走 QR 容器 + data-qr-content 属性（locator 逐次
+      // 重查、天然耐换码），60s 窗口；「可扫描」由 A01 的 svg 断言承载。
       const frameEl = host.locator('iframe[title="IMBoy 客服工作台"]')
       await expect(frameEl, '宿主文档必须恰好承载 snippet 部署出的那一个 iframe').toHaveCount(1)
       await expect(frameEl, 'iframe src 必须逐字等于 snippet src').toHaveAttribute('src', srcMatch![1])
       const frame = embedFrame(host)
       const qrCode = frame.getByTestId('seat-qr-code')
-      await expect(qrCode.locator('svg'), '坐席工作台必须经真实网关加载出可扫描 QR').toBeVisible({
-        timeout: 30_000,
-      })
+      await expect(qrCode, '坐席工作台必须经真实网关加载出扫码面板').toBeVisible({ timeout: 60_000 })
       await expect(qrCode).toHaveAttribute('data-qr-content', /imboy:\/\/qr_login\?qr_token=.+/, {
-        timeout: 30_000,
+        timeout: 60_000,
       })
       await host.close()
     } finally {

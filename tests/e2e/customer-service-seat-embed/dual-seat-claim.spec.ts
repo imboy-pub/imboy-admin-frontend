@@ -12,10 +12,11 @@
  * harness-seat-embed.sh d2 绑定段的 identity 1603940848519162）。并发裁决点在
  * 后端 DB CAS（cs_pg_session claim_tx：`UPDATE customer_service_session
  * SET status='active' ... WHERE status='queued' AND version=$6`，0 行更新即
- * conflict），串行表达不损失裁决语义：A 先 claim 成功后，B 携带 A claim 前
- * 的 expected_version 重放同一 CAS 写，必然命中 0 行 —— 与真并发中「后到者」
- * 走的是同一条 DB 裁决路径（domain 侧 cs_session:assert_cas_expectation 同款
- * cas_mismatch）。
+ * conflict）。注意两类 409 信封的分工：串行重放（F7-1/F7-2）的后到者携旧
+ * expected_version，domain 预检（cs_session:assert_cas_expectation）即拒绝 →
+ * cas_mismatch；真并发同刻起跑（F7-4）的后到者普遍绕过预检读（读早于赢家
+ * commit）而直接撞 DB CAS 0 行 → conflict 信封（无 actual_version）。二者
+ * HTTP 均为 409，信封标签不同——F7-4 用双形态断言（评审 R7 修正）。
  *
  * 用例一 B 端 409 走 node 侧 API 信封断言（Bearer = 坐席B 护照 JWT，与 B 的
  * 浏览器 QR 登录同一凭据身份）——理由：浏览器 UI 的「后点 claim 撞 409」依赖
@@ -482,7 +483,9 @@ test.describe('SC-E2E F7 双坐席 claim 竞争（EXECUTE-GATED）', () => {
       // 发出、真实同时在途，且携带同一 expected_version（= 双方都只见过 A04
       // 队列快照版本）。裁决者是真实 PostgreSQL 行级 CAS —— `UPDATE ... WHERE
       // status='queued' AND version=$n` 恰一命中 1 行（queued→active），后到者
-      // 0 行 → domain cs_session assert_cas_expectation 同款 cas_mismatch。
+      // 0 行。与 F7-1 串行重放不同：真并发下后到者普遍绕过了 domain 预检读
+      // （读发生在赢家 commit 前）而直接撞 DB CAS 0 行 → conflict 信封；少数
+      // 时序下预检读晚于 commit → cas_mismatch 信封（两形态断言见下方）。
       // 谁赢不作假设，只断言「恰一成功 + 归属与 DB 一致」。
       const jwtA = await seatPassportLogin(SEAT.account)
       const jwtB = await seat2PassportLogin()
@@ -498,11 +501,18 @@ test.describe('SC-E2E F7 双坐席 claim 竞争（EXECUTE-GATED）', () => {
       const winnerIdentity = winnerIdx === 0 ? IDENTITY_ID : SEAT2.identityId
       expect(bodies[winnerIdx]!.code, '赢家信封 code=0').toBe(0)
       expect(bodies[loserIdx]!.code, '输家信封 code=409').toBe(409)
-      expect(bodies[loserIdx]!.msg, '输家标签 cas_mismatch（F-6 冻结契约）').toBe('cas_mismatch')
-      expect(
-        bodies[loserIdx]!.payload?.actual_version,
-        '输家见到的当前版本必须 = 赢家推进后的版本',
-      ).toBe(versionBefore + 1)
+      // 输家 409 双形态（cs_http reply_error 两类子句）：domain 预检失败走
+      // cas_mismatch（携 actual_version）；真并发下预检读普遍早于赢家 commit，
+      // 输家撞 DB CAS 0 行走 conflict（无 payload）——两形态均为合法裁决。
+      expect(['cas_mismatch', 'conflict'], '输家标签（F-6 cas_mismatch / DB 0 行 conflict 双形态）').toContain(
+        bodies[loserIdx]!.msg,
+      )
+      if (bodies[loserIdx]!.msg === 'cas_mismatch') {
+        expect(
+          bodies[loserIdx]!.payload?.actual_version,
+          'cas_mismatch 形态的当前版本必须 = 赢家推进后的版本',
+        ).toBe(versionBefore + 1)
+      }
 
       // DB oracle：恰一次生效 —— active、版本恰好 +1、归属 = 赢家 identity
       // （business_identity_id 维度，见 sessionClaimState 注释）。
