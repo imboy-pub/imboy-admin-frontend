@@ -24,14 +24,35 @@ bun run dev
 
 ## 常用命令
 
-```bash
-bun run dev          # 启动开发服务器
-bun run lint         # ESLint 与模块边界检查
-bun run typecheck    # TypeScript 类型检查
-bun run test         # 单元测试（隔离每个测试文件，避免共享 DOM/Mock 污染）
-bun run build        # 生产构建
-bun run check        # lint + typecheck + deadcode
-```
+快速入口（详见下方完整表）：`bun run dev` / `bun run lint` / `bun run typecheck` / `bun run test` / `bun run build` / `bun run check`。
+
+<!-- AUTO-GENERATED: START (source: package.json scripts; 生成工具: AI doc-sync) -->
+
+| 命令 | 实际执行 | 说明 |
+|---|---|---|
+| `bun install` | — | 安装依赖（改依赖后用 `--frozen-lockfile` 校验锁文件） |
+| `bun run dev` | `vite` | 开发服务器（默认 `http://127.0.0.1:8082`，代理 `/api/adm`、`/api/v1`、`/brand`、`/metrics` 到本地后端） |
+| `bun run build` | `tsc -b && vite build` | 生产构建 |
+| `bun run build:widget` | `vite build --mode widget && vite build --mode widget-loader && vite build --mode seat && bun scripts/widget-manifest.mts` | 客服挂件三段构建 + 生成 manifest |
+| `bun run verify:widget` | `bun scripts/widget-verify.mts` | 挂件产物校验 |
+| `bun run verify:widget-pairing` | `bun scripts/check-widget-asset-pairing.mts` | 挂件资产配对校验 |
+| `bun run preview` | `vite preview` | 预览生产构建产物 |
+| `bun run test` | `bun test --isolate` | 单元测试（必须 `--isolate`：隔离测试文件，避免共享 DOM/Mock 污染，勿裸跑 `bun test`） |
+| `bun run test:e2e` | `playwright test` | Playwright 端到端测试 |
+| `bun run test:e2e:prod` | `playwright test --config=playwright.prod-check.config.ts` | 生产环境健康检查（谨慎执行） |
+| `bun run test:e2e:customer-service:real` | `playwright test --config=playwright.customer-service-real.config.ts` | 客服坐席 E2E（真实后端） |
+| `bun run test:e2e:customer-service:p2` | `playwright test --config=playwright.customer-service-p2.config.ts` | 客服坐席 E2E（P2） |
+| `bun run test:e2e:headed` | `playwright test --headed` | 有头模式运行 E2E |
+| `bun run test:e2e:ui` | `playwright test --ui` | Playwright UI 模式 |
+| `bun run test:e2e:list` | `playwright test --list` | 列出全部 E2E 用例 |
+| `bun run test:e2e:install` | `playwright install chromium` | 安装 E2E 浏览器 |
+| `bun run lint` | `eslint .` | ESLint 检查（含模块边界规则） |
+| `bun run lint:fix` | `eslint . --fix` | ESLint 自动修复 |
+| `bun run typecheck` | `tsc --noEmit -p tsconfig.app.json` | TypeScript 类型检查 |
+| `bun run deadcode` | `knip` | 死代码检测 |
+| `bun run check` | `eslint . && tsc --noEmit -p tsconfig.app.json && knip` | 提交前组合检查（lint + typecheck + deadcode） |
+
+<!-- AUTO-GENERATED: END -->
 
 运行浏览器端到端测试：
 
@@ -69,6 +90,9 @@ tests/e2e/        Playwright 端到端测试
 ## 继续阅读
 
 - [项目约定](./CLAUDE.md)
+- [环境变量参考](./docs/env-vars.md)
+- [贡献指南](./CONTRIBUTING.md)
+- [运维手册](./RUNBOOK.md)
 - [设计规范](./DESIGN.md)
 - [模块地图](./docs/module_map.md)
 - [管理员与角色接口](./docs/api-contracts/admin_role_backend_api_contract.md)
