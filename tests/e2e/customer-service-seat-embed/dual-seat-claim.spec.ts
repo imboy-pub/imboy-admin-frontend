@@ -41,6 +41,7 @@ import {
   SEAT,
   SHOP,
   WORKSPACE_ID,
+  seatPassportLogin,
 } from './helpers/env'
 import { createVisitorSession, embedFrame, openSeatEmbed, qrLoginSeatInFrame } from './helpers/qr-embed'
 
@@ -263,6 +264,23 @@ function sessionClaimState(sessionId: string): { status: string; businessIdentit
   return { status, businessIdentityId }
 }
 
+/** F-6 冻结契约的信封形状（claim 成功/409 共用）。 */
+type ClaimBody = {
+  code: number
+  msg: string
+  payload?: { expected_version?: number; actual_version?: number }
+}
+
+/** 任意坐席身份的 API claim（Bearer=该坐席护照 JWT）。坐席A 用 SEAT 凭据
+ *  （seatPassportLogin 支持传入账号），坐席B 用 seat2PassportLogin。 */
+async function apiClaim(jwt: string, sessionId: string, expectedVersion: number): Promise<Response> {
+  return fetch(`${BE_MAIN}/api/v1/cs/organizations/${ORG_ID}/sessions/${sessionId}/claim`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${jwt}` },
+    body: JSON.stringify({ workspace_id: WORKSPACE_ID, expected_version: expectedVersion }),
+  })
+}
+
 test.describe('SC-E2E F7 双坐席 claim 竞争（EXECUTE-GATED）', () => {
   test.beforeAll(() => {
     // B-5① 口径：第二坐席密码无默认回退，缺失即 fail-fast 并给出注入方法。
@@ -445,6 +463,56 @@ test.describe('SC-E2E F7 双坐席 claim 竞争（EXECUTE-GATED）', () => {
       await visitorCtx.close().catch(() => {})
       await seatBPage?.context().close().catch(() => {})
       await seatAPage?.context().close().catch(() => {})
+    }
+  })
+
+  // ---------------------------------------------------------------- F7-4
+  test('F7-4 真并发竞争：双坐席同刻以同一 expected_version 起跑，恰一 200 一 409 cas_mismatch', async ({ browser }) => {
+    test.setTimeout(300_000)
+    closeStaleActiveSessions(RUN_SINCE)
+    const visitorCtx = await browser.newContext()
+    const visitorPage = await visitorCtx.newPage()
+    try {
+      const { sessionId } = await newVisitorSession(visitorPage)
+      const versionBefore = Number(
+        psql(`SELECT version FROM customer_service_session WHERE id = ${sessionId}`),
+      )
+
+      // 双坐席同刻起跑（真并发盲区 F7 的收口用例）：两个 claim 请求在同一 tick
+      // 发出、真实同时在途，且携带同一 expected_version（= 双方都只见过 A04
+      // 队列快照版本）。裁决者是真实 PostgreSQL 行级 CAS —— `UPDATE ... WHERE
+      // status='queued' AND version=$n` 恰一命中 1 行（queued→active），后到者
+      // 0 行 → domain cs_session assert_cas_expectation 同款 cas_mismatch。
+      // 谁赢不作假设，只断言「恰一成功 + 归属与 DB 一致」。
+      const jwtA = await seatPassportLogin(SEAT.account)
+      const jwtB = await seat2PassportLogin()
+      const [resA, resB] = await Promise.all([
+        apiClaim(jwtA, sessionId, versionBefore),
+        apiClaim(jwtB, sessionId, versionBefore),
+      ])
+
+      const bodies = (await Promise.all([resA.json(), resB.json()])) as ClaimBody[]
+      expect([resA.status, resB.status].sort((a, b) => a - b), '恰一 200 一 409').toEqual([200, 409])
+      const winnerIdx = resA.status === 200 ? 0 : 1
+      const loserIdx = 1 - winnerIdx
+      const winnerIdentity = winnerIdx === 0 ? IDENTITY_ID : SEAT2.identityId
+      expect(bodies[winnerIdx]!.code, '赢家信封 code=0').toBe(0)
+      expect(bodies[loserIdx]!.code, '输家信封 code=409').toBe(409)
+      expect(bodies[loserIdx]!.msg, '输家标签 cas_mismatch（F-6 冻结契约）').toBe('cas_mismatch')
+      expect(
+        bodies[loserIdx]!.payload?.actual_version,
+        '输家见到的当前版本必须 = 赢家推进后的版本',
+      ).toBe(versionBefore + 1)
+
+      // DB oracle：恰一次生效 —— active、版本恰好 +1、归属 = 赢家 identity
+      // （business_identity_id 维度，见 sessionClaimState 注释）。
+      const claimed = sessionClaimState(sessionId)
+      expect(claimed.status, '并发裁决后会话必须 active').toBe('active')
+      expect(claimed.businessIdentityId, '归属必须 = 恰好赢的那一方 identity').toBe(winnerIdentity)
+      const versionAfter = Number(psql(`SELECT version FROM customer_service_session WHERE id = ${sessionId}`))
+      expect(versionAfter, '版本必须恰好推进 1（两次 CAS 写只允许一次生效）').toBe(versionBefore + 1)
+    } finally {
+      await visitorCtx.close().catch(() => {})
     }
   })
 })

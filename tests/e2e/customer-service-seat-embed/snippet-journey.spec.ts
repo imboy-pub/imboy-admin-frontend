@@ -17,9 +17,11 @@ import {
   CS_ORIGIN,
   EXECUTE_ENABLED,
   ORG_ID,
+  SHOP,
   WORKSPACE_ID,
 } from './helpers/env'
 import { adminLogin } from './helpers/admin-ui'
+import { embedFrame } from './helpers/qr-embed'
 
 test.skip(!EXECUTE_ENABLED, 'EXECUTE-GATED: A0 sets SC153_E2E_EXECUTE=1 after SC-INT PASS + frozen candidate manifest')
 
@@ -65,6 +67,58 @@ test.describe('SC-E2E snippet 旅程（EXECUTE-GATED）', () => {
       // 与 A01 消费端的闭环：种子 console 的 public id 即 journey 全套用的
       // CONSOLE_PUBLIC_ID —— 同一 console 的 snippet 正是宿主 iframe 的来源。
       expect(publicId).toBe(CONSOLE_PUBLIC_ID)
+    } finally {
+      await ctx.close()
+    }
+  })
+
+  // ---------------------------------------------------------------- F4-B
+  test('F4-B 生成→部署→消费端真闭环：复制的 snippet 注入真实宿主 origin 文档后 iframe 实际加载坐席工作台', async ({ browser }) => {
+    test.setTimeout(180_000)
+    const ctx = await browser.newContext({
+      permissions: ['clipboard-read', 'clipboard-write'],
+    })
+    const page = await ctx.newPage()
+    try {
+      // —— 生成端（与 F4 同一真实交互序列）：登录 → 接入页 → 复制 → 剪贴板 ——
+      await adminLogin(page)
+      await page.goto(
+        `${ADMIN_ORIGIN}/customer-service/widgets?org=${ORG_ID}&ws=${WORKSPACE_ID}`,
+        { waitUntil: 'domcontentloaded' },
+      )
+      await expect(page.getByTestId('sc-seat-card')).toBeVisible({ timeout: 30_000 })
+      await page.getByRole('button', { name: '复制 iframe 代码' }).click()
+      const embedCode = await page.getByTestId('sc-seat-embed-code').inputValue()
+      expect(embedCode, 'iframe 接入代码必须已生成').toContain('<iframe')
+      const srcMatch = /src="([^"]+)"/.exec(embedCode)
+      expect(srcMatch, 'embed code 必须含 src 属性').toBeTruthy()
+      const clipboard = await page.evaluate(() => navigator.clipboard.readText())
+      expect(clipboard, '注入对象必须是剪贴板里的复制产物（部署保真）').toBe(embedCode)
+
+      // —— 部署：把运营者拿到的 snippet 原文注入真实 shop.test 宿主文档 ——
+      // 真实导航到宿主 origin（真 nginx + TLS + 自签证书），再以复制产物替换
+      // 页面主体：嵌入文档 origin = shop.test（CSP frame-ancestors 白名单成员），
+      // iframe 请求经真实网关命中 /seat/<public id> 动态 frame 与真实
+      // dist-widget seat 资产 —— 零 page.route、零 mock、零 fixture iframe。
+      const host = await ctx.newPage()
+      await host.goto(`${SHOP}/`, { waitUntil: 'domcontentloaded' })
+      await host.evaluate((code) => {
+        document.body.innerHTML = code
+      }, embedCode)
+
+      // —— 消费端：部署出的 iframe 实际加载坐席工作台首屏 ——
+      const frameEl = host.locator('iframe[title="IMBoy 客服工作台"]')
+      await expect(frameEl, '宿主文档必须恰好承载 snippet 部署出的那一个 iframe').toHaveCount(1)
+      await expect(frameEl, 'iframe src 必须逐字等于 snippet src').toHaveAttribute('src', srcMatch![1])
+      const frame = embedFrame(host)
+      const qrCode = frame.getByTestId('seat-qr-code')
+      await expect(qrCode.locator('svg'), '坐席工作台必须经真实网关加载出可扫描 QR').toBeVisible({
+        timeout: 30_000,
+      })
+      await expect(qrCode).toHaveAttribute('data-qr-content', /imboy:\/\/qr_login\?qr_token=.+/, {
+        timeout: 30_000,
+      })
+      await host.close()
     } finally {
       await ctx.close()
     }
