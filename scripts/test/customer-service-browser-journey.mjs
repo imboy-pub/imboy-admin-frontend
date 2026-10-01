@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { readFile, writeFile } from 'node:fs/promises'
+import { readFile, writeFile, rename } from 'node:fs/promises'
 import path from 'node:path'
 import { chromium, expect } from '@playwright/test'
 
@@ -12,6 +12,7 @@ const { createStaticHost } = await import('../../tests/e2e/customer-service-real
 const host = createStaticHost()
 let browser
 const responses = []
+const seatTokens = new WeakMap()
 const org = fixture.organization_id
 const ws = fixture.workspace_id
 const base = `http://127.0.0.1:${fixture.port}`
@@ -33,7 +34,11 @@ async function openSeat(seat) {
   const page = await context.newPage()
   const qrStatuses = []
   let polls = 0
-  page.on('request', (request) => { if (request.url().includes('/qr_login/status')) polls += 1 })
+  page.on('request', (request) => {
+    if (request.url().includes('/qr_login/status')) polls += 1
+    const authorization = request.headers().authorization
+    if (authorization?.startsWith('Bearer ')) seatTokens.set(page, authorization)
+  })
   page.on('response', (response) => {
     if (response.url().includes('/qr_login/subscribe')) qrStatuses.push(response.status())
   })
@@ -68,6 +73,17 @@ async function reply(page, text) {
   await page.getByTestId('seat-composer').fill(text)
   await page.getByTestId('seat-send').click()
   await expect(page.getByTestId('seat-send-error')).toHaveCount(0)
+}
+async function controlSeat(action, identity) {
+  const command = path.join(dir, 'browser-control.json')
+  await writeFile(`${command}.tmp`, JSON.stringify({ action, identity_id: identity }))
+  await rename(`${command}.tmp`, command)
+  await expect.poll(async () => {
+    try {
+      const ack = JSON.parse(await readFile(path.join(dir, 'browser-control-done.json'), 'utf8'))
+      return ack.action === action && ack.identity_id === identity && ack.enabled === (action === 'resume')
+    } catch { return false }
+  }, { timeout: 10000 }).toBe(true)
 }
 try {
   await new Promise((resolve, reject) => {
@@ -138,7 +154,30 @@ try {
   await expect(messages).toContainText('synthetic browser second seat reply', { timeout: 25000 })
   await page.screenshot({ path: path.join(dir, 'visitor-chat.png') })
   await second.screenshot({ path: path.join(dir, 'seat-workbench.png') })
-  await second.getByTestId('seat-close-submit').click()
+  const oldAuthorization = seatTokens.get(second)
+  assert.ok(oldAuthorization, 'capture actual browser Seat credential in memory only')
+  await controlSeat('suspend', secondIdentity)
+  const denied = await fetch(`${base}/api/v1/enterprise/organizations/${org}/conversations/${session.conversation_id}/messages`, {
+    signal: AbortSignal.timeout(10000), method: 'POST',
+    headers: { authorization: oldAuthorization, 'content-type': 'application/json' },
+    body: JSON.stringify({ workspace_id: ws, identity_id: secondIdentity,
+      sender_type: 'business_identity', body: 'synthetic revoked should not commit', client_msg_id: 'browser-revoked-write' }),
+  })
+  assert.equal(denied.status, 403)
+  await expect.poll(async () => {
+    const composer = second.getByTestId('seat-composer')
+    return await composer.count() > 0 && await composer.isEnabled()
+  }, { timeout: 25000 }).toBe(false).catch(async (error) => {
+    await writeFile(path.join(dir, 'seat-revocation-failure.txt'), await second.locator('body').innerText())
+    throw error
+  })
+  await expect(second.getByText(/坐席已暂停|坐席已停用|没有.*坐席|权限/).first()).toBeVisible({ timeout: 10000 })
+  responses.push({ action: 'seat-revoked', oldBrowserWriteStatus: denied.status, composerEnabled: false })
+  await second.screenshot({ path: path.join(dir, 'seat-revoked.png') })
+  await controlSeat('resume', secondIdentity)
+  const restored = await openSeat(statuses[0] === 200 ? fixture.seat_b : fixture.seat_a)
+  await openSession(restored, session.id)
+  await restored.getByTestId('seat-close-submit').click()
   await expect(frame.getByTestId('cs-rate-5')).toBeVisible({ timeout: 25000 })
   const rated = page.waitForResponse((response) => response.url().includes('/rating') && response.request().method() === 'POST')
   await frame.getByTestId('cs-rate-5').click()
@@ -146,7 +185,7 @@ try {
   assert.deepEqual(errors, [])
   await page.screenshot({ path: path.join(dir, 'visitor-rated.png') })
   await writeFile(path.join(dir, 'browser-result.json'), JSON.stringify({ status: 'PASS', oracle: 'built Widget + real HTTP + isolated PG; seat controls use actual built workbench pages after real QR confirm with synthetic mobile credentials', responses }, null, 2))
-  console.log('PASS: real visitor and two Seat workbench pages: QR, concurrent claim, offline recovery, replies, transfer, close, rating')
+  console.log('PASS: real visitor and two Seat workbench pages: QR, concurrent claim, offline recovery, revocation, fresh login, close, rating')
 } finally {
   await writeFile(path.join(dir, 'browser-responses.json'), JSON.stringify(responses, null, 2))
   if (browser) await browser.close()
