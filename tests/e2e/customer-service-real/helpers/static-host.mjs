@@ -3,9 +3,9 @@
  *
  * 职责（不是 mock）：
  * - 承载商家宿主页（plain HTML）与 widget 前端产物（dist-widget/loader.js、
- *   dist-widget/assets/cs-widget.js → 版本化路径 /widget-assets/cs-widget.v1.js，
+ *   dist-widget/widget-assets/cs-widget.v2.js 与 /assets/ 内容哈希文件，
  *   与后端 frame 文档引用的 FRAME_ASSET_JS 常量逐字一致）；
- * - /api/* 透明反代到真实后端（默认 127.0.0.1:9802）：方法/头/体原样转发，
+ * - /api/*、/w/* 透明反代到真实后端（默认 127.0.0.1:9802）：方法/头/体原样转发，
  *   响应（含 SSE 流式）原样回传。所有业务逻辑、认证、数据均由真实后端处理，
  *   本进程不伪造任何 API 响应；
  * - 额外提供本地自签 HTTPS（默认 8443，CN=dev.imboy.pub）：后端 presign 的
@@ -30,12 +30,13 @@ const DIST_WIDGET = path.resolve(HERE, '../../../..', 'dist-widget')
 
 const BACKEND_HOST = process.env.CSWW_E2E_BACKEND_HOST ?? '127.0.0.1'
 const BACKEND_PORT = Number(process.env.CSWW_E2E_BACKEND_PORT ?? 9802)
+const PUBLIC_WIDGET_ID = process.env.CSWW_E2E_WIDGET_ID?.trim()
+if (!PUBLIC_WIDGET_ID || !/^[0-9]{1,26}$/.test(PUBLIC_WIDGET_ID)) {
+  throw new Error('CSWW_E2E_WIDGET_ID must be the decimal public_widget_id of the isolated fixture')
+}
 
 /** 宿主页：plain HTML；loader.js 引自身产物；origin 由 loader 从 script.src 推导。 */
 function hostHtml() {
-  const installationId = process.env.CSWW_E2E_INSTALLATION_ID ?? '5837897154422619'
-  const organizationId = process.env.CSWW_E2E_ORG_ID ?? '1603940848519155'
-  const publicWidgetId = process.env.CSWW_E2E_WIDGET_ID ?? 'csww-e2e-widget-77729338'
   return [
     '<!doctype html>',
     '<html lang="zh-CN">',
@@ -44,9 +45,7 @@ function hostHtml() {
     '  <h1 data-testid="host-title">CSWW E2E Host</h1>',
     '  <div data-testid="host-marker">merchant host page</div>',
     '  <script src="/widget-assets/loader.js"',
-    `    data-org-id="${organizationId}"`,
-    `    data-widget-id="${publicWidgetId}"`,
-    `    data-widget-path="/api/v1/cs/widget/frame/${installationId}?organization_id=${organizationId}"></script>`,
+    `    data-widget-id="${PUBLIC_WIDGET_ID}"></script>`,
     '</body>',
     '</html>',
   ].join('\n')
@@ -54,7 +53,7 @@ function hostHtml() {
 
 const STATIC_ROUTES = new Map([
   ['/widget-assets/loader.js', [path.join(DIST_WIDGET, 'loader.js'), 'text/javascript; charset=utf-8']],
-  ['/widget-assets/cs-widget.v1.js', [path.join(DIST_WIDGET, 'assets', 'cs-widget.js'), 'text/javascript; charset=utf-8']],
+  ['/widget-assets/cs-widget.v2.js', [path.join(DIST_WIDGET, 'widget-assets', 'cs-widget.v2.js'), 'text/javascript; charset=utf-8']],
 ])
 
 function sendFile(res, filePath, contentType) {
@@ -132,7 +131,11 @@ function handleRequest(req, res, cors) {
     sendFile(res, staticRoute[0], staticRoute[1])
     return
   }
-  if (urlPath.startsWith('/api/')) {
+  if (/^\/assets\/[A-Za-z0-9_-]+\.(js|css)$/.test(urlPath)) {
+    sendFile(res, path.join(DIST_WIDGET, urlPath), urlPath.endsWith('.css') ? 'text/css; charset=utf-8' : 'text/javascript; charset=utf-8')
+    return
+  }
+  if (urlPath.startsWith('/api/') || urlPath.startsWith('/w/')) {
     proxyToBackend(req, res, cors)
     return
   }
