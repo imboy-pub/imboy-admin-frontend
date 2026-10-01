@@ -1,0 +1,96 @@
+$ tsc -b && vite build
+vite v8.1.4 building client environment for production...
+(node:56310) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[2Ktransforming...✓ 3016 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                        1.85 kB │ gzip:   0.77 kB
+dist/assets/index-_XZfiGXM.css                        67.79 kB │ gzip:  12.02 kB
+dist/assets/api-DSnG_Rp8.js                            0.02 kB │ gzip:   0.04 kB
+dist/assets/money-BiMaBQx0.js                          0.23 kB │ gzip:   0.17 kB
+dist/assets/api-BvqSWWps.js                            0.58 kB │ gzip:   0.33 kB
+dist/assets/rolldown-runtime-QTnfLwEv.js               0.69 kB │ gzip:   0.42 kB
+dist/assets/logoutApplications-CZ3wl1DJ.js             0.76 kB │ gzip:   0.45 kB
+dist/assets/checkbox-B9Y0C0LR.js                       0.77 kB │ gzip:   0.47 kB
+dist/assets/moderation-DnG0HqCv.js                     0.78 kB │ gzip:   0.28 kB
+dist/assets/switch-BFgzgK7e.js                         0.95 kB │ gzip:   0.57 kB
+dist/assets/systemHealth-BfHE_U6S.js                   1.22 kB │ gzip:   0.58 kB
+dist/assets/AiHubOverviewPage-BLd3A_5G.js              2.15 kB │ gzip:   1.01 kB
+dist/assets/policy-CLAtGTco.js                         2.17 kB │ gzip:   1.02 kB
+dist/assets/dialog-C4OCnFfV.js                         2.26 kB │ gzip:   0.89 kB
+dist/assets/tabs-Cgvrchc_.js                           2.40 kB │ gzip:   1.08 kB
+dist/assets/workspaces-DHOFrVIZ.js                     2.59 kB │ gzip:   0.72 kB
+dist/assets/public-DKlGxuf5.js                         3.42 kB │ gzip:   0.89 kB
+dist/assets/BotDeliveriesPage-C7Zv7-TR.js              3.45 kB │ gzip:   1.48 kB
+dist/assets/SettingsHomePage-CBcOONTs.js               3.62 kB │ gzip:   1.85 kB
+dist/assets/responseAdapter-B-6Gc0Yp.js                3.65 kB │ gzip:   1.92 kB
+dist/assets/ChannelSubscriberPage-BWmPzG67.js          3.70 kB │ gzip:   1.67 kB
+dist/assets/OrganizationWorkspacePicker-qC44N3lB.js    3.90 kB │ gzip:   1.44 kB
+dist/assets/AppealReviewPage-CfKHBkhJ.js               3.92 kB │ gzip:   1.76 kB
+dist/assets/ChannelAdminPage-CaQOnKKz.js               4.14 kB │ gzip:   1.90 kB
+dist/assets/MutedUsersPage-BhtF21_w.js                 4.31 kB │ gzip:   1.94 kB
+dist/assets/SystemHealthPage-BtlAe6Lo.js               4.32 kB │ gzip:   1.50 kB
+dist/assets/ChannelInvitationPage-XlbMqZgB.js          4.47 kB │ gzip:   1.69 kB
+dist/assets/ProjectListPage-Mlb7k3eo.js                4.51 kB │ gzip:   1.92 kB
+dist/assets/ProductExperiencePage-DLrjHaNA.js          4.61 kB │ gzip:   1.89 kB
+dist/assets/ProfileSwitchPage-CAI1ClaM.js              4.63 kB │ gzip:   2.18 kB
+dist/assets/LicensePage-BcJWWBFN.js                    4.87 kB │ gzip:   2.21 kB
+dist/assets/PushTokenListPage-CKe-Yyau.js              5.48 kB │ gzip:   2.36 kB
+dist/assets/ComplianceKeyPage-BG7SHa_Y.js              5.48 kB │ gzip:   2.45 kB
+dist/assets/GroupVoteManagePage-SnvjFosx.js            6.05 kB │ gzip:   2.25 kB
+dist/assets/WorkspaceListPage-BifqI41Z.js              6.07 kB │ gzip:   2.58 kB
+dist/assets/GroupTaskListPage-DFfK6r2z.js              6.28 kB │ gzip:   2.44 kB
+dist/assets/PricingPage-_cHWV5tY.js                    6.46 kB │ gzip:   2.59 kB
+dist/assets/FeatureConfigPage-5MCw--i9.js              6.50 kB │ gzip:   2.62 kB
+dist/assets/SensitiveWordPage-CKFUCDro.js              6.50 kB │ gzip:   2.64 kB
+dist/assets/LogoutApplicationListPage-C2AUhD6Q.js      6.59 kB │ gzip:   2.46 kB
+dist/assets/ChannelOrderPage-DtED-YeR.js               6.63 kB │ gzip:   2.60 kB
+dist/assets/bots-BTel-tSn.js                           6.71 kB │ gzip:   2.67 kB
+dist/assets/WorkspaceDetailPage-Bxz9wix0.js            7.12 kB │ gzip:   2.08 kB
+dist/assets/CapabilityConfigPage-DX5A-JBB.js           7.45 kB │ gzip:   2.97 kB
+dist/assets/ContentReviewQueuePage-f8KPN8QZ.js         7.84 kB │ gzip:   2.54 kB
+dist/assets/GroupScheduleManagePage-D3QUa49g.js        7.85 kB │ gzip:   2.68 kB
+dist/assets/AnalyticsPage-w7FzEuqA.js                  8.96 kB │ gzip:   2.73 kB
+dist/assets/ChannelMessagePage-VeYw97IA.js             9.32 kB │ gzip:   3.44 kB
+dist/assets/McpGovernanceListPage-9tqwu1px.js          9.59 kB │ gzip:   3.22 kB
+dist/assets/i18n-DDGgkqDO.js                           9.83 kB │ gzip:   3.48 kB
+dist/assets/AnnouncementListPage-B4PRx9ED.js          10.38 kB │ gzip:   3.65 kB
+dist/assets/PaidChannelOpsPage-DajQWZvu.js            10.47 kB │ gzip:   3.42 kB
+dist/assets/social_graph-DAfyJNn1.js                  10.78 kB │ gzip:   3.30 kB
+dist/assets/DashboardPage-CIXBAvBo.js                 11.02 kB │ gzip:   3.66 kB
+dist/assets/ChannelListPage-DBiBk_Bk.js               11.76 kB │ gzip:   4.13 kB
+dist/assets/SSOConfigPage-DSpxozy1.js                 12.70 kB │ gzip:   3.84 kB
+dist/assets/GroupTaskManagePage-D_04PAsy.js           13.08 kB │ gzip:   3.76 kB
+dist/assets/StorageOverviewPage-Cj7Za-tj.js           13.36 kB │ gzip:   4.34 kB
+dist/assets/messages-CS84WuIn.js                      13.65 kB │ gzip:   4.58 kB
+dist/assets/ChannelDetailPage-DaVXLWq_.js             14.92 kB │ gzip:   3.92 kB
+dist/assets/AdminListPage-TvDoE95U.js                 15.00 kB │ gzip:   5.00 kB
+dist/assets/AuditLogPage-DmFFfu8c.js                  15.01 kB │ gzip:   5.02 kB
+dist/assets/ProjectDetailPage-C04qKU0H.js             15.02 kB │ gzip:   3.53 kB
+dist/assets/plugin_management-D-1jJY5s.js             20.68 kB │ gzip:   5.58 kB
+dist/assets/vendor-radix-Dm75was_.js                  22.13 kB │ gzip:   7.32 kB
+dist/assets/vendor-misc-fI4gXrC0.js                   22.65 kB │ gzip:   8.17 kB
+dist/assets/moments-DMABgU_n.js                       24.06 kB │ gzip:   6.89 kB
+dist/assets/vendor-icons-Cf-YyJMu.js                  31.48 kB │ gzip:   9.57 kB
+dist/assets/vendor-ui-BZAzE7OE.js                     34.52 kB │ gzip:  10.01 kB
+dist/assets/vendor-http-6yN7GJw8.js                   35.55 kB │ gzip:  14.16 kB
+dist/assets/enterprise_business-Di9jI5KS.js           36.71 kB │ gzip:  10.42 kB
+dist/assets/ai_agent-M2-srLi0.js                      37.85 kB │ gzip:  10.46 kB
+dist/assets/finance-BHLeg9bP.js                       49.31 kB │ gzip:   9.75 kB
+dist/assets/ops_governance-Dif5marL.js                52.33 kB │ gzip:  14.86 kB
+dist/assets/enterprise_apps-Crae1rKq.js               52.56 kB │ gzip:  15.41 kB
+dist/assets/customer_service-8vL1nL_n.js              76.94 kB │ gzip:  18.81 kB
+dist/assets/vendor-form-DKmfWqAK.js                   81.93 kB │ gzip:  24.46 kB
+dist/assets/seat-workbench-CB1RjTmY.js               100.33 kB │ gzip:  34.75 kB
+dist/assets/organization-Dm3lHjrH.js                 112.81 kB │ gzip:  29.64 kB
+dist/assets/vendor-tanstack-C2lZSYrv.js              148.91 kB │ gzip:  39.79 kB
+dist/assets/vendor-react-CyiClTJZ.js                 178.36 kB │ gzip:  56.36 kB
+dist/assets/index-DplayfzY.js                        268.66 kB │ gzip:  67.11 kB
+dist/assets/vendor-charts-CUqd9Rse.js                386.28 kB │ gzip: 110.81 kB
+
+[33m[INEFFECTIVE_DYNAMIC_IMPORT] [0msrc/modules/identity/index.ts is dynamically imported by src/App.tsx but also statically imported by src/App.tsx, src/components/auth/ProtectedRoute.tsx, src/components/layout/Header.tsx, src/components/shared/AdminProfilePanel.tsx, src/pages/admins/AdminListPage.tsx, ..., dynamic import will not move module into another chunk.
+
+[33m[INEFFECTIVE_DYNAMIC_IMPORT] [0msrc/modules/groups/index.ts is dynamically imported by src/App.tsx but also statically imported by src/components/layout/Header.tsx, dynamic import will not move module into another chunk.
+
+✓ built in 305ms

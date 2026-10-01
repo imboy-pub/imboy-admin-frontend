@@ -1,0 +1,464 @@
+$ bun test --isolate src/modules/organization/pages/OrganizationDepartmentsPage.test.tsx
+bun test v1.3.14 (0d9b296a)
+
+src/modules/organization/pages/OrganizationDepartmentsPage.test.tsx:
+32 |   // throw errors w/ suggestions for better queries. Opt in so off by default.
+33 |   throwSuggestions: false,
+34 |   // called when getBy* queries fail. (message, container) => Error
+35 |   getElementError(message, container) {
+36 |     const prettifiedDOM = (0, _prettyDom.prettyDOM)(container);
+37 |     const error = new Error([message, `Ignored nodes: comments, ${config.defaultIgnore}\n${prettifiedDOM}`].filter(Boolean).join('\n\n'));
+                           ^
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "架构图"
+
+Here are the accessible roles:
+
+  heading:
+
+  Name "部门管理":
+  [36m<h1[39m
+    [33mclass[39m=[32m"text-3xl font-bold text-foreground text-wrap-balance"[39m
+  [36m/>[39m
+
+  Name "部门目录imboy":
+  [36m<h3[39m
+    [33mclass[39m=[32m"font-semibold tracking-tight text-base"[39m
+  [36m/>[39m
+
+  Name "部门详情":
+  [36m<h3[39m
+    [33mclass[39m=[32m"font-semibold tracking-tight text-base"[39m
+  [36m/>[39m
+
+  Name "未选择部门":
+  [36m<h3[39m
+    [33mclass[39m=[32m"mt-4 text-lg font-medium"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"mt-1 text-muted-foreground text-wrap-pretty"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"mt-2 text-sm text-muted-foreground"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-xs text-muted-foreground"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  textbox:
+
+  Name "搜索部门（名称 / TSID）":
+  [36m<input[39m
+    [33maria-label[39m=[32m"搜索部门（名称 / TSID）"[39m
+    [33mclass[39m=[32m"flex min-h-11 rounded-md border border-input bg-background px-3 py-2 ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 h-8 w-44 pl-7 text-xs"[39m
+    [33mdata-testid[39m=[32m"dept-search-input"[39m
+    [33mplaceholder[39m=[32m"搜索部门：名称 / TSID"[39m
+    [33mvalue[39m=[32m""[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  combobox:
+
+  Name "部门排序":
+  [36m<select[39m
+    [33maria-label[39m=[32m"部门排序"[39m
+    [33mclass[39m=[32m"flex min-h-11 rounded-md border border-input bg-background px-3 py-2 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 h-8 w-36 text-xs"[39m
+    [33mdata-testid[39m=[32m"dept-sort-select"[39m
+  [36m/>[39m
+
+  Name "部门状态过滤":
+  [36m<select[39m
+    [33maria-label[39m=[32m"部门状态过滤"[39m
+    [33mclass[39m=[32m"flex min-h-11 rounded-md border border-input bg-background px-3 py-2 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 h-8 w-32 text-xs"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  option:
+
+  Name "目录序（TSID）":
+  [36m<option[39m
+    [33mvalue[39m=[32m"directory"[39m
+  [36m/>[39m
+
+  Name "名称升序":
+  [36m<option[39m
+    [33mvalue[39m=[32m"name-asc"[39m
+  [36m/>[39m
+
+  Name "名称降序":
+  [36m<option[39m
+    [33mvalue[39m=[32m"name-desc"[39m
+  [36m/>[39m
+
+  Name "全部":
+  [36m<option[39m
+    [33mvalue[39m=[32m"all"[39m
+  [36m/>[39m
+
+  Name "active":
+  [36m<option[39m
+    [33mvalue[39m=[32m"active"[39m
+  [36m/>[39m
+
+  Name "archived":
+  [36m<option[39m
+    [33mvalue[39m=[32m"archived"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "创建部门":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-9 rounded-md px-3"[39m
+    [33mdata-testid[39m=[32m"dept-create-btn"[39m
+  [36m/>[39m
+
+  Name "折叠":
+  [36m<button[39m
+    [33maria-label[39m=[32m"折叠"[39m
+    [33mclass[39m=[32m"text-muted-foreground"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "100研发部v3":
+  [36m<button[39m
+    [33mclass[39m=[32m"flex flex-1 items-center gap-1.5 rounded px-0.5 py-0.5 text-left text-sm"[39m
+    [33mdata-testid[39m=[32m"dept-node-100"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "改名":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground rounded-md h-6 px-1.5 text-xs"[39m
+  [36m/>[39m
+
+  Name "移动":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground rounded-md h-6 px-1.5 text-xs"[39m
+  [36m/>[39m
+
+  Name "归档":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground rounded-md h-6 px-1.5 text-xs text-destructive"[39m
+    [33mdata-testid[39m=[32m"dept-archive-btn"[39m
+  [36m/>[39m
+
+  Name "折叠":
+  [36m<button[39m
+    [33maria-label[39m=[32m"折叠"[39m
+    [33mclass[39m=[32m"text-muted-foreground"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "200后端组v2":
+  [36m<button[39m
+    [33mclass[39m=[32m"flex flex-1 items-center gap-1.5 rounded px-0.5 py-0.5 text-left text-sm"[39m
+    [33mdata-testid[39m=[32m"dept-node-200"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "改名":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground rounded-md h-6 px-1.5 text-xs"[39m
+  [36m/>[39m
+
+  Name "移动":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground rounded-md h-6 px-1.5 text-xs"[39m
+  [36m/>[39m
+
+  Name "归档":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground rounded-md h-6 px-1.5 text-xs text-destructive"[39m
+    [33mdata-testid[39m=[32m"dept-archive-btn"[39m
+  [36m/>[39m
+
+  Name "300Erlang 小队v1":
+  [36m<button[39m
+    [33mclass[39m=[32m"flex flex-1 items-center gap-1.5 rounded px-0.5 py-0.5 text-left text-sm"[39m
+    [33mdata-testid[39m=[32m"dept-node-300"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "改名":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground rounded-md h-6 px-1.5 text-xs"[39m
+  [36m/>[39m
+
+  Name "移动":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground rounded-md h-6 px-1.5 text-xs"[39m
+  [36m/>[39m
+
+  Name "归档":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground rounded-md h-6 px-1.5 text-xs text-destructive"[39m
+    [33mdata-testid[39m=[32m"dept-archive-btn"[39m
+  [36m/>[39m
+
+  Name "400前端组v1":
+  [36m<button[39m
+    [33mclass[39m=[32m"flex flex-1 items-center gap-1.5 rounded px-0.5 py-0.5 text-left text-sm"[39m
+    [33mdata-testid[39m=[32m"dept-node-400"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "改名":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground rounded-md h-6 px-1.5 text-xs"[39m
+  [36m/>[39m
+
+  Name "移动":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground rounded-md h-6 px-1.5 text-xs"[39m
+  [36m/>[39m
+
+  Name "归档":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground rounded-md h-6 px-1.5 text-xs text-destructive"[39m
+    [33mdata-testid[39m=[32m"dept-archive-btn"[39m
+  [36m/>[39m
+
+  Name "500运营部 已归档 v5":
+  [36m<button[39m
+    [33mclass[39m=[32m"flex flex-1 items-center gap-1.5 rounded px-0.5 py-0.5 text-left text-sm"[39m
+    [33mdata-testid[39m=[32m"dept-node-500"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  tree:
+
+  Name "":
+  [36m<ul[39m
+    [33mclass[39m=[32m"space-y-0.5"[39m
+    [33mdata-testid[39m=[32m"department-tree"[39m
+    [33mrole[39m=[32m"tree"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  treeitem:
+
+  Name "100研发部v3 改名 移动 归档 200后端组v2 改名 移动 归档 300Erlang 小队v1 改名 移动 归档 400前端组v1 改名 移动 归档":
+  [36m<li[39m
+    [33maria-expanded[39m=[32m"true"[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mrole[39m=[32m"treeitem"[39m
+  [36m/>[39m
+
+  Name "200后端组v2 改名 移动 归档 300Erlang 小队v1 改名 移动 归档":
+  [36m<li[39m
+    [33maria-expanded[39m=[32m"true"[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mrole[39m=[32m"treeitem"[39m
+  [36m/>[39m
+
+  Name "300Erlang 小队v1 改名 移动 归档":
+  [36m<li[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mrole[39m=[32m"treeitem"[39m
+  [36m/>[39m
+
+  Name "400前端组v1 改名 移动 归档":
+  [36m<li[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mrole[39m=[32m"treeitem"[39m
+  [36m/>[39m
+
+  Name "500运营部 已归档 v5":
+  [36m<li[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mrole[39m=[32m"treeitem"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  list:
+
+  Name "":
+  [36m<ul />[39m
+
+  Name "":
+  [36m<ul />[39m
+
+  --------------------------------------------------
+  link:
+
+  Name "返回组织详情":
+  [36m<a[39m
+    [33mclass[39m=[32m"ml-1 underline"[39m
+    [33mdata-discover[39m=[32m"true"[39m
+    [33mhref[39m=[32m"/organizations/8800487111111111111"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"space-y-4"[39m
+      [33mdata-page[39m=[32m"organization-departments"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"mb-6 flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"min-w-0"[39m
+        [36m>[39m
+          [36m<h1[39m
+            [33mclass[39m=[32m"text-3xl font-bold text-foreground text-wrap-balance"[39m
+          [36m>[39m
+            [0m部门管理[0m
+          [36m</h1>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"mt-1 text-muted-foreground text-wrap-pretty"[39m
+          [36m>[39m
+            [0m树形组织目录（C10）：部门是目录事实，不是权限边界；平台面只治理目录结构（创建 / 改名 / 移动 / 归档）。左树支持搜索定位与前端排序，点击节点查看右侧详情。[0m
+          [36m</p>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"grid items-start gap-3 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"rounded-lg border bg-card text-card-foreground shadow-sm"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex p-6 flex-row flex-wrap items-center justify-between gap-2 space-y-0"[39m
+          [36m>[39m
+            [36m<h3[39m
+              [33mclass[39m=[32m"font-semibold tracking-tight text-base"[39m
+            [36m>[39m
+              [0m部门目录[0m
+              [36m<span[39m
+                [33mclass[39m=[32m"ml-2 text-xs font-normal text-muted-foreground"[39m
+              [36m>[39m
+                [0mimboy[0m
+              [36m</span>[39m
+            [36m</h3>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex flex-wrap items-center gap-2"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"relative"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-search pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mheight[39m=[32m"24"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"2"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"24"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"m21 21-4.34-4.34"[39m
+                  [36m/>[39m
+                  [36m<circle[39m
+                    [33mcx[39m=[32m"11"[39m
+                    [33mcy[39m=[32m"11"[39m
+                    [33mr[39m=[32m"8"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [36m<input[39m
+                  [33maria-label[39m=[32m"搜索部门（名称 / TSID）"[39m
+                  [33mclass[39m=[32m"flex min-h-11 rounded-md border border-input bg-background px-3 py-2 ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 h-8 w-44 pl-7 text-xs"[39m
+                  [33mdata-testid[39m=[32m"dept-search-input"[39m
+                  [33mplaceholder[39m=[32m"搜索部门：名称 / TSID"[39m
+                  [33mvalue[39m=[32m""[39m
+                [36m/>[39m
+              [36m</div>[39m
+              [36m<select[39m
+                [33maria-label[39m=[32m"部门排序"[39m
+                [33mclass[39m=[32m"flex min-h-11 rounded-md border border-input bg-background px-3 py-2 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 h-8 w-36 text-xs"[39m
+                [33mdata-testid[39m=[32m"dept-sort-select"[39m
+              [36m>[39m
+                [36m<option[39m
+                  [33mvalue[39m=[32m"directory"[39m
+                [36m>[39m
+                  [0m目录序（TSID）[0m
+                [36m</option>[39m
+                [36m<option[39m
+                  [33mvalue[39m=[32m"name-asc"[39m
+                [36m>[39m
+                  [0m名称升序[0m
+                [36m</option>[39m
+                [36m<option[39m
+                  [33mvalue[39m=[32m"name-desc"[39m
+                [36m>[39m
+                  [0m名称降序[0m
+                [36m</option>[39m
+              [36m</select>[39m
+              [36m<select[39m
+                [33maria-label[39m=[32m"部门状态过滤"[39m
+                [33mclass[39m=[32m"flex min-h-11 rounded-md border border-input bg-background px-3 py-2 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 h-8 w-32 text-xs"[39m
+              [36m>[39m
+                [36m<option[39m
+                  [33mvalue[39m=[32m"all"[39m
+                [36m>[39m
+                  [0m全部[0m
+                [36m</option>[39m
+                [36m<option[39m
+                  [33mvalue[39m=[32m"active"[39m
+                [36m>[39m
+                  [0mactive[0m
+                [36m</option>[39m
+                [36m<option[39m
+                  [33mvalue[39m=[32m"archived"[39m
+                [36m>[39m
+                  [0marchived[0m
+                [36m</option>[39m
+              [36m</select>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-9 rounded-md px-3"[39m
+                [33mdata-testid[39m=[32m"dept-create-btn"[39m
+              [36m>[39m
+                [0m创建部门[0m
+              [36m</button>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"p-6 pt-0 space-y-3"[39m
+          [36m>[39m
+            [36m<ul[39m
+              [33mclass[39m=[32m"space-y-0.5"[39m
+              [33mdata-testid[39m=[32m"department-tree"[39m
+              [33mrole[39m=[32m"tree"[39m
+            [36m>[39m
+              [36m<li[39m
+                [33maria-expa...
+      at getElementError (/Users/leeyi/project/imboy.pub/imboyadmin/node_modules/@testing-library/dom/dist/config.js:37:23)
+      at <anonymous> (/Users/leeyi/project/imboy.pub/imboyadmin/node_modules/@testing-library/dom/dist/query-helpers.js:76:38)
+      at <anonymous> (/Users/leeyi/project/imboy.pub/imboyadmin/node_modules/@testing-library/dom/dist/query-helpers.js:52:17)
+      at <anonymous> (/Users/leeyi/project/imboy.pub/imboyadmin/node_modules/@testing-library/dom/dist/query-helpers.js:95:19)
+      at <anonymous> (/Users/leeyi/project/imboy.pub/.Codex/worktrees/gz-enterprise-admin/src/modules/organization/pages/OrganizationDepartmentsPage.test.tsx:125:27)
+(fail) OrganizationDepartmentsPage — 左树右详情布局 > 架构图复用部门关系，点击节点更新详情，切回目录保留选中 [186.32ms]
+(pass) OrganizationDepartmentsPage — 左树右详情布局 > 树与详情面板并排呈现；未选择时详情面板给出引导空态 [27.75ms]
+(pass) OrganizationDepartmentsPage — 左树右详情布局 > 点击树节点：右侧详情呈现节点事实（TSID/名称/版本/层级路径/后代数）并标记 aria-selected [49.07ms]
+Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+(pass) OrganizationDepartmentsPage — 左树右详情布局 > 详情面板动作入口与树行内共用同一 mutation 流：改名 dialog 呈现 expected_version（CAS 逻辑零改动） [76.72ms]
+(pass) OrganizationDepartmentsPage — 搜索定位（ENT-ADM-01） > 匹配节点名称高亮（mark）且命中路径自动展开（折叠态被覆盖） [113.53ms]
+(pass) OrganizationDepartmentsPage — 搜索定位（ENT-ADM-01） > 无匹配：呈现提示与清空入口；TSID 也可命中 [96.66ms]
+(pass) OrganizationDepartmentsPage — 前端排序（纯展示） > 默认目录序（TSID 升序）；名称降序后兄弟顺序反转 [40.54ms]
+Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+(pass) OrganizationDepartmentsPage — 非法移动目标置灰（服务端成环守卫的前端镜像） > 移动 dialog：自身与后代目标选项显示但 disabled，合法目标可选 [57.57ms]
+
+ 7 pass
+ 1 fail
+ 49 expect() calls
+Ran 8 tests across 1 file. [1300.00ms]
+error: script "test" exited with code 1

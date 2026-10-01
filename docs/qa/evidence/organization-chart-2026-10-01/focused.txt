@@ -1,0 +1,25 @@
+$ bun test --isolate src/modules/organization/pages/OrganizationDepartmentsPage.test.tsx src/modules/organization/pages/DepartmentOrganizationChart.test.tsx
+bun test v1.3.14 (0d9b296a)
+
+src/modules/organization/pages/DepartmentOrganizationChart.test.tsx:
+(pass) 完整保留大编号和父子关系；缺失上级、环节点不接到企业根 [73.11ms]
+(pass) 已归档部门可查看，选中状态可读，滚动区域可通过键盘进入 [5.28ms]
+
+src/modules/organization/pages/OrganizationDepartmentsPage.test.tsx:
+(pass) OrganizationDepartmentsPage — 左树右详情布局 > 架构图搜索保留命中路径，并沿用只读权限 [212.13ms]
+(pass) OrganizationDepartmentsPage — 左树右详情布局 > 无查看权限时切换架构图也不读取组织或部门 [25.19ms]
+(pass) OrganizationDepartmentsPage — 左树右详情布局 > 架构图复用部门关系，点击节点更新详情，切回目录保留选中 [127.70ms]
+(pass) OrganizationDepartmentsPage — 左树右详情布局 > 树与详情面板并排呈现；未选择时详情面板给出引导空态 [24.25ms]
+(pass) OrganizationDepartmentsPage — 左树右详情布局 > 点击树节点：右侧详情呈现节点事实（TSID/名称/版本/层级路径/后代数）并标记 aria-selected [42.31ms]
+Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+(pass) OrganizationDepartmentsPage — 左树右详情布局 > 详情面板动作入口与树行内共用同一 mutation 流：改名 dialog 呈现 expected_version（CAS 逻辑零改动） [74.17ms]
+(pass) OrganizationDepartmentsPage — 搜索定位（ENT-ADM-01） > 匹配节点名称高亮（mark）且命中路径自动展开（折叠态被覆盖） [136.83ms]
+(pass) OrganizationDepartmentsPage — 搜索定位（ENT-ADM-01） > 无匹配：呈现提示与清空入口；TSID 也可命中 [113.00ms]
+(pass) OrganizationDepartmentsPage — 前端排序（纯展示） > 默认目录序（TSID 升序）；名称降序后兄弟顺序反转 [51.52ms]
+Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+(pass) OrganizationDepartmentsPage — 非法移动目标置灰（服务端成环守卫的前端镜像） > 移动 dialog：自身与后代目标选项显示但 disabled，合法目标可选 [75.67ms]
+
+ 12 pass
+ 0 fail
+ 75 expect() calls
+Ran 12 tests across 2 files. [1413.00ms]

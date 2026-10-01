@@ -118,6 +118,51 @@ async function waitTreeReady(view: ReturnType<typeof renderPage>) {
 }
 
 describe('OrganizationDepartmentsPage — 左树右详情布局', () => {
+  it('架构图搜索保留命中路径，并沿用只读权限', async () => {
+    const get = mutableClient.get
+    mutableClient.get = ((url: string) => url === '/rbac/me'
+      ? Promise.resolve(envelope({ role_ids: ['1'], permissions: ['organizations:read'], menu_paths: [] }))
+      : get(url)) as AnyFn
+    const view = renderPage()
+    await waitTreeReady(view)
+    const user = userEvent.setup()
+    await user.click(view.getByRole('button', { name: '架构图', exact: true }))
+    await user.type(view.getByTestId('dept-search-input'), 'Erlang')
+    expect(view.getByTestId('dept-chart-node-100')).toBeTruthy()
+    expect(view.getByTestId('dept-chart-node-200')).toBeTruthy()
+    expect(view.getByTestId('dept-chart-node-300')).toBeTruthy()
+    expect(view.queryByTestId('dept-chart-node-400')).toBeNull()
+    await user.click(view.getByTestId('dept-chart-node-200'))
+    expect(view.queryByTestId('dept-create-btn')).toBeNull()
+    expect(view.queryByRole('button', { name: '移动', exact: true })).toBeNull()
+  })
+
+  it('无查看权限时切换架构图也不读取组织或部门', async () => {
+    const reads: string[] = []
+    mutableClient.get = ((url: string) => {
+      reads.push(url)
+      return Promise.resolve(envelope({ role_ids: ['1'], permissions: [], menu_paths: [] }))
+    }) as AnyFn
+    const view = renderPage()
+    await waitFor(() => expect(view.getByText('无查看权限')).toBeTruthy())
+    await userEvent.setup().click(view.getByRole('button', { name: '架构图', exact: true }))
+    expect(view.queryByTestId('department-chart')).toBeNull()
+    expect(reads.filter((url) => url.startsWith('/organizations/'))).toEqual([])
+  })
+
+  it('架构图复用部门关系，点击节点更新详情，切回目录保留选中', async () => {
+    const view = renderPage()
+    await waitTreeReady(view)
+    const user = userEvent.setup()
+    await user.click(view.getByRole('button', { name: '架构图', exact: true }))
+    const chart = view.getByTestId('department-chart')
+    expect(chart.querySelector('[data-department-id="300"]')?.getAttribute('data-parent-id')).toBe('200')
+    await user.click(view.getByTestId('dept-chart-node-200'))
+    expect(view.getByTestId('dept-detail-id').textContent).toBe('200')
+    await user.click(view.getByRole('button', { name: '目录', exact: true }))
+    expect(view.getByTestId('dept-node-200').closest('li')?.getAttribute('aria-selected')).toBe('true')
+  })
+
   it('树与详情面板并排呈现；未选择时详情面板给出引导空态', async () => {
     const view = renderPage()
     await waitTreeReady(view)

@@ -38,6 +38,8 @@ import {
   type DepartmentSortMode,
 } from '../api/departmentDirectory'
 
+import { DepartmentOrganizationChart } from './DepartmentOrganizationChart'
+
 const READ_PERMISSION = 'organizations:read'
 const WRITE_PERMISSION = 'organizations:write'
 
@@ -90,6 +92,7 @@ export function OrganizationDepartmentsPage() {
   // ENT-ADM-01 体验态（本地会话 state，不进 URL）：搜索定位 / 前端排序 / 选中节点
   const [searchTerm, setSearchTerm] = useState('')
   const [sortMode, setSortMode] = useState<DepartmentSortMode>('directory')
+  const [viewMode, setViewMode] = useState<'directory' | 'chart'>('directory')
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
   const detailQuery = useQuery({
@@ -340,7 +343,9 @@ export function OrganizationDepartmentsPage() {
       </div>
     )
   } else {
-    treeBody = (
+    treeBody = viewMode === 'chart' ? (
+      <DepartmentOrganizationChart organizationName={org?.name ?? ''} tree={displayTree} selectedId={selectedId} onSelect={setSelectedId} />
+    ) : (
       <ul role="tree" className="space-y-0.5" data-testid="department-tree">
         {displayTree.map(renderNode)}
       </ul>
@@ -351,7 +356,7 @@ export function OrganizationDepartmentsPage() {
     <div className="space-y-4" data-page="organization-departments">
       <PageHeader
         title="部门管理"
-        description="树形组织目录（C10）：部门是目录事实，不是权限边界；平台面只治理目录结构（创建 / 改名 / 移动 / 归档）。左树支持搜索定位与前端排序，点击节点查看右侧详情。"
+        description="查看企业部门层级，选择部门查看详情或管理。支持目录与架构图切换。"
       />
 
       <div className="grid items-start gap-3 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
@@ -362,6 +367,10 @@ export function OrganizationDepartmentsPage() {
               {org ? <span className="ml-2 text-xs font-normal text-muted-foreground">{org.name}</span> : null}
             </CardTitle>
             <div className="flex flex-wrap items-center gap-2">
+              <div className="flex gap-1" role="group" aria-label="组织架构视图">
+                <Button size="sm" variant={viewMode === 'directory' ? 'secondary' : 'ghost'} aria-pressed={viewMode === 'directory'} onClick={() => setViewMode('directory')}>目录</Button>
+                <Button size="sm" variant={viewMode === 'chart' ? 'secondary' : 'ghost'} aria-pressed={viewMode === 'chart'} onClick={() => setViewMode('chart')}>架构图</Button>
+              </div>
               <div className="relative">
                 <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                 <Input
@@ -391,8 +400,8 @@ export function OrganizationDepartmentsPage() {
                 onChange={(event) => setState({ status: event.target.value })}
               >
                 <option value="all">全部</option>
-                <option value="active">active</option>
-                <option value="archived">archived</option>
+                <option value="active">正常</option>
+                <option value="archived">已归档</option>
               </Select>
               {writeGate ? (
                 <Button size="sm" data-testid="dept-create-btn" onClick={() => setCreateOpen(true)}>
@@ -404,7 +413,7 @@ export function OrganizationDepartmentsPage() {
           <CardContent className="space-y-3">
             {archived ? (
               <p className="rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-800" data-testid="departments-archived-hint">
-                组织已归档：部门写操作被服务端拒绝（409，C16 fail-closed）。
+                企业已归档，仅可查看部门。
               </p>
             ) : null}
             {treeBody}
@@ -428,7 +437,7 @@ export function OrganizationDepartmentsPage() {
             ) : (
               <EmptyState
                 title="未选择部门"
-                description="点击左侧树节点查看部门事实与治理入口。"
+                description="选择目录或架构图中的部门，查看详情和管理操作。"
               />
             )}
           </CardContent>
@@ -436,10 +445,7 @@ export function OrganizationDepartmentsPage() {
       </div>
 
       <p className="text-xs text-muted-foreground">
-        改名 / 移动走 expected_version 乐观锁：并发修改会被服务端拒绝（层级/归档冲突 409；版本冲突经后端错误表兜底映射为
-        400「请求参数非法」）。点击失败提示中的「刷新目录」取回服务端最新事实后重试。
-        前端排序与搜索定位为纯展示（目录事实仍以服务端为准）；部门成员挂载域与部门级成员计数不在 adm 面合同内
-        （成员数徽章 / 按成员数排序因此不提供，App 面目录端点具备该数据），请在 App 面操作。
+        部门资料由其他管理员更新时，请刷新目录后重试。
         <Link className="ml-1 underline" to={`/organizations/${encodeURIComponent(organizationId)}`}>
           返回组织详情
         </Link>
