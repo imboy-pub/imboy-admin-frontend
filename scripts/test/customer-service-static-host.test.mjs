@@ -62,3 +62,32 @@ test('legacy or missing public widget identifiers fail before serving', () => {
     }), /CSWW_E2E_WIDGET_ID must be the decimal/)
   }
 })
+
+test('disconnecting an SSE consumer closes its upstream TCP response', async () => {
+  let upstreamClosed
+  const closed = new Promise((resolve) => { upstreamClosed = resolve })
+  const upstream = http.createServer((_req, res) => {
+    res.once('close', upstreamClosed)
+    res.writeHead(200, { 'content-type': 'text/event-stream' })
+    res.write('data: native transport proof\n\n')
+  })
+  let host
+  let timeout
+  try {
+    process.env.CSWW_E2E_BACKEND_PORT = String(await listen(upstream))
+    process.env.CSWW_E2E_WIDGET_ID = '700200000000000001'
+    const { createStaticHost } = await import(`${helper}?disconnect-check`)
+    host = createStaticHost()
+    const abort = new AbortController()
+    const response = await fetch(`http://127.0.0.1:${await listen(host)}/api/transport-stream`, { signal: abort.signal })
+    await response.body.getReader().read()
+    abort.abort()
+    await Promise.race([closed, new Promise((_resolve, reject) => {
+      timeout = setTimeout(() => reject(new Error('upstream TCP stayed open after consumer disconnect')), 1000)
+    })])
+  } finally {
+    clearTimeout(timeout)
+    if (host) await close(host)
+    await close(upstream)
+  }
+})

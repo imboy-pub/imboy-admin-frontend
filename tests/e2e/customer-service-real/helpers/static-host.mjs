@@ -94,7 +94,9 @@ function proxyToBackend(req, res, cors) {
       up.pipe(res)
     }
   )
+  res.once('close', () => upstream.destroy())
   upstream.on('error', (err) => {
+    if (res.destroyed) return
     if (!res.headersSent) {
       res.writeHead(502, { 'content-type': 'application/json' })
     }
