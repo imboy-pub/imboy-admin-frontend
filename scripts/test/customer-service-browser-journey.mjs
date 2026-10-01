@@ -24,9 +24,50 @@ async function api(seat, url, body) {
   })
   const result = await response.json()
   responses.push({ path: url.split('?')[0], status: response.status, code: result.code })
-  assert.equal(response.status, 200, `${url}: ${JSON.stringify(result)}`)
+  assert.equal(response.status, 200, `${url}: code=${result.code}`)
   assert.equal(result.code, 0)
   return result.payload
+}
+async function openSeat(seat) {
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+  const page = await context.newPage()
+  const qrStatuses = []
+  let polls = 0
+  page.on('request', (request) => { if (request.url().includes('/qr_login/status')) polls += 1 })
+  page.on('response', (response) => {
+    if (response.url().includes('/qr_login/subscribe')) qrStatuses.push(response.status())
+  })
+  await page.goto(`${process.env.CSWW_E2E_HOST_ORIGIN}/seat/${fixture.public_seat_console_id}`)
+  const qr = page.getByTestId('seat-qr-code')
+  await expect(qr).toHaveAttribute('data-qr-content', /imboy:\/\/qr_login\?qr_token=/, { timeout: 15000 })
+  await page.waitForTimeout(1000)
+  const content = await qr.getAttribute('data-qr-content')
+  const token = new URL(content).searchParams.get('qr_token')
+  assert.ok(token)
+  await api(seat, '/api/v1/passport/qr_login/scan', { qr_token: token })
+  await api(seat, '/api/v1/passport/qr_login/confirm', { qr_token: token })
+  const workspace = page.getByTestId('seat-workspace')
+  const retry = page.getByTestId('seat-contexts-error-retry')
+  await expect(workspace.or(retry).first()).toBeVisible({ timeout: 20000 })
+  if (await retry.count()) await retry.click()
+  await expect(workspace).toBeVisible({ timeout: 15000 })
+  assert.ok(qrStatuses.includes(200), 'QR subscribe must succeed')
+  assert.equal(polls, 0, 'QR login must finish through SSE without polling fallback')
+  const stored = await page.evaluate(() => JSON.stringify({ local: { ...localStorage }, session: { ...sessionStorage } }))
+  assert.doesNotMatch(stored, /[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/)
+  return page
+}
+async function openSession(page, id) {
+  await page.getByTestId('seat-tab-active').click()
+  const item = page.getByTestId(`seat-session-item-${id}`)
+  await expect(item).toBeVisible({ timeout: 20000 })
+  await item.click()
+  await expect(page.getByTestId('seat-message-list')).toBeVisible({ timeout: 10000 })
+}
+async function reply(page, text) {
+  await page.getByTestId('seat-composer').fill(text)
+  await page.getByTestId('seat-send').click()
+  await expect(page.getByTestId('seat-send-error')).toHaveCount(0)
 }
 try {
   await new Promise((resolve, reject) => {
@@ -51,32 +92,31 @@ try {
     session = queue.sessions.find((row) => row.status === 'queued')
     return Boolean(session)
   }, { timeout: 10000 }).toBe(true)
-  const control = (action) => `/api/v1/cs/organizations/${org}/sessions/${session.id}/${action}`
-  await api(fixture.seat_a, control('claim'), { workspace_id: ws, expected_version: session.version })
-  const messagePath = `/api/v1/enterprise/organizations/${org}/conversations/${session.conversation_id}/messages`
-  const reply = (seat, text, key) => api(seat, messagePath, {
-    workspace_id: ws, sender_type: 'business_identity', identity_id: seat.identity_id,
-    body: text, client_msg_id: key,
-  })
-  await reply(fixture.seat_a, 'synthetic browser first seat reply', 'browser-seat-a-reply')
+  const seatA = await openSeat(fixture.seat_a)
+  const seatB = await openSeat(fixture.seat_b)
+  await expect(seatA.getByTestId(`seat-claim-${session.id}`)).toBeVisible({ timeout: 20000 })
+  await seatA.getByTestId(`seat-claim-${session.id}`).click()
+  await openSession(seatA, session.id)
+  await reply(seatA, 'synthetic browser first seat reply')
   const messages = frame.getByTestId('cs-message-list')
   await expect(messages).toContainText('synthetic browser visitor question')
   await expect(messages).toContainText('synthetic browser first seat reply', { timeout: 25000 })
-  await api(fixture.seat_a, control('transfer'), {
-    workspace_id: ws, expected_version: 2, to_identity_id: fixture.seat_b.identity_id,
-  })
-  await reply(fixture.seat_b, 'synthetic browser second seat reply', 'browser-seat-b-reply')
+  await seatA.getByTestId('seat-transfer-target-select').selectOption(fixture.seat_b.identity_id)
+  await seatA.getByTestId('seat-transfer-submit').click()
+  await openSession(seatB, session.id)
+  await reply(seatB, 'synthetic browser second seat reply')
   await expect(messages).toContainText('synthetic browser second seat reply', { timeout: 25000 })
   await page.screenshot({ path: path.join(dir, 'visitor-chat.png') })
-  await api(fixture.seat_b, control('close'), { workspace_id: ws, expected_version: 3 })
+  await seatB.screenshot({ path: path.join(dir, 'seat-workbench.png') })
+  await seatB.getByTestId('seat-close-submit').click()
   await expect(frame.getByTestId('cs-rate-5')).toBeVisible({ timeout: 25000 })
   const rated = page.waitForResponse((response) => response.url().includes('/rating') && response.request().method() === 'POST')
   await frame.getByTestId('cs-rate-5').click()
   assert.equal((await rated).status(), 200)
   assert.deepEqual(errors, [])
   await page.screenshot({ path: path.join(dir, 'visitor-rated.png') })
-  await writeFile(path.join(dir, 'browser-result.json'), JSON.stringify({ status: 'PASS', oracle: 'built Widget + real HTTP + isolated PG; seat controls use API', responses }, null, 2))
-  console.log('PASS: real visitor text, claim, two seat replies, transfer, close and rating')
+  await writeFile(path.join(dir, 'browser-result.json'), JSON.stringify({ status: 'PASS', oracle: 'built Widget + real HTTP + isolated PG; seat controls use actual built workbench pages after real QR confirm with synthetic mobile credentials', responses }, null, 2))
+  console.log('PASS: real visitor and two Seat workbench pages: QR, text, claim, replies, transfer, close, rating')
 } finally {
   await writeFile(path.join(dir, 'browser-responses.json'), JSON.stringify(responses, null, 2))
   if (browser) await browser.close()

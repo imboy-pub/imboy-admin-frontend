@@ -52,6 +52,8 @@ function hostHtml() {
 }
 
 const STATIC_ROUTES = new Map([
+  ['/seat-assets/cs-seat.v1.js', [path.join(DIST_WIDGET, 'seat-assets', 'cs-seat.v1.js'), 'text/javascript; charset=utf-8']],
+  ['/seat-assets/cs-seat.v1.css', [path.join(DIST_WIDGET, 'seat-assets', 'cs-seat.v1.css'), 'text/css; charset=utf-8']],
   ['/widget-assets/loader.js', [path.join(DIST_WIDGET, 'loader.js'), 'text/javascript; charset=utf-8']],
   ['/widget-assets/cs-widget.v2.js', [path.join(DIST_WIDGET, 'widget-assets', 'cs-widget.v2.js'), 'text/javascript; charset=utf-8']],
 ])
@@ -135,7 +137,7 @@ function handleRequest(req, res, cors) {
     sendFile(res, path.join(DIST_WIDGET, urlPath), urlPath.endsWith('.css') ? 'text/css; charset=utf-8' : 'text/javascript; charset=utf-8')
     return
   }
-  if (urlPath.startsWith('/api/') || urlPath.startsWith('/w/')) {
+  if (urlPath.startsWith('/api/') || urlPath.startsWith('/w/') || urlPath.startsWith('/seat/')) {
     proxyToBackend(req, res, cors)
     return
   }

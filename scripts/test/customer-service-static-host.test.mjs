@@ -35,14 +35,14 @@ test('current build assets and public frame are reachable through the real host'
     assert.match(html, /data-widget-id="700200000000000001"/)
     assert.doesNotMatch(html, /data-org-id|data-widget-path/)
     const manifest = JSON.parse(await readFile(new URL('../../dist-widget/manifest.json', import.meta.url)))
-    for (const name of ['loader.js', 'widget-assets/cs-widget.v2.js', ...manifest.files.map((file) => file.path).filter((name) => name.startsWith('assets/'))]) {
+    for (const name of ['loader.js', 'widget-assets/cs-widget.v2.js', 'seat-assets/cs-seat.v1.js', 'seat-assets/cs-seat.v1.css', ...manifest.files.map((file) => file.path).filter((name) => name.startsWith('assets/'))]) {
       const route = name === 'loader.js' ? 'widget-assets/loader.js' : name
       const response = await fetch(`${base}/${route}`)
       assert.equal(response.status, 200, route)
       assert.match(response.headers.get('content-type'), name.endsWith('.css') ? /^text\/css/ : /^text\/javascript/)
       assert.deepEqual(Buffer.from(await response.arrayBuffer()), await readFile(new URL(`../../dist-widget/${name}`, import.meta.url)))
     }
-    for (const route of ['/w/700200000000000001?probe=1', '/api/transport-proof?probe=2']) {
+    for (const route of ['/w/700200000000000001?probe=1', '/api/transport-proof?probe=2', '/seat/700200000000000002?probe=3']) {
       const response = await fetch(`${base}${route}`, { method: 'POST', headers: { 'x-cs-visit-token': 'synthetic-transport-only' }, body: 'preserved' })
       assert.equal(response.status, 202)
       assert.equal(response.headers.get('x-transport-proof'), 'native')
