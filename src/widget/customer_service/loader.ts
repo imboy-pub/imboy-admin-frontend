@@ -14,8 +14,8 @@
  *   固定路径；任何第三方输入（data attribute / URL 参数 / postMessage）不可覆写；
  * - 幂等：重复注入（多份 script / 重复执行）全局只挂一个按钮（全局哨兵 + DOM 查重）；
  * - 宿主异常零外泄：全部入口 try/catch，失败只隐藏/降级，绝不向宿主页抛错；
- * - iframe sandbox 最小权限起步：`allow-scripts allow-same-origin`——同源是
- *   Widget 应用访问自身同源 API 所必需；不给 allow-top-navigation /
+ * - iframe sandbox 最小权限起步：`allow-scripts allow-same-origin allow-downloads`——同源是
+ *   Widget 应用访问自身同源 API 所必需，下载权限用于授权附件；不给 allow-top-navigation /
  *   allow-popups / allow-forms（Widget 内不用表单提交，输入框为 JS 驱动）；
  * - postMessage：只接受「已知 origin + 已知 source === iframe.contentWindow」的
  *   消息，逐字校验（CSD-FE-01-A03）；不读宿主 cookie/storage/form/body；
@@ -311,7 +311,7 @@ function ensureIframe(
     const iframe = doc.createElement('iframe')
     iframe.setAttribute('data-testid', 'cs-widget-iframe')
     // sandbox 最小权限：见文件头注释（同源需要 + 不给导航/弹窗/表单）
-    iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin')
+    iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-downloads')
     iframe.title = config.locale === 'zh-CN' ? '客服聊天窗口' : 'Customer service chat'
     iframe.style.width = '100%'
     iframe.style.height = '100%'

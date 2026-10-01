@@ -8,8 +8,8 @@ assert.match(dir ?? '', /^\/tmp\/imboy-seat-http\.[A-Za-z0-9]+$/)
 const fixture = JSON.parse(await readFile(path.join(dir, 'browser-fixture.json'), 'utf8'))
 process.env.CSWW_E2E_BACKEND_PORT = String(fixture.port)
 process.env.CSWW_E2E_WIDGET_ID = fixture.public_widget_id
-const { createStaticHost } = await import('../../tests/e2e/customer-service-real/helpers/static-host.mjs')
-const host = createStaticHost()
+const { createStaticHost, createSecureStaticHost } = await import('../../tests/e2e/customer-service-real/helpers/static-host.mjs')
+const host = fixture.attachments ? createSecureStaticHost(path.join(dir, 'tls')) : createStaticHost()
 let browser
 const responses = []
 const seatTokens = new WeakMap()
@@ -30,7 +30,7 @@ async function api(seat, url, body) {
   return result.payload
 }
 async function openSeat(seat) {
-  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+  const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 900 } })
   const page = await context.newPage()
   const qrStatuses = []
   let polls = 0
@@ -91,7 +91,7 @@ try {
     host.listen(Number(process.env.CSWW_E2E_HOST_PORT), '127.0.0.1', resolve)
   })
   browser = await chromium.launch({ channel: 'chromium', headless: true, args: ['--no-proxy-server'] })
-  const page = await browser.newPage({ viewport: { width: 1280, height: 800 } })
+  const page = await browser.newPage({ ignoreHTTPSErrors: true, viewport: { width: 1280, height: 800 } })
   const errors = []
   page.on('pageerror', (error) => errors.push(error.message))
   await page.goto(process.env.CSWW_E2E_HOST_ORIGIN)
@@ -127,6 +127,43 @@ try {
   const messages = frame.getByTestId('cs-message-list')
   await expect(messages).toContainText('synthetic browser visitor question')
   await expect(messages).toContainText('synthetic browser first seat reply', { timeout: 25000 })
+  let attachmentContentPath
+  if (fixture.attachments) {
+    const visitorFile = Buffer.from('synthetic visitor attachment\n')
+    const seatFile = Buffer.from('synthetic seat attachment\n')
+    await frame.getByTestId('cs-file-input').setInputFiles({ name: 'visitor.txt', mimeType: 'text/plain', buffer: visitorFile })
+    const seatDownload = first.getByTestId('seat-attachment-download').first()
+    await expect(seatDownload).toBeVisible({ timeout: 25000 })
+    const contentRequest = first.waitForResponse((response) => /\/assets\/[0-9]+\/content(?:\?|$)/.test(response.url()))
+    const receivedVisitorFile = first.waitForEvent('download')
+    receivedVisitorFile.catch(() => undefined)
+    await seatDownload.click()
+    const content = await contentRequest
+    const contentUrl = new URL(content.url())
+    attachmentContentPath = contentUrl.pathname + contentUrl.search
+    const anonymous = await fetch(`${base}${attachmentContentPath}`, { signal: AbortSignal.timeout(10000) })
+    assert.equal(anonymous.status, 401)
+    responses.push({ action: 'anonymous-attachment-denied', status: anonymous.status })
+    const contentType = content.headers()['content-type'] ?? ''
+    if (!content.ok() || contentType.includes('application/json')) {
+      await writeFile(path.join(dir, 'attachment-content-error.json'), JSON.stringify({ status: content.status(), body: await content.json() }))
+      throw new Error('Seat attachment content was rejected; see attachment-content-error.json')
+    }
+    const visitorSaved = path.join(dir, 'visitor-attachment-downloaded.bin')
+    await (await receivedVisitorFile).saveAs(visitorSaved)
+    assert.deepEqual(await readFile(visitorSaved), visitorFile)
+    await first.getByTestId('seat-attach-input').setInputFiles({ name: 'seat.txt', mimeType: 'text/plain', buffer: seatFile })
+    await first.getByTestId('seat-send').click()
+    await expect(frame.getByTestId('cs-asset-download')).toHaveCount(2, { timeout: 25000 })
+    const receivedSeatFile = page.waitForEvent('download')
+    await frame.getByTestId('cs-asset-download').last().click()
+    const seatSaved = path.join(dir, 'seat-attachment-downloaded.bin')
+    await (await receivedSeatFile).saveAs(seatSaved)
+    assert.deepEqual(await readFile(seatSaved), seatFile)
+    responses.push({ action: 'bidirectional-attachment-download', visitorBytes: visitorFile.length, seatBytes: seatFile.length })
+    await first.screenshot({ path: path.join(dir, 'seat-attachments.png') })
+    await page.screenshot({ path: path.join(dir, 'visitor-attachments.png') })
+  }
   let disconnects = 0
   let eventRequests = 0
   first.on('requestfailed', (request) => { if (request.url().includes('/seats/me/events')) disconnects += 1 })
@@ -150,6 +187,22 @@ try {
   await first.getByTestId('seat-transfer-target-select').selectOption(secondIdentity)
   await first.getByTestId('seat-transfer-submit').click()
   await openSession(second, session.id)
+  if (attachmentContentPath) {
+    const statuses = []
+    for (const seatPage of [first, second]) {
+      const response = await fetch(`${base}${attachmentContentPath}`, {
+        signal: AbortSignal.timeout(10000), headers: { authorization: seatTokens.get(seatPage) },
+      })
+      const result = { action: 'attachment-after-transfer', seat: seatPage === first ? 'previous' : 'current', status: response.status }
+      if ((response.headers.get('content-type') ?? '').includes('application/json')) result.code = (await response.json()).code
+      responses.push(result)
+      if (seatPage === second && response.status === 200) {
+        assert.deepEqual(Buffer.from(await response.arrayBuffer()), Buffer.from('synthetic visitor attachment\n'))
+      }
+      statuses.push(response.status)
+    }
+    assert.deepEqual(statuses, [403, 200], 'attachment permissions must follow the current Seat after transfer')
+  }
   await reply(second, 'synthetic browser second seat reply')
   await expect(messages).toContainText('synthetic browser second seat reply', { timeout: 25000 })
   await page.screenshot({ path: path.join(dir, 'visitor-chat.png') })
@@ -164,6 +217,13 @@ try {
       sender_type: 'business_identity', body: 'synthetic revoked should not commit', client_msg_id: 'browser-revoked-write' }),
   })
   assert.equal(denied.status, 403)
+  if (attachmentContentPath) {
+    const deniedAsset = await fetch(`${base}${attachmentContentPath}`, {
+      signal: AbortSignal.timeout(10000), headers: { authorization: oldAuthorization },
+    })
+    assert.equal(deniedAsset.status, 403)
+    responses.push({ action: 'suspended-seat-attachment-denied', status: deniedAsset.status })
+  }
   await expect.poll(async () => {
     const composer = second.getByTestId('seat-composer')
     return await composer.count() > 0 && await composer.isEnabled()

@@ -56,6 +56,7 @@ function makeFetchResponder(responder: (_url: string, _init: RequestInit) => unk
     const response = {
       ok: true,
       status: 200,
+      headers: new Headers({ 'Content-Type': 'application/octet-stream' }),
       json: async () => ({ code: 0, msg: 'success', payload }),
     }
     return response as unknown as Response
@@ -351,6 +352,14 @@ describe('fetchAssetContent 授权内容代理（CS-WGT-01）', () => {
     expect(/token/i.test(String(request?.url))).toBe(false)
     // 原始 Response 透传（二进制流由调用方消费；不经 JSON 信封面）
     expect(response.ok).toBe(true)
+  })
+
+  it('HTTP 200 JSON 错误信封不得作为文件返回', async () => {
+    const api = new WidgetApiClient(async () => new Response('{"code":902,"payload":{}}', {
+      status: 200, headers: { 'Content-Type': 'application/json' },
+    }))
+    await expect(api.fetchAssetContent('72057594037927936', '72057594037928101', SCOPE))
+      .rejects.toBeInstanceOf(WidgetApiError)
   })
 
   it('非 2xx → WidgetApiError 且携带 HTTP status（fail-closed，不伪成功）', async () => {

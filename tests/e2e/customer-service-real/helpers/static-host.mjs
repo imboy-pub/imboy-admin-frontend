@@ -157,8 +157,7 @@ export function createStaticHost(httpPort) {
  * P1-FINAL-A04 无产物纪律——任何形态的私钥不入库；gitleaks 门亦拦截）。
  * 证书仅用于本进程 https 落点（CN=dev.imboy.pub，30 天），非凭证非 secret。
  */
-function ensureDevCert() {
-  const dir = path.join(HERE, '..', '.artifacts', 'dev-cert')
+function ensureDevCert(dir = path.join(HERE, '..', '.artifacts', 'dev-cert')) {
   const key = path.join(dir, 'dev-only-key.pem')
   const cert = path.join(dir, 'dev-only-cert.pem')
   if (!existsSync(key) || !existsSync(cert)) {
@@ -171,6 +170,11 @@ function ensureDevCert() {
     if (r.status !== 0) throw new Error('openssl dev-cert generation failed (exit ' + r.status + ')')
   }
   return { key: readFileSync(key), cert: readFileSync(cert) }
+}
+
+export function createSecureStaticHost(certDir) {
+  const tls = ensureDevCert(certDir)
+  return https.createServer(tls, (req, res) => handleRequest(req, res, false))
 }
 
 export function startStack(httpPort, httpsPort) {

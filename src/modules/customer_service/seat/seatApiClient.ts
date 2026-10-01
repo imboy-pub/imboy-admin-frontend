@@ -232,6 +232,9 @@ export class SeatApiClient {
     if (!response.ok) {
       throw classifySeatError(response.status, await readEnvelopeCode(response), `seat content http error ${response.status}`)
     }
+    if (response.headers.get('content-type')?.includes('application/json')) {
+      throw classifySeatError(response.status, await readEnvelopeCode(response), 'seat content returned JSON envelope')
+    }
     try {
       return await response.blob()
     } catch (error: unknown) {

@@ -296,7 +296,7 @@ describe('launcher / iframe / postMessage（CSD-FE-01-A03）', () => {
     const iframe = iframeOf(created)
     expect(iframe).not.toBeNull()
     expect(iframe?.getAttribute('src')).toBe(`https://cs.example.com/w/${WIDGET_ID}`)
-    expect(iframe?.getAttribute('sandbox')).toBe('allow-scripts allow-same-origin')
+    expect(iframe?.getAttribute('sandbox')).toBe('allow-scripts allow-same-origin allow-downloads')
     expect(iframe?.title.length).toBeGreaterThan(0)
     // aria-label 不携带任何 secret 形状
     expect(button.getAttribute('aria-label')).not.toMatch(/sk_|shop_key|secret/i)

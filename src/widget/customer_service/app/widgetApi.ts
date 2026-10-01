@@ -200,6 +200,9 @@ export class WidgetApiClient {
     if (!response.ok) {
       throw new WidgetApiError(`附件内容代理失败（HTTP ${response.status}）`, response.status)
     }
+    if (response.headers.get('content-type')?.includes('application/json')) {
+      throw new WidgetApiError('附件内容代理返回错误信封', 502)
+    }
     return response
   }
 

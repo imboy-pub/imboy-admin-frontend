@@ -24,7 +24,7 @@ import {
   redactSeatUrl,
   SeatApiClient,
 } from './seatApiClient'
-import { isSeatApiError } from './errors'
+import { isSeatApiError, SeatApiError } from './errors'
 import { seatTokenVault } from './seatAuthStore'
 import { SeatEventStream } from './seatSseClient'
 
@@ -255,6 +255,14 @@ describe('CS-WEB-01 requestBlob（附件 content 端点；二进制非信封）'
     expect((init.headers as Record<string, string>).Authorization).toBe('Bearer aa.bb.cc')
     expect(calls[0]?.url).toBe(`/api/v1${CONTENT_PATH}`)
     expect(calls[0]?.url).not.toContain('aa.bb.cc')
+  })
+
+  it('HTTP 200 JSON 错误信封不得保存成附件', async () => {
+    const { fetchImpl } = makeFetch(() => new Response('{"code":902,"msg":"rejected","payload":{}}', {
+      status: 200, headers: { 'Content-Type': 'application/json; charset=utf-8' },
+    }))
+    const client = new SeatApiClient({ fetchImpl })
+    await expect(client.requestBlob(CONTENT_PATH)).rejects.toBeInstanceOf(SeatApiError)
   })
 
   it('401/403/404 → 对应分类（HTTP 状态即权威；message 不带 URL）', async () => {
