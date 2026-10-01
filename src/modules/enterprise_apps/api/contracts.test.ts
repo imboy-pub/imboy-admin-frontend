@@ -4,7 +4,7 @@
  * 钉住的东西（路径漂移 / 权限码漂移 / scope 目录漂移一律红）：
  *  1. A-01..A-14 的 method+path 逐字字符串（checkpoint §0.5）；
  *  2. 权限码恰为后端已声明的 `enterprise_business:read|write`；
- *  3. scope 目录恰为后端固定 16 值，**无 wildcard**，三个高危 scope 不被隐含（INV-4）；
+ *  3. scope 目录恰为后端固定 17 值，**无 wildcard**，三个高危 scope 不被隐含（INV-4）；
  *  4. 禁键清单包含 secret / digest / payload 家族；
  *  5. 分页边界夹紧（1..100，缺省 10）。
  */
@@ -104,7 +104,7 @@ describe('FULL-04 冻结合同 / contracts', () => {
     expect(() => ENDPOINTS.rotateCredential(ORG, APP, '')).toThrow()
   })
 
-  it('scope 目录恰为后端固定 16 值，顺序逐字一致', () => {
+  it('scope 目录恰为后端固定 17 值，顺序逐字一致', () => {
     expect(SCOPE_CATALOG).toEqual([
       'application:read',
       'identities:read',
@@ -122,8 +122,9 @@ describe('FULL-04 冻结合同 / contracts', () => {
       'sso:exchange',
       'customer_service:read',
       'customer_service:write',
+      'workspaces:write',
     ])
-    expect(SCOPE_CATALOG.length).toBe(16)
+    expect(SCOPE_CATALOG.length).toBe(17)
     expect(SCOPE_CATALOG).not.toContain('*')
     expect(SCOPE_CATALOG.some((scope) => scope.includes('*'))).toBe(false)
   })

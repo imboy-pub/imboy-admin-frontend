@@ -41,7 +41,7 @@ export const GOVERNANCE_BACKEND_WIRED = true
 /**
  * 固定 scope 全集（16 值，读写分别授权）。
  * 真源：`src/api/enterprise_internal_scope.erl:?SCOPES` +
- * `priv/migrations/00000159_customer_service_internal_api.up.sql` 的 DB CHECK。
+ * `priv/migrations/00000160_workspace_internal_write.up.sql` 的 DB CHECK。
  * 无 wildcard（INV-4）。
  */
 export const SCOPE_CATALOG = [
@@ -61,6 +61,7 @@ export const SCOPE_CATALOG = [
   'sso:exchange',
   'customer_service:read',
   'customer_service:write',
+  'workspaces:write',
 ] as const
 
 export type EnterpriseScope = (typeof SCOPE_CATALOG)[number]
@@ -93,6 +94,7 @@ export const SCOPE_LABELS: Record<EnterpriseScope, string> = {
   'sso:exchange': '一次性 SSO 交换',
   'customer_service:read': '读取企业客服坐席（企业全域授权）',
   'customer_service:write': '管理企业客服坐席（企业全域授权）',
+  'workspaces:write': '创建、修改和归档企业工作空间',
 }
 
 /** Application 生命周期（plan-full §3.1）。 */
