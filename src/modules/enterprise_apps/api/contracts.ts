@@ -62,6 +62,7 @@ export const SCOPE_CATALOG = [
   'customer_service:read',
   'customer_service:write',
   'workspaces:write',
+  'channels:write',
 ] as const
 
 export type EnterpriseScope = (typeof SCOPE_CATALOG)[number]
@@ -95,6 +96,7 @@ export const SCOPE_LABELS: Record<EnterpriseScope, string> = {
   'customer_service:read': '读取企业客服坐席（企业全域授权）',
   'customer_service:write': '管理企业客服坐席（企业全域授权）',
   'workspaces:write': '创建、修改和归档企业工作空间',
+  'channels:write': '创建、修改和归档企业频道',
 }
 
 /** Application 生命周期（plan-full §3.1）。 */
