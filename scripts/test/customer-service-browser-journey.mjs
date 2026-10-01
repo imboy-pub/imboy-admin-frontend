@@ -163,6 +163,19 @@ try {
     responses.push({ action: 'bidirectional-attachment-download', visitorBytes: visitorFile.length, seatBytes: seatFile.length })
     await first.screenshot({ path: path.join(dir, 'seat-attachments.png') })
     await page.screenshot({ path: path.join(dir, 'visitor-attachments.png') })
+    await page.reload()
+    await page.getByTestId('cs-widget-launcher').click()
+    await expect(frame.getByTestId('cs-consent-accept')).toBeVisible({ timeout: 20000 })
+    await frame.getByTestId('cs-consent-accept').click()
+    await expect(frame.getByTestId('cs-asset-download')).toHaveCount(2, { timeout: 25000 })
+    await expect(frame.getByTestId('cs-message-list').getByText('synthetic browser first seat reply', { exact: true })).toHaveCount(1)
+    const reloadedDownload = page.waitForEvent('download')
+    await frame.getByTestId('cs-asset-download').last().click()
+    const reloadedSaved = path.join(dir, 'visitor-reloaded-attachment.bin')
+    await (await reloadedDownload).saveAs(reloadedSaved)
+    assert.deepEqual(await readFile(reloadedSaved), seatFile)
+    responses.push({ action: 'visitor-refresh-attachment-history', attachmentCount: 2, bytes: seatFile.length })
+    await page.screenshot({ path: path.join(dir, 'visitor-refreshed-attachments.png') })
   }
   let disconnects = 0
   let eventRequests = 0
@@ -237,6 +250,20 @@ try {
   await controlSeat('resume', secondIdentity)
   const restored = await openSeat(statuses[0] === 200 ? fixture.seat_b : fixture.seat_a)
   await openSession(restored, session.id)
+  if (fixture.attachments) {
+    const downloads = restored.getByTestId('seat-attachment-download')
+    await expect(downloads).toHaveCount(2, { timeout: 25000 })
+    const expected = [Buffer.from('synthetic visitor attachment\n'), Buffer.from('synthetic seat attachment\n')]
+    for (let index = 0; index < expected.length; index += 1) {
+      const received = restored.waitForEvent('download')
+      await downloads.nth(index).click()
+      const saved = path.join(dir, `seat-fresh-login-attachment-${index}.bin`)
+      await (await received).saveAs(saved)
+      assert.deepEqual(await readFile(saved), expected[index])
+    }
+    responses.push({ action: 'fresh-seat-login-attachment-history', attachmentCount: 2, bytes: expected.map((bytes) => bytes.length) })
+    await restored.screenshot({ path: path.join(dir, 'seat-fresh-login-attachments.png') })
+  }
   await restored.getByTestId('seat-close-submit').click()
   await expect(frame.getByTestId('cs-rate-5')).toBeVisible({ timeout: 25000 })
   const rated = page.waitForResponse((response) => response.url().includes('/rating') && response.request().method() === 'POST')
