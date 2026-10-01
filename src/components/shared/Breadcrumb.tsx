@@ -4,6 +4,9 @@ import { ChevronRight, Home } from 'lucide-react'
 const LABEL_MAP: Record<string, string> = {
   dashboard: '仪表盘',
   users: '用户管理',
+  organizations: '企业管理',
+  departments: '部门管理',
+  workspaces: '工作空间',
   groups: '群组管理',
   channels: '频道管理',
   moments: '朋友圈',
@@ -72,17 +75,17 @@ export function Breadcrumb() {
   }
 
   return (
-    <nav className="flex items-center gap-1 text-sm text-muted-foreground mb-4" aria-label="面包屑导航">
-      <Home className="h-3.5 w-3.5" />
+    <nav className="mb-4 flex flex-wrap items-center gap-1 text-sm text-muted-foreground" aria-label="面包屑导航">
+      <Home className="h-3.5 w-3.5 shrink-0" />
       {items.map((item, index) => {
         const isLast = index === items.length - 1
         return (
-          <span key={`${item.path}-${index}`} className="flex items-center gap-1">
-            <ChevronRight className="h-3.5 w-3.5" />
+          <span key={`${item.path}-${index}`} className="flex min-w-0 max-w-full items-center gap-1">
+            <ChevronRight className="h-3.5 w-3.5 shrink-0" />
             {isLast ? (
-              <span className="font-medium text-foreground">{item.label}</span>
+              <span className="min-w-0 break-all font-medium text-foreground">{item.label}</span>
             ) : (
-              <Link to={item.path} className="inline-flex min-h-11 min-w-11 items-center justify-center hover:text-foreground transition-colors">
+              <Link to={item.path} className="inline-flex min-h-11 min-w-11 break-all items-center justify-center hover:text-foreground transition-colors">
                 {item.label}
               </Link>
             )}

@@ -359,7 +359,7 @@ export function OrganizationDepartmentsPage() {
         description="查看企业部门层级，选择部门查看详情或管理。支持目录与架构图切换。"
       />
 
-      <div className="grid items-start gap-3 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+      <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <Card>
           <CardHeader className="flex-row flex-wrap items-center justify-between gap-2 space-y-0">
             <CardTitle className="text-base">

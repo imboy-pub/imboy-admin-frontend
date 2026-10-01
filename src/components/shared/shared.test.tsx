@@ -294,6 +294,14 @@ describe('Breadcrumb — isDynamicSegment', () => {
 })
 
 describe('Breadcrumb — renders route path', () => {
+  it('企业部门面包屑显示中文名称并保留大编号链接', () => {
+    const id = '8800487111111111111'
+    const { getByText } = render(<MemoryRouter initialEntries={[`/organizations/${id}/departments`]}><Breadcrumb /></MemoryRouter>)
+    expect(getByText('企业管理')).toBeTruthy()
+    expect(getByText('部门管理')).toBeTruthy()
+    expect(getByText(id).getAttribute('href')).toBe(`/organizations/${id}`)
+  })
+
   it('renders home and route segments', () => {
     const { getByText } = render(
       <MemoryRouter initialEntries={['/users']}>

@@ -1,0 +1,49 @@
+(node:58595) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[2m[WebServer] [22m[0m[2m[35m$[0m [2m[1mvite --host "127.0.0.1" --port "18862"[0m
+[2m[WebServer] [22m(node:58607) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[2m[WebServer] [22m(Use `node --trace-warnings ...` to show where the warning was created)
+[2m[WebServer] [22m(node:58607) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+
+Running 3 tests using 1 worker
+
+(node:58608) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:58608) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:58608) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [chromium] › tests/e2e/organization-chart.mock.spec.ts:50:3 › 组织架构图布局与导航 · desktop (1.5s)
+  ✘  2 [chromium] › tests/e2e/organization-chart.mock.spec.ts:50:3 › 组织架构图布局与导航 · mobile (1.3s)
+(node:58617) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:58617) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:58617) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  3 [chromium] › tests/e2e/organization-chart.mock.spec.ts:50:3 › 组织架构图布局与导航 · dark-large-text (1.9s)
+
+
+  1) [chromium] › tests/e2e/organization-chart.mock.spec.ts:50:3 › 组织架构图布局与导航 · mobile ─────────────
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoBeLessThanOrEqual[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected: <= [32m390[39m
+    Received:    [31m2564[39m
+
+      66 |     expect(overflow.scroll).toBeLessThanOrEqual(overflow.width)
+      67 |     const mainSize = await page.getByRole('main').evaluate((element) => ({ width: element.clientWidth, scroll: element.scrollWidth }))
+    > 68 |     expect(mainSize.scroll).toBeLessThanOrEqual(mainSize.width)
+         |                             ^
+      69 |     const dimensions = await chart.evaluate((element) => ({ width: element.clientWidth, scroll: element.scrollWidth }))
+      70 |     expect(dimensions.scroll).toBeGreaterThan(dimensions.width)
+      71 |     const target = page.getByTestId('dept-chart-node-202')
+        at /Users/leeyi/project/imboy.pub/.Codex/worktrees/gz-enterprise-admin/tests/e2e/organization-chart.mock.spec.ts:68:29
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../../../../../../../tmp/gz-org-chart-browser-main-baseline/organization-chart.mock-组织架构图布局与导航-·-mobile-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../../../../../../../tmp/gz-org-chart-browser-main-baseline/organization-chart.mock-组织架构图布局与导航-·-mobile-chromium/error-context.md
+
+  1 failed
+    [chromium] › tests/e2e/organization-chart.mock.spec.ts:50:3 › 组织架构图布局与导航 · mobile ──────────────
+  2 passed (5.9s)

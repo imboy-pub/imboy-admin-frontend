@@ -1,0 +1,126 @@
+$ bun test --isolate src/components/shared/shared.test.tsx src/modules/organization/pages/OrganizationDepartmentsPage.test.tsx src/modules/organization/pages/DepartmentOrganizationChart.test.tsx
+bun test v1.3.14 (0d9b296a)
+
+src/components/shared/shared.test.tsx:
+(pass) EmptyState > renders default title and description [21.35ms]
+(pass) EmptyState > renders custom title and description [2.40ms]
+(pass) EmptyState > renders action button when action prop is provided [3.69ms]
+(pass) EmptyState > does not render action button when action prop is absent [1.33ms]
+(pass) ErrorState > renders default error message [1.18ms]
+(pass) ErrorState > renders custom message [1.07ms]
+(pass) ErrorState > renders retry button and calls onRetry when clicked [1.52ms]
+(pass) ErrorState > does not render retry button when onRetry is absent [0.94ms]
+(pass) LoadingState > renders default loading message [0.77ms]
+(pass) LoadingState > renders custom loading message [0.61ms]
+(pass) PageHeader > renders title [0.57ms]
+(pass) PageHeader > renders optional description [0.54ms]
+(pass) PageHeader > renders actions slot [0.59ms]
+(pass) PageHeader > does not render description when not provided [0.44ms]
+(pass) ErrorBoundary > renders children when no error [0.84ms]
+(pass) ErrorBoundary > renders default fallback UI on error [3.16ms]
+(pass) ErrorBoundary > renders custom fallback when provided [0.75ms]
+(pass) ErrorBoundary > resets error state when 重试 is clicked [2.43ms]
+(pass) Breadcrumb — formatSegment > maps known segments to Chinese labels [0.10ms]
+(pass) Breadcrumb — formatSegment > returns original value for unknown segments [0.04ms]
+(pass) Breadcrumb — isDynamicSegment > returns true for numeric IDs [0.06ms]
+(pass) Breadcrumb — isDynamicSegment > returns true for UUID-like segments [0.03ms]
+(pass) Breadcrumb — isDynamicSegment > returns false for named route segments [0.03ms]
+(pass) Breadcrumb — renders route path > 企业部门面包屑显示中文名称并保留大编号链接 [4.60ms]
+(pass) Breadcrumb — renders route path > renders home and route segments [1.31ms]
+(pass) Breadcrumb — renders route path > shows numeric ID as-is in breadcrumb [1.28ms]
+(pass) Breadcrumb — renders route path > returns null for root path [0.24ms]
+(pass) StatusBadge > renders default label 正常 for status=1 [0.46ms]
+(pass) StatusBadge > renders default label 禁用 for status=0 [0.33ms]
+(pass) StatusBadge > renders custom labels when provided [0.27ms]
+(pass) StatusBadge > falls back to string of status when label not in map [0.24ms]
+(pass) StatusBadge > renders string status correctly [0.23ms]
+(pass) StatsCard > renders title and value [1.63ms]
+(pass) StatsCard > renders string value as-is [0.45ms]
+(pass) StatsCard > renders optional description [0.50ms]
+(pass) StatsCard > renders positive trend with + prefix [0.70ms]
+(pass) StatsCard > renders negative trend without + prefix [0.54ms]
+(pass) FilterBar > renders children [0.34ms]
+(pass) FilterBar > renders 搜索 button when onSearch provided [0.74ms]
+(pass) FilterBar > renders 重置 button when onReset provided [0.57ms]
+(pass) FilterBar > uses custom searchText and resetText [0.84ms]
+(pass) FilterBar > does not render search button when onSearch absent [0.31ms]
+(pass) FilterBar > renders extraActions slot [0.32ms]
+(pass) ConfirmDialog > renders title when open [42.01ms]
+(pass) ConfirmDialog > renders optional description [7.47ms]
+(pass) ConfirmDialog > provides an accessible fallback description when omitted [6.62ms]
+(pass) ConfirmDialog > renders default 确认 and 取消 button labels [5.55ms]
+(pass) ConfirmDialog > uses custom confirmText and cancelText [5.73ms]
+(pass) ConfirmDialog > calls onConfirm when confirm button clicked [6.28ms]
+(pass) Skeleton > renders a div with animate-pulse class [0.37ms]
+(pass) Skeleton > merges custom className [0.27ms]
+(pass) TableSkeleton > renders default 5 rows [1.46ms]
+(pass) TableSkeleton > renders custom rows and cols [0.51ms]
+(pass) StatsCardSkeleton > renders skeleton card structure [0.28ms]
+(pass) DashboardSkeleton > renders without crashing [0.65ms]
+(pass) ListPageSkeleton > renders without crashing [0.79ms]
+(pass) EntityDrawer > renders nothing when closed [0.29ms]
+(pass) EntityDrawer > renders title when open [1.49ms]
+(pass) EntityDrawer > renders optional subtitle [1.04ms]
+(pass) EntityDrawer > shows loading text when loading=true [0.93ms]
+(pass) EntityDrawer > shows error message when provided [0.92ms]
+(pass) EntityDrawer > renders children when not loading and no error [0.93ms]
+(pass) EntityDrawer > calls onOpenChange(false) when close button clicked [1.45ms]
+(pass) EntityDrawer > calls onOpenChange(false) when backdrop clicked [0.90ms]
+(pass) EntityDrawer > calls onOpenChange(false) on Escape key [0.84ms]
+(pass) EntityDrawer > renders actions slot [1.01ms]
+(pass) BatchActionBar > renders nothing when selectedCount is 0 [0.47ms]
+(pass) BatchActionBar > renders action buttons when selectedCount > 0 [2.64ms]
+(pass) BatchActionBar > shows selected count in bar [0.74ms]
+(pass) BatchActionBar > calls onClear when clear button clicked [0.87ms]
+(pass) buildPageItems > returns [1] for invalid totalPages [0.09ms]
+(pass) buildPageItems > returns all pages when totalPages <= 7 [0.05ms]
+(pass) buildPageItems > shows first 4 pages + ellipsis + last when on page 1 of large set [0.06ms]
+(pass) buildPageItems > shows first + ellipsis + last 4 pages when near end [0.06ms]
+(pass) buildPageItems > shows first + ellipsis + window + ellipsis + last for middle page [0.05ms]
+(pass) DataTablePagination > renders page info and navigation buttons [2.02ms]
+(pass) DataTablePagination > calls onPageChange when next page clicked [7.91ms]
+(pass) DataTablePagination > disables previous button on page 1 [4.48ms]
+(pass) KeyboardShortcutsDialog > renders nothing by default (closed state) [0.32ms]
+(pass) KeyboardShortcutsDialog > opens dialog when "?" key is pressed [2.09ms]
+(pass) KeyboardShortcutsDialog > shows shortcut groups when open [4.63ms]
+(pass) KeyboardShortcutsDialog > closes dialog when "?" is pressed again (toggle) [1.85ms]
+(pass) KeyboardShortcutsDialog > closes dialog when close button "✕" is clicked [3.01ms]
+(pass) KeyboardShortcutsDialog > closes dialog when backdrop is clicked [1.84ms]
+TypeError: null is not an object (evaluating 'inst.tag')
+    at getNodeFromInstance (/Users/leeyi/project/imboy.pub/imboyadmin/node_modules/react-dom/cjs/react-dom-client.development.js:1377:17)
+    at getInstIfValueChanged (/Users/leeyi/project/imboy.pub/imboyadmin/node_modules/react-dom/cjs/react-dom-client.development.js:3538:24)
+    at <anonymous> (/Users/leeyi/project/imboy.pub/imboyadmin/node_modules/react-dom/cjs/react-dom-client.development.js:19627:36)
+    at batchedUpdates$1 (/Users/leeyi/project/imboy.pub/imboyadmin/node_modules/react-dom/cjs/react-dom-client.development.js:3255:40)
+    at dispatchEventForPluginEventSystem (/Users/leeyi/project/imboy.pub/imboyadmin/node_modules/react-dom/cjs/react-dom-client.development.js:19320:7)
+    at dispatchEvent (/Users/leeyi/project/imboy.pub/imboyadmin/node_modules/react-dom/cjs/react-dom-client.development.js:23585:11)
+    at dispatchDiscreteEvent (/Users/leeyi/project/imboy.pub/imboyadmin/node_modules/react-dom/cjs/react-dom-client.development.js:23553:11)
+    at callTheUserObjectsOperation (/Users/leeyi/project/imboy.pub/imboyadmin/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/leeyi/project/imboy.pub/imboyadmin/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/leeyi/project/imboy.pub/imboyadmin/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+(pass) KeyboardShortcutsDialog > does not open when "?" is pressed in an INPUT [1.42ms]
+(pass) KeyboardShortcutsDialog > does not open when "?" is pressed with meta key [0.23ms]
+(pass) KeyboardShortcutsDialog > closes on Escape key when open [7.83ms]
+(pass) KeyboardShortcutsDialog > shows known shortcut descriptions [4.11ms]
+
+src/modules/organization/pages/DepartmentOrganizationChart.test.tsx:
+(pass) 完整保留大编号和父子关系；缺失上级、环节点不接到企业根 [43.19ms]
+(pass) 已归档部门可查看，选中状态可读，滚动区域可通过键盘进入 [3.47ms]
+
+src/modules/organization/pages/OrganizationDepartmentsPage.test.tsx:
+(pass) OrganizationDepartmentsPage — 左树右详情布局 > 架构图搜索保留命中路径，并沿用只读权限 [181.56ms]
+(pass) OrganizationDepartmentsPage — 左树右详情布局 > 无查看权限时切换架构图也不读取组织或部门 [27.07ms]
+(pass) OrganizationDepartmentsPage — 左树右详情布局 > 架构图复用部门关系，点击节点更新详情，切回目录保留选中 [126.04ms]
+(pass) OrganizationDepartmentsPage — 左树右详情布局 > 树与详情面板并排呈现；未选择时详情面板给出引导空态 [23.62ms]
+(pass) OrganizationDepartmentsPage — 左树右详情布局 > 点击树节点：右侧详情呈现节点事实（TSID/名称/版本/层级路径/后代数）并标记 aria-selected [39.81ms]
+Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+(pass) OrganizationDepartmentsPage — 左树右详情布局 > 详情面板动作入口与树行内共用同一 mutation 流：改名 dialog 呈现 expected_version（CAS 逻辑零改动） [68.67ms]
+(pass) OrganizationDepartmentsPage — 搜索定位（ENT-ADM-01） > 匹配节点名称高亮（mark）且命中路径自动展开（折叠态被覆盖） [104.85ms]
+(pass) OrganizationDepartmentsPage — 搜索定位（ENT-ADM-01） > 无匹配：呈现提示与清空入口；TSID 也可命中 [93.60ms]
+(pass) OrganizationDepartmentsPage — 前端排序（纯展示） > 默认目录序（TSID 升序）；名称降序后兄弟顺序反转 [39.13ms]
+Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+(pass) OrganizationDepartmentsPage — 非法移动目标置灰（服务端成环守卫的前端镜像） > 移动 dialog：自身与后代目标选项显示但 disabled，合法目标可选 [58.28ms]
+
+ 100 pass
+ 0 fail
+ 214 expect() calls
+Ran 100 tests across 3 files. [1499.00ms]

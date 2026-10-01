@@ -1,0 +1,19 @@
+(node:59938) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[2m[WebServer] [22m[0m[2m[35m$[0m [2m[1mvite --host "127.0.0.1" --port "18862"[0m
+[2m[WebServer] [22m(node:59951) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[2m[WebServer] [22m(Use `node --trace-warnings ...` to show where the warning was created)
+[2m[WebServer] [22m(node:59951) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+
+Running 3 tests using 1 worker
+
+(node:59952) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:59952) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:59952) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [chromium] › tests/e2e/organization-chart.mock.spec.ts:50:3 › 组织架构图布局与导航 · desktop (1.6s)
+  ✓  2 [chromium] › tests/e2e/organization-chart.mock.spec.ts:50:3 › 组织架构图布局与导航 · mobile (1.4s)
+  ✓  3 [chromium] › tests/e2e/organization-chart.mock.spec.ts:50:3 › 组织架构图布局与导航 · dark-large-text (1.9s)
+
+  3 passed (5.8s)

@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useRef } from 'react'
 import { Badge } from '@/components/ui/badge'
 import type { DepartmentTreeNode, DepartmentRow } from '../api/pureFunctions'
 
@@ -37,28 +38,39 @@ function DepartmentBranch({ node, selectedId, onSelect }: {
 }
 
 export function DepartmentOrganizationChart({ organizationName, tree, selectedId, onSelect }: Props) {
+  const rootRef = useRef<HTMLDivElement>(null)
+  const centerChart = useCallback(() => {
+    rootRef.current?.scrollIntoView?.({ block: 'nearest', inline: 'center' })
+  }, [])
+  useEffect(centerChart, [centerChart])
   const roots = tree.filter((node) => node.parentId === null)
   const unresolved = tree.filter((node) => node.parentId !== null)
   return (
-    <div role="region" aria-label="企业组织架构图" tabIndex={0} className="overflow-x-auto rounded-lg border p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" data-testid="department-chart">
-      <div className="flex w-max min-w-full flex-col items-center">
-        <div className="max-w-64 break-words rounded-lg bg-primary px-5 py-3 text-center font-medium text-primary-foreground">{organizationName}</div>
-        {roots.length > 0 ? (
-          <>
-            <span className="h-5 border-l border-border" aria-hidden="true" />
-            <ul className="flex border-t border-border" aria-label="企业根部门">
-              {roots.map((node) => <DepartmentBranch key={node.id} node={node} selectedId={selectedId} onSelect={onSelect} />)}
-            </ul>
-          </>
-        ) : null}
-        {unresolved.length > 0 ? (
-          <section className="mt-6 rounded-lg border border-dashed p-3" aria-label="上级关系待核实">
-            <p className="mb-2 text-center text-sm text-muted-foreground">上级部门未显示，或层级关系异常</p>
-            <ul className="flex">
-              {unresolved.map((node) => <DepartmentBranch key={node.id} node={node} selectedId={selectedId} onSelect={onSelect} />)}
-            </ul>
-          </section>
-        ) : null}
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+        <span className="text-muted-foreground">左右滚动查看完整架构</span>
+        <button type="button" className="min-h-11 rounded-md px-3 text-primary hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={centerChart}>返回企业</button>
+      </div>
+      <div role="region" aria-label="企业组织架构图" tabIndex={0} className="overflow-x-auto rounded-lg border p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" data-testid="department-chart">
+        <div className="flex w-max min-w-full flex-col items-center">
+          <div ref={rootRef} data-testid="dept-chart-enterprise" className="max-w-64 break-words rounded-lg bg-primary px-5 py-3 text-center font-medium text-primary-foreground">{organizationName}</div>
+          {roots.length > 0 ? (
+            <>
+              <span className="h-5 border-l border-border" aria-hidden="true" />
+              <ul className="flex border-t border-border" aria-label="企业根部门">
+                {roots.map((node) => <DepartmentBranch key={node.id} node={node} selectedId={selectedId} onSelect={onSelect} />)}
+              </ul>
+            </>
+          ) : null}
+          {unresolved.length > 0 ? (
+            <section className="mt-6 rounded-lg border border-dashed p-3" aria-label="上级关系待核实">
+              <p className="mb-2 text-center text-sm text-muted-foreground">上级部门未显示，或层级关系异常</p>
+              <ul className="flex">
+                {unresolved.map((node) => <DepartmentBranch key={node.id} node={node} selectedId={selectedId} onSelect={onSelect} />)}
+              </ul>
+            </section>
+          ) : null}
+        </div>
       </div>
     </div>
   )
