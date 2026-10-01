@@ -1,0 +1,75 @@
+bun test v1.3.14 (0d9b296a)
+
+src/widget/customer_service/app/controller.test.ts:
+(pass) postMessage 校验（source + origin 锁定） > source 非 parent 的消息一律忽略（不触发 bootstrap） [10.82ms]
+(pass) postMessage 校验（source + origin 锁定） > 首个可信消息锁定 origin；此后异源消息（含 host-context/panel）一律忽略 [19.50ms]
+(pass) consent 链（FE-W01-A03） > 拒绝链：不建会话、不发消息、visit 恢复存储被清理；拒绝后 sendMessage 无外呼 [17.36ms]
+(pass) consent 链（FE-W01-A03） > 接受链：建会话 → 历史 → SSE 启动；subject 落盘为安装作用域键（不含 token/JWT） [16.29ms]
+(pass) reload 恢复与吊销/退出清理（FE-W01-A05） > 同一 installation 重开复用短期 subject（bootstrap body subject_id 一致；正文逐键无 org） [23.23ms]
+(pass) reload 恢复与吊销/退出清理（FE-W01-A05） > 吊销（历史读面 401）→ visit 恢复存储清理 + error 状态上报 [15.09ms]
+(pass) reload 恢复与吊销/退出清理（FE-W01-A05） > 退出（关闭聊天）→ 存储清理 + close 上报宿主 [15.88ms]
+(pass) §3.6 SSE 消费（去重 / resync / 权威刷新） > resync.required → 游标清空全量刷新（无 after_id）+ 会话状态权威刷新 [26.45ms]
+(pass) §3.6 SSE 消费（去重 / resync / 权威刷新） > message.appended 触发权威刷新；重复 event_id 去重不重复刷新 [30.55ms]
+(pass) §3.6 SSE 消费（去重 / resync / 权威刷新） > 同一轮询批次的多帧：读窗口用推进前游标，不得跳过中间消息（A03 实证丢帧回归） [23.08ms]
+(pass) §3.6 SSE 消费（去重 / resync / 权威刷新） > widget 面兼容帧：state(closed) → 评分相位；message 帧触发历史刷新 [23.06ms]
+(pass) §3.6 SSE 消费（去重 / resync / 权威刷新） > session.changed 信封 → 会话状态权威刷新（closed 后进入评分相位） [23.23ms]
+(pass) 历史附件投影与授权内容（CS-WGT-01） > 历史消息 assets 进入消息状态；SSE message.appended 重读后附件仍在（id 去重不重复） [24.24ms]
+(pass) 历史附件投影与授权内容（CS-WGT-01） > 纯文本历史消息（assets=[]）attachments 为空数组；状态 JSON 无 token/secret [15.61ms]
+(pass) 历史附件投影与授权内容（CS-WGT-01） > 图片缩略自动水合：授权代理 GET /assets/:id/content（token 只走头；URL 零凭证）→ blob: URL [28.24ms]
+(pass) 历史附件投影与授权内容（CS-WGT-01） > 非图片附件下载：openAttachment → 授权 fetch → io.downloadFile 收到 blob+文件名（不经裸 URL） [33.60ms]
+(pass) 历史附件投影与授权内容（CS-WGT-01） > 图片大图预览：openAttachment（缩略已就绪）→ preview 持 blob: URL；closePreview 清空 [28.06ms]
+(pass) 历史附件投影与授权内容（CS-WGT-01） > 附件内容 404 → content=error（fail-closed 不崩溃、不伪成功） [27.82ms]
+(pass) 历史附件投影与授权内容（CS-WGT-01） > 退出清理：closeAndCleanup 释放全部 blob: URL [27.98ms]
+482 | 
+483 | it('SSE credential rejection clears visit recovery state and reports error', async () => {
+484 |   const h = makeHarness()
+485 |   await reachChat(h)
+486 |   expect(h.storage.dump()[SCOPE_KEY]).toBeDefined()
+487 |   h.streams[0]!.onRevoke()
+                      ^
+TypeError: h.streams[0].onRevoke is not a function. (In 'h.streams[0].onRevoke()', 'h.streams[0].onRevoke' is undefined)
+      at <anonymous> (/Users/leeyi/project/imboy.pub/.Codex/worktrees/gz-enterprise-admin/src/widget/customer_service/app/controller.test.ts:487:17)
+(fail) SSE credential rejection clears visit recovery state and reports error [17.14ms]
+
+src/widget/customer_service/app/eventStream.test.ts:
+(pass) SSE 帧解析 > parseSseBlock：state 帧 / id / retry / keep-alive 注释 [0.58ms]
+(pass) SSE 帧解析 > createSseParser：跨 chunk 组帧 + 多事件 + 残余 buffer [0.09ms]
+(pass) WidgetEventStream（重连/补偿/降级） > 首帧 retry+state 事件回调；重连携带 Last-Event-ID；连续失败后 offline [125.21ms]
+118 |       onStatus: (s) => statuses.push(s), onRevoke: () => { revoked += 1 },
+119 |     })
+120 |     try {
+121 |       stream.start()
+122 |       await wait(40)
+123 |       expect(revoked).toBe(1)
+                            ^
+error: expect(received).toBe(expected)
+
+Expected: 1
+Received: 0
+
+      at <anonymous> (/Users/leeyi/project/imboy.pub/.Codex/worktrees/gz-enterprise-admin/src/widget/customer_service/app/eventStream.test.ts:123:23)
+(fail) SSE 401 stops reconnecting and reports credential revocation once [42.33ms]
+118 |       onStatus: (s) => statuses.push(s), onRevoke: () => { revoked += 1 },
+119 |     })
+120 |     try {
+121 |       stream.start()
+122 |       await wait(40)
+123 |       expect(revoked).toBe(1)
+                            ^
+error: expect(received).toBe(expected)
+
+Expected: 1
+Received: 0
+
+      at <anonymous> (/Users/leeyi/project/imboy.pub/.Codex/worktrees/gz-enterprise-admin/src/widget/customer_service/app/eventStream.test.ts:123:23)
+(fail) SSE 403 stops reconnecting and reports credential revocation once [41.72ms]
+
+3 tests failed:
+(fail) SSE credential rejection clears visit recovery state and reports error [17.14ms]
+(fail) SSE 401 stops reconnecting and reports credential revocation once [42.33ms]
+(fail) SSE 403 stops reconnecting and reports credential revocation once [41.72ms]
+
+ 22 pass
+ 3 fail
+ 98 expect() calls
+Ran 25 tests across 2 files. [748.00ms]

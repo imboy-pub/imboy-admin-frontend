@@ -80,6 +80,7 @@ export type ControllerDeps = {
     token: () => string
     onEvent: (_event: SseEvent) => void
     onStatus: (_status: StreamStatus) => void
+    onRevoke: () => void
   }) => StreamHandle
 }
 
@@ -306,12 +307,14 @@ export function createWidgetController(deps: ControllerDeps) {
         token: () => deps.api.currentToken() ?? '',
         onEvent: (event) => void handleSseFrame(event),
         onStatus: (status) => reportStatus(status),
+        onRevoke,
       }) ??
       new WidgetEventStream({
         path: buildSsePath(sessionId, scope),
         token: () => deps.api.currentToken() ?? '',
         onEvent: (event) => void handleSseFrame(event),
         onStatus: (status) => reportStatus(status),
+        onRevoke,
       })
     stream = handle
     handle.start()

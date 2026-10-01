@@ -127,7 +127,7 @@ function makeHarness(
   const downloads: Array<{ blob: Blob; fileName: string }> = []
   const objectUrls: string[] = []
   const revokedUrls: string[] = []
-  const streams: Array<{ path: string; token: () => string; onEvent: (_e: SseEvent) => void; onStatus: (_s: string) => void }> = []
+  const streams: Array<{ path: string; token: () => string; onEvent: (_e: SseEvent) => void; onStatus: (_s: string) => void; onRevoke: () => void }> = []
   const io: ControllerIo = {
     render: (state) => rendered.push(state.phase),
     downloadFile: (blob, fileName) => void downloads.push({ blob, fileName }),
@@ -478,4 +478,14 @@ describe('历史附件投影与授权内容（CS-WGT-01）', () => {
     h.controller.closeAndCleanup()
     expect(h.revokedUrls).toEqual(h.objectUrls)
   })
+})
+
+it('SSE credential rejection clears visit recovery state and reports error', async () => {
+  const h = makeHarness()
+  await reachChat(h)
+  expect(h.storage.dump()[SCOPE_KEY]).toBeDefined()
+  h.streams[0]!.onRevoke()
+  expect(h.storage.dump()[SCOPE_KEY]).toBeUndefined()
+  expect(h.posted.some((m) => m.type === 'status' && m.state === 'error')).toBe(true)
+  h.controller.closeAndCleanup()
 })

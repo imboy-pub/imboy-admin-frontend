@@ -1,0 +1,4 @@
+49a327977b1fc968b35174423d9c9bec57d1152c173cfbec68210717048b6e1d  src/widget/customer_service/app/eventStream.ts
+ba9cda16fed73322e6c1520ad8f5da11e8f6c9f5f20edf8e79e89ed717ec7045  src/widget/customer_service/app/controller.test.ts
+a2041bdc806749dfe3b8c0fa84b0d8f622d9955941f367f1534cc870fb27a9d7  src/widget/customer_service/app/eventStream.test.ts
+67362eb55b81f723ef38f60ac426dceaeaab8c8224abeb395377eae4def81a24  src/widget/customer_service/app/controller.ts

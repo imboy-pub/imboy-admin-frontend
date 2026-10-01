@@ -86,6 +86,7 @@ describe('WidgetEventStream（重连/补偿/降级）', () => {
       backoffBaseMs: 1,
       onEvent: (event) => events.push({ event: event.event, id: event.id }),
       onStatus: (status) => statuses.push(status),
+      onRevoke: () => undefined,
     })
     stream.start()
     await wait(120)
@@ -105,4 +106,40 @@ describe('WidgetEventStream（重连/补偿/降级）', () => {
     expect(statuses).toContain('reconnecting')
     expect(statuses).toContain('offline')
   })
+})
+
+for (const status of [401, 403]) {
+  it(`SSE ${status} stops reconnecting and reports credential revocation once`, async () => {
+    const { attempts, fetchImpl } = makeStreamingFetch(() => ({ ok: false, status, body: '' }))
+    let revoked = 0
+    const statuses: string[] = []
+    const stream = new WidgetEventStream({
+      path: '/api/v1/cs/widget/sessions/1/events', token: () => 'synthetic',
+      fetchImpl, backoffBaseMs: 1, onEvent: () => undefined,
+      onStatus: (s) => statuses.push(s), onRevoke: () => { revoked += 1 },
+    })
+    try {
+      stream.start()
+      await wait(40)
+      expect(revoked).toBe(1)
+      expect(attempts).toHaveLength(1)
+      expect(statuses).toEqual(['connecting', 'offline'])
+    } finally { stream.stop() }
+  })
+}
+
+it('a stopped stream ignores a late credential rejection', async () => {
+  let resolve!: (_response: Response) => void
+  const response = new Promise<Response>((done) => { resolve = done })
+  let revoked = 0
+  const stream = new WidgetEventStream({
+    path: '/api/v1/cs/widget/sessions/1/events', token: () => 'synthetic',
+    fetchImpl: () => response, onEvent: () => undefined, onStatus: () => undefined,
+    onRevoke: () => { revoked += 1 },
+  })
+  stream.start()
+  stream.stop()
+  resolve(new Response(null, { status: 401 }))
+  await wait(0)
+  expect(revoked).toBe(0)
 })

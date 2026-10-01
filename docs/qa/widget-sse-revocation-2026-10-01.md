@@ -1,0 +1,9 @@
+# 访客流撤权反馈 / Widget SSE authorization rejection
+
+English summary: The fetch-based visitor stream retried every non-OK response, including terminal 401/403. Reuse the controller's existing onRevoke to clear visit recovery storage and report the existing error status. The stream stops and reports offline first. A stopped stream ignores a late HTTP response so it cannot clear a newer controller's recovery state. Transient 503 still reconnects normally.
+
+- Base 56a22d9f5a2c2ffcef3f281c300be2ab53f763b0; no new dependency, route, schema or UI structure. Production constructor, test constructors and injected controller factory types updated.
+- Baseline: added 401/403 stop-and-single-callback checks plus controller storage/error check; existing source fails all three. Fixed: all 126 app tests across 11 files pass, including stopped-stream late-401 and existing 503/backoff/cursor tests. These are controlled fetch/controller checks, not browser/live-backend proof.
+- Type check, focused ESLint, Widget/loader/Seat builds and existing static artifact verification pass. Build manifest records pre-commit source_head with current working source; source hashes bind this change. This is not a frozen final release manifest. Manual source review only; no independent reviewer claimed.
+- Real service counterpart: backend candidate 2365a25e, /tmp/imboy-seat-http.Rmrirm proves actual persisted-token expiry closes the real Widget stream and reconnect returns 401/token_expired. Client and server checks are separate; a rendered browser journey spanning them remains required.
+- Existing personal navigation and enterprise UI remain unchanged. All six objectives remain active; attachments/storage, actual Widget bootstrap/delivery/replay, installation kill-switch, native journeys and final release gate remain open. No third-party notification or deployment.

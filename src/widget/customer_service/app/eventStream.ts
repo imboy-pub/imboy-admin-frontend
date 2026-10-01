@@ -74,6 +74,7 @@ export class WidgetEventStream {
   private readonly backoffBaseMs: number
   private readonly onEvent: (_event: SseEvent) => void
   private readonly onStatus: (_status: StreamStatus) => void
+  private readonly onRevoke: () => void
   private lastEventId: string | null = null
   private serverRetryMs: number | null = null
   private controller: AbortController | null = null
@@ -89,6 +90,7 @@ export class WidgetEventStream {
     backoffBaseMs?: number
     onEvent: (_event: SseEvent) => void
     onStatus: (_status: StreamStatus) => void
+    onRevoke: () => void
   }) {
     this.path = options.path
     this.token = options.token
@@ -96,6 +98,7 @@ export class WidgetEventStream {
     this.backoffBaseMs = options.backoffBaseMs ?? BASE_BACKOFF_MS
     this.onEvent = options.onEvent
     this.onStatus = options.onStatus
+    this.onRevoke = options.onRevoke
   }
 
   start(): void {
@@ -143,6 +146,13 @@ export class WidgetEventStream {
         credentials: 'omit',
         signal: this.controller.signal,
       })
+      if (this.stopped) return
+      if (response.status === 401 || response.status === 403) {
+        this.stop()
+        this.onStatus('offline')
+        this.onRevoke()
+        return
+      }
       if (!response.ok || response.body === null) {
         this.scheduleReconnect()
         return
