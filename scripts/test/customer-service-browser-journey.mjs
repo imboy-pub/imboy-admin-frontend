@@ -34,8 +34,10 @@ async function openSeat(seat) {
   const page = await context.newPage()
   const qrStatuses = []
   let polls = 0
+  let createdPurpose
   page.on('request', (request) => {
     if (request.url().includes('/qr_login/status')) polls += 1
+    if (request.url().includes('/qr_login/create')) createdPurpose = request.postDataJSON()?.purpose
     const authorization = request.headers().authorization
     if (authorization?.startsWith('Bearer ')) seatTokens.set(page, authorization)
   })
@@ -58,6 +60,21 @@ async function openSeat(seat) {
   await expect(workspace).toBeVisible({ timeout: 15000 })
   assert.ok(qrStatuses.includes(200), 'QR subscribe must succeed')
   assert.equal(polls, 0, 'QR login must finish through SSE without polling fallback')
+  assert.equal(createdPurpose, 'seat')
+  const seatAuthorization = seatTokens.get(page)
+  assert.ok(seatAuthorization?.startsWith('Bearer '))
+  const subject = JSON.parse(Buffer.from(seatAuthorization.split('.')[1], 'base64url').toString()).sub
+  assert.equal(subject, 'seat_tk')
+  for (const [route, authorization] of [
+    ['/api/v1/seat/cs/me/seat-contexts', seat.headers.authorization],
+    ['/api/v1/cs/me/seat-contexts', seatAuthorization],
+  ]) {
+    const rejected = await fetch(`${base}${route}`, {
+      signal: AbortSignal.timeout(10000), headers: { authorization },
+    })
+    assert.equal(rejected.status, 401)
+    responses.push({ action: 'credential-purpose-rejected', path: route, status: rejected.status })
+  }
   const stored = await page.evaluate(() => JSON.stringify({ local: { ...localStorage }, session: { ...sessionStorage } }))
   assert.doesNotMatch(stored, /[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/)
   return page
@@ -223,7 +240,7 @@ try {
   const oldAuthorization = seatTokens.get(second)
   assert.ok(oldAuthorization, 'capture actual browser Seat credential in memory only')
   await controlSeat('suspend', secondIdentity)
-  const denied = await fetch(`${base}/api/v1/enterprise/organizations/${org}/conversations/${session.conversation_id}/messages`, {
+  const denied = await fetch(`${base}/api/v1/seat/enterprise/organizations/${org}/conversations/${session.conversation_id}/messages`, {
     signal: AbortSignal.timeout(10000), method: 'POST',
     headers: { authorization: oldAuthorization, 'content-type': 'application/json' },
     body: JSON.stringify({ workspace_id: ws, identity_id: secondIdentity,
