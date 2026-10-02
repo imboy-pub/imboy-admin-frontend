@@ -239,7 +239,7 @@ try {
   }
   await expect.poll(async () => {
     const composer = second.getByTestId('seat-composer')
-    return await composer.count() > 0 && await composer.isEnabled()
+    return composer.evaluateAll((elements) => elements.some((element) => !element.matches(':disabled')))
   }, { timeout: 25000 }).toBe(false).catch(async (error) => {
     await writeFile(path.join(dir, 'seat-revocation-failure.txt'), await second.locator('body').innerText())
     throw error
