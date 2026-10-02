@@ -60,7 +60,7 @@ afterEach(() => {
 describe('列表合同（queue / active / closed）', () => {
   it('队列 GET：路径与查询串（after_id/limit/workspace_id）+ 页投影', async () => {
     const { calls, api } = makeFetch((url) => {
-      expect(url.startsWith(`/api/v1/cs/organizations/${ORG}/sessions/queue?`)).toBe(true)
+      expect(url.startsWith(`/api/v1/seat/cs/organizations/${ORG}/sessions/queue?`)).toBe(true)
       return envelope(PAGE_TEXT)
     })
     const page = await api.fetchQueue(ORG, { afterId: '100', limit: 20, workspaceId: '3000000000000000003' })
@@ -98,7 +98,7 @@ describe('CAS 写合同（claim / transfer / close）', () => {
   it('claim：POST {workspace_id, expected_version}；请求体逐键（DF-9）', async () => {
     const { calls, api } = makeFetch(() => envelope('{}'))
     await api.claim(ORG, SESSION, WS, 7)
-    expect(calls[0]?.url).toBe(`/api/v1/cs/organizations/${ORG}/sessions/${SESSION}/claim`)
+    expect(calls[0]?.url).toBe(`/api/v1/seat/cs/organizations/${ORG}/sessions/${SESSION}/claim`)
     expect(calls[0]?.init?.method).toBe('POST')
     expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({ workspace_id: WS, expected_version: 7 })
   })
@@ -133,7 +133,7 @@ describe('CAS 写合同（claim / transfer / close）', () => {
   it('transfer：{to_identity_id, expected_version, workspace_id} 逐键（DF-9）', async () => {
     const { calls, api } = makeFetch(() => envelope('{}'))
     await api.transfer(ORG, SESSION, WS, { toIdentityId: TARGET, expectedVersion: 9 })
-    expect(calls[0]?.url).toBe(`/api/v1/cs/organizations/${ORG}/sessions/${SESSION}/transfer`)
+    expect(calls[0]?.url).toBe(`/api/v1/seat/cs/organizations/${ORG}/sessions/${SESSION}/transfer`)
     expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({
       to_identity_id: TARGET,
       expected_version: 9,
@@ -161,7 +161,7 @@ describe('CAS 写合同（claim / transfer / close）', () => {
       ),
     )
     const detail = await api.fetchDetail(ORG, SESSION, WS)
-    expect(calls[0]?.url).toBe(`/api/v1/cs/organizations/${ORG}/sessions/${SESSION}?workspace_id=${WS}`)
+    expect(calls[0]?.url).toBe(`/api/v1/seat/cs/organizations/${ORG}/sessions/${SESSION}?workspace_id=${WS}`)
     expect(detail.id).toBe(SESSION)
     expect(detail.version).toBe(7)
   })
@@ -173,7 +173,7 @@ describe('消息合同（历史 + 幂等发送）', () => {
     const { calls, api } = makeFetch(() => envelope(`[${message}]`))
     const list = await api.fetchMessages(ORG, CONV, WS, { limit: 50 })
     expect(calls[0]?.url).toBe(
-      `/api/v1/enterprise/conversations/${CONV}/messages?workspace_id=${WS}&organization_id=${ORG}&limit=50`,
+      `/api/v1/seat/enterprise/conversations/${CONV}/messages?workspace_id=${WS}&organization_id=${ORG}&limit=50`,
     )
     expect(list).toHaveLength(1)
     expect(list[0]?.id).toBe('9000000000000000009')
@@ -193,7 +193,7 @@ describe('消息合同（历史 + 幂等发送）', () => {
     })
     expect(calls[0]?.init?.method).toBe('POST')
     // DF-9：真实路径必带 /organizations/:org 段（cs 段旧路径 POST 真实后端 405）。
-    expect(calls[0]?.url).toBe(`/api/v1/enterprise/organizations/${ORG}/conversations/${CONV}/messages`)
+    expect(calls[0]?.url).toBe(`/api/v1/seat/enterprise/organizations/${ORG}/conversations/${CONV}/messages`)
     expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({
       body: '您好',
       client_msg_id: 'seat-cm-1',
@@ -237,7 +237,7 @@ describe('域隔离不回退（A01）', () => {
 
 describe('CS-WEB-02 附件合同（presign / 裸 PUT / confirm / asset_ids 发送）', () => {
   const OBJECT_HASH = 'ab'.repeat(32)
-  const UPLOAD_PATH = `/api/v1/enterprise/organizations/${ORG}/assets/upload/1`
+  const UPLOAD_PATH = `/api/v1/seat/enterprise/organizations/${ORG}/assets/upload/1`
   const PRESIGN_PAYLOAD = `{"asset_id":8100000000000000001,"upload_ref":"ur-1","object_hash":"${OBJECT_HASH}","mime":"image/png","size_bytes":8,"expires_at":1759000000,"upload":{"method":"PUT","url":"${UPLOAD_PATH}","token":"opaque","expires_at":1759000000,"adapter":"local_private_object_store","rule":"opaque_token_no_url_no_object_key"}}`
   const FILE_BYTES = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
 
@@ -247,10 +247,10 @@ describe('CS-WEB-02 附件合同（presign / 裸 PUT / confirm / asset_ids 发�
     const fetchImpl = async (url: string, init?: RequestInit): Promise<Response> => {
       calls.push({ url, init })
       const path = url.split('?')[0] ?? url
-      if (path === `/api/v1/enterprise/organizations/${ORG}/assets/presign`) return envelope(PRESIGN_PAYLOAD)
+      if (path === `/api/v1/seat/enterprise/organizations/${ORG}/assets/presign`) return envelope(PRESIGN_PAYLOAD)
       if (path === UPLOAD_PATH) return new Response('', { status: 200 })
-      if (path === `/api/v1/enterprise/organizations/${ORG}/assets/confirm`) return envelope('{"asset_id":0,"status":"active"}')
-      if (path === `/api/v1/enterprise/organizations/${ORG}/conversations/${CONV}/messages` && init?.method === 'POST') {
+      if (path === `/api/v1/seat/enterprise/organizations/${ORG}/assets/confirm`) return envelope('{"asset_id":0,"status":"active"}')
+      if (path === `/api/v1/seat/enterprise/organizations/${ORG}/conversations/${CONV}/messages` && init?.method === 'POST') {
         return envelope(`{"message":{"id":9000000000000000012,"sender_type":"business_identity","body":"","client_msg_id":"seat-cm-2"}}`)
       }
       return new Response('{"code":404,"msg":"not found","payload":{}}', { status: 404 })
@@ -267,7 +267,7 @@ describe('CS-WEB-02 附件合同（presign / 裸 PUT / confirm / asset_ids 发�
       objectHash: OBJECT_HASH,
       fileName: '',
     })
-    expect(calls[0]?.url).toBe(`/api/v1/enterprise/organizations/${ORG}/assets/presign`)
+    expect(calls[0]?.url).toBe(`/api/v1/seat/enterprise/organizations/${ORG}/assets/presign`)
     expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({
       conversation_id: CONV,
       mime: 'image/png',
@@ -290,7 +290,7 @@ describe('CS-WEB-02 附件合同（presign / 裸 PUT / confirm / asset_ids 发�
     const { calls, fetchImpl } = uploadStackResponder()
     const api = new SeatWorkbenchApi({ client: new SeatApiClient({ fetchImpl, getToken: () => 'tok' }) })
     await api.confirmAssetUpload(ORG, WS, 'ur-1')
-    expect(calls[0]?.url).toBe(`/api/v1/enterprise/organizations/${ORG}/assets/confirm`)
+    expect(calls[0]?.url).toBe(`/api/v1/seat/enterprise/organizations/${ORG}/assets/confirm`)
     expect(calls[0]?.init?.method).toBe('POST')
     expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({ upload_ref: 'ur-1', workspace_id: WS })
   })
@@ -331,9 +331,9 @@ describe('CS-WEB-02 附件合同（presign / 裸 PUT / confirm / asset_ids 发�
     })
     // 顺序唯一事实源：calls 路径序列。
     expect(calls.map((call) => call.url.split('?')[0])).toEqual([
-      `/api/v1/enterprise/organizations/${ORG}/assets/presign`,
+      `/api/v1/seat/enterprise/organizations/${ORG}/assets/presign`,
       UPLOAD_PATH,
-      `/api/v1/enterprise/organizations/${ORG}/assets/confirm`,
+      `/api/v1/seat/enterprise/organizations/${ORG}/assets/confirm`,
     ])
     // PUT 形状：octet-stream、无 Authorization。
     const putInit = calls[1]?.init as RequestInit
@@ -432,7 +432,7 @@ describe('CS-WEB-04 客户上下文合同（CS-BE-03 端点）', () => {
     expect(ctx.history.sessions.length).toBe(1)
     expect(ctx.notes.length).toBe(1)
     const call = calls[0]
-    expect(call?.url).toBe(`/api/v1/cs/organizations/${ORG}/sessions/${SESSION}/context?workspace_id=${WS}`)
+    expect(call?.url).toBe(`/api/v1/seat/cs/organizations/${ORG}/sessions/${SESSION}/context?workspace_id=${WS}`)
     expect(call?.init?.signal).toBe(controller.signal)
   })
 

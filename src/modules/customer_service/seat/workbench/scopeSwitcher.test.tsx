@@ -5,7 +5,7 @@
  * 被测对象是 SeatWorkspacePage header 内的组织/工作区切换器（无独立组件
  * 文件，故本文件按被测区域命名，避免与 SeatWorkspacePage.test.tsx 并写）。
  * 按真实实现断言，mock 只打 fetch 替身边界：
- * - org/ws 选项来自 GET /api/v1/cs/me/seat-contexts（selectActiveSeatContexts
+ * - org/ws 选项来自 GET /api/v1/seat/cs/me/seat-contexts（selectActiveSeatContexts
  *   过滤 seat_enabled && workspaces>0 后的全部上下文）；
  * - useSeatScopeSelection：默认第一个上下文 + 第一个工作区；selectOrganization
  *   重置 workspaceId（回落新组织第一个工作区）；selectWorkspace 保留组织；
@@ -86,11 +86,11 @@ class MultiScopeBackend {
 
   handle = async (url: string, init?: RequestInit): Promise<Response> => {
     const path = url.split('?')[0] ?? url
-    if (path === '/api/v1/cs/me/seat-contexts') {
+    if (path === '/api/v1/seat/cs/me/seat-contexts') {
       this.contextsFetchCount += 1
       return ok(MULTI_CONTEXTS_TEXT)
     }
-    if (path === `/api/v1/cs/organizations/${ORG}/sessions/queue` || path === `/api/v1/cs/organizations/${ORG2}/sessions/queue`) {
+    if (path === `/api/v1/seat/cs/organizations/${ORG}/sessions/queue` || path === `/api/v1/seat/cs/organizations/${ORG2}/sessions/queue`) {
       const workspaceId = new URL(url, 'http://localhost').searchParams.get('workspace_id')
       this.queueCalls.push({ path, workspaceId })
       if (workspaceId !== WS) return ok(EMPTY_PAGE_TEXT)

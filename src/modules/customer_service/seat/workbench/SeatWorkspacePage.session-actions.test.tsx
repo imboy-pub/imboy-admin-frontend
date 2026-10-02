@@ -37,9 +37,9 @@ import {
 import { establishSeatSession, seatTokenVault, useSeatAuthStore } from '../seatAuthStore'
 import { resetSeatDeviceIdForTest } from './deviceIdentity'
 
-const CLOSE_PATH = `/api/v1/cs/organizations/${ORG}/sessions/${SESSION}/close`
-const TRANSFER_PATH = `/api/v1/cs/organizations/${ORG}/sessions/${SESSION}/transfer`
-const DETAIL_PATH = `/api/v1/cs/organizations/${ORG}/sessions/${SESSION}`
+const CLOSE_PATH = `/api/v1/seat/cs/organizations/${ORG}/sessions/${SESSION}/close`
+const TRANSFER_PATH = `/api/v1/seat/cs/organizations/${ORG}/sessions/${SESSION}/transfer`
+const DETAIL_PATH = `/api/v1/seat/cs/organizations/${ORG}/sessions/${SESSION}`
 /** 服务端写动作端点（claim/transfer/close/messages）——登出不得触发任何一个。 */
 const WRITE_ENDPOINT_PATTERN = /\/(claim|transfer|close|messages)$/
 

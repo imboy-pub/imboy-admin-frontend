@@ -2,7 +2,7 @@
  * SEAT-01：Seat 域独立 fetch API client（绝不复用 Admin axios client/store）。
  *
  * A01 认证域隔离（客户端侧硬约束）：
- * - 只允许 `/api/v1/cs/*` 与 QR 登录合同路径（`/api/v1/passport/qr_login/*`）；
+ * - 只允许 `/api/v1/seat/cs/*` 与 QR 登录合同路径（`/api/v1/passport/qr_login/*`）；
  *   任何 `/api/adm` 或其他路径在发请求前直接抛错（物理不落线）；
  * - `credentials: 'omit'`：绝不携带 Admin Cookie；Seat 凭证只走
  *   `Authorization: Bearer`（QR create/status/subscribe/cancel 是免登录合同面，
@@ -29,10 +29,10 @@ export const SEAT_API_BASE = '/api/v1'
  * eb_tenant_handler conversation_messages；职能白名单 sales|customer_service）。
  * 均走前缀精确 allowlist，`/api/adm` 等一律拒绝（A01 不变）。 */
 const SEAT_PATH_PREFIXES = [
-  '/api/v1/cs/',
+  '/api/v1/seat/cs/',
   '/api/v1/passport/qr_login/',
-  '/api/v1/enterprise/conversations/',
-  '/api/v1/enterprise/organizations/',
+  '/api/v1/seat/enterprise/conversations/',
+  '/api/v1/seat/enterprise/organizations/',
 ] as const
 
 /** 一次性 QR session_token 唯一允许进查询串的合同路径（status/subscribe）。 */
@@ -161,7 +161,7 @@ export class SeatApiClient {
    * 抛 SeatApiError（分类见 errors.ts）。
    */
   async request<T = Record<string, unknown>>(path: string, options: SeatRequestOptions = {}): Promise<T> {
-    const full = this.baseUrl + path
+    const full = this.baseUrl + (path.startsWith('/cs/') || path.startsWith('/enterprise/') ? '/seat' : '') + path
     assertSeatApiPath(full)
     assertSeatQueryContract(full, options.query ?? {})
     const url = buildQuery(full, options.query)
@@ -207,7 +207,7 @@ export class SeatApiClient {
    * 调用方负责 ObjectURL 生命周期（预览/下载后 revoke）。
    */
   async requestBlob(path: string, options: SeatBlobRequestOptions = {}): Promise<Blob> {
-    const full = this.baseUrl + path
+    const full = this.baseUrl + (path.startsWith('/cs/') || path.startsWith('/enterprise/') ? '/seat' : '') + path
     assertSeatApiPath(full)
     assertSeatQueryContract(full, options.query ?? {})
     const url = buildQuery(full, options.query)
@@ -260,6 +260,12 @@ export class SeatApiClient {
     assertUploadTargetUrl(url)
     const headers: Record<string, string> = { 'Content-Type': 'application/octet-stream' }
     if (uploadTargetUsesUploadRef(url)) {
+      const origin = globalThis.location?.origin ?? 'http://seat.api.invalid'
+      const target = new URL(url, origin)
+      const api = new URL(this.baseUrl, origin)
+      if (target.origin !== api.origin || !/^\/api\/v1\/seat\/enterprise\/organizations\/[0-9]+\/assets\/presign$/.test(target.pathname)) {
+        throw new SeatApiError('validation', 'seat authenticated upload target outside console domain')
+      }
       const token = this.getToken()
       if (token !== null) headers.Authorization = `Bearer ${token}`
     }
@@ -297,7 +303,7 @@ function assertUploadTargetUrl(url: string): void {
 
 /** 上传目标是否为 imboy API 域的字节上传端点（CS-BE-01B 线格式特征：查询串
  * 携带 upload_ref——eb_tenant_handler 把 workspace_id/upload_ref 拼进 presign
- * 下发的 upload.url）。此时按路由级 enterprise_member 授权门携带 Bearer
+ * 下发的 upload.url）。只向同源 Console presign 端点携带 Bearer
  * （CS-INT-03 实证：该 PUT 与 presign POST 同门，裸 PUT 一律 401；API 域是
  * JWT 签发域，发回该域无额外暴露）。真实对象存储预签形态（X-Amz-* /
  * signature 查询）不带 Authorization——多余头会破坏预签签名，Seat JWT

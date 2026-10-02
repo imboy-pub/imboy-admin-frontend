@@ -98,7 +98,8 @@ describe('A02 QR 确认主链（SSE 优先）', () => {
     expect(session.getPhase()).toBe('confirmed')
     // create body 只含设备信息，绝无凭证
     const createBody = JSON.parse(String(calls[0]?.init?.body)) as Record<string, unknown>
-    expect(Object.keys(createBody).sort()).toEqual(['device_id', 'device_name', 'platform'])
+    expect(Object.keys(createBody).sort()).toEqual(['device_id', 'device_name', 'platform', 'purpose'])
+    expect(createBody.purpose).toBe('seat')
     // subscribe 的 session_token 只出现在 allowlist 查询串
     expect(calls[1]?.url).toBe('/api/v1/passport/qr_login/subscribe?session_token=st-secret-1')
   })

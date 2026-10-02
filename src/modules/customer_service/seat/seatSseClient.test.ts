@@ -108,7 +108,7 @@ describe('端点与游标合同（A05）', () => {
     await sleep(30)
     expect(harness.calls).toHaveLength(1)
     const call = harness.calls[0]
-    expect(call?.url).toBe(`/api/v1/cs/organizations/${ORG}/seats/me/events?workspace_id=${WS}`)
+    expect(call?.url).toBe(`/api/v1/seat/cs/organizations/${ORG}/seats/me/events?workspace_id=${WS}`)
     expect((call?.init as RequestInit).credentials).toBe('omit')
     expect(((call?.init as RequestInit).headers as Record<string, string>).Authorization).toBe(`Bearer ${JWT}`)
     expect(harness.retention()).toBe(86400)

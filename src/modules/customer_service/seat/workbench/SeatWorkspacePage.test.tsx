@@ -174,7 +174,7 @@ describe('SeatWorkspacePage 工作台（A01/A02/A03/A04/A05/A06）', () => {
     // 内容请求：真实 enterprise 路由（非虚构 cs 段）+ Seat Bearer + 无 Cookie。
     await waitFor(() => expect(backend.assetContentFetchCount).toBe(1))
     const contentCall = backend.calls.find(
-      (call) => call.path === `/api/v1/enterprise/organizations/${ORG}/assets/${ASSET_PNG_ID}/content`,
+      (call) => call.path === `/api/v1/seat/enterprise/organizations/${ORG}/assets/${ASSET_PNG_ID}/content`,
     )
     expect(contentCall).toBeDefined()
     expect(contentCall?.auth).toBe('Bearer eyJh.eyJi.c2ln')
@@ -182,7 +182,7 @@ describe('SeatWorkspacePage 工作台（A01/A02/A03/A04/A05/A06）', () => {
     const html = view.container.innerHTML
     expect(html).not.toMatch(/storage|upload_url|object_key|objectKey/i)
     expect(html).not.toContain('eyJ')
-    expect(html).not.toContain('/api/v1/cs/organizations/')
+    expect(html).not.toContain('/api/v1/seat/cs/organizations/')
     // composer：active 会话 + 会话写能力 → 可回复。
     expect(view.getByTestId('seat-composer')).toBeDefined()
     expect(view.getByTestId('seat-send')).toBeDefined()
@@ -414,7 +414,7 @@ describe('SeatWorkspacePage 工作台（A01/A02/A03/A04/A05/A06）', () => {
     })
     // DF-9 真实合同逐键：发送 body 必带 workspace_id / sender_type / identity_id。
     const sendCalls = backend.calls.filter(
-      (call) => call.method === 'POST' && call.path === `/api/v1/enterprise/organizations/${ORG}/conversations/${CONV}/messages`,
+      (call) => call.method === 'POST' && call.path === `/api/v1/seat/enterprise/organizations/${ORG}/conversations/${CONV}/messages`,
     )
     expect(sendCalls.length).toBe(2)
     const firstSend = JSON.parse(sendCalls[0]?.body ?? '{}') as Record<string, unknown>
@@ -607,10 +607,10 @@ describe('SeatWorkspacePage CS-WEB-02 单文件发送（presign → 裸 PUT → 
     await waitFor(() => expect(backend.sentClientMsgIds.length).toBe(1))
     // 顺序唯一事实源：presign → 裸 PUT → confirm → 发送（不可乱序/跳步）。
     expect(pipelineCalls(backend)).toEqual([
-      `POST /api/v1/enterprise/organizations/${ORG}/assets/presign`,
-      `PUT /api/v1/enterprise/organizations/${ORG}/assets/upload/1`,
-      `POST /api/v1/enterprise/organizations/${ORG}/assets/confirm`,
-      `POST /api/v1/enterprise/organizations/${ORG}/conversations/${CONV}/messages`,
+      `POST /api/v1/seat/enterprise/organizations/${ORG}/assets/presign`,
+      `PUT /api/v1/seat/enterprise/organizations/${ORG}/assets/upload/1`,
+      `POST /api/v1/seat/enterprise/organizations/${ORG}/assets/confirm`,
+      `POST /api/v1/seat/enterprise/organizations/${ORG}/conversations/${CONV}/messages`,
     ])
     // 发送 wire：正文 + asset_ids（presign 产出的 asset id 原样上送）。
     expect(backend.sentBodies[0]).toBe('请看截图')
@@ -811,7 +811,7 @@ describe('SeatWorkspacePage CS-WEB-04 客户上下文面板（CS-BE-03 消费 + 
     expect(html).not.toMatch(/138|@|subject_mask|note_bod|phone|email/i)
     // context 请求走真实 5 段路由（CS-BE-03）。
     expect(
-      backend.calls.some((call) => call.path === `/api/v1/cs/organizations/${ORG}/sessions/${SESSION}/context`),
+      backend.calls.some((call) => call.path === `/api/v1/seat/cs/organizations/${ORG}/sessions/${SESSION}/context`),
     ).toBe(true)
   })
 

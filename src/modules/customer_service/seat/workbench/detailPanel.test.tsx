@@ -286,12 +286,12 @@ describe('SeatDetailPanel 写动作全链（× 假后端：wire 形状 + 成功/
     fireEvent.click(view.getByTestId('seat-transfer-submit'))
     await waitFor(() => {
       const call = backend.calls.find(
-        (item) => item.method === 'POST' && item.path === `/api/v1/cs/organizations/${ORG}/sessions/${SESSION}/transfer`,
+        (item) => item.method === 'POST' && item.path === `/api/v1/seat/cs/organizations/${ORG}/sessions/${SESSION}/transfer`,
       )
       expect(call).toBeDefined()
     })
     const call = backend.calls.find(
-      (item) => item.method === 'POST' && item.path === `/api/v1/cs/organizations/${ORG}/sessions/${SESSION}/transfer`,
+      (item) => item.method === 'POST' && item.path === `/api/v1/seat/cs/organizations/${ORG}/sessions/${SESSION}/transfer`,
     )
     const body = JSON.parse(call?.body ?? '{}') as Record<string, unknown>
     expect(body.to_identity_id).toBe(OTHER_IDENTITY)
@@ -312,7 +312,7 @@ describe('SeatDetailPanel 写动作全链（× 假后端：wire 形状 + 成功/
     // 成功：假后端 close 置 closed + version+1 → 权威刷新收敛到已结束。
     await waitFor(() => expect(view.getByTestId('seat-detail-status').textContent).toBe('已结束'))
     const closeCalls = backend.calls.filter(
-      (item) => item.method === 'POST' && item.path === `/api/v1/cs/organizations/${ORG}/sessions/${SESSION}/close`,
+      (item) => item.method === 'POST' && item.path === `/api/v1/seat/cs/organizations/${ORG}/sessions/${SESSION}/close`,
     )
     expect(closeCalls).toHaveLength(1)
     // wire 形状：expected_version = 详情权威版本（8）；workspace_id handler 级必填；

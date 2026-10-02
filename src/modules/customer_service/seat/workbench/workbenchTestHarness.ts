@@ -292,16 +292,16 @@ export class SeatFakeBackend {
     }
     if (path === '/api/v1/passport/qr_login/cancel') return ok('{}')
 
-    if (path === '/api/v1/cs/me/seat-contexts') {
+    if (path === '/api/v1/seat/cs/me/seat-contexts') {
       this.contextsFetchCount += 1
       return this.state.contexts403 ? forbidden() : ok(CONTEXTS_TEXT)
     }
-    if (path === `/api/v1/cs/organizations/${ORG}/sessions/queue`) {
+    if (path === `/api/v1/seat/cs/organizations/${ORG}/sessions/queue`) {
       this.queueFetchCount += 1
       const s = this.state.sessionStatus
       return ok(pageText(s, s === 'queued' ? this.state.version : null, this.state))
     }
-    if (path === `/api/v1/cs/organizations/${ORG}/seats/sessions`) {
+    if (path === `/api/v1/seat/cs/organizations/${ORG}/seats/sessions`) {
       const status = new URL(url, 'http://localhost').searchParams.get('status') ?? 'active'
       const view: 'active' | 'closed' = status === 'closed' ? 'closed' : 'active'
       const rowVersion = this.state.sessionStatus === view ? this.state.version : null
@@ -310,7 +310,7 @@ export class SeatFakeBackend {
     // CS-WEB-04：客户上下文端点（imboy_router session_customer_context）。
     // 5 段路径；403（转接后原 Seat / 撤权）/ 500 递减 / 可编程延迟（陈旧
     // 响应竞态用例：晚到的旧响应由 hook 序号守卫拒绝）。
-    const contextMatch = path.match(new RegExp(`^/api/v1/cs/organizations/${ORG}/sessions/(\\d+)/context$`))
+    const contextMatch = path.match(new RegExp(`^/api/v1/seat/cs/organizations/${ORG}/sessions/(\\d+)/context$`))
     if (contextMatch !== null) {
       this.contextFetchCount += 1
       const sessionId = contextMatch[1] ?? ''
@@ -328,25 +328,25 @@ export class SeatFakeBackend {
       return ok(customerContextText(sessionId, this.state))
     }
     // CS-WEB-05：presence 心跳（POST）——页隐藏时 hook 不会发（诚实在线）。
-    if (path === `/api/v1/cs/organizations/${ORG}/seats/me/heartbeat` && init?.method === 'POST') {
+    if (path === `/api/v1/seat/cs/organizations/${ORG}/seats/me/heartbeat` && init?.method === 'POST') {
       this.heartbeatCalls += 1
       if (this.state.presenceStatus === null) return serverError()
       return ok(presenceText(this.state.presenceStatus, 1790312470))
     }
     // CS-WEB-05：手动状态（PUT）——away/clear 双形态。
-    if (path === `/api/v1/cs/organizations/${ORG}/seats/me/presence` && init?.method === 'PUT') {
+    if (path === `/api/v1/seat/cs/organizations/${ORG}/seats/me/presence` && init?.method === 'PUT') {
       const bodyText = typeof init?.body === 'string' ? init.body : ''
       const wantsAway = bodyText.includes('away')
       this.state.presenceStatus = wantsAway ? 'away' : 'online'
       return ok(presenceText(this.state.presenceStatus, 1790312470, wantsAway))
     }
-    if (path === `/api/v1/cs/organizations/${ORG}/seats/me/presence`) {
+    if (path === `/api/v1/seat/cs/organizations/${ORG}/seats/me/presence`) {
       if (this.state.presenceStatus === null) return serverError()
       return ok(presenceText(this.state.presenceStatus, 1790312470))
     }
     // CS-BE-04：read-cursor（GET 读状态 / POST ACK 空成功响应）。
     const cursorMatch = path.match(
-      new RegExp(`^/api/v1/cs/organizations/${ORG}/sessions/(\\d+)/read-cursor$`),
+      new RegExp(`^/api/v1/seat/cs/organizations/${ORG}/sessions/(\\d+)/read-cursor$`),
     )
     if (cursorMatch !== null) {
       if (init?.method === 'POST') {
@@ -358,7 +358,7 @@ export class SeatFakeBackend {
           `"last_read_message_id":"72057594037928100","unread_count":${this.state.unreadCount}}`,
       )
     }
-    const detailMatch = path.match(new RegExp(`^/api/v1/cs/organizations/${ORG}/sessions/(\\d+)$`))
+    const detailMatch = path.match(new RegExp(`^/api/v1/seat/cs/organizations/${ORG}/sessions/(\\d+)$`))
     if (detailMatch !== null) {
       // DF-9 真实合同：session detail 的 workspace_id 走 query 且必填
       // （cs_actions session_detail 无 workspace=>optional 宽松项 → 缺失 422）。
@@ -375,7 +375,7 @@ export class SeatFakeBackend {
         ),
       )
     }
-    if (path === `/api/v1/cs/organizations/${ORG}/sessions/${SESSION}/claim`) {
+    if (path === `/api/v1/seat/cs/organizations/${ORG}/sessions/${SESSION}/claim`) {
       this.state.claimAttempts += 1
       const body = JSON.parse(String(init?.body ?? '{}')) as { expected_version?: number; workspace_id?: string }
       // DF-9 真实合同：写动作 body 必带 workspace_id（cs_http 缺失 422，不取默认值）。
@@ -385,19 +385,19 @@ export class SeatFakeBackend {
       this.state.sessionStatus = 'active'
       return ok('{}')
     }
-    if (path === `/api/v1/cs/organizations/${ORG}/sessions/${SESSION}/transfer`) {
+    if (path === `/api/v1/seat/cs/organizations/${ORG}/sessions/${SESSION}/transfer`) {
       const body = JSON.parse(String(init?.body ?? '{}')) as { workspace_id?: string }
       if (body.workspace_id !== WS) return missingWorkspace()
       return ok('{}')
     }
-    if (path === `/api/v1/cs/organizations/${ORG}/sessions/${SESSION}/close`) {
+    if (path === `/api/v1/seat/cs/organizations/${ORG}/sessions/${SESSION}/close`) {
       const body = JSON.parse(String(init?.body ?? '{}')) as { workspace_id?: string }
       if (body.workspace_id !== WS) return missingWorkspace()
       this.state.version += 1
       this.state.sessionStatus = 'closed'
       return ok('{}')
     }
-    if (path === `/api/v1/enterprise/conversations/${CONV}/messages`) {
+    if (path === `/api/v1/seat/enterprise/conversations/${CONV}/messages`) {
       if (method === 'POST') {
         // DF-9 真实合同：cs 段 /enterprise/conversations/:conv/messages 只登记
         // GET（cs_actions conversation_messages 无 POST case）→ POST 405。
@@ -407,7 +407,7 @@ export class SeatFakeBackend {
       this.messageFetchCount += 1
       return ok(MESSAGES_TEXT)
     }
-    if (path === `/api/v1/enterprise/organizations/${ORG}/conversations/${CONV}/messages` && method === 'POST') {
+    if (path === `/api/v1/seat/enterprise/organizations/${ORG}/conversations/${CONV}/messages` && method === 'POST') {
       // DF-9 真实合同（eb_tenant_handler conversation_messages POST append_message；
       // e2e agent-api.ts reply 实调形状，9802 真链实测）：
       // body 必带 {client_msg_id, workspace_id, sender_type, identity_id}；
@@ -445,7 +445,7 @@ export class SeatFakeBackend {
     // CS-WEB-02：附件 presign（imboy_router.erl:1790，eb_tenant_handler presign →
     // request_presign）。冻结字段 {conversation_id, mime, size_bytes, object_hash,
     // file_name?, workspace_id}；mime/size/hash 合法性由服务端裁决（422 透传）。
-    if (path === `/api/v1/enterprise/organizations/${ORG}/assets/presign` && method === 'POST') {
+    if (path === `/api/v1/seat/enterprise/organizations/${ORG}/assets/presign` && method === 'POST') {
       const parsed = JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>
       this.presignRequests.push(parsed)
       if (
@@ -470,7 +470,7 @@ export class SeatFakeBackend {
       const assetId = 8100000000000000000 + this.presignCount
       const uploadUrl = this.state.presignOmitUploadUrl
         ? null
-        : `/api/v1/enterprise/organizations/${ORG}/assets/upload/${this.presignCount}`
+        : `/api/v1/seat/enterprise/organizations/${ORG}/assets/upload/${this.presignCount}`
       // 镜像 eb_asset_app:presign_view + widget BE-PATCH-01 的 upload.url 投影。
       const uploadText =
         uploadUrl === null
@@ -483,7 +483,7 @@ export class SeatFakeBackend {
     }
     // CS-WEB-02：裸 PUT 上传目标（presign 下发的 upload.url；同源相对路径形态）。
     // 只带 Content-Type / 无 Authorization——无 token 断言在本端点核对。
-    if (method === 'PUT' && /^\/api\/v1\/enterprise\/organizations\/[^/]+\/assets\/upload\/\d+$/.test(path)) {
+    if (method === 'PUT' && /^\/api\/v1\/seat\/enterprise\/organizations\/[^/]+\/assets\/upload\/\d+$/.test(path)) {
       if (this.state.uploadPutFailuresLeft > 0) {
         this.state.uploadPutFailuresLeft -= 1
         return serverError()
@@ -495,7 +495,7 @@ export class SeatFakeBackend {
       return new Response('', { status: 200 })
     }
     // CS-WEB-02：附件 confirm（imboy_router.erl:1796，confirm_asset）。
-    if (path === `/api/v1/enterprise/organizations/${ORG}/assets/confirm` && method === 'POST') {
+    if (path === `/api/v1/seat/enterprise/organizations/${ORG}/assets/confirm` && method === 'POST') {
       const parsed = JSON.parse(String(init?.body ?? '{}')) as { upload_ref?: string; workspace_id?: string }
       if (typeof parsed.upload_ref !== 'string' || parsed.upload_ref.length === 0 || parsed.workspace_id !== WS) {
         return new Response('{"code":422,"msg":"invalid confirm arguments","payload":{}}', { status: 422 })
@@ -512,11 +512,11 @@ export class SeatFakeBackend {
       this.confirmedUploadRefs.push(parsed.upload_ref)
       return ok('{"asset_id":0,"status":"active"}')
     }
-    if (path === `/api/v1/cs/organizations/${ORG}/transfer-targets`) return ok(TRANSFER_TARGETS_TEXT)
+    if (path === `/api/v1/seat/cs/organizations/${ORG}/transfer-targets`) return ok(TRANSFER_TARGETS_TEXT)
     // CS-WEB-01：真实 enterprise content 端点（imboy_router.erl:1803）：
-    // GET /api/v1/enterprise/organizations/:org_id/assets/:id/content。
+    // GET /api/v1/seat/enterprise/organizations/:org_id/assets/:id/content。
     // 成功 = 原始字节流（application/octet-stream，非信封）；错误 = HTTP 状态。
-    const assetMatch = path.match(/^\/api\/v1\/enterprise\/organizations\/[^/]+\/assets\/([^/]+)\/content$/)
+    const assetMatch = path.match(/^\/api\/v1\/seat\/enterprise\/organizations\/[^/]+\/assets\/([^/]+)\/content$/)
     if (assetMatch !== null) {
       this.assetContentFetchCount += 1
       const assetId = assetMatch[1] ?? ''

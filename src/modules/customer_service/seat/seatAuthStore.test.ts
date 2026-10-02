@@ -108,7 +108,7 @@ describe('SeatAuthGuard', () => {
     expect(guard.requireToken()).toBe('a.b.c')
     expect(guard.isAuthenticated()).toBe(true)
     expect(() => guard.assertSeatDomain('/api/adm/x')).toThrow(/outside seat domain/)
-    expect(() => guard.assertSeatDomain('/api/v1/cs/me/seat-contexts')).not.toThrow()
+    expect(() => guard.assertSeatDomain('/api/v1/seat/cs/me/seat-contexts')).not.toThrow()
   })
 
   it('401 → 清会话回登录；403 默认不清（由调用面降级）', () => {

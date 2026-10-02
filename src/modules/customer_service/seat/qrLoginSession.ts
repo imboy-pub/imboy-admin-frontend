@@ -106,6 +106,7 @@ export class QrLoginSession {
         device_id: device.deviceId,
         device_name: device.deviceName ?? 'Web Browser',
         platform: device.platform ?? 'web',
+        purpose: 'seat',
       },
     })) as Record<string, unknown>
     const qrToken = typeof payload.qr_token === 'string' ? payload.qr_token : null

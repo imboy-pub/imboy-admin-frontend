@@ -267,7 +267,7 @@ describe('路径构造（Seat 域 + A03 附件代理不变量）', () => {
     const assetId = '8000000000000000008'
     const path = seatAssetContentPath(ORG, assetId)
     expect(path).toBe(`/enterprise/organizations/${ORG}/assets/${assetId}/content`)
-    expect(SEAT_ASSET_CONTENT_PATH_TEMPLATE).toBe('/api/v1/enterprise/organizations/:org_id/assets/:id/content')
+    expect(SEAT_ASSET_CONTENT_PATH_TEMPLATE).toBe('/api/v1/seat/enterprise/organizations/:org_id/assets/:id/content')
     // 旧虚构路由（/cs/organizations/:org/sessions/:sid/assets/…/content）已删除：
     // 构造器不再产出 sessions 段（该路由后端不存在，必 404——CSX-01 断链）。
     expect(path).not.toContain('/sessions/')
@@ -293,7 +293,7 @@ describe('CS-WEB-02 presign 投影与上传路径', () => {
       expires_at: 1759000000,
       upload: {
         method: 'PUT',
-        url: '/api/v1/enterprise/organizations/2000000000000000002/assets/upload/1',
+        url: '/api/v1/seat/enterprise/organizations/2000000000000000002/assets/upload/1',
         token: 'opaque-token',
         expires_at: 1759000000,
         adapter: 'local_private_object_store',
@@ -302,7 +302,7 @@ describe('CS-WEB-02 presign 投影与上传路径', () => {
     })
     expect(result.assetId).toBe('8100000000000000001')
     expect(result.uploadRef).toBe('ur-1')
-    expect(result.uploadUrl).toBe('/api/v1/enterprise/organizations/2000000000000000002/assets/upload/1')
+    expect(result.uploadUrl).toBe('/api/v1/seat/enterprise/organizations/2000000000000000002/assets/upload/1')
     expect(result.expiresAt).toBe(1759000000)
     // upload.token（= upload_ref 双投）与 adapter/rule 不进投影（A03 最小面）。
     expect(Object.keys(result).sort()).toEqual(['assetId', 'expiresAt', 'uploadRef', 'uploadUrl'])
@@ -336,7 +336,7 @@ describe('CS-WEB-02 presign 投影与上传路径', () => {
   it('上传路径构造：presign/confirm 落真实 enterprise 动作端点（无虚构路由）', () => {
     expect(buildAssetPresignPath(ORG)).toBe(`/enterprise/organizations/${ORG}/assets/presign`)
     expect(buildAssetConfirmPath(ORG)).toBe(`/enterprise/organizations/${ORG}/assets/confirm`)
-    // imboy_router.erl:1790/1796 真实路由族（Seat 域门 /api/v1/enterprise/organizations/ 放行）。
+    // imboy_router.erl:1790/1796 真实路由族（Seat 域门 /api/v1/seat/enterprise/organizations/ 放行）。
     expect(buildAssetPresignPath(ORG)).not.toContain('/cs/')
     expect(buildAssetConfirmPath(ORG)).not.toContain('/sessions/')
   })

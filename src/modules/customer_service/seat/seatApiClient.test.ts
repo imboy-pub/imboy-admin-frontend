@@ -71,18 +71,18 @@ describe('A01 域隔离（路径门）', () => {
   })
 
   it('拒绝绝对 URL / 协议相对路径', () => {
-    expect(() => assertSeatApiPath('https://evil.example/api/v1/cs/x')).toThrow()
-    expect(() => assertSeatApiPath('//evil.example/api/v1/cs/x')).toThrow()
-    expect(() => assertSeatApiPath('/api/v1/cs/me/seat-contexts')).not.toThrow()
+    expect(() => assertSeatApiPath('https://evil.example/api/v1/seat/cs/x')).toThrow()
+    expect(() => assertSeatApiPath('//evil.example/api/v1/seat/cs/x')).toThrow()
+    expect(() => assertSeatApiPath('/api/v1/seat/cs/me/seat-contexts')).not.toThrow()
   })
 
   it('Seat 域路径（cs + qr_login + enterprise 合同面）全部放行', () => {
-    expect(() => assertSeatApiPath('/api/v1/cs/me/seat-contexts')).not.toThrow()
-    expect(() => assertSeatApiPath('/api/v1/cs/organizations/123/seats/me/events')).not.toThrow()
+    expect(() => assertSeatApiPath('/api/v1/seat/cs/me/seat-contexts')).not.toThrow()
+    expect(() => assertSeatApiPath('/api/v1/seat/cs/organizations/123/seats/me/events')).not.toThrow()
     expect(() => assertSeatApiPath('/api/v1/passport/qr_login/status')).not.toThrow()
-    expect(() => assertSeatApiPath('/api/v1/enterprise/conversations/456/messages')).not.toThrow()
+    expect(() => assertSeatApiPath('/api/v1/seat/enterprise/conversations/456/messages')).not.toThrow()
     // DF-9：坐席发送消息走企业真源写路径（带 /organizations/:org 段）。
-    expect(() => assertSeatApiPath('/api/v1/enterprise/organizations/123/conversations/456/messages')).not.toThrow()
+    expect(() => assertSeatApiPath('/api/v1/seat/enterprise/organizations/123/conversations/456/messages')).not.toThrow()
   })
 
   it('请求不带 Cookie（credentials: omit）且 Bearer 只进 Authorization 头', async () => {
@@ -115,7 +115,7 @@ describe('A03 token 卫生（查询串 allowlist 与脱敏）', () => {
   it('其他路径携带 token 类查询键 → 抛错不发请求', async () => {
     const { calls, fetchImpl } = makeFetch(() => ({}))
     const client = new SeatApiClient({ fetchImpl })
-    expect(() => assertSeatQueryContract('/api/v1/cs/me/seat-contexts', { token: 'x' })).toThrow()
+    expect(() => assertSeatQueryContract('/api/v1/seat/cs/me/seat-contexts', { token: 'x' })).toThrow()
     let thrown: unknown = null
     try {
       await client.request('/passport/qr_login/create', { method: 'POST', query: { session_token: 'x' } })
@@ -138,7 +138,7 @@ describe('A03 token 卫生（查询串 allowlist 与脱敏）', () => {
     const client = new SeatApiClient({ fetchImpl, getToken: () => seatTokenVault.getToken() })
     await client.request('/cs/me/seat-contexts')
     expect(calls[0]?.url).not.toContain('eyJa')
-    expect(calls[0]?.url).toBe('/api/v1/cs/me/seat-contexts')
+    expect(calls[0]?.url).toBe('/api/v1/seat/cs/me/seat-contexts')
   })
 })
 
@@ -253,7 +253,7 @@ describe('CS-WEB-01 requestBlob（附件 content 端点；二进制非信封）'
     expect(init.method).toBe('GET')
     expect(init.credentials).toBe('omit')
     expect((init.headers as Record<string, string>).Authorization).toBe('Bearer aa.bb.cc')
-    expect(calls[0]?.url).toBe(`/api/v1${CONTENT_PATH}`)
+    expect(calls[0]?.url).toBe(`/api/v1/seat${CONTENT_PATH}`)
     expect(calls[0]?.url).not.toContain('aa.bb.cc')
   })
 
@@ -315,7 +315,7 @@ describe('CS-WEB-01 requestBlob（附件 content 端点；二进制非信封）'
 })
 
 describe('CS-WEB-02 putUploadObject（裸 PUT 上传通道；presign 下发目标）', () => {
-  const UPLOAD_URL = '/api/v1/enterprise/organizations/123/assets/upload/1'
+  const UPLOAD_URL = '/api/v1/seat/enterprise/organizations/123/assets/upload/1'
   const FILE_BYTES = new Uint8Array([1, 2, 3, 4, 5])
 
   function uploadResponder(status: number): ReturnType<typeof makeFetch> {
@@ -455,7 +455,7 @@ describe('REVIEW-2 凭据卫生锁定（全通道系统断言）', () => {
     const client = new SeatApiClient({ fetchImpl, getToken: () => seatTokenVault.getToken() })
     const blob = new Blob([new Uint8Array([9, 9, 9])])
     // imboy API 域形态（CS-BE-01B 线特征：查询串带 upload_ref）→ 带 Bearer。
-    await client.putUploadObject('/api/v1/enterprise/organizations/1/assets/upload/1?upload_ref=ur-1', blob)
+    await client.putUploadObject('/api/v1/seat/enterprise/organizations/1/assets/presign?upload_ref=ur-1', blob)
     // 对象存储预签形态 → 无 Authorization（Seat JWT 绝不外发第三方域）。
     await client.putUploadObject('https://objects.example.internal/bucket/obj?X-Amz-Signature=sig', blob)
     expect(calls).toHaveLength(2)
@@ -500,7 +500,7 @@ describe('REVIEW-2 凭据卫生锁定（全通道系统断言）', () => {
     expect(init.credentials).toBe('omit')
     expect((init.headers as Record<string, string>).Authorization).toBe(`Bearer ${GUARD_JWT}`)
     expect(call.url).toBe(
-      '/api/v1/cs/organizations/2000000000000000002/seats/me/events?workspace_id=3000000000000000003',
+      '/api/v1/seat/cs/organizations/2000000000000000002/seats/me/events?workspace_id=3000000000000000003',
     )
     expect(call.url).not.toContain(GUARD_JWT)
     expect(init.body).toBeUndefined()
@@ -525,9 +525,30 @@ describe('REVIEW-2 凭据卫生锁定（全通道系统断言）', () => {
 
   it('redactSeatUrl 家族：全部 token 类键值替换为 ***，值不出现在输出', () => {
     for (const key of ['session_token', 'token', 'access_token', 'refresh_token', 'visit_token', 'jwt']) {
-      const redacted = redactSeatUrl(`/api/v1/cs/x?${key}=SECRETVALUE&w=1`)
-      expect(redacted).toBe(`/api/v1/cs/x?${key}=***&w=1`)
+      const redacted = redactSeatUrl(`/api/v1/seat/cs/x?${key}=SECRETVALUE&w=1`)
+      expect(redacted).toBe(`/api/v1/seat/cs/x?${key}=***&w=1`)
       expect(redacted).not.toContain('SECRETVALUE')
     }
+  })
+})
+
+
+describe('Console 凭证出口约束', () => {
+  it('完整 Human API 路径不属于 Console 域', () => {
+    expect(() => assertSeatApiPath('/api/v1/cs/me/seat-contexts')).toThrow()
+    expect(() => assertSeatApiPath('/api/v1/enterprise/organizations/1/assets/2/content')).toThrow()
+  })
+
+  it('带 upload_ref 的域外/非上传目标在发送前拒绝，Seat JWT 不外发', async () => {
+    const { calls, fetchImpl } = makeFetch(() => new Response('', { status: 200 }))
+    const client = new SeatApiClient({ fetchImpl, getToken: () => 'aa.bb.cc' })
+    for (const url of [
+      'https://objects.example.internal/api/v1/seat/enterprise/organizations/1/assets/presign?upload_ref=r',
+      '/api/v1/enterprise/organizations/1/assets/presign?upload_ref=r',
+      '/api/v1/seat/enterprise/organizations/1/assets/confirm?upload_ref=r',
+    ]) {
+      await expect(client.putUploadObject(url, new Blob(['x']))).rejects.toBeInstanceOf(SeatApiError)
+    }
+    expect(calls).toHaveLength(0)
   })
 })

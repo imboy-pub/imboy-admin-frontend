@@ -4,7 +4,7 @@
  * 为什么不用 EventSource：合同要求 `Authorization: Bearer` 头 + `Last-Event-ID`
  * 补偿头，EventSource 无法自定义请求头 → fetch + ReadableStream。
  *
- * 端点（BE-S01b）：GET /api/v1/cs/organizations/:org_id/seats/me/events?workspace_id=<TSID>
+ * 端点（BE-S01b）：GET /api/v1/seat/cs/organizations/:org_id/seats/me/events?workspace_id=<TSID>
  * - `Last-Event-ID` 存在时优先于 `after_id`（合同）；本实现只在有游标时发头，
  *   无游标且调用方给 initialAfterId 时才落 after_id 查询参数；
  * - 响应头 `X-CS-Event-Retention-Seconds`（V1 默认 86400）经 onRetention 上报；
@@ -23,7 +23,7 @@ import {
   type SeatSseEnvelope,
 } from './seatSseProtocol'
 
-export const SEAT_EVENTS_PATH_TEMPLATE = '/api/v1/cs/organizations/:org_id/seats/me/events'
+export const SEAT_EVENTS_PATH_TEMPLATE = '/api/v1/seat/cs/organizations/:org_id/seats/me/events'
 
 export type SeatEventStreamStatus = 'idle' | 'connecting' | 'online' | 'reconnecting' | 'offline' | 'closed'
 
@@ -132,7 +132,7 @@ export class SeatEventStream {
   private buildUrl(): string {
     const scope = this.scope
     if (scope === null) throw new Error('seat event stream is not started')
-    const path = this.baseUrl + `/cs/organizations/${scope.organizationId}/seats/me/events`
+    const path = this.baseUrl + `/seat/cs/organizations/${scope.organizationId}/seats/me/events`
     const query = `workspace_id=${encodeURIComponent(scope.workspaceId)}`
     // after_id 只在尚无游标且调用方显式给初值时使用；有游标一律走 Last-Event-ID 头。
     const initial = scope.initialAfterId

@@ -478,7 +478,7 @@ export function buildTransferTargetsPath(orgId: EntityId): string {
  * （必 404），已删除——附件字节只经 SeatApiClient.requestBlob（Bearer header +
  * credentials omit），绝不构造裸导航 href。
  */
-export const SEAT_ASSET_CONTENT_PATH_TEMPLATE = '/api/v1/enterprise/organizations/:org_id/assets/:id/content'
+export const SEAT_ASSET_CONTENT_PATH_TEMPLATE = '/api/v1/seat/enterprise/organizations/:org_id/assets/:id/content'
 
 /** 相对 SEAT_API_BASE 的内容路径（落在 /api/v1/enterprise/organizations/ 前缀，Seat 域门放行）。 */
 export function seatAssetContentPath(orgId: EntityId, assetId: EntityId): string {
