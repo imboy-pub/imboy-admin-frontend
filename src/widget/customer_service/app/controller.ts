@@ -39,8 +39,6 @@ import {
   type VisitScope,
 } from './visitStorage'
 
-const CIPHER_PLACEHOLDER = '[加密消息：明文读面未开放（后端缺口 D5）]'
-
 export type HostContext = {
   widgetId: string
   locale: string
@@ -245,7 +243,10 @@ export function createWidgetController(deps: ControllerDeps) {
       id: message.id,
       clientMsgId: message.clientMsgId,
       role: isSelf || role === 'visitor' ? 'visitor' : role,
-      body: message.body ?? CIPHER_PLACEHOLDER,
+      // BE-PATCH-01：附件-only 消息 = 空正文 + assets（合法形态），渲染为
+      // 纯附件气泡；绝不落「加密」占位（密文读面在生产可用，占位只会
+      // 误导访客——产品裁决 2026-10-02，原 D5 占位常量随之废除）。
+      body: message.body ?? '',
       status: 'sent',
       attachment: null,
       // CS-WGT-01：历史 assets 投影（五键白名单已由 contract 解析）。
