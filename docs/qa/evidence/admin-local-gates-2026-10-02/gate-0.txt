@@ -1,0 +1,4 @@
+$ bun test --isolate
+ 2385 pass
+ 0 fail
+Ran 2385 tests across 222 files. [118.03s]

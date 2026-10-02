@@ -1,0 +1,13 @@
+$ vite build --mode widget && vite build --mode widget-loader && vite build --mode seat && bun scripts/widget-manifest.mts
+vite v8.1.4 building client environment for widget...
+dist-widget/widget/index.html              1.30 kB │ gzip:  0.87 kB
+dist-widget/assets/cs-widget-Bg_2DNCm.js  51.14 kB │ gzip: 16.06 kB
+✓ built in 29ms
+vite v8.1.4 building client environment for widget-loader...
+dist-widget/loader.js  9.52 kB │ gzip: 3.75 kB
+✓ built in 11ms
+vite v8.1.4 building client environment for seat...
+dist-widget/seat/index.html                1.78 kB │ gzip:   1.16 kB
+dist-widget/assets/cs-seat-_XZfiGXM.css   67.80 kB │ gzip:  12.04 kB
+dist-widget/assets/cs-seat-_YwnT7Em.js   360.24 kB │ gzip: 110.89 kB
+✓ built in 305ms

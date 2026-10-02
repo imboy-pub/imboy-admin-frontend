@@ -1,0 +1,2 @@
+$ bun scripts/widget-verify.mts
+[widget-verify] PASS: 12 files, assets hashed=3, seat-assets=2, sourcemap=0, admin-chunk=0, admin-api=0, secret-pattern=0

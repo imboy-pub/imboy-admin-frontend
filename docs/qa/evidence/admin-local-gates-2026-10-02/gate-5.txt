@@ -1,0 +1,6 @@
+$ bun scripts/check-widget-asset-pairing.mts
+[pairing] admin root = /Users/leeyi/project/imboy.pub/.Codex/worktrees/gz-enterprise-admin
+[pairing] imboy root = /Users/leeyi/project/imboy.pub/.Codex/worktrees/gz-enterprise-webhook-transport
+[pairing] face=public_frame — /w/ frame 引用的版本化入口 JS（hosted-widget-contract S4）
+[pairing] face=seat_console — /seat/:public_seat_console_id frame 引用的版本化坐席工作台入口（SC-BLD；后端面已由 SC-INT 落地：cs_seat_console_handler.erl）
+[pairing] PASS：后端资产常量与 Admin manifest 输出名互验一致

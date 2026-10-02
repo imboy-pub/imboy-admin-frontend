@@ -1,0 +1,47 @@
+from pathlib import Path
+import subprocess,json,hashlib,os,signal
+repo=Path('/Users/leeyi/project/imboy.pub/.Codex/worktrees/gz-enterprise-admin')
+head=subprocess.check_output(['git','rev-parse','HEAD'],cwd=repo,text=True).strip()
+assert head=='6fd5b53019c0f85b4067d261a91146a747d773dc'
+assert not subprocess.check_output(['git','status','--porcelain'],cwd=repo,text=True).strip()
+tracked=[repo/n.decode() for n in subprocess.check_output(['git','ls-files','-z'],cwd=repo).split(b'\0') if n]
+def snapshot():return {str(p):os.readlink(p) if p.is_symlink() else hashlib.sha256(p.read_bytes()).hexdigest() for p in tracked+[Path(__file__)]}
+backend=Path('/Users/leeyi/project/imboy.pub/.Codex/worktrees/gz-enterprise-webhook-transport')
+backend_head='8f25070787cc1dafb054bb97dd797daab4a8ee83'
+backend_paths=[backend/p for p in ('priv/cs_widget_asset_pairing.json','src/features/customer_service/interfaces/cs_widget_handler.erl','src/features/customer_service/interfaces/cs_seat_console_handler.erl')]
+def backend_snapshot():
+ assert subprocess.check_output(['git','rev-parse','HEAD'],cwd=backend,text=True).strip()==backend_head
+ assert not subprocess.check_output(['git','status','--porcelain'],cwd=backend,text=True).strip()
+ return {str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in backend_paths}
+backend_frozen=backend_snapshot()
+frozen=snapshot();env=os.environ.copy();env['IMBOY_REPO_DIR']='/Users/leeyi/project/imboy.pub/.Codex/worktrees/gz-enterprise-webhook-transport'
+commands=[['bun','run','test'],['bun','run','lint'],['bun','run','build'],['bun','run','build:widget'],['bun','run','verify:widget'],['bun','run','verify:widget-pairing']]
+terminal=Path('/tmp/gz-current-admin-gates-r2-terminal.json');state={'status':'RUNNING_NOT_PASS','candidate':head,'results':[],'sources':frozen,'backend_candidate':backend_head,'backend_sources':backend_frozen,'whole_goal_complete':False,'browser_e2e_proven':False}
+def save():terminal.write_text(json.dumps(state,indent=2)+'\n')
+save()
+try:
+ for i,command in enumerate(commands):
+  log=Path(f'/tmp/gz-current-admin-gates-r2-{i}.txt')
+  with log.open('w') as stream:
+   os.chmod(log,0o600);process=subprocess.Popen(command,cwd=repo,env=env,stdout=stream,stderr=subprocess.STDOUT,start_new_session=True)
+   try:rc=process.wait(timeout=600)
+   except subprocess.TimeoutExpired:
+    os.killpg(process.pid,signal.SIGTERM)
+    try:process.wait(timeout=10)
+    except subprocess.TimeoutExpired:os.killpg(process.pid,signal.SIGKILL);process.wait()
+    raise RuntimeError('admin gate timed out')
+  state['results'].append({'command':command,'exit_code':rc,'log':str(log),'sha256':hashlib.sha256(log.read_bytes()).hexdigest()});save()
+  assert rc==0, 'failed command '+str(command)
+  assert backend_frozen==backend_snapshot(), 'backend pairing inputs changed'
+  if command[-1]=='verify:widget-pairing':
+   text=log.read_text(errors='replace')
+   assert '[pairing] imboy root = '+str(backend) in text.splitlines()
+   assert '[pairing] admin root = '+str(repo) in text.splitlines()
+   assert '[PENDING]' not in text and '[SKIPPED]' not in text and '[FAIL]' not in text
+   assert '[pairing] PASS：后端资产常量与 Admin manifest 输出名互验一致' in text.splitlines()
+   assert '不可读' not in text, 'pairing table was not checked'
+  assert frozen==snapshot() and subprocess.check_output(['git','rev-parse','HEAD'],cwd=repo,text=True).strip()==head and not subprocess.check_output(['git','status','--porcelain'],cwd=repo,text=True).strip(), 'admin frozen inputs changed'
+ state['status']='PASS_ADMIN_LOCAL_GATES'
+except Exception as exc:state.update(status='FAILED_NOT_PASS',reason=str(exc))
+save();print(state['status'],flush=True)
+raise SystemExit(0 if state['status']=='PASS_ADMIN_LOCAL_GATES' else 1)
