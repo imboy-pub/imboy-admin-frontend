@@ -82,16 +82,12 @@ function makeEnv(
       payload = { session_id: '72057594037927936', status: 'queued' }
     } else if (method === 'GET' && url.includes('/assets/') && url.includes('/content')) {
       // 授权内容代理：二进制面（不走 JSON 信封）；字节由 blob() 消费。
-      ok = (opts.assetContentStatus ?? 200) < 400
       status = opts.assetContentStatus ?? 200
       const bytes = opts.assetContentBody ?? 'asset-bytes'
-      const respond = {
-        ok,
+      return new Response(bytes, {
         status,
-        json: async () => ({ code: 0, msg: 'success', payload: {} }),
-        blob: async () => new Blob([bytes], { type: 'application/octet-stream' }),
-      }
-      return respond as unknown as Response
+        headers: { 'Content-Type': 'application/octet-stream' },
+      })
     } else if (method === 'GET' && url.includes('/sessions') && !url.includes('/messages')) {
       payload = [{ id: '72057594037927936', status: opts.sessionsStatus ?? 'active', version: 3 }]
     } else if (method === 'GET' && url.includes('/messages')) {
