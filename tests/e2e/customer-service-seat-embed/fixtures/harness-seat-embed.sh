@@ -141,7 +141,7 @@ http {
             proxy_buffering off; proxy_cache off;
             proxy_read_timeout 3600s; proxy_send_timeout 3600s;
         }
-        location ~ ^/api/v1/cs/organizations/[0-9A-Za-z_-]+/seats/me/events\$ {
+        location ~ ^/api/v1/(seat/)?cs/organizations/[0-9A-Za-z_-]+/seats/me/events\$ {
             proxy_pass $BE;
             proxy_http_version 1.1;
             proxy_set_header Host \$http_host;
@@ -176,16 +176,18 @@ http {
             proxy_read_timeout 300s; proxy_send_timeout 300s;
         }
 
-        # ── 坐席子路径精确正则 ×2 + 前缀白名单 ×3（r3-B1 收敛；与生产模板──
+        # ── 坐席子路径精确正则 ×2 + 前缀白名单 ×4（r3-B1 收敛；与生产模板──
         #    cs-widget.conf.template 的 location 指令逐字符一致，FIX-1 语义）。
         #    坐席工作台实际子路径：seat-contexts / transfer-targets /
         #    sessions(queue|:id|:id/(claim|transfer|close|read-cursor|context)) /
         #    seats(sessions|me/heartbeat|me/presence)；enterprise 侧 assets
         #    (presign|confirm|:id/content) + conversations/:conv/messages。
+        #    (seat/)? 双形态兼容后端 seat_console_route 镜像注册（前端发
+        #    /api/v1/seat/… 形态；漏放行 = SSE/API 404 = 无实时推送）。
         #    治理面/访客面/整族前缀一律不匹配 → 落 location / → 静态 404。
-        location ~ ^/api/v1/cs/(me/seat-contexts|organizations/[0-9A-Za-z_-]+/(transfer-targets|sessions/(queue|[0-9A-Za-z_-]+(/(claim|transfer|close|read-cursor|context))?)|seats/(sessions|me/(heartbeat|presence))))\$ { proxy_pass $BE; proxy_http_version 1.1; proxy_set_header Host \$http_host;
+        location ~ ^/api/v1/(seat/)?cs/(me/seat-contexts|organizations/[0-9A-Za-z_-]+/(transfer-targets|sessions/(queue|[0-9A-Za-z_-]+(/(claim|transfer|close|read-cursor|context))?)|seats/(sessions|me/(heartbeat|presence))))\$ { proxy_pass $BE; proxy_http_version 1.1; proxy_set_header Host \$http_host;
             proxy_set_header X-Forwarded-Proto \$scheme; }
-        location ~ ^/api/v1/enterprise/organizations/[0-9A-Za-z_-]+/(assets/(presign|confirm|[0-9A-Za-z_-]+/content)|conversations/[0-9A-Za-z_-]+/messages)\$ { proxy_pass $BE; proxy_http_version 1.1; proxy_set_header Host \$http_host;
+        location ~ ^/api/v1/(seat/)?enterprise/organizations/[0-9A-Za-z_-]+/(assets/(presign|confirm|[0-9A-Za-z_-]+/content)|conversations/[0-9A-Za-z_-]+/messages)\$ { proxy_pass $BE; proxy_http_version 1.1; proxy_set_header Host \$http_host;
             proxy_set_header X-Forwarded-Proto \$scheme; }
         # 访客 Widget API 既有独立前缀（原并入 /api/v1/cs/ 前缀，收敛后与
         # 生产模板同形独立列出 —— 访客链路 /api/v1/cs/widget/* 回归不变）。
@@ -193,7 +195,11 @@ http {
             proxy_set_header X-Forwarded-Proto \$scheme; }
         location /api/v1/passport/qr_login/ { proxy_pass $BE; proxy_http_version 1.1; proxy_set_header Host \$http_host;
             proxy_set_header X-Forwarded-Proto \$scheme; }
-        location /api/v1/enterprise/conversations/ { proxy_pass $BE; proxy_http_version 1.1; proxy_set_header Host \$http_host;
+        location ^~ /api/v1/enterprise/conversations/ { proxy_pass $BE; proxy_http_version 1.1; proxy_set_header Host \$http_host;
+            proxy_set_header X-Forwarded-Proto \$scheme; }
+        # 坐席控制台镜像形态（seatApiClient 前缀族 /api/v1/seat/enterprise/…），
+        # 与生产模板同规则并列放行。
+        location ^~ /api/v1/seat/enterprise/conversations/ { proxy_pass $BE; proxy_http_version 1.1; proxy_set_header Host \$http_host;
             proxy_set_header X-Forwarded-Proto \$scheme; }
 
         # ── 静态产物 → 18080（缓存头由静态面下发，网关不覆写）────────────────

@@ -64,10 +64,14 @@ function attrValue(tag: string, name: string): string | null {
 // 路由 ∩ journey/workbench 实际调用面。任何一侧新增调用或新增代理组都必须
 // 同步改这份清单 —— 清单即双向最小性合同（多余组 / 缺组 / 整族前缀回潮都 fail）。
 // 正则形状与生产模板 cs-widget.conf.template 逐字符一致（S12 双侧比对）。
+// (seat/)? 双形态：后端 seat_console_route 对坐席面双注册 human（/api/v1/cs/…）
+// 与控制台镜像（/api/v1/seat/cs/…，前端 seatApiClient/SeatEventStream 实际
+// 发送形态）两组路由；网关漏放行镜像形态 = SSE/API 全 404 = 坐席端失去实时
+// 推送（2026-10-03 坐席消息延迟根因，S11 方向 3 据此早已可判红）。
 const SEAT_CS_API_REGEX =
-  '^/api/v1/cs/(me/seat-contexts|organizations/[0-9A-Za-z_-]+/(transfer-targets|sessions/(queue|[0-9A-Za-z_-]+(/(claim|transfer|close|read-cursor|context))?)|seats/(sessions|me/(heartbeat|presence))))$'
+  '^/api/v1/(seat/)?cs/(me/seat-contexts|organizations/[0-9A-Za-z_-]+/(transfer-targets|sessions/(queue|[0-9A-Za-z_-]+(/(claim|transfer|close|read-cursor|context))?)|seats/(sessions|me/(heartbeat|presence))))$'
 const SEAT_ENTERPRISE_API_REGEX =
-  '^/api/v1/enterprise/organizations/[0-9A-Za-z_-]+/(assets/(presign|confirm|[0-9A-Za-z_-]+/content)|conversations/[0-9A-Za-z_-]+/messages)$'
+  '^/api/v1/(seat/)?enterprise/organizations/[0-9A-Za-z_-]+/(assets/(presign|confirm|[0-9A-Za-z_-]+/content)|conversations/[0-9A-Za-z_-]+/messages)$'
 
 /** 网关坐席 API 代理组冻结清单（normalized location 指令形状；排序无关）。 */
 const API_PROXY_GROUPS: readonly string[] = [
@@ -75,16 +79,33 @@ const API_PROXY_GROUPS: readonly string[] = [
   `location ~ ${SEAT_ENTERPRISE_API_REGEX}`,
   'location /api/v1/cs/widget/',
   'location /api/v1/passport/qr_login/',
-  'location /api/v1/enterprise/conversations/',
+  'location ^~ /api/v1/enterprise/conversations/',
+  'location ^~ /api/v1/seat/enterprise/conversations/',
 ]
 
 /** 客户端域白名单族冻结清单（= seatApiClient.ts SEAT_PATH_PREFIXES 的合同投影）。 */
 const CLIENT_DOMAIN_FAMILIES: readonly string[] = [
-  '/api/v1/cs/',
+  '/api/v1/seat/cs/',
   '/api/v1/passport/qr_login/',
-  '/api/v1/enterprise/conversations/',
-  '/api/v1/enterprise/organizations/',
+  '/api/v1/seat/enterprise/conversations/',
+  '/api/v1/seat/enterprise/organizations/',
 ]
+
+/**
+ * 网关组形状归一：① 剥 (seat/)? 双形态兼容段（正则组）；② 镜像前缀组的
+ * 字面 /api/v1/seat/ 前缀折算回 human 骨架——与客户端族归一口径对齐
+ * （S11 方向 1/2 双侧同落 human 骨架再比对，不归一会把双形态/镜像组
+ * 误判为「缺覆盖 / 越出白名单」）。
+ */
+function normalizeGatewayShape(shape: string): string {
+  return shape.replace('(seat/)?', '').replace('/api/v1/seat/', '/api/v1/')
+}
+
+/** 客户端族归一：镜像形态族（/api/v1/seat/…）折算回 human 骨架族，
+ * 与 normalizeGatewayShape 的归一口径对齐（双侧同落 human 骨架再比对）。 */
+function normalizeClientFamily(family: string): string {
+  return family.replace('/api/v1/seat/', '/api/v1/')
+}
 
 /**
  * 从渲染 conf 抽取 /api/v1 代理组 location 指令形状：
@@ -153,8 +174,8 @@ test.describe('SC-E2E 静态合同：harness 渲染的 nginx 模板', () => {
   test('S4 Seat SSE 与 Widget SSE buffering/cache off + 长超时；普通 API 不误套', () => {
     // Widget SSE（既有行为回归不变）
     expect(conf).toMatch(/location ~ \^\/api\/v1\/cs\/widget\/sessions\/\[0-9A-Za-z_-\]\+\/events\$ \{[\s\S]*?proxy_buffering off; proxy_cache off;[\s\S]*?proxy_read_timeout 3600s;/)
-    // Seat SSE：/api/v1/cs/organizations/:org/seats/me/events
-    expect(conf).toMatch(/location ~ \^\/api\/v1\/cs\/organizations\/\[0-9A-Za-z_-\]\+\/seats\/me\/events\$ \{[\s\S]*?proxy_buffering off; proxy_cache off;[\s\S]*?proxy_read_timeout 3600s;/)
+    // Seat SSE：/api/v1/(seat/)?cs/organizations/:org/seats/me/events（双形态）
+    expect(conf).toMatch(/location ~ \^\/api\/v1\/\(seat\/\)\?cs\/organizations\/\[0-9A-Za-z_-\]\+\/seats\/me\/events\$ \{[\s\S]*?proxy_buffering off; proxy_cache off;[\s\S]*?proxy_read_timeout 3600s;/)
   })
 
   test('S5 seat-assets 稳定别名 no-cache must-revalidate；/assets/ immutable；缓存头只在静态面', () => {
@@ -259,17 +280,25 @@ test.describe('SC-E2E 静态合同：种子 / 常量 / 宿主页同源', () => {
 
     const conf = renderNginxConf()
     const groups = apiProxyLocations(conf)
+    // 指令头剥离覆盖三种 location 形态（regex `location ~ ^`、前缀 `location ^~ `、
+    // 普通前缀 `location `），剥完归一（剥 (seat/)?）再与客户端族比对。
+    const shapeOf = (g: string): string =>
+      normalizeGatewayShape(
+        g.replace(/^location ~ \^?/, '').replace(/^location \^~ /, '').replace(/^location /, ''),
+      )
     for (const family of clientFamilies) {
-      const covered = groups.some((g) => g.replace(/^location ~ \^?/, '').startsWith(family) ||
-        g.startsWith(`location ${family}`))
+      const covered =
+        groups.some((g) => shapeOf(g).startsWith(normalizeClientFamily(family))) ||
+        groups.some((g) => g.startsWith(`location ${family}`))
       expect(covered, `网关缺客户端族 ${family} 的覆盖组`).toBe(true)
     }
 
     // —— 方向 2（网关 → 客户端）：每个网关组必须落在客户端域白名单族内
-    //    （多余族 = 攻击面放大，直接 fail）。
+    //    （多余族 = 攻击面放大，直接 fail）。两侧形状先归一（网关剥 (seat/)?、
+    //    客户端族折算 human 骨架）再比对。
     for (const g of groups) {
-      const shape = g.replace(/^location ~ \^?/, '').replace(/^location /, '')
-      const justified = clientFamilies.some((f) => shape.startsWith(f))
+      const shape = shapeOf(g)
+      const justified = clientFamilies.some((f) => shape.startsWith(normalizeClientFamily(f)))
       expect(justified, `网关组越出客户端域白名单：${g}`).toBe(true)
     }
 
@@ -283,13 +312,14 @@ test.describe('SC-E2E 静态合同：种子 / 常量 / 宿主页同源', () => {
     const admitted: RegExp[] = [
       new RegExp(SEAT_CS_API_REGEX),
       new RegExp(SEAT_ENTERPRISE_API_REGEX),
-      /^\/api\/v1\/cs\/organizations\/[0-9A-Za-z_-]+\/seats\/me\/events$/,
+      /^\/api\/v1\/(seat\/)?cs\/organizations\/[0-9A-Za-z_-]+\/seats\/me\/events$/,
       /^\/api\/v1\/cs\/widget\/sessions\/[0-9A-Za-z_-]+\/events$/,
     ]
     const prefixFamilies = [
       '/api/v1/cs/widget/',
       '/api/v1/passport/qr_login/',
       '/api/v1/enterprise/conversations/',
+      '/api/v1/seat/enterprise/conversations/',
     ]
     const pathSources = [
       'src/modules/customer_service/seat/seatContexts.ts',
@@ -397,7 +427,7 @@ test.describe('SC-E2E 静态合同：生产 nginx 模板 ↔ harness conf 逐合
     const localSse = sseOf(local)
     expect(localSse, 'harness conf 的 SSE 正则集合与生产模板不一致').toEqual(prodSse)
     expect(prodSse).toEqual([
-      '^/api/v1/cs/organizations/[0-9A-Za-z_-]+/seats/me/events$', // Seat SSE（SC-OPS-A03）
+      '^/api/v1/(seat/)?cs/organizations/[0-9A-Za-z_-]+/seats/me/events$', // Seat SSE（SC-OPS-A03，human+镜像双形态）
       '^/api/v1/cs/widget/sessions/[0-9A-Za-z_-]+/events$', // Widget SSE（既有回归不变）
     ])
 
