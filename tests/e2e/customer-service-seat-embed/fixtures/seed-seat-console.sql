@@ -16,6 +16,12 @@
 --   retention policy           1603940848519158 / 1603940848519159
 --   widget installation        1603940848519160（访客链路用；public_widget_id 702000000000000101）
 --   identity assignment        1603940848519161
+--   第二占位 user（assignment_B 专用） 1603940848519164
+--     —— uq_obia_active_user_function（partial unique, active+非空 user）要求
+--     同 org 内同 user_id 不得有两行 active assignment；A/B 两行 assignment
+--     种子期不得共用 1603940848519154，否则 fresh 库首插即撞约束整事务回滚
+--     （2026-10-04 并行验收实证；harness d/d2 段随后 UPDATE 为各自真实 uid，
+--     本占位仅渡过种子期）。
 --   seat console               7003004002001001   (CS153_E2E_CONSOLE_PUBLIC_ID，public id = id 十进制串)
 --
 -- 注意：坐席登录账号（passport/signup 建号）的 uid 需绑定到本种子的成员行，
@@ -25,6 +31,10 @@ BEGIN;
 
 INSERT INTO "user" (id, nickname, account, password, reg_ip, reg_cosv)
 VALUES (1603940848519154, 'sc153-e2e-owner', 'sc153-e2e-owner@cse2e.test', 'x', '127.0.0.1', 'e2e')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO "user" (id, nickname, account, password, reg_ip, reg_cosv)
+VALUES (1603940848519164, 'sc153-e2e-seat2-ph', 'sc153-e2e-seat2-ph@cse2e.test', 'x', '127.0.0.1', 'e2e')
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO organization (id, name, owner_id)
@@ -86,8 +96,9 @@ ON CONFLICT DO NOTHING;
 -- 每 (org, business_identity_id) 只一条 active 行，A/B 不能共享身份；identity_B
 -- 有自己的 seat 行（PK=business_identity_id）承载独立 max_concurrent=1，claim
 -- 归属（session.business_identity_id）也因此可区分到坐席个人。
--- assignment 行 user_id 是种子占位 uid（1603940848519154，与 A 行同款——
--- fk_obia_user 要求占位 uid 必须是 user 表内真实存在的种子账号），由
+-- assignment 行 user_id 是种子占位 uid（1603940848519164，A 行用 1603940848519154——
+-- fk_obia_user 要求占位 uid 必须是 user 表内真实存在的种子账号，且
+-- uq_obia_active_user_function 禁止两行 active 共用同一 uid），由
 -- harness-seat-embed.sh 第二坐席绑定段
 -- UPDATE 为 signup 产出的真实 uid（与 1603940848519161 行同款手法）。
 -- member 行刻意不进 seed：既有 harness 绑定段是全表
@@ -101,7 +112,7 @@ ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO organization_business_identity_assignment
   (id, organization_id, business_identity_id, function_key, user_id, status, assigned_at, assigned_by)
-VALUES (1603940848519163, 1603940848519155, 1603940848519162, 'customer_service', 1603940848519154, 'active', now(), 1603940848519154)
+VALUES (1603940848519163, 1603940848519155, 1603940848519162, 'customer_service', 1603940848519164, 'active', now(), 1603940848519154)
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO customer_service_seat

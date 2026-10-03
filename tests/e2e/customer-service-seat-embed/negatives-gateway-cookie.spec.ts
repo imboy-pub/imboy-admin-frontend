@@ -24,7 +24,8 @@
  */
 import { expect, test as base, type Browser } from '@playwright/test'
 import type { APIRequestContext } from '@playwright/test'
-import { ADMIN_ORIGIN, CONSOLE_PUBLIC_ID, CS_ORIGIN, EXECUTE_ENABLED, ORG_ID, WORKSPACE_ID } from './helpers/env'
+import {
+  SHOP, ADMIN_ORIGIN, CONSOLE_PUBLIC_ID, CS_ORIGIN, EXECUTE_ENABLED, ORG_ID, WORKSPACE_ID } from './helpers/env'
 import { adminLogin } from './helpers/admin-ui'
 
 /**
@@ -116,7 +117,7 @@ test.describe('SC-E2E 负例C：会话 Cookie 走网关面', () => {
 
     // bootstrap 是零凭证面（S3 合同）——经网关取真实 installation_id。
     const boot = await gateway.post('/api/v1/cs/widget/bootstrap', {
-      headers: { origin: 'https://shop.test:18443' },
+      headers: { origin: `${SHOP}/` },
       data: { public_widget_id: '702000000000000101', subject_id: `sc153-specC-${Date.now()}` },
     })
     expect(boot.status(), 'bootstrap 经网关必须 200').toBe(200)

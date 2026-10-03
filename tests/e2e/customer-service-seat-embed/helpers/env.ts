@@ -15,10 +15,18 @@ import { execFileSync } from 'node:child_process'
 
 /** seat 网关 frame origin（= 生产 https://cs.imboy.pub 的本地等价）。 */
 export const CS_ORIGIN = process.env.SC153_E2E_CS_ORIGIN ?? 'https://cs.test:18443'
-export const SHOP = 'https://shop.test:18443'
-export const SHOP2 = 'https://shop2.test:18443'
-export const EVIL = 'https://evil.test:18443'
-export const ADMIN_ORIGIN = 'https://admin.test:18443'
+/**
+ * 网关 TLS 端口（2026-10-04 并行验收参数化；默认 18443 = 原固定拓扑，向后兼容）。
+ * 四个测试域 origin 与 CS_ORIGIN 同端口派生，保证「一份 effective 端口、全程一致」；
+ * harness 的 nginx listen 与种子 allowed_origins 用同一 SC153_E2E_GW_PORT 替换。
+ */
+export const GW_PORT = process.env.SC153_E2E_GW_PORT ?? '18443'
+export const SHOP = `https://shop.test:${GW_PORT}`
+export const SHOP2 = `https://shop2.test:${GW_PORT}`
+export const EVIL = `https://evil.test:${GW_PORT}`
+export const ADMIN_ORIGIN = `https://admin.test:${GW_PORT}`
+/** node 侧 IP 直连网关基址（自签证书 + cs.test vhost 为该端口声明序首个=default server）。 */
+export const GW_IP_BASE = `https://127.0.0.1:${GW_PORT}`
 
 /** 坐席侧主 API 面（直连 backend；网关上游同源面见 harness nginx 模板）。 */
 export const BE_MAIN = process.env.SC153_E2E_BACKEND ?? 'http://127.0.0.1:9801'

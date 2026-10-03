@@ -21,6 +21,8 @@ import {
   CS_ORIGIN,
   EVIL,
   EXECUTE_ENABLED,
+  GW_IP_BASE,
+  GW_PORT,
   ORG_ID,
   psql,
   restoreConsoleOrigins,
@@ -237,7 +239,7 @@ test.describe('SC-E2E A01..A10（EXECUTE-GATED）', () => {
       // ignoreHTTPSErrors 放行（self-signed harness 证书）。
       const cookieHeader = admCookies.map((c) => `${c.name}=${c.value}`).join('; ')
       const replay = await adminCtx.request.get(
-        `https://127.0.0.1:18443/api/v1/cs/organizations/${ORG_ID}/seats/me/heartbeat?workspace_id=${WORKSPACE_ID}`,
+        `${GW_IP_BASE}/api/v1/cs/organizations/${ORG_ID}/seats/me/heartbeat?workspace_id=${WORKSPACE_ID}`,
         { headers: { cookie: cookieHeader } },
       )
       expect([401, 403], `Admin Cookie 重放 seat API 必须 401/403，got ${replay.status()}`).toContain(replay.status())
@@ -369,7 +371,8 @@ test.describe('SC-E2E A01..A10（EXECUTE-GATED）', () => {
       // REVIEW-2 B-5②：origin 归一化边界（BE 六禁门语义的 E2E 钉子）——名单
       // 写成 http:// 形态或端口漂移形态时，https 宿主必须被拒（scheme/端口
       // 不参与宽松归一，精确匹配才放行）。
-      for (const driftOrigin of ['http://shop2.test:18443', 'https://shop2.test:18444']) {
+      // drift 端口随 GW_PORT 派生（默认 18443 → 18444 = 原固定语义；GW_PORT+1 保证非当前端口）。
+      for (const driftOrigin of [`http://shop2.test:${GW_PORT}`, `https://shop2.test:${Number(GW_PORT) + 1}`]) {
         rotateConsoleOrigins(CONSOLE_PUBLIC_ID, driftOrigin)
         const driftPage = await browser.newPage()
         const driftErrors: string[] = []
@@ -571,14 +574,14 @@ test.describe('SC-E2E A01..A10（EXECUTE-GATED）', () => {
         .waitForEvent('framenavigated', { timeout: 3_000 })
         .then((f) => `navigated:${f.url()}`)
         .catch(() => null)
-      const navProbe = await seatFrame.evaluate(async () => {
+      const navProbe = await seatFrame.evaluate(async (evilUrl) => {
         try {
-          window.top!.location.href = 'https://evil.test:18443/sc153-top-pwned'
+          window.top!.location.href = evilUrl
         } catch (err) {
           return `threw:${(err as Error).name}`
         }
         return 'no-throw'
-      })
+      }, `${EVIL}/sc153-top-pwned`)
       const navEvent = await navEventP
       expect(
         navEvent,
@@ -592,10 +595,10 @@ test.describe('SC-E2E A01..A10（EXECUTE-GATED）', () => {
 
       // 负能力 2：popup —— 无 allow-popups，window.open 返回 null 且无新页。
       const popupP = page.context().waitForEvent('page', { timeout: 3_000 }).catch(() => null)
-      const popupResult = await seatFrame.evaluate(() => {
-        const w = window.open('https://evil.test:18443/sc153-popup-pwned')
+      const popupResult = await seatFrame.evaluate((evilUrl) => {
+        const w = window.open(evilUrl)
         return w === null ? 'blocked-null' : 'opened'
-      })
+      }, `${EVIL}/sc153-popup-pwned`)
       const popup = await popupP
       expect(popupResult, 'window.open 必须返回 null（allow-popups 未授予）').toBe('blocked-null')
       expect(popup, '不得产生任何 popup 页面').toBeNull()
@@ -606,10 +609,10 @@ test.describe('SC-E2E A01..A10（EXECUTE-GATED）', () => {
         .waitForEvent('framenavigated', { timeout: 3_000 })
         .then((f) => `navigated:${f.url()}`)
         .catch(() => null)
-      const formProbe = await seatFrame.evaluate(async () => {
+      const formProbe = await seatFrame.evaluate(async (evilUrl) => {
         const form = document.createElement('form')
         form.method = 'GET'
-        form.action = 'https://evil.test:18443/sc153-form-pwned'
+        form.action = evilUrl
         document.body.appendChild(form)
         try {
           form.submit()
@@ -617,7 +620,7 @@ test.describe('SC-E2E A01..A10（EXECUTE-GATED）', () => {
           return `threw:${(err as Error).name}`
         }
         return 'submitted'
-      })
+      }, `${EVIL}/sc153-form-pwned`)
       const formNavEvent = await formNavEventP
       expect(
         formNavEvent,

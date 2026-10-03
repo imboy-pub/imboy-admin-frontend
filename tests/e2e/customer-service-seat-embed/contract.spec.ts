@@ -26,7 +26,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 import { expect, test } from '@playwright/test'
-import { ALLOWED_ORIGIN, CONSOLE_PUBLIC_ID, CS_ORIGIN, IFRAME_SANDBOX_EXACT, ORG_ID, WIDGET_PUBLIC_ID, WORKSPACE_ID } from './helpers/env'
+import { ADMIN_ORIGIN, ALLOWED_ORIGIN, BE_MAIN, CONSOLE_PUBLIC_ID, CS_ORIGIN, EVIL, IFRAME_SANDBOX_EXACT, ORG_ID, SHOP, SHOP2, WIDGET_PUBLIC_ID, WORKSPACE_ID } from './helpers/env'
 
 const ROOT = process.cwd()
 const HERE = path.join(ROOT, 'tests/e2e/customer-service-seat-embed')
@@ -149,7 +149,9 @@ test.describe('SC-E2E 静态合同：harness 渲染的 nginx 模板', () => {
   })
 
   test('S2 /seat/ 动态 frame 代理存在且指向 backend；网关零注入 CSP/XFO', () => {
-    expect(conf).toMatch(/location \^~ \/seat\/ \{[\s\S]*?proxy_pass http:\/\/127\.0\.0\.1:9801;/)
+    // BE 指向与 helpers/env.ts BE_MAIN 同源（并行验收 run 可覆盖端口；默认仍 9801）。
+    const beRe = new RegExp(`location \\^~ /seat/ \\{[\\s\\S]*?proxy_pass ${BE_MAIN.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')};`)
+    expect(conf).toMatch(beRe)
     // 网关不添加任何影响 frame 嵌入的头（多 CSP 浏览器取交集；XFO 由 backend 逐路径豁免）
     expect(conf).not.toMatch(/add_header\s+Content-Security-Policy/i)
     expect(conf).not.toMatch(/add_header\s+X-Frame-Options/i)
@@ -251,7 +253,12 @@ test.describe('SC-E2E 静态合同：种子 / 常量 / 宿主页同源', () => {
     expect(values).toContain(CONSOLE_PUBLIC_ID)
     expect(values).toContain(ORG_ID)
     expect(values).toContain(WORKSPACE_ID)
-    expect(values).toContain(`'["${ALLOWED_ORIGIN}"]'::jsonb`)
+    // seed 文件锁定默认端口形态（静态文本）；非默认端口 run 由 harness 的
+    // allowed_origins sed 替换（s|shop.test:18443|shop.test:${GW_PORT}|g），
+    // 替换后与 ALLOWED_ORIGIN 的一致性由 S13 的同源断言钉死。
+    expect(values).toContain(`'["https://shop.test:18443"]'::jsonb`)
+    // 运行时常量自洽（任何端口环境）：合法宿主 origin 与 SHOP 同值。
+    expect(ALLOWED_ORIGIN).toBe(SHOP)
     expect(values).toMatch(/'active'/)
     // 公开 ID 的幂等键：id 与 public_seat_console_id 同值（TSID 十进制串）
     expect(seed).toMatch(new RegExp(`INSERT INTO customer_service_seat_console[\\s\\S]*?\\nVALUES\\s*\\n?\\s*\\(${CONSOLE_PUBLIC_ID},`))
@@ -263,6 +270,40 @@ test.describe('SC-E2E 静态合同：种子 / 常量 / 宿主页同源', () => {
     const visitor = readFixture('host-visitor.html')
     expect(visitor).toContain('__SC153_WIDGET_ID__')
     expect(visitor).toContain('__SC153_CS_ORIGIN__')
+  })
+
+
+  test('S13 端口参数化同源（2026-10-04 并行验收）：conf listen/常量 origin/BE 指向同一份 effective 配置；覆盖环境无默认端口残留（污染拒绝）', () => {
+    const gwPort = process.env.SC153_E2E_GW_PORT ?? '18443'
+    const staticPort = process.env.SC153_E2E_STATIC_PORT ?? '18080'
+    const conf = renderNginxConf()
+
+    // conf 的 TLS listen 端口 = GW_PORT，五个 vhost（cs/shop/shop2/evil/admin）全部一致。
+    expect((conf.match(new RegExp(`listen ${gwPort} ssl;`, 'g')) ?? []).length,
+      `五个 vhost 的 listen 必须同为 ${gwPort}`).toBe(5)
+    // 静态面 listen = STATIC_PORT，且静态 upstream 指向同一端口（网关不指错面）。
+    expect(conf).toMatch(new RegExp(`listen ${staticPort};`))
+    expect((conf.match(new RegExp(`proxy_pass http://127[.]0[.]0[.]1:${staticPort};`, 'g')) ?? []).length,
+      'cs vhost 的静态代理必须全部指向 STATIC_PORT').toBeGreaterThan(0)
+
+    // 配置同源：五个测试域 origin 全部从同一 GW_PORT 派生（env.ts 单一真源）。
+    for (const o of [CS_ORIGIN, SHOP, SHOP2, EVIL, ADMIN_ORIGIN]) {
+      expect(o, `origin ${o} 必须携带本 run 网关端口 :${gwPort}`).toContain(`:${gwPort}`)
+    }
+    // BE 同源：conf 的 proxy_pass 渲染值 == BE_MAIN（helpers 与 nginx 同一 backend）。
+    expect(conf).toContain(`proxy_pass ${BE_MAIN};`)
+
+    // 污染拒绝负例：覆盖环境下，conf 功能行（剥注释）不得残留默认端口/默认 backend。
+    const codeLines = conf.split('\n').filter((l) => !l.trim().startsWith('#')).join('\n')
+    if (gwPort !== '18443') {
+      expect(codeLines, 'GW_PORT 覆盖后 conf 功能行不得残留默认 18443').not.toContain('18443')
+    }
+    if (staticPort !== '18080') {
+      expect(codeLines, 'STATIC_PORT 覆盖后 conf 功能行不得残留默认 18080').not.toContain('18080')
+    }
+    if (BE_MAIN !== 'http://127.0.0.1:9801') {
+      expect(codeLines, 'BE 覆盖后 conf 功能行不得残留默认 9801').not.toContain('9801')
+    }
   })
 
   test('S11 双向最小性：客户端域白名单与子路径调用面 ↔ 网关允许集互为充要（真源绑定 src）', () => {

@@ -35,6 +35,10 @@
 #   3) （A08 用）Admin 治理面超管已首启（/api/adm/setup/init，captcha 1234 为
 #      local 合同测试码）—— 与 P2 同口径由 run 环境提供；脚本只探测并告警。
 #
+# 环境变量（2026-10-04 增补）：SC153_E2E_GW_PORT(默认18443) /
+#           SC153_E2E_STATIC_PORT(默认18080) / SC153_E2E_WORKDIR(默认随机 mktemp) ——
+#           并行验收 run 用以独占 nginx 端口/pid/temp/prefix；种子 allowed_origins
+#           的 shop origin 端口随 GW_PORT 同步替换（与 helpers/env.ts 同源派生）。
 # 环境变量：SC153_E2E_PG_DB / SC153_E2E_PG_CONTAINER / SC153_E2E_PG_USER /
 #           SC153_E2E_BACKEND / SC153_E2E_MASTER_CODE / SC153_E2E_SEAT_ACCOUNT /
 #           SC153_E2E_SEAT_PASSWORD / SC153_E2E_ORG_ID / SC153_E2E_WORKSPACE_ID /
@@ -73,6 +77,11 @@ WORKSPACE_ID="${SC153_E2E_WORKSPACE_ID:-1603940848519156}"
 PUBLIC_ID="${SC153_E2E_CONSOLE_PUBLIC_ID:-7003004002001001}"
 WIDGET_PUBLIC_ID="${SC153_E2E_WIDGET_ID:-702000000000000101}"
 CS_ORIGIN="${SC153_E2E_CS_ORIGIN:-https://cs.test:18443}"
+# 端口/工作目录参数化（2026-10-04 并行验收：默认值=原固定值，向后兼容；
+# 本 run 经 SC153_E2E_GW_PORT/SC153_E2E_STATIC_PORT/SC153_E2E_WORKDIR 覆盖为独占值）。
+GW_PORT="${SC153_E2E_GW_PORT:-18443}"
+STATIC_PORT="${SC153_E2E_STATIC_PORT:-18080}"
+STATIC_UPSTREAM="http://127.0.0.1:${STATIC_PORT}"
 ADMIN_DIST="$ROOT/dist"
 STATIC_ROOT="$ROOT/dist-widget"
 
@@ -108,7 +117,7 @@ http {
     #   loader/seat-assets 稳定别名 no-cache must-revalidate；/assets/ immutable；
     #   frame 壳与未知路径 no-store（fail-closed）。
     server {
-        listen 18080;
+        listen $STATIC_PORT;
         server_name _;
         root $STATIC_ROOT;
         index index.html;
@@ -122,7 +131,7 @@ http {
 
     # ---- cs.test：seat 网关 vhost（= 生产 cs.imboy.pub 本地等价）-------------
     server {
-        listen 18443 ssl;
+        listen $GW_PORT ssl;
         http2 on;
         server_name cs.test;
         ssl_certificate $WORKDIR/fullchain.pem;
@@ -203,17 +212,17 @@ http {
             proxy_set_header X-Forwarded-Proto \$scheme; }
 
         # ── 静态产物 → 18080（缓存头由静态面下发，网关不覆写）────────────────
-        location = /v1/loader.js { proxy_pass http://127.0.0.1:18080; }
-        location ^~ /seat-assets/ { proxy_pass http://127.0.0.1:18080; }
-        location ^~ /assets/ { proxy_pass http://127.0.0.1:18080; }
-        location ^~ /widget/ { proxy_pass http://127.0.0.1:18080; }
-        location ^~ /widget-assets/ { proxy_pass http://127.0.0.1:18080; }
-        location = /health.txt { proxy_pass http://127.0.0.1:18080; }
-        location = /manifest.json { proxy_pass http://127.0.0.1:18080; }
+        location = /v1/loader.js { proxy_pass $STATIC_UPSTREAM; }
+        location ^~ /seat-assets/ { proxy_pass $STATIC_UPSTREAM; }
+        location ^~ /assets/ { proxy_pass $STATIC_UPSTREAM; }
+        location ^~ /widget/ { proxy_pass $STATIC_UPSTREAM; }
+        location ^~ /widget-assets/ { proxy_pass $STATIC_UPSTREAM; }
+        location = /health.txt { proxy_pass $STATIC_UPSTREAM; }
+        location = /manifest.json { proxy_pass $STATIC_UPSTREAM; }
 
         # 其余路径 fail-closed 落静态 404（含未列入白名单的 /api/v1/* —— 无
         # 全量 API 代理，网关不放大攻击面）。
-        location / { proxy_pass http://127.0.0.1:18080; proxy_set_header Host \$http_host; }
+        location / { proxy_pass $STATIC_UPSTREAM; proxy_set_header Host \$http_host; }
 
         # 安全响应头刻意最小集（与生产 cs-widget.conf.template 同边界）：
         # 不加 X-Frame-Options、不加 Content-Security-Policy（由 backend 逐路径
@@ -225,7 +234,7 @@ http {
 
     # ---- shop.test：合法宿主（iframe snippet 挂载点 + 访客页）----------------
     server {
-        listen 18443 ssl;
+        listen $GW_PORT ssl;
         http2 on;
         server_name shop.test;
         ssl_certificate $WORKDIR/fullchain.pem;
@@ -237,7 +246,7 @@ http {
 
     # ---- shop2.test：第二合法宿主（A06 origin 轮换目标）----------------------
     server {
-        listen 18443 ssl;
+        listen $GW_PORT ssl;
         http2 on;
         server_name shop2.test;
         ssl_certificate $WORKDIR/fullchain.pem;
@@ -249,7 +258,7 @@ http {
 
     # ---- evil.test：负例宿主（origin 永不在 allowed_origins）-----------------
     server {
-        listen 18443 ssl;
+        listen $GW_PORT ssl;
         http2 on;
         server_name evil.test;
         ssl_certificate $WORKDIR/fullchain.pem;
@@ -261,7 +270,7 @@ http {
 
     # ---- admin.test：Admin SPA dist（/api/adm 反代 backend；其余 SPA fallback）
     server {
-        listen 18443 ssl;
+        listen $GW_PORT ssl;
         http2 on;
         server_name admin.test;
         ssl_certificate $WORKDIR/fullchain.pem;
@@ -341,11 +350,16 @@ docker exec "$PG_CONTAINER" psql -U "$PG_USER" -d "$PG_DB" -tAc \
 log "迁移 head：${HEADROW}（seat_console 表就位）"
 
 # ---- c. 种子（默认 id 可经环境覆盖：sed 精确替换三个可变 id）------------------
-WORKDIR="$(mktemp -d /tmp/sc153-seat-embed-harness.XXXXXX)"
+if [ -n "${SC153_E2E_WORKDIR:-}" ]; then
+  WORKDIR="$SC153_E2E_WORKDIR"; mkdir -p "$WORKDIR"
+else
+  WORKDIR="$(mktemp -d /tmp/sc153-seat-embed-harness.XXXXXX)"
+fi
 SEED_TMP="$WORKDIR/seed-seat-console.sql"
 sed -e "s/1603940848519155/$ORG_ID/g" \
     -e "s/1603940848519156/$WORKSPACE_ID/g" \
     -e "s/7003004002001001/$PUBLIC_ID/g" \
+    -e "s|https://shop.test:18443|https://shop.test:${GW_PORT}|g" \
     "$HERE/seed-seat-console.sql" > "$SEED_TMP"
 docker exec -i "$PG_CONTAINER" psql -U "$PG_USER" -d "$PG_DB" -v ON_ERROR_STOP=1 \
   -f - < "$SEED_TMP" >/dev/null
@@ -443,9 +457,9 @@ sleep 1
 # ---- h. 冒烟：cs 网关静态面 + seat frame 面真实可达 ------------------------------
 # -f 必须带上（DEF-SC153-05 一并修）：无 -f 时 404 响应也算 curl 成功，
 # 冒烟对静态面故障完全不设防。
-curl -skf -o /dev/null --resolve cs.test:18443:127.0.0.1 "https://cs.test:18443/v1/loader.js" \
+curl -skf -o /dev/null --resolve "cs.test:${GW_PORT}:127.0.0.1" "https://cs.test:${GW_PORT}/v1/loader.js" \
   || { echo "nginx 拓扑冒烟失败（loader 静态面）" >&2; exit 3; }
-SEAT_CODE=$(curl -sk -o /dev/null -w '%{http_code}' --resolve cs.test:18443:127.0.0.1 "https://cs.test:18443/seat/$PUBLIC_ID")
+SEAT_CODE=$(curl -sk -o /dev/null -w '%{http_code}' --resolve "cs.test:${GW_PORT}:127.0.0.1" "https://cs.test:${GW_PORT}/seat/$PUBLIC_ID")
 if [ "$SEAT_CODE" != "200" ]; then
   echo "seat frame 冒烟失败：GET /seat/$PUBLIC_ID → HTTP ${SEAT_CODE}（预期 200；404 = backend seat 路由缺位或 console 状态异常）" >&2
   exit 3

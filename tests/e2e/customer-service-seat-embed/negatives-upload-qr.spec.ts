@@ -24,7 +24,8 @@
 import { createHash } from 'node:crypto'
 import { expect, test as base } from '@playwright/test'
 import type { APIRequestContext } from '@playwright/test'
-import { BE_MAIN, EXECUTE_ENABLED, ORG_ID, SEAT, psql } from './helpers/env'
+import {
+  SHOP, BE_MAIN, EXECUTE_ENABLED, ORG_ID, SEAT, psql } from './helpers/env'
 
 /** API 面夹具：覆写内置 request 直连后端（config baseURL 是 admin dev server）。 */
 const test = base.extend<{ request: APIRequestContext }>({
@@ -57,7 +58,7 @@ async function newVisitorIdentity(
   marker: string,
 ): Promise<{ installationId: string; token: string; sessionId: string }> {
   const boot = await request.post('/api/v1/cs/widget/bootstrap', {
-    headers: { origin: 'https://shop.test:18443' },
+    headers: { origin: `${SHOP}/` },
     data: { public_widget_id: '702000000000000101', subject_id: `sc153-specB-${marker}` },
   })
   expect(boot.status()).toBe(200)
