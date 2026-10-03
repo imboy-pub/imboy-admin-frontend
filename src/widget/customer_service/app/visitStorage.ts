@@ -27,8 +27,11 @@ export type VisitRecoveryRecord = {
   expiresAtMs: number
 }
 
-/** 「短期」缺省 TTL：30 分钟。浏览器关闭后 sessionStorage 本就不承诺持续。 */
-export const SUBJECT_TTL_MS_DEFAULT = 30 * 60 * 1000
+/**
+ * 「短期」缺省 TTL：24 小时（产品裁决 2026-10-03：同标签页一天内刷新可接续
+ * 会话）。浏览器关闭后 sessionStorage 本就不承诺持续，跨标签页/重开浏览器
+ * 仍不可恢复（FE-W01-A05 语义不变，仅放宽同 tab 窗口）。 */
+export const SUBJECT_TTL_MS_DEFAULT = 24 * 60 * 60 * 1000
 
 const KEY_PREFIX = 'imboy-cs:subject:'
 

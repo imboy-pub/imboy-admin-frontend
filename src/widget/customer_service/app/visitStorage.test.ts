@@ -48,6 +48,17 @@ describe('visitStorage（安装作用域 + TTL + 清理）', () => {
     expect(storage.dump()[subjectStorageKey(SCOPE)]).toBeUndefined()
   })
 
+  it('缺省 TTL 为 24 小时（同标签页一天内刷新可接续，产品裁决 2026-10-03）', () => {
+    const storage = memoryStorage()
+    const now = 1_000_000
+    saveVisitSubject(storage, SCOPE, 'subject-abc', now)
+    const record = JSON.parse(storage.dump()[subjectStorageKey(SCOPE)]) as { expiresAtMs: number }
+    expect(record.expiresAtMs - now).toBe(24 * 60 * 60 * 1000)
+    // 23 小时后仍可恢复；25 小时后过期清除
+    expect(loadVisitSubject(storage, SCOPE, now + 23 * 60 * 60 * 1000)).toBe('subject-abc')
+    expect(loadVisitSubject(storage, SCOPE, now + 25 * 60 * 60 * 1000)).toBeNull()
+  })
+
   it('clearVisitSubject 立即清除（拒绝 consent / 吊销 / 退出路径共用）', () => {
     const storage = memoryStorage()
     saveVisitSubject(storage, SCOPE, 'subject-abc', 1000)

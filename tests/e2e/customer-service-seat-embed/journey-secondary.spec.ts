@@ -131,7 +131,7 @@ test.describe('SC-E2E 次要旅程 B01..B03（EXECUTE-GATED）', () => {
 
       // —— 重入：宿主页 reload（同 tab）。驱动口径取证：访客恢复是 iframe origin
       // （cs.test，loader sandbox 含 allow-same-origin）的 sessionStorage 短期
-      // subject（visitStorage.ts FE-W01，TTL 30 分钟）——同 tab 导航保留；产品
+      // subject（visitStorage.ts FE-W01，TTL 24 小时）——同 tab 导航保留；产品
       // 里 widget 内「关闭聊天」（cs-close）是显式退出语义，会清理恢复存储
       // （controller.ts closeAndCleanup → clearVisitSubject），不是重入入口。
       // 新 context 的 sessionStorage 为空（subject 丢失 → 新会话），同样不是
