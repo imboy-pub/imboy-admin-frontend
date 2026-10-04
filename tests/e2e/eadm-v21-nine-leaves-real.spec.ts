@@ -28,7 +28,7 @@ const ENTERPRISE_GROUP_LABEL = '企业管理'
 void ENTERPRISE_GROUP_LABEL
 
 /** 唯一组织名（imboy_test_v1 真实 fixture，count=1）。 */
-const UNIQUE_ORG_NAME = 'cs01-org-113731092317734917'
+const UNIQUE_ORG_NAME = process.env.ADM03_UNIQUE_ORG_NAME ?? 'cs01-org-113731092317734917'
 const NO_MATCH_KEYWORD = 'zzz-adm03-no-such-org'
 
 interface Leaf {

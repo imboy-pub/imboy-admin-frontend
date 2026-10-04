@@ -46,17 +46,17 @@ test.describe('ENT-INT-01 real backend enterprise gate (J-ENT-01/02)', () => {
   test('J-ENT-01a 组织列表与详情（真实 filter 数据）', async ({ page }) => {
     await page.goto('/organizations')
     // 列表真实渲染两个 int02 种子组织。
-    await expect(page.getByText(/int02-org1-/).first()).toBeVisible({ timeout: 30_000 })
-    await expect(page.getByText(/int02-org2-/).first()).toBeVisible()
+    await expect(page.getByText(new RegExp(process.env.ENTINT01_ORG_NAME_RE ?? 'int02-org1-')).first()).toBeVisible({ timeout: 30_000 })
+    await expect(page.getByText(new RegExp(process.env.ENTINT01_ORG2_NAME_RE ?? process.env.ENTINT01_ORG_NAME_RE ?? 'int02-org2-')).first()).toBeVisible()
     // URL 等价：直达详情路由（refresh 语义）渲染同一组织事实。
     await page.goto(`/organizations/${ORG1}`)
-    await expect(page.getByText(/int02-org1-/).first()).toBeVisible({ timeout: 30_000 })
+    await expect(page.getByText(new RegExp(process.env.ENTINT01_ORG_NAME_RE ?? 'int02-org1-')).first()).toBeVisible({ timeout: 30_000 })
   })
 
   test('J-ENT-01b 成员与部门页（真实成员/部门树渲染）', async ({ page }) => {
     await page.goto(`/organizations/${ORG1}/members`)
     // org1 成员：owner O + A + B（int02 种子；account int02-<uid>）。
-    await expect(page.getByText(/int02-94213488575060/).first()).toBeVisible({ timeout: 30_000 })
+    await expect(page.getByText(new RegExp(process.env.ENTINT01_MEMBER_RE ?? 'int02-94213488575060')).first()).toBeVisible({ timeout: 30_000 })
     await page.goto(`/organizations/${ORG1}/departments`)
     // 部门树两级（产品部/工程部/前端组——种子直种）。
     await expect(page.getByText('产品部').first()).toBeVisible({ timeout: 30_000 })

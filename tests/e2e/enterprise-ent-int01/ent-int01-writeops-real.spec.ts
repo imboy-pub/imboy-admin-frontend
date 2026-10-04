@@ -23,7 +23,7 @@ import { expect, test, type Page } from '@playwright/test'
 const BASE = process.env.IMBOY_ADMIN_E2E_BASE_URL || 'http://127.0.0.1:8906'
 const ORACLE_LOG =
   process.env.ENTW_ORACLE_LOG ||
-  '/Users/leeyi/project/imboy.pub/.Codex/runs/cs-agent-entux-v1-20260924T164136Z-539f3dae/evidence/ENT-INT-01/db_oracle.log'
+  '/tmp/ews_seed/db_oracle.log'
 
 // 种子固定 TSID（entw.env 同源；固定 ID 使断言可复现）
 const ORG1 = process.env.ENTW_ORG1 ?? '942134885750600005'
@@ -66,7 +66,7 @@ const ADM_API = '/api/adm'
 // ---------------------------------------------------------------------------
 // DB Oracle：psql 直查 scratch PG（真实后端同库），结果追加落 evidence/db_oracle.log
 // ---------------------------------------------------------------------------
-const PG_DB = 'imboy_csagent_cs-agent-entux-v1-20260924T164136Z-539f3dae'
+const PG_DB = process.env.ENTW_PG_DB ?? 'imboy_csagent_cs-agent-entux-v1-20260924T164136Z-539f3dae'
 
 function psql(sql: string): string {
   const out = execSync(
