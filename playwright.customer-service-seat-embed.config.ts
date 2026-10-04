@@ -48,7 +48,8 @@ export default defineConfig({
         '--no-proxy-server',
       ],
     },
-    baseURL: 'https://shop.test:18443',
+    // 端口与 helpers/env.ts 的 GW_PORT 同源派生（并行验收参数化；默认 18443 不变）。
+    baseURL: `https://shop.test:${process.env.SC153_E2E_GW_PORT ?? '18443'}`,
   },
   projects: [{ name: 'seat-embed-chromium', use: { ...devices['Desktop Chrome'] } }],
 })

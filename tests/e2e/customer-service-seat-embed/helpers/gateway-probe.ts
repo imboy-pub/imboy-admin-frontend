@@ -5,7 +5,7 @@
  * 口径），只读探测，不做任何写操作；失败只返回结构化事实，不重试不代修复。
  */
 import { execFileSync } from 'node:child_process'
-import { CONSOLE_PUBLIC_ID, CS_ORIGIN } from './env'
+import { CONSOLE_PUBLIC_ID, CS_ORIGIN, GW_PORT, SHOP } from './env'
 
 export interface ProbeResult {
   ok: boolean
@@ -16,7 +16,7 @@ function curlCode(url: string, host: string): { code: string; error?: string } {
   try {
     const out = execFileSync(
       'curl',
-      ['-sk', '-o', '/dev/null', '-w', '%{http_code}', '--resolve', `${host}:18443:127.0.0.1`, url],
+      ['-sk', '-o', '/dev/null', '-w', '%{http_code}', '--resolve', `${host}:${GW_PORT}:127.0.0.1`, url],
       { encoding: 'utf8', timeout: 15_000 },
     ).trim()
     return { code: out }
@@ -42,7 +42,7 @@ export function probeSeatFrame(): ProbeResult {
 
 /** 宿主页（shop.test 200 = 宿主 snippet 就绪）。 */
 export function probeShopHost(): ProbeResult {
-  const r = curlCode('https://shop.test:18443/', 'shop.test')
+  const r = curlCode(`${SHOP}/`, 'shop.test')
   return { ok: r.code === '200', detail: `GET shop.test/ -> ${r.code}${r.error ? ' (' + r.error + ')' : ''}` }
 }
 
