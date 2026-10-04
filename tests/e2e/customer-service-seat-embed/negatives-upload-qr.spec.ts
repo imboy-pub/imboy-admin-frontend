@@ -58,7 +58,7 @@ async function newVisitorIdentity(
   marker: string,
 ): Promise<{ installationId: string; token: string; sessionId: string }> {
   const boot = await request.post('/api/v1/cs/widget/bootstrap', {
-    headers: { origin: `${SHOP}/` },
+    headers: { origin: SHOP },
     data: { public_widget_id: '702000000000000101', subject_id: `sc153-specB-${marker}` },
   })
   expect(boot.status()).toBe(200)

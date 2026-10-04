@@ -117,7 +117,7 @@ test.describe('SC-E2E 负例C：会话 Cookie 走网关面', () => {
 
     // bootstrap 是零凭证面（S3 合同）——经网关取真实 installation_id。
     const boot = await gateway.post('/api/v1/cs/widget/bootstrap', {
-      headers: { origin: `${SHOP}/` },
+      headers: { origin: SHOP },
       data: { public_widget_id: '702000000000000101', subject_id: `sc153-specC-${Date.now()}` },
     })
     expect(boot.status(), 'bootstrap 经网关必须 200').toBe(200)
