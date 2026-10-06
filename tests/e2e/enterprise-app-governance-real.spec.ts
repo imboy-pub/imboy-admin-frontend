@@ -170,6 +170,10 @@ test('A-06 签发凭证：secret 恰出现一次、刷新后不可再见、列�
   // 刷新后：一次性 secret 不可再见，但脱敏行 +1
   await page.reload()
   await expect(page.getByTestId('credential-panel')).toBeVisible({ timeout: 15_000 })
+  // 面板容器先于数据渲染；等首行数据行出现再计数（否则偶发 0 行假失败）
+  await expect(
+    page.getByTestId('credential-panel').getByRole('row').first(),
+  ).toBeVisible({ timeout: 15_000 })
   expect((await page.locator('body').innerText())).not.toContain(secret)
   const after = await page.getByTestId('credential-panel').getByRole('row').count()
   expect(after).toBeGreaterThan(before)
@@ -196,7 +200,13 @@ test('A-03 CAS 状态变更 + A-14 审计落痕（active → disabled）', async
   await page.getByTestId('lifecycle-to-disabled').click()
   const dialog = page.getByRole('alertdialog')
   await expect(dialog).toBeVisible()
+  // 确认点击只派发 click，不等待在途请求；紧随的 goto 会取消在途 POST
+  // （本 run 实证：审计无痕、状态不翻转）。等 status 响应落地再导航。
+  const statusPost = page.waitForResponse(
+    (r) => r.url().includes('/status') && r.request().method() === 'POST',
+  )
   await dialog.getByRole('button', { name: '确认执行' }).click()
+  await statusPost
 
   // 真后端 CAS 成功：回列表页（每次进页重新拉取）断言状态徽标翻转
   await page.goto('/enterprise/applications')
