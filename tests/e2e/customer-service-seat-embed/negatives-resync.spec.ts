@@ -7,12 +7,14 @@
  * `resync.required` 事件）已有，**浏览器面未覆盖**（spec 无 setOffline/
  * 断线重连用例）」。本文件补浏览器面：
  *
- *   R1 坐席侧断线重同步：A 在线收 M1 → context.setOffline() → 连接状态
- *      「连接断开」→ 访客发 M2（A 离线期间落库）→ setOnline() → SSE 按
- *      Last-Event-ID 补偿重连 → M2 补齐（不丢）、M1 不重复出现（不重）。
- *   R2 访客侧断线重同步：访客在线收 R2a → 访客 offline → 坐席发 R2b →
- *      访客恢复 → widget eventStream 重连（Last-Event-ID 补偿）→ R2b 到达、
- *      R2a 恰一次。
+ *   R1 坐席侧断线重同步（真实网关故障注入）：A 在线收 M1 → 停 harness
+ *      nginx 网关（SSE 存量流真实断开——Chromium setOffline 不终止已建立
+ *      的 fetch 流，实测坐席保持 online，故故障注入走网关进程级停/起）→
+ *      坐席「连接断开」→ 重启网关 → 访客发 M2（坐席尚在重连退避窗口）→
+ *      SSE 按 Last-Event-ID 补偿重连 → M2 补齐（不丢）、M1 不重复（不重）。
+ *   R2 访客侧断线重同步：访客在线收 R2a → 访客 context setOffline →
+ *      坐席发 R2b → 访客恢复 → widget eventStream 重连（Last-Event-ID
+ *      补偿）→ R2b 到达、R2a 恰一次。
  *
  * 与 backend 合同的对齐点（cs seat SSE reconnect 冻结合同）：
  *   - 重连请求携带 `Last-Event-ID`（事件 id 去重器保证不重复消费）；
@@ -22,13 +24,16 @@
  *   customer_service_seat_sse_checks.erl 承担；两端口径互补不重复）。
  *
  * ⛔ EXECUTE-GATED：与 journey.spec.ts 同款，SC153_E2E_EXECUTE=1 才执行。
- * 真实栈纪律不变：零 page.route、零 mock backend；setOffline 是 Chromium
- * 网络栈的真实离线（非 API mock）。
+ * 真实栈纪律不变：零 page.route、零 mock backend；网关停/起是对本 run
+ * harness 自建隔离拓扑的真实故障注入（README 口径：套件独占串行）。
  */
+import { execFileSync } from 'node:child_process'
+
 import { expect, test, type FrameLocator, type Page } from '@playwright/test'
 import {
   closeStaleActiveSessions,
   EXECUTE_ENABLED,
+  GW_PORT,
   ORG_ID,
   psql,
   SEAT,
@@ -88,6 +93,48 @@ function messageCount(sessionId: string): number {
   )
 }
 
+/** 定位本 run harness 的 nginx.conf（WORKDIR 是 mktemp 随机目录；取最新实例）。 */
+function harnessNginxConf(): string {
+  const conf = execFileSync('bash', [
+    '-c',
+    'ls -t /tmp/sc153-seat-embed-harness.*/nginx.conf 2>/dev/null | head -1',
+  ]).toString().trim()
+  if (conf.length === 0) {
+    throw new Error('未找到 harness nginx.conf（/tmp/sc153-seat-embed-harness.*）——请先运行 fixtures/harness-seat-embed.sh')
+  }
+  return conf
+}
+
+/**
+ * 网关故障注入（R1）：停 harness 专属 nginx（按 GW_PORT 找 listener，master =
+ * ppid=1 的 daemon 进程；系统常驻 nginx 不受影响）→ SSE 存量流真实断开。
+ */
+function gatewayStop(): void {
+  const listeners = execFileSync('bash', [
+    '-c',
+    `lsof -nP -tiTCP:${GW_PORT} -sTCP:LISTEN`,
+  ])
+    .toString()
+    .trim()
+    .split('\n')
+    .filter((p) => p.length > 0)
+  const masters = listeners.filter((pid) => {
+    const ppid = execFileSync('bash', ['-c', `ps -o ppid= -p ${pid}`]).toString().trim()
+    return ppid === '1'
+  })
+  if (masters.length === 0) {
+    throw new Error(`GW_PORT ${GW_PORT} 上无 daemonized nginx master（网关未按 harness 拓扑运行）`)
+  }
+  for (const master of masters) {
+    process.kill(Number(master), 'SIGTERM')
+  }
+}
+
+/** 网关恢复（R1）：按 harness conf 重启 nginx（与 harness g 段同款命令）。 */
+function gatewayStart(): void {
+  execFileSync('nginx', ['-c', harnessNginxConf()])
+}
+
 test.describe('SC-E2E SSE 断线重同步 R1/R2（EXECUTE-GATED）', () => {
   // ---------------------------------------------------------------- R1
   test('R1 坐席侧断线重同步：离线期访客消息落库 → 恢复后补齐且不重复', async ({ browser }) => {
@@ -109,23 +156,21 @@ test.describe('SC-E2E SSE 断线重同步 R1/R2（EXECUTE-GATED）', () => {
       await widget().getByTestId('cs-send').click()
       await expect(frameA.getByTestId('seat-message-list').getByText(m1)).toBeVisible({ timeout: 20_000 })
 
-      // —— 真实断线：坐席 context（宿主页 + seat iframe 同一 context）offline；
-      //     访客是独立 context 保持在线，可继续发消息。 ——
-      const seatContext = seatAPage.context()
-      await seatContext.setOffline(true)
-      // 坐席 UI 呈现离线（connection status「连接断开」+ offline banner 重试入口）。
-      await expect(frameA.getByTestId('seat-connection-status')).toContainText('连接断开', { timeout: 30_000 })
+      // —— 真实断线：停 harness 网关（SSE 存量流被服务端终止，触发客户端
+      //     重连失败计数 → offline；Chromium setOffline 不断已建立流，
+      //     实测坐席保持 online，故用网关进程级故障注入）。——
+      gatewayStop()
+      // 坐席 UI 呈现离线（连接失败计数达阈值后状态条切「连接断开」）。
+      await expect(frameA.getByTestId('seat-connection-status')).toContainText('连接断开', { timeout: 60_000 })
 
-      // 访客（另一 context，仍在线）发 M2：真实落库（坐席离线不阻断访客链路）。
+      // —— 网关恢复；坐席尚在重连退避窗口时访客发 M2（真实落库）。
+      gatewayStart()
       const m2 = `sc153 R1 离线期消息 ${RUN_UNIQ}`
       await widget().getByTestId('cs-input').fill(m2)
       await widget().getByTestId('cs-send').click()
       await expect
         .poll(() => messageCount(sessionId), { timeout: 20_000, message: '离线期消息必须已落库（DB 真源）' })
         .toBeGreaterThanOrEqual(2)
-
-      // —— 恢复：SSE 重连（Last-Event-ID 补偿 / 超窗 resync.required 全量刷新）。——
-      await seatContext.setOffline(false)
       // 恢复在线状态。
       await expect(frameA.getByTestId('seat-connection-status')).toContainText(/实时连接正常|重连中/, { timeout: 60_000 })
       // M2 补齐（不丢）。

@@ -204,6 +204,23 @@ async function openSeat2Workspace(browser: import('@playwright/test').Browser): 
   return page
 }
 
+/**
+ * 打开会话详情操作面并返回「当前可见实例」的定位策略。
+ *
+ * 响应式两形态（SeatWorkspacePage CS-WEB-03）：1280+（xl）第三栏常驻；
+ * 768-1279 抽屉（seat-detail-drawer-trigger）。Desktop Chrome 视口 1280px
+ * 被滚动条吃掉后落在 md-xl 区间 → 详情操作必须走抽屉入口；抽屉打开后
+ * detailPanel 存在两个实例（第三栏 hidden + 抽屉可见），控件交互统一取
+ * `.last()`（Radix portal 的抽屉实例），单实例（xl 激活）时 last() 同样成立。
+ */
+async function openDetailActions(frame: FrameLocator): Promise<void> {
+  const drawerTrigger = frame.getByTestId('seat-detail-drawer-trigger')
+  if (await drawerTrigger.isVisible({ timeout: 3_000 }).catch(() => false)) {
+    await drawerTrigger.click()
+  }
+  await expect(frame.getByTestId('seat-detail-panel').last()).toBeVisible({ timeout: 15_000 })
+}
+
 test.describe('SC-E2E F8 转接/关闭/评分三旅程（EXECUTE-GATED）', () => {
   test.beforeAll(() => {
     if (SEAT2.password === '') {
@@ -238,17 +255,19 @@ test.describe('SC-E2E F8 转接/关闭/评分三旅程（EXECUTE-GATED）', () =
       const frameB = embedFrame(seatBPage)
       await expect(frameB.getByTestId('seat-workspace')).toBeVisible({ timeout: 30_000 })
 
-      // A 的详情面板：转接目标选择 B（transfer-targets 投影：available 才可选）。
-      const detail = frameA.getByTestId('seat-detail-panel')
-      await expect(detail).toBeVisible({ timeout: 15_000 })
-      const targetSelect = frameA.getByTestId('seat-transfer-target-select')
+      // A 的详情面板（响应式两形态，见 openDetailActions）：转接目标选择 B
+      // （transfer-targets 投影：available 才可选）。
+      await openDetailActions(frameA)
+      const targetSelect = frameA.getByTestId('seat-transfer-target-select').last()
       await expect(targetSelect).toBeVisible({ timeout: 30_000 })
       // B 出现在可选项且 available（disabled=false；忙碌时 disabled）。
+      // option 元素在收起的 select 里 Playwright 视为 hidden —— 用 attached +
+      // disabled 属性断言（option 的 disabled 即「（忙碌）」不可选语义）。
       const optionB = targetSelect.locator(`option[value="${SEAT2.identityId}"]`)
-      await expect(optionB, '第二坐席必须是可用的转接目标（available）').toBeVisible({ timeout: 30_000 })
-      await expect(optionB).not.toBeDisabled()
+      await expect(optionB, '第二坐席必须是可用的转接目标（available）').toBeAttached({ timeout: 30_000 })
+      await expect(optionB).not.toHaveAttribute('disabled')
       await targetSelect.selectOption(SEAT2.identityId)
-      await frameA.getByTestId('seat-transfer-submit').click()
+      await frameA.getByTestId('seat-transfer-submit').last().click()
 
       // DB 直证：归属切到 B 的 identity，状态仍 active（转接不关闭会话）。
       await expect
@@ -265,8 +284,10 @@ test.describe('SC-E2E F8 转接/关闭/评分三旅程（EXECUTE-GATED）', () =
       // A 侧：已打开会话的详情呈现「由其他坐席处理中」（后端 transfer 后 A 对该
       // 会话 send/close 403 的 UI 等价物——写入口收回，可解释文案）。
       await expect(frameA.getByText(/该会话由其他坐席处理中/).first()).toBeVisible({ timeout: 20_000 })
-      // A 的进行中列表不再含该会话（队列语义：A 的 active 视图按归属过滤）。
-      await expect(frameA.getByTestId(`seat-session-item-${sessionId}`)).toHaveCount(0, { timeout: 20_000 })
+      // 列表语义钉子（CSB-02R 后端合同）：active 视图是 org-wide（SQL 不按
+      // business_identity_id 过滤）——转接后会话仍在 A 的进行中列表可见，
+      // 归属收回由上方详情文案表达，不是从列表消失。
+      await expect(frameA.getByTestId(`seat-session-item-${sessionId}`)).toHaveCount(1)
     } finally {
       await visitorCtx.close().catch(() => {})
       await seatAPage?.context().close().catch(() => {})
@@ -296,8 +317,9 @@ test.describe('SC-E2E F8 转接/关闭/评分三旅程（EXECUTE-GATED）', () =
       const widget = () => visitorPage.frameLocator('iframe[data-testid="cs-widget-iframe"]')
       await expect(widget().getByTestId('cs-message-list').getByText(reply)).toBeVisible({ timeout: 20_000 })
 
-      // 关闭（详情面板 seat-close-submit，真实 CAS 写）。
-      await frameA.getByTestId('seat-close-submit').click()
+      // 关闭（详情面板 seat-close-submit，真实 CAS 写；响应式抽屉路径）。
+      await openDetailActions(frameA)
+      await frameA.getByTestId('seat-close-submit').last().click()
       // DB 直证：status=closed + closed_at 落库。
       await expect
         .poll(() => sessionState(sessionId).status, { timeout: 20_000, message: '关闭后 DB status 必须 closed' })
@@ -309,7 +331,7 @@ test.describe('SC-E2E F8 转接/关闭/评分三旅程（EXECUTE-GATED）', () =
       // composer 禁用 + 「会话已结束」可解释文案；HTTP 409 合同由
       // customer_service_seat_http_checks.erl:72 承担，浏览器面钉 UI 收回）。
       await expect(frameA.getByText(/会话已结束/).first()).toBeVisible({ timeout: 20_000 })
-      await expect(frameA.getByTestId('seat-detail-status')).toHaveText('已结束')
+      await expect(frameA.getByTestId('seat-detail-status').last()).toHaveText('已结束')
 
       // 访客面：widget 进入 closed-rating phase——评分面板（1..5 星）出现。
       await expect(widget().getByTestId('cs-rate-5')).toBeVisible({ timeout: 30_000 })
