@@ -16,8 +16,6 @@ import {
   seatLogin,
 } from './env'
 
-export { seatLogin }
-
 export interface QueueSession {
   id: string
   status: string

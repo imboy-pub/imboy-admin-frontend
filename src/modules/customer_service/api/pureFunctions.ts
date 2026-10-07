@@ -157,8 +157,8 @@ export type CsSession = {
   version: number
 }
 
-/** 会话状态 → 展示标签。 */
-export const CS_SESSION_STATUS_LABELS: Record<string, string> = {
+/** 会话状态 → 展示标签。（G15：仅本文件使用，撤 export） */
+const CS_SESSION_STATUS_LABELS: Record<string, string> = {
   queued: '排队中',
   active: '服务中',
   closed: '已关闭',
@@ -373,7 +373,8 @@ export function toCsSessionSummary(raw: unknown): CsSessionSummary | null {
   }
 }
 
-export function toCsSessionSummaryList(raw: unknown): CsSessionSummary[] {
+/** G15：仅本文件使用，撤 export。 */
+function toCsSessionSummaryList(raw: unknown): CsSessionSummary[] {
   if (!Array.isArray(raw)) return []
   return raw.map(toCsSessionSummary).filter((item): item is CsSessionSummary => item !== null)
 }

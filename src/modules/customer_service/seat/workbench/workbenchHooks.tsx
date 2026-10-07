@@ -685,8 +685,8 @@ export function useSeatEventStream(organizationId: EntityId | null, workspaceId:
   return { status, writeRevoked, retry }
 }
 
-/** CS-DEC-02 冻结的心跳间隔（秒）：客户端 30s 一次。 */
-export const SEAT_HEARTBEAT_INTERVAL_MS = 30_000
+/** CS-DEC-02 冻结的心跳间隔（秒）：客户端 30s 一次。（G15：仅本文件使用，撤 export） */
+const SEAT_HEARTBEAT_INTERVAL_MS = 30_000
 
 function pageVisible(): boolean {
   return typeof document === 'undefined' || document.visibilityState === 'visible'

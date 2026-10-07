@@ -110,7 +110,8 @@ export function applicationStatusLabel(status: Unknownable<ApplicationStatus>): 
   return APPLICATION_STATUS_LABELS[status]
 }
 
-export function toCredentialStatus(value: unknown): Unknownable<CredentialStatus> {
+/** G15：仅本文件使用，撤 export。 */
+function toCredentialStatus(value: unknown): Unknownable<CredentialStatus> {
   const raw = toStr(value)
   return (CREDENTIAL_STATUSES as readonly string[]).includes(raw) ? (raw as CredentialStatus) : 'unknown'
 }
@@ -144,7 +145,8 @@ const APPLICATION_SAFE_KEYS = [
   'updated_at',
 ] as const
 
-export function toApplicationSummary(raw: unknown): ApplicationSummary | null {
+/** G15：仅本文件使用，撤 export。 */
+function toApplicationSummary(raw: unknown): ApplicationSummary | null {
   if (!isPlainRecord(raw)) return null
   const id = toId(raw.id)
   if (id === null) return null
@@ -201,7 +203,8 @@ const APPLICATION_DETAIL_SAFE_KEYS = [
   'owner_application_key',
 ] as const
 
-export function toApplicationDetail(raw: unknown): ApplicationDetail | null {
+/** G15：仅本文件使用，撤 export。 */
+function toApplicationDetail(raw: unknown): ApplicationDetail | null {
   const summary = toApplicationSummary(raw)
   if (summary === null || !isPlainRecord(raw)) return null
   const safe = pickAllowed(raw, APPLICATION_DETAIL_SAFE_KEYS)
@@ -634,7 +637,8 @@ function toApiErrorLike(err: unknown): ApiErrorLike | null {
   return null
 }
 
-export function errorCodeOf(err: ApiErrorLike): number {
+/** G15：仅本文件使用，撤 export。 */
+function errorCodeOf(err: ApiErrorLike): number {
   const code = err.code
   if (typeof code === 'number' && Number.isFinite(code)) return code
   if (typeof code === 'string') {
@@ -651,8 +655,9 @@ const NETWORK_MARKERS = ['network', 'timeout', 'failed to fetch', 'load failed',
  * 传输层错误识别（无 HTTP 状态码）：
  *  - 浏览器 `fetch` 抛 `TypeError`；
  *  - axios 无 response 的 `AxiosError`（`ERR_NETWORK` / 超时 / DNS 失败）。
+ * （G15：仅本文件使用，撤 export。）
  */
-export function isNetworkError(err: unknown): boolean {
+function isNetworkError(err: unknown): boolean {
   if (err instanceof TypeError) return true
   if (err === null || typeof err !== 'object') return false
   const record = err as { name?: unknown; code?: unknown; response?: unknown }

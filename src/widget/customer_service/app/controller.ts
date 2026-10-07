@@ -82,7 +82,8 @@ export type ControllerDeps = {
   }) => StreamHandle
 }
 
-export function isRevokeStatus(status: number): boolean {
+/** G15：仅本文件使用，撤 export。 */
+function isRevokeStatus(status: number): boolean {
   return status === 401 || status === 403
 }
 

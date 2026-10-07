@@ -25,14 +25,14 @@ function curlCode(url: string, host: string): { code: string; error?: string } {
   }
 }
 
-/** cs 网关静态面（loader.js 200 = nginx 拓扑 + dist-widget 就绪）。 */
-export function probeStaticFace(): ProbeResult {
+/** cs 网关静态面（loader.js 200 = nginx 拓扑 + dist-widget 就绪）。（G15：仅本文件使用，撤 export） */
+function probeStaticFace(): ProbeResult {
   const r = curlCode(`${CS_ORIGIN}/v1/loader.js`, 'cs.test')
   return { ok: r.code === '200', detail: `GET /v1/loader.js -> ${r.code}${r.error ? ' (' + r.error + ')' : ''}` }
 }
 
-/** seat frame 面（200 = backend seat 路由 + console active）。 */
-export function probeSeatFrame(): ProbeResult {
+/** seat frame 面（200 = backend seat 路由 + console active）。（G15：仅本文件使用，撤 export） */
+function probeSeatFrame(): ProbeResult {
   const r = curlCode(`${CS_ORIGIN}/seat/${CONSOLE_PUBLIC_ID}`, 'cs.test')
   return {
     ok: r.code === '200',
@@ -40,8 +40,8 @@ export function probeSeatFrame(): ProbeResult {
   }
 }
 
-/** 宿主页（shop.test 200 = 宿主 snippet 就绪）。 */
-export function probeShopHost(): ProbeResult {
+/** 宿主页（shop.test 200 = 宿主 snippet 就绪）。（G15：仅本文件使用，撤 export） */
+function probeShopHost(): ProbeResult {
   const r = curlCode(`${SHOP}/`, 'shop.test')
   return { ok: r.code === '200', detail: `GET shop.test/ -> ${r.code}${r.error ? ' (' + r.error + ')' : ''}` }
 }

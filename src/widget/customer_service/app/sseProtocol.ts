@@ -16,7 +16,8 @@
  * §3.6 信封帧出现时优先按信封消费。
  */
 
-export const SSE_EVENT_TYPES = [
+/** G15：三个字面量表仅本文件 type 派生与运行时校验使用，撤 export。 */
+const SSE_EVENT_TYPES = [
   'queue.changed',
   'session.changed',
   'message.appended',
@@ -25,9 +26,9 @@ export const SSE_EVENT_TYPES = [
   'resync.required',
 ] as const
 
-export const SSE_RESOURCE_TYPES = ['queue', 'session', 'conversation', 'message', 'assignment', 'seat'] as const
+const SSE_RESOURCE_TYPES = ['queue', 'session', 'conversation', 'message', 'assignment', 'seat'] as const
 
-export const SSE_REASONS = ['created', 'updated', 'revoked', 'expired', 'unknown'] as const
+const SSE_REASONS = ['created', 'updated', 'revoked', 'expired', 'unknown'] as const
 
 export type SseEventType = (typeof SSE_EVENT_TYPES)[number]
 export type SseResourceType = (typeof SSE_RESOURCE_TYPES)[number]

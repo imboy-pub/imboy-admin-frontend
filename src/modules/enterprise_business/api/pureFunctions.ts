@@ -345,7 +345,8 @@ export function toEbOffboardingCase(raw: unknown): EbOffboardingCase | null {
   }
 }
 
-export function toEbOffboardingCaseList(raw: unknown): EbOffboardingCase[] {
+/** G15：仅本文件使用，撤 export。 */
+function toEbOffboardingCaseList(raw: unknown): EbOffboardingCase[] {
   if (!Array.isArray(raw)) return []
   return raw.map(toEbOffboardingCase).filter((item): item is EbOffboardingCase => item !== null)
 }
@@ -368,7 +369,8 @@ export function toEbOffboardingItem(raw: unknown): EbOffboardingItem | null {
   }
 }
 
-export function toEbOffboardingItemList(raw: unknown): EbOffboardingItem[] {
+/** G15：仅本文件使用，撤 export。 */
+function toEbOffboardingItemList(raw: unknown): EbOffboardingItem[] {
   if (!Array.isArray(raw)) return []
   return raw.map(toEbOffboardingItem).filter((item): item is EbOffboardingItem => item !== null)
 }
@@ -437,8 +439,8 @@ export const OFFBOARDING_RETRY_HINT =
   '重试走既有 POST execute 端点，语义为幂等重放：仅重试 status=failed 的交接项（attempt 递增），' +
   '已成功项不会重复执行；重复点击安全，无需担心重复交接。'
 
-/** case 状态 → 展示标签（契约 6 态）。 */
-export const EB_OFFBOARDING_STATUS_LABELS: Record<string, string> = {
+/** case 状态 → 展示标签（契约 6 态）。（G15：仅本文件使用，撤 export） */
+const EB_OFFBOARDING_STATUS_LABELS: Record<string, string> = {
   draft: '草稿',
   frozen: '已冻结',
   transferring: '交接中',

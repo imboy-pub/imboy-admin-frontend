@@ -259,7 +259,8 @@ function toInviteStatus(value: unknown): PendingOwnerInviteStatus {
     : 'pending'
 }
 
-export function toPendingOwnerInviteView(payload: unknown): PendingOwnerInviteView | null {
+/** G15：仅本文件使用，撤 export。 */
+function toPendingOwnerInviteView(payload: unknown): PendingOwnerInviteView | null {
   if (payload == null || typeof payload !== 'object') return null
   const row = payload as Record<string, unknown>
   return {
@@ -321,8 +322,8 @@ export function toCreatePendingOwnerResult(payload: unknown): CreatePendingOwner
   }
 }
 
-/** resend / reactivate / transfer 响应里的 invite 归一化（含一次性 token）。 */
-export function toRotatedInviteView(payload: unknown): CreatePendingOwnerActivationView | null {
+/** resend / reactivate / transfer 响应里的 invite 归一化（含一次性 token）。（G15：仅本文件使用，撤 export） */
+function toRotatedInviteView(payload: unknown): CreatePendingOwnerActivationView | null {
   if (payload == null || typeof payload !== 'object') return null
   const row = payload as Record<string, unknown>
   return {

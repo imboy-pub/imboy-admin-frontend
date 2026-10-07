@@ -26,27 +26,27 @@ export const CS = 'https://127.0.0.1:18443'
 export const SHOP = 'https://shop.test:18443'
 export const SHOP2 = 'https://shop2.test:18443'
 
-/** 坐席侧主 API 面（直连 backend，不经 widget 网关）。 */
-export const BE_MAIN = process.env.CP12_E2E_BACKEND ?? 'http://127.0.0.1:9805'
+/** 坐席侧主 API 面（直连 backend，不经 widget 网关）。（G15：仅本文件使用，撤 export） */
+const BE_MAIN = process.env.CP12_E2E_BACKEND ?? 'http://127.0.0.1:9805'
 
 /** scratch 种子固定 TSID（tenancy fixture；见 fixtures/seed-installations.sql）。 */
 export const ORG = '700200000000000001'
-export const WORKSPACE_ID = '700300000000000001'
+const WORKSPACE_ID = '700300000000000001'
 export const INST_A = '700400000000000001'
 export const INST_B = '700400000000000002' // revoked（kill switch 负例）
 export const WID_A = '702000000000000001'
 export const WID_B = '702000000000000002' // revoked
 export const ORIGIN = 'https://shop.test:18443'
-export const IDENTITY_ID = '700500000000000001'
+const IDENTITY_ID = '700500000000000001'
 
 /** 合成坐席（scratch 库 DB 直种 + passport/signup 建号；仅本地测试值）。 */
-export const SEAT = {
+const SEAT = {
   account: process.env.CP12_E2E_SEAT_ACCOUNT ?? '19900000001',
   password: process.env.CP12_E2E_SEAT_PASSWORD ?? 'Cp12E2e2026',
 }
 
-/** scratch PG（docker 容器 imboy_pg18；库名可按 run 覆盖）。 */
-export const PG = {
+/** scratch PG（docker 容器 imboy_pg18；库名可按 run 覆盖）。（G15：仅本文件使用，撤 export） */
+const PG = {
   container: process.env.CP12_E2E_PG_CONTAINER ?? 'imboy_pg18',
   user: process.env.CP12_E2E_PG_USER ?? 'imboy_user',
   database: process.env.CP12_E2E_PG_DB ?? 'imboy_cp12_e2e02',

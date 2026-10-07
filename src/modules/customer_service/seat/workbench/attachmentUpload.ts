@@ -17,8 +17,8 @@
 import type { SeatWorkbenchApi } from './workbenchApi'
 import type { EntityId } from '../types'
 
-/** Web Crypto SHA-256 → 64 位小写 hex（presign object_hash 冻结形状）。 */
-export async function sha256Hex(bytes: ArrayBuffer): Promise<string> {
+/** Web Crypto SHA-256 → 64 位小写 hex（presign object_hash 冻结形状）。（G15：仅本文件使用，撤 export） */
+async function sha256Hex(bytes: ArrayBuffer): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', bytes)
   const hex: string[] = []
   for (const byte of new Uint8Array(digest)) hex.push(byte.toString(16).padStart(2, '0'))

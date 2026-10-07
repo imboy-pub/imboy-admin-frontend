@@ -31,7 +31,8 @@
 import { isRecord, nonEmptyString, toEntityId } from '../tsid'
 import type { EntityId } from '../types'
 
-export const SEAT_SESSION_STATUSES = ['queued', 'active', 'closed'] as const
+/** G15：仅本文件 type 派生与值使用，撤 export。 */
+const SEAT_SESSION_STATUSES = ['queued', 'active', 'closed'] as const
 export type SeatSessionStatus = (typeof SEAT_SESSION_STATUSES)[number]
 
 /** §3.7 附件阶段（seat 只读视角；deleted 含过期清理占位）。 */

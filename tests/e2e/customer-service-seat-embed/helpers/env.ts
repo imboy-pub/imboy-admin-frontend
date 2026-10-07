@@ -78,8 +78,8 @@ export const ADMIN = {
   captcha: '1234',
 }
 
-/** scratch PG（docker 容器 imboy_pg18；库名可按 run 覆盖）。 */
-export const PG = {
+/** scratch PG（docker 容器 imboy_pg18；库名可按 run 覆盖）。（G15：仅本文件 psql() 使用，撤 export） */
+const PG = {
   container: process.env.SC153_E2E_PG_CONTAINER ?? 'imboy_pg18',
   user: process.env.SC153_E2E_PG_USER ?? 'imboy_user',
   database: process.env.SC153_E2E_PG_DB ?? 'sc153_e2e',

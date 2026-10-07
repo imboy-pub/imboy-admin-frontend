@@ -5,6 +5,31 @@
   // 每个 entry/ignore 逐条写明理由，处置变更须同步更新本注释。
   // 注：knip 不解析 HTML <script src>，故 seat/widget 的 HTML 入口以
   // 其引用的 TS 模块直接声明（引用链见各条注释）。
+  //
+  // —— G15 豁免与待裁决登记（2026-10-07，ADM-Q07-G15 批；owner=Q10-owner，
+  //    复核期限=二期启动时；本批只撤 export、不做删除——批5教训）——
+  // [豁免·生成物] src/generated/generatedFeatureComposition.tsx 的
+  //   adminFeatureCompositionManifestHash / adminFeatureCompositionSchemaVersion /
+  //   adminFeatureCompositionFeatures：生成文件（生成器产物，sha 入 G03 门），
+  //   不可手改；其导出面由生成器合同定义。
+  // [豁免·模块边界] src/modules/channels/public.ts 的 7 个页面转发
+  //   （ChannelDetailPage/ChannelMessagePage/ChannelSubscriberPage/ChannelAdminPage/
+  //   ChannelInvitationPage/ChannelOrderPage/PaidChannelOpsPage）与
+  //   src/modules/channels/api/public.ts 的 9 个 getXxx/searchChannels：
+  //   设计声明的 channels 模块公共 API 面（批4 结论"转发死码不动"），消费方
+  //   当前直接路径 import 属边界内合法形态，二期随 channels 域裁决。
+  // [豁免·惯例导出] OrganizationWorkspacePicker 的 default 导出：组件文件
+  //   named+default 双导出惯例，本期不动。
+  // [待裁决·撤不得] 以下 unused exports 无本文件使用，撤 export 会暴露死值
+  //   触发 eslint no-unused-vars；删除批本 run 禁做（批5：合同误报占大头），
+  //   留二期逐项裁决：hosted helpers/env.ts SHOP2/INST_B；
+  //   customer_service pureFunctions CS_SEAT_SAFE_KEYS/CS_SESSION_SAFE_KEYS/
+  //   CS_SESSION_STATUS_FILTERS；workbench/contract SEAT_ATTACHMENT_PHASES
+  //   （仅 type 派生，处置需转纯类型）；enterprise_apps contracts SECRET_ONCE_FIELD、
+  //   pureFunctions sensitivityOf；enterprise_business pureFunctions
+  //   EB_OFFBOARDING_STATUS_FILTERS；services/api/mcpGovernance createClient；
+  //   p2 helpers/db-proof pruneSeatEventsBelow/sessionRatingPresent、env SEAT_A/SEAT_B；
+  //   real helpers/db-proof latestVisitTokenId/revokeVisitTokenRow。
   "$schema": "https://unpkg.com/knip@6.7.0/schema.json",
   "entry": [
     // —— vite 构建产物入口（见 vite.config.ts widgetBuildOverrides）——

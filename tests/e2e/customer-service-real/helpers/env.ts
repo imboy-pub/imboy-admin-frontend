@@ -23,7 +23,8 @@ export const OTHER_PUBLIC_WIDGET_ID = 'csww-chain-1760383326'
 /** 合成坐席（A=org owner，具备治理面权限；B 为转接目标）。 */
 export const SEAT_A = { account: '19900000001', identityId: '1812620870393267' }
 export const SEAT_B = { account: '19900000002', identityId: '8304657945488544' }
-export const SEAT_PASSWORD = 'CswwE2e2026'
+/** G15：仅本文件 seatLogin() 使用，撤 export。 */
+const SEAT_PASSWORD = 'CswwE2e2026'
 
 /** csww run 的 scratch PG（docker 容器 imboy_pg18，库按 RUN_ID 命名）。 */
 export const PG = {
