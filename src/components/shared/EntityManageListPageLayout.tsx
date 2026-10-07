@@ -29,7 +29,7 @@ import { ErrorState } from './ErrorState'
 import { LoadingState } from './LoadingState'
 import { PageHeader } from './PageHeader'
 
-export interface EntityManageListPagination {
+interface EntityManageListPagination {
   page: number
   pageSize: number
   total: number

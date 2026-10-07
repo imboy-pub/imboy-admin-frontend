@@ -18,14 +18,14 @@ import { useId, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 
-export type EntityDrawerField = {
+type EntityDrawerField = {
   label: string
   value: ReactNode
   /** true 时值用等宽字体呈现（TSID / 时间戳等机器可读事实） */
   mono?: boolean
 }
 
-export type EntityDrawerRelationItem = {
+type EntityDrawerRelationItem = {
   id: string
   label: string
   description?: string

@@ -36,7 +36,7 @@ import {
 const CS_READ_PERMISSION = 'customer_service:read'
 const CS_WRITE_PERMISSION = 'customer_service:write'
 
-export type CsSummaryPanelProps = {
+type CsSummaryPanelProps = {
   organizationId: EntityId
   /** 可选 ws 成立事实（详情页 URL 上下文）；有则随链接携带，无则如实省略。 */
   workspaceId?: EntityId | null
