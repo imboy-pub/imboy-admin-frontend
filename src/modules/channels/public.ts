@@ -1,12 +1,5 @@
-// Stable admin channels module boundary. Keep page and API access behind this
-// entry while legacy page files remain in place.
+// Channel list and API entry. Feature-specific pages are loaded directly by
+// generatedFeatureComposition to retain their individual lazy chunks.
 export { ChannelListPage } from '@/pages/channels/ChannelListPage'
-export { ChannelDetailPage } from '@/pages/channels/ChannelDetailPage'
-export { ChannelMessagePage } from '@/pages/channels/ChannelMessagePage'
-export { ChannelSubscriberPage } from '@/pages/channels/ChannelSubscriberPage'
-export { ChannelAdminPage } from '@/pages/channels/ChannelAdminPage'
-export { ChannelInvitationPage } from '@/pages/channels/ChannelInvitationPage'
-export { ChannelOrderPage } from '@/pages/channels/ChannelOrderPage'
-export { PaidChannelOpsPage } from '@/pages/channels/PaidChannelOpsPage'
 
 export * from './api'
