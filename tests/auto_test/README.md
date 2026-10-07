@@ -12,7 +12,7 @@
 本目录**镜像 `src/pages/` 与 `src/modules/` 结构**：改了 `src/pages/users/UserListPage.tsx`，
 就去 `tests/auto_test/users/UserListPage.md` 更新对应功能点。
 
-执行规程见 [LOOP_PROMPT.md](./LOOP_PROMPT.md)。
+执行规程见 LOOP_PROMPT.md（仓外执行材料）。
 
 ## 表格规则（保证有限膨胀）
 

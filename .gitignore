@@ -68,3 +68,20 @@ tests/e2e/customer-service-int02/.artifacts-a09b/
 
 # SC-E2E 坐席工作台嵌入 E2E 运行产物（trace/报告/失败现场）
 tests/e2e/customer-service-seat-embed/.artifacts/
+
+# Execution evidence belongs outside the repository.
+**/evidence/
+**/test-results/
+**/playwright-report/
+
+# One-off execution materials are retained outside Git.
+/docs/plans/
+/docs/planning/
+/docs/qa/
+/docs/archive/plans/
+/docs/archive/qa/
+/docs/archive/review/
+/docs/archive/analysis/
+
+# Execution plans and candidate-specific reports belong outside Git.
+/tests/auto_test/LOOP_PROMPT.md
