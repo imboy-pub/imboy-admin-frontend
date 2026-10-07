@@ -1,11 +1,12 @@
 import { useMemo } from 'react'
 import { zhCN, type I18nKey } from './zh-CN'
 
-export type { I18nKey }
-export { zhCN }
+// Q10/AC24：zhCN/I18nKey 的再导出与 I18nParams 公开导出零外部消费
+// （消费方一律深路径 '@/i18n/zh-CN' 或仅用 t/useI18n），已撤除
+// （designs/Q10-candidates.md 再导出组）。
 
 /** 插值参数：键值中的 `{name}` 占位符以此表替换。 */
-export type I18nParams = Readonly<Record<string, string | number>>
+type I18nParams = Readonly<Record<string, string | number>>
 
 const PLACEHOLDER = /\{(\w+)\}/g
 
