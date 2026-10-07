@@ -119,7 +119,8 @@ export const STATUS_TRANSITIONS: Record<ApplicationStatus, readonly ApplicationS
 }
 
 /** credential 状态（含到期呈现）。 */
-export type CredentialStatus = 'active' | 'revoked' | 'expired'
+export const CREDENTIAL_STATUSES = ['active', 'revoked', 'expired'] as const
+export type CredentialStatus = (typeof CREDENTIAL_STATUSES)[number]
 
 /** Grant workspace 范围语义（migration 139：一表一 Grant）。 */
 export type GrantWorkspaceScopeKind = 'none' | 'explicit'
