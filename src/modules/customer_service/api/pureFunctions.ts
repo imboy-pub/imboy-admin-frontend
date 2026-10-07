@@ -278,7 +278,7 @@ export function parseCsSessionStatusFilter(raw: string | null | undefined): CsSe
   return 'all'
 }
 
-export type CsSessionListQueryInput = {
+type CsSessionListQueryInput = {
   status: CsSessionStatusFilter
   afterId: EntityId | null
   limit?: number
@@ -376,7 +376,7 @@ export function csSessionListStatusLabel(status: string): string {
 // 列表错误态映射（401/403/404/422）
 // ---------------------------------------------------------------------------
 
-export type CsListFailure =
+type CsListFailure =
   | 'unauthenticated' // 401 —— 会话失效，需重新登录
   | 'permission_missing' // 403 —— 缺 customer_service:read
   | 'not_found' // 404 —— 资源不在作用域内/不存在
@@ -485,19 +485,19 @@ export function toPlatformSeatListPage(raw: unknown, fallbackLimit: number): Pla
 // 零客户端重算（不聚合、不推导、不填默认指标值）。
 // ===================================================================
 
-export type CsStatsMetricPair = {
+type CsStatsMetricPair = {
   count: number
   /** 服务端无样本时为 null（诚实空态，禁止伪装成 0）。 */
   avgSeconds: number | null
 }
 
-export type CsStatsRatingPair = {
+type CsStatsRatingPair = {
   count: number
   /** 服务端无样本时为 null。 */
   avg: number | null
 }
 
-export type CsStatsCurrent = {
+type CsStatsCurrent = {
   queued: number
   active: number
 }

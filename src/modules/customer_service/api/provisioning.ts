@@ -33,7 +33,7 @@ function requireNonEmptyId(value: EntityId, label: string): EntityId {
   return id
 }
 
-export type ProvisionCustomerServiceSeatInput = {
+type ProvisionCustomerServiceSeatInput = {
   organizationId: EntityId
   workspaceId: EntityId
   /** 目标开通为客服坐席的「成员」user_id（该 org 的 active Human member）。 */

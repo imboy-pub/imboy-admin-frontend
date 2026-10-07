@@ -30,7 +30,7 @@ import {
 
 const INSTALLATIONS_BASE = '/customer-service/widget-installations'
 
-export type CreateWidgetInstallationInput = {
+type CreateWidgetInstallationInput = {
   organizationId: EntityId
   workspaceId: EntityId
   displayName: string
@@ -39,7 +39,7 @@ export type CreateWidgetInstallationInput = {
   consentVersion: string
 }
 
-export type UpdateWidgetInstallationInput = CreateWidgetInstallationInput & {
+type UpdateWidgetInstallationInput = CreateWidgetInstallationInput & {
   installationId: EntityId
 }
 

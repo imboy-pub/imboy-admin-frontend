@@ -26,7 +26,7 @@ import { toSeatConsole, toSeatConsoleList, type SeatConsole } from './seatConsol
 
 const SEAT_CONSOLES_BASE = '/customer-service/seat-consoles'
 
-export type SeatConsoleScope = {
+type SeatConsoleScope = {
   organizationId: EntityId
   workspaceId: EntityId
 }
