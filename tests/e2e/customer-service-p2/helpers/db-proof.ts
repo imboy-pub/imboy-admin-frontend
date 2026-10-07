@@ -48,24 +48,6 @@ export function setSeatEnabled(orgId: string, identityId: string, enabled: boole
   psql(`update customer_service_seat set enabled = ${enabled ? 'true' : 'false'}` + ` where organization_id = ${orgId} and business_identity_id = ${identityId}`)
 }
 
-/** A03 一次性夹具：清理本作用域已消费事件（模拟保留窗外游标→resync.required）。
- * 这是测试范围级的夹具绕行：customer_service_event 带 append-only 触发器，
- * 修剪旧事件以界定流重放窗口前临时 DISABLE，DELETE 后（即使失败，finally）
- * 立即 ENABLE 恢复；append-only 是生产运行时保证，不受本夹具影响。 */
-export function pruneSeatEventsBelow(orgId: string, workspaceId: string, keepAboveId: string | null): number {
-  const where =
-    keepAboveId === null
-      ? `organization_id = ${orgId} and workspace_id = ${workspaceId}`
-      : `organization_id = ${orgId} and workspace_id = ${workspaceId} and id <= ${keepAboveId}`
-  psql(`alter table customer_service_event disable trigger trg_customer_service_event_append_only`)
-  try {
-    const out = psql(`with del as (delete from customer_service_event where ${where} returning 1) select count(*) from del`)
-    return Number(out.trim() || 0)
-  } finally {
-    psql(`alter table customer_service_event enable trigger trg_customer_service_event_append_only`)
-  }
-}
-
 /** 会话 visit token 行（A04 访客面吊销目标定位）。 */
 export function latestVisitTokenRowSince(orgId: string, sinceIso: string): string | null {
   const out = psql(
@@ -74,13 +56,6 @@ export function latestVisitTokenRowSince(orgId: string, sinceIso: string): strin
   )
   const v = out.trim()
   return v === '' ? null : v
-}
-
-/** 直查会话评分列之外的评级时间戳是否落库（只看非空，不断言绝对值：DF-6
- * 已知租户面 claimed_at/closed_at/rating_at 存在量纲污染，禁绝对值断言）。 */
-export function sessionRatingPresent(sessionId: string): boolean {
-  const out = psql(`select coalesce(rating::text,'') from customer_service_session where id = ${sessionId}`)
-  return out.trim() !== ''
 }
 
 /** A04 夹具：移除坐席行（offboarding/assignment ended 落库等价物）。

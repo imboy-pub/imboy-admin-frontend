@@ -82,16 +82,6 @@ export function fetchAssetRows(conversationId: string): Array<{ id: string; stat
     })
 }
 
-/** 最近一次 bootstrap 落库的 visit token 行 id（吊销负例夹具定位用）。 */
-export function latestVisitTokenId(orgId: string, contactId: string): string | null {
-  const out = psql(
-    `select id from customer_service_visit_token where organization_id = ${orgId} and contact_id = ${contactId}` +
-      ` order by created_at desc limit 1`
-  )
-  const v = out.trim()
-  return v === '' ? null : v
-}
-
 /** 页面窗口内（since 之后）该 org 最新 visit token 行 id（吊销页面 app 的 token）。 */
 export function latestVisitTokenRowSince(orgId: string, sinceIso: string): string | null {
   const out = psql(
@@ -109,9 +99,4 @@ export function fetchVisitTokenRevokedAt(visitTokenId: string): number | null {
   )
   const v = out.trim()
   return v === '' ? null : Number(v)
-}
-
-/** 吊销负例夹具：DB 通道标记 visit token 吊销（revoked_at 置时间）。 */
-export function revokeVisitTokenRow(visitTokenId: string): void {
-  psql(`update customer_service_visit_token set revoked_at = now() where id = ${visitTokenId} and revoked_at is null`)
 }
