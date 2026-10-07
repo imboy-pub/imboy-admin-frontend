@@ -59,14 +59,15 @@ export function assertAdminFeatureManifest(payload: Record<string, unknown>) {
   const serverFeatures = payload.compiled_features
   if (
     !Array.isArray(serverFeatures) ||
-    serverFeatures.length === 0 ||
+    serverFeatures.length !== compiledProductFeatures.length ||
+    new Set(serverFeatures).size !== compiledProductFeatures.length ||
     serverFeatures.some(
       (feature) =>
         typeof feature !== 'string' ||
         !(compiledProductFeatures as readonly string[]).includes(feature)
     )
   ) {
-    throw new FeatureManifestMismatchError('服务端功能集合超出 Admin 编译能力，请部署匹配版本')
+    throw new FeatureManifestMismatchError('服务端功能集合与 Admin 编译能力不一致，请部署匹配版本')
   }
 }
 

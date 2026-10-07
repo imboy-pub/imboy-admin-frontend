@@ -144,6 +144,30 @@ describe('assertAdminFeatureManifest', () => {
       .toThrow(FeatureManifestMismatchError)
   })
 
+  it('rejects incomplete or duplicated feature sets even with a matching hash', () => {
+    for (const features of [
+      compiledProductFeatures.slice(1),
+      ...(compiledProductFeatures.length > 1
+        ? [[...compiledProductFeatures.slice(0, -1), compiledProductFeatures[0]]]
+        : []),
+      [...compiledProductFeatures, compiledProductFeatures[0]],
+    ]) {
+      expect(() => assertAdminFeatureManifest({
+        manifest_hash: productFeatureManifestHash,
+        manifest_schema_version: productFeatureSchemaVersion,
+        compiled_features: features,
+      })).toThrow(FeatureManifestMismatchError)
+    }
+  })
+
+  it('accepts the same feature set in a different order', () => {
+    expect(() => assertAdminFeatureManifest({
+      manifest_hash: productFeatureManifestHash,
+      manifest_schema_version: productFeatureSchemaVersion,
+      compiled_features: [...compiledProductFeatures].reverse(),
+    })).not.toThrow()
+  })
+
   it('fails when server features exceed the compiled Admin capability', () => {
     expect(() => assertAdminFeatureManifest({ compiled_features: ['not_compiled'] }))
       .toThrow(FeatureManifestMismatchError)
