@@ -23,7 +23,8 @@ import {
   type SeatSseEnvelope,
 } from './seatSseProtocol'
 
-export const SEAT_EVENTS_PATH_TEMPLATE = '/api/v1/seat/cs/organizations/:org_id/seats/me/events'
+// Q10：SEAT_EVENTS_PATH_TEMPLATE（文档性常量，真实 URL 构建在 buildUrl()
+// 内联，与文件头注释重复）全仓零引用，已删除（designs/Q10-candidates.md）。
 
 export type SeatEventStreamStatus = 'idle' | 'connecting' | 'online' | 'reconnecting' | 'offline' | 'closed'
 

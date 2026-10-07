@@ -22,11 +22,11 @@ import { SEAT_API_BASE, type SeatApiClient, type SeatFetchLike } from './seatApi
 import { createSeatSseParser } from './seatSseProtocol'
 import { SeatTokenVault } from './seatAuthStore'
 
-/** 相对 SEAT_API_BASE（/api/v1）的 QR 登录合同路径。 */
-export const QR_LOGIN_CREATE_PATH = '/passport/qr_login/create'
-export const QR_LOGIN_STATUS_PATH = '/passport/qr_login/status'
-export const QR_LOGIN_SUBSCRIBE_PATH = '/passport/qr_login/subscribe'
-export const QR_LOGIN_CANCEL_PATH = '/passport/qr_login/cancel'
+/** 相对 SEAT_API_BASE（/api/v1）的 QR 登录合同路径（仅本文件消费；Q10 撤 export）。 */
+const QR_LOGIN_CREATE_PATH = '/passport/qr_login/create'
+const QR_LOGIN_STATUS_PATH = '/passport/qr_login/status'
+const QR_LOGIN_SUBSCRIBE_PATH = '/passport/qr_login/subscribe'
+const QR_LOGIN_CANCEL_PATH = '/passport/qr_login/cancel'
 
 /** 计划卡：QR SSE 失败可 2 秒轮询 fallback。 */
 export const QR_LOGIN_POLL_INTERVAL_MS = 2000

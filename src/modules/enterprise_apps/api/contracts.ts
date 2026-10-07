@@ -12,8 +12,8 @@
 import { coerceEntityId } from '@/lib/entityId'
 import type { EntityId } from '@/types/common'
 
-/** 挂在 client BASE_URL('/api/adm') 之下的治理面前缀。 */
-export const ENTERPRISE_APPS_BASE = '/enterprise'
+/** 挂在 client BASE_URL('/api/adm') 之下的治理面前缀（仅本文件 :261 消费；Q10 撤 export）。 */
+const ENTERPRISE_APPS_BASE = '/enterprise'
 
 /** 读取权限码：与后端 `role_acl/1` + `required_permission` 元数据逐字一致。 */
 export const READ_PERMISSION = 'enterprise_business:read'

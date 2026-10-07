@@ -12,7 +12,9 @@
  * - heartbeat 是 SSE 注释行（不占 event_id），解析层忽略。
  */
 
-export const SEAT_SSE_EVENT_TYPES = [
+// Q10：以下三组协议常量仅本文件（类型派生 + parseSeatSseEnvelope 校验）
+// 消费，全仓零外部 import，撤 export。
+const SEAT_SSE_EVENT_TYPES = [
   'queue.changed',
   'session.changed',
   'message.appended',
@@ -21,7 +23,7 @@ export const SEAT_SSE_EVENT_TYPES = [
   'resync.required',
 ] as const
 
-export const SEAT_SSE_RESOURCE_TYPES = [
+const SEAT_SSE_RESOURCE_TYPES = [
   'queue',
   'session',
   'conversation',
@@ -30,7 +32,7 @@ export const SEAT_SSE_RESOURCE_TYPES = [
   'seat',
 ] as const
 
-export const SEAT_SSE_REASONS = ['created', 'updated', 'revoked', 'expired', 'unknown'] as const
+const SEAT_SSE_REASONS = ['created', 'updated', 'revoked', 'expired', 'unknown'] as const
 
 export type SeatSseEventType = (typeof SEAT_SSE_EVENT_TYPES)[number]
 export type SeatSseResourceType = (typeof SEAT_SSE_RESOURCE_TYPES)[number]

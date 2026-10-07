@@ -18,7 +18,8 @@ import type { SeatStreamHandlers, SeatWorkbenchGateway } from './workbenchHooks'
 
 export const ORG = '2000000000000000002'
 export const WS = '3000000000000000003'
-export const USER = '1000000000000000001'
+/** 仅 harness 内部消费（Q10：全仓零外部 import，撤 export）。 */
+const USER = '1000000000000000001'
 export const IDENTITY = '6000000000000000006'
 export const OTHER_IDENTITY = '6000000000000000007'
 export const SESSION = '72057594037927937'
@@ -132,7 +133,8 @@ function forbidden(): Response {
  * {id, sender_type, created_at, preview}（preview 为 null 占位），queued 行
  * 带 waiting_seconds（服务端权威值；active/closed 恒缺键）。
  */
-export function sessionRowText(
+/** 仅 harness 内部消费（Q10：全仓零外部 import，撤 export）。 */
+function sessionRowText(
   status: string,
   version: number,
   state: SeatFakeBackendState,
@@ -171,7 +173,8 @@ function pageText(view: 'queued' | 'active' | 'closed', rowVersion: number | nul
   return `{"sessions":[${rows.join(',')}],"total":${countFinal},"total_by_status":${counts},"next_after_id":null}`
 }
 
-export const CONTEXTS_TEXT =
+/** 仅 harness 内部消费（Q10：全仓零外部 import，撤 export）。 */
+const CONTEXTS_TEXT =
   `{"user_id":"${USER}","contexts":[{"organization_id":"${ORG}","organization_name":"示例商城",` +
   `"workspaces":[{"id":"${WS}","name":"默认工作区"}],"business_identity_id":"${IDENTITY}",` +
   `"seat_enabled":true,"capabilities":["conversation.read","conversation.write","message.write","asset.read"]}]}`
@@ -179,7 +182,7 @@ export const CONTEXTS_TEXT =
 /** 坐席可读消息（含附件三阶段 + ACK read_at）。
  * CS-WEB-01：assets[] 镜像后端冻结投影键 {id,mime,size_bytes,file_name,status}
  * （eb_pg_message_ext 白名单；旧 `size` 键是断链实证，不再出现）。 */
-export const MESSAGES_TEXT =
+const MESSAGES_TEXT =
   '[' +
   `{"id":9000000000000000009,"sender_type":"contact","sender_contact_id":"${CONTACT}","body":"你好",` +
   `"client_msg_id":"visitor-cm-1","created_at":"2026-09-20T05:30:00Z","read_at":"2026-09-20T05:31:00Z"},` +
@@ -194,7 +197,7 @@ export const MESSAGES_TEXT =
 /** content 端点字节（PNG 魔数头即可——客户端不解析内容）。 */
 const ASSET_CONTENT_BYTES = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
 
-export const TRANSFER_TARGETS_TEXT =
+const TRANSFER_TARGETS_TEXT =
   `{"targets":[{"business_identity_id":"${OTHER_IDENTITY}","display_name":"坐席乙","available":true}],"next_after_id":null}`
 
 /**
@@ -217,7 +220,8 @@ export function presenceText(
   )
 }
 
-export function customerContextText(sessionId: string, state: SeatFakeBackendState): string {
+/** 仅 harness 内部消费（Q10：全仓零外部 import，撤 export）。 */
+function customerContextText(sessionId: string, state: SeatFakeBackendState): string {
   const maskedName = sessionId === SESSION2 ? '李***' : '王***'
   const historyRows: string[] = []
   for (let i = 0; i < state.contextHistoryCount; i += 1) {
