@@ -26,7 +26,6 @@ import {
   ORG_ID,
   psql,
   restoreConsoleOrigins,
-  ROTATED_ORIGIN,
   rotateConsoleOrigins,
   SEAT,
   setConsoleStatus,
@@ -347,7 +346,7 @@ test.describe('SC-E2E A01..A10（EXECUTE-GATED）', () => {
   // ---------------------------------------------------------------- A06
   test('A06 origin 轮换：snippet 不变 —— 旧 origin 被拒、新 origin 可嵌', async ({ browser }) => {
     test.setTimeout(240_000)
-    const before = rotateConsoleOrigins(CONSOLE_PUBLIC_ID, ROTATED_ORIGIN)
+    const before = rotateConsoleOrigins(CONSOLE_PUBLIC_ID, SHOP2)
     try {
       expect(before).toContain('shop.test')
       // 旧 origin（shop.test）：浏览器实际拒绝（同 A02 口径）。

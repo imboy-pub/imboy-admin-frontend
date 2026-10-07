@@ -43,10 +43,6 @@ export const IDENTITY_ID = '1603940848519157'
 /** 访客链路（hosted 面合同）用 widget installation。 */
 export const WIDGET_PUBLIC_ID = process.env.SC153_E2E_WIDGET_ID ?? '702000000000000101'
 
-/** console allowed_origins 初始值（A06 轮换后临时变为 shop2.test，finally 复原）。 */
-export const ALLOWED_ORIGIN = SHOP
-export const ROTATED_ORIGIN = SHOP2
-
 /**
  * 合成坐席（scratch 库 DB 直种 + passport/signup 建号；仅本地测试值）。
  * REVIEW-2 B-5①：密码不再提供跟踪文件内的默认回退——必须经环境注入

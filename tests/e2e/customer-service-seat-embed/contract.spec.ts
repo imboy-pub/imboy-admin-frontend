@@ -26,7 +26,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 import { expect, test } from '@playwright/test'
-import { ADMIN_ORIGIN, ALLOWED_ORIGIN, BE_MAIN, CONSOLE_PUBLIC_ID, CS_ORIGIN, EVIL, IFRAME_SANDBOX_EXACT, ORG_ID, SHOP, SHOP2, WIDGET_PUBLIC_ID, WORKSPACE_ID } from './helpers/env'
+import { ADMIN_ORIGIN, BE_MAIN, CONSOLE_PUBLIC_ID, CS_ORIGIN, EVIL, IFRAME_SANDBOX_EXACT, ORG_ID, SHOP, SHOP2, WIDGET_PUBLIC_ID, WORKSPACE_ID } from './helpers/env'
 
 const ROOT = process.cwd()
 const HERE = path.join(ROOT, 'tests/e2e/customer-service-seat-embed')
@@ -255,10 +255,13 @@ test.describe('SC-E2E 静态合同：种子 / 常量 / 宿主页同源', () => {
     expect(values).toContain(WORKSPACE_ID)
     // seed 文件锁定默认端口形态（静态文本）；非默认端口 run 由 harness 的
     // allowed_origins sed 替换（s|shop.test:18443|shop.test:${GW_PORT}|g），
-    // 替换后与 ALLOWED_ORIGIN 的一致性由 S13 的同源断言钉死。
+    // 替换后与 SHOP 的一致性由 S13 的同源断言钉死。
     expect(values).toContain(`'["https://shop.test:18443"]'::jsonb`)
-    // 运行时常量自洽（任何端口环境）：合法宿主 origin 与 SHOP 同值。
-    expect(ALLOWED_ORIGIN).toBe(SHOP)
+    // 宿主 origin 保持 HTTPS、固定测试域和本 run 网关端口。
+    const shopOrigin = new URL(SHOP)
+    expect(shopOrigin.protocol).toBe('https:')
+    expect(shopOrigin.hostname).toBe('shop.test')
+    expect(shopOrigin.port).toBe(process.env.SC153_E2E_GW_PORT ?? '18443')
     expect(values).toMatch(/'active'/)
     // 公开 ID 的幂等键：id 与 public_seat_console_id 同值（TSID 十进制串）
     expect(seed).toMatch(new RegExp(`INSERT INTO customer_service_seat_console[\\s\\S]*?\\nVALUES\\s*\\n?\\s*\\(${CONSOLE_PUBLIC_ID},`))
