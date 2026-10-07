@@ -21,7 +21,7 @@ export type StorageLike = {
   removeItem: (_key: string) => void
 }
 
-export type VisitRecoveryRecord = {
+type VisitRecoveryRecord = {
   subjectId: string
   savedAtMs: number
   expiresAtMs: number

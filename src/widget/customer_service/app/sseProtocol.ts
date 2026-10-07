@@ -30,12 +30,12 @@ const SSE_RESOURCE_TYPES = ['queue', 'session', 'conversation', 'message', 'assi
 
 const SSE_REASONS = ['created', 'updated', 'revoked', 'expired', 'unknown'] as const
 
-export type SseEventType = (typeof SSE_EVENT_TYPES)[number]
-export type SseResourceType = (typeof SSE_RESOURCE_TYPES)[number]
-export type SseReason = (typeof SSE_REASONS)[number]
+type SseEventType = (typeof SSE_EVENT_TYPES)[number]
+type SseResourceType = (typeof SSE_RESOURCE_TYPES)[number]
+type SseReason = (typeof SSE_REASONS)[number]
 
 /** §3.6 冻结信封（逐字段 fail-closed 校验后投影）。 */
-export type SseEnvelope = {
+type SseEnvelope = {
   eventId: string
   type: SseEventType
   organizationId: string
@@ -128,9 +128,9 @@ export class SseEventIdDeduper {
   }
 }
 
-export type SseFrameInput = { id: string | null; event: string; data: string }
+type SseFrameInput = { id: string | null; event: string; data: string }
 
-export type ClassifiedSseFrame =
+type ClassifiedSseFrame =
   | { kind: 'envelope'; envelope: SseEnvelope }
   /** widget 面状态帧：data = {resource:'cs.session', session_id, status}；
    * CP-CON-04：可选 agents_online（安全整数；0 → false、>0 → true；

@@ -11,7 +11,7 @@ import type { AssetPreview, ChatMessage, ChatState, MessageAsset } from './chatM
 import { showLeaveMessageNotice } from './chatMachine'
 import { isValidRatingScore } from './contract'
 
-export type ChatUiHandlers = {
+type ChatUiHandlers = {
   onConsentAccept: () => void
   onConsentDecline: () => void
   onSend: (_body: string) => void

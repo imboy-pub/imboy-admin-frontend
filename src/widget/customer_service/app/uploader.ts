@@ -33,7 +33,7 @@ export async function blobSha256Hex(blob: Blob): Promise<string> {
   return sha256Hex(await blob.arrayBuffer())
 }
 
-export type UploaderDeps = {
+type UploaderDeps = {
   api: WidgetApiClient
   /** 裸 PUT 通道（与 API 客户端同 fetch 注入口，测试替换）。 */
   fetchImpl: FetchLike

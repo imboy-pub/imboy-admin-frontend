@@ -26,7 +26,7 @@ export function isValidPublicWidgetId(raw: string): boolean {
   return /^[0-9]{1,26}$/.test(raw.trim())
 }
 
-export type LoaderDataKey = (typeof LOADER_DATA_KEYS)[number]
+type LoaderDataKey = (typeof LOADER_DATA_KEYS)[number]
 
 export type WidgetConnectionState = 'online' | 'offline' | 'error'
 
@@ -35,7 +35,7 @@ export type WidgetPosition = 'bottom-right' | 'bottom-left'
 /** loader → iframe：宿主白名单上下文（页面 origin + path + public widget id）。
  * 合同 v1 S3：organization 由服务端按 public_widget_id 反查派生，浏览器任何
  * 请求/消息面不得申报 organization/workspace。 */
-export type HostContextMessage = {
+type HostContextMessage = {
   source: typeof WIDGET_MESSAGE_SOURCE
   type: 'host-context'
   widgetId: string
@@ -44,7 +44,7 @@ export type HostContextMessage = {
 }
 
 /** iframe → loader：就绪握手 / 连接状态 / 未读数 / 请求关闭面板。 */
-export type WidgetToHostMessage =
+type WidgetToHostMessage =
   | { source: typeof WIDGET_MESSAGE_SOURCE; type: 'ready' }
   | { source: typeof WIDGET_MESSAGE_SOURCE; type: 'status'; state: WidgetConnectionState }
   | { source: typeof WIDGET_MESSAGE_SOURCE; type: 'unread'; count: number }

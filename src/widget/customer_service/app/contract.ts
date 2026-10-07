@@ -42,7 +42,7 @@ export type BootstrapResult = {
   reused: boolean
 }
 
-export type WidgetSessionStatus = 'queued' | 'active' | 'closed'
+type WidgetSessionStatus = 'queued' | 'active' | 'closed'
 
 export type WidgetSession = {
   id: string
@@ -70,7 +70,7 @@ function toAgentsOnlineFlag(raw: unknown): boolean | null {
  * 投影**不含** object_key/upload_url/token——解析面同样按白名单取键，
  * 多余键一概丢弃（fail-closed）。
  */
-export type WidgetAsset = {
+type WidgetAsset = {
   id: string
   mime: string
   sizeBytes: number | null

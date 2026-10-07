@@ -39,7 +39,7 @@ import {
   type VisitScope,
 } from './visitStorage'
 
-export type HostContext = {
+type HostContext = {
   widgetId: string
   locale: string
   pageOrigin: string
@@ -56,7 +56,7 @@ export type ControllerIo = {
 
 export type StreamHandle = { start: () => void; stop: () => void }
 
-export type ControllerDeps = {
+type ControllerDeps = {
   api: WidgetApiClient
   storage: StorageLike | null
   nowMs: () => number

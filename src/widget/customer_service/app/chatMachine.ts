@@ -18,12 +18,12 @@ import type { AttachmentUiState } from './attachmentMachine'
  * consent_version 非空 ⇒ 门开启（pending），空 ⇒ 无门（accepted）；
  * 'rejected' 保留给服务端裁定的拒绝语义）。
  */
-export type WidgetNotice = {
+type WidgetNotice = {
   version: string
   state: 'accepted' | 'pending' | 'rejected'
 }
 
-export type ChatPhase =
+type ChatPhase =
   | 'awaiting-context'
   | 'bootstrapping'
   | 'consent'
@@ -33,10 +33,10 @@ export type ChatPhase =
   | 'rated'
   | 'error'
 
-export type ChatConnectionState = 'connecting' | 'online' | 'reconnecting' | 'offline'
+type ChatConnectionState = 'connecting' | 'online' | 'reconnecting' | 'offline'
 
 /** 附件投影（UI 只展示名称/大小/状态；对象 key / presigned URL 绝不进入）。 */
-export type ChatAttachment = {
+type ChatAttachment = {
   name: string
   mime: string
   sizeBytes: number
@@ -101,7 +101,7 @@ export type ChatState = {
   agentsOnline: boolean | null
 }
 
-export type ChatEvent =
+type ChatEvent =
   | { type: 'bootstrap_started' }
   | { type: 'bootstrap_succeeded'; brand: WidgetBrand; notice: WidgetNotice }
   | { type: 'bootstrap_failed'; message: string }
