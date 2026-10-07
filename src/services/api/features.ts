@@ -197,6 +197,12 @@ export function featureKeyForAdminPath(pathname?: string | null): string | null 
   const path = stripPathQuery(pathname)
   if (path.length === 0) return null
 
+  if (/^\/bots(?:\/|$)/.test(path)) return 'bot_webhook'
+  if (/^\/ai-agents(?:\/|$)/.test(path)) return 'agent_hub'
+  if (/^\/mcp-governance(?:\/|$)/.test(path)) return 'mcp'
+  if (path === '/ai-hub/deliveries') return null // Shared enterprise webhook operations.
+  if (/^\/ai-hub(?:\/|$)/.test(path)) return 'agent_hub'
+
   if (/^\/channels\/[^/]+\/invitations(?:\/|$)/.test(path)) {
     return 'channel_invitation'
   }

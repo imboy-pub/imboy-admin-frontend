@@ -6,6 +6,7 @@ import { Header } from './Header'
 import { LicenseExpiryBanner } from './LicenseExpiryBanner'
 import { QuotaWarningBanner } from './QuotaWarningBanner'
 import { Breadcrumb, KeyboardShortcutsDialog } from '@/components/shared'
+import { FeatureRoute } from '@/components/auth/FeatureRoute'
 
 const SidebarContext = createContext<{
   mobileOpen: boolean
@@ -73,7 +74,7 @@ export function AdminLayout() {
           <main className="min-h-0 flex-1 overflow-y-auto bg-muted/30 p-4 md:p-6">
             <Breadcrumb />
             <div key={location.pathname} className="animate-fade-in">
-              <Outlet />
+              <FeatureRoute><Outlet /></FeatureRoute>
             </div>
           </main>
           <KeyboardShortcutsDialog />

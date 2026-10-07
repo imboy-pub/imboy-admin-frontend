@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it } from 'bun:test'
+import { filterByFeatures, flattenLeafItems } from '@/components/layout/sidebarFilters'
+import { defaultConfig } from '@/components/layout/sidebarSchema'
 import {
   isAdminFeatureEnabled,
   featureKeyForAdminPath,
@@ -22,6 +24,48 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 // isAdminFeatureEnabled
 // ---------------------------------------------------------------------------
+describe('phase-one deferred domain paths', () => {
+  it('filters the actual sidebar configuration while preserving enterprise delivery tools', () => {
+    const leaves = flattenLeafItems(filterByFeatures(defaultConfig.items, {
+      bot_webhook: false, agent_hub: false, mcp: false,
+    }))
+    const paths = leaves.map((leaf) => leaf.path)
+    expect(paths).not.toContain('/bots')
+    expect(paths).not.toContain('/ai-agents')
+    expect(paths).not.toContain('/ai-agents/roles')
+    expect(paths).not.toContain('/ai-hub')
+    expect(paths).not.toContain('/mcp-governance')
+    expect(paths).toContain('/ai-hub/deliveries')
+    expect(paths).toContain('/enterprise/applications')
+  })
+
+  it('maps menus and direct paths to the same server feature keys', () => {
+    for (const [path, key] of [
+      ['/bots', 'bot_webhook'],
+      ['/bots/42', 'bot_webhook'],
+      ['/ai-agents/roles', 'agent_hub'],
+      ['/ai-hub?tab=tasks', 'agent_hub'],
+      ['/mcp-governance', 'mcp'],
+    ]) {
+      expect(featureKeyForAdminPath(path)).toBe(key)
+      expect(isAdminFeatureEnabled({ [key]: false }, key)).toBe(false)
+    }
+  })
+
+  it('keeps enterprise webhook delivery operations accessible', () => {
+    expect(featureKeyForAdminPath('/ai-hub/deliveries')).toBeNull()
+  })
+
+  it('server flags cannot enable deferred domains absent from the build manifest', () => {
+    for (const key of ['ai_assistant', 'agent_hub', 'mcp']) {
+      expect(isAdminFeatureEnabled({}, key)).toBe(false)
+      expect(isAdminFeatureEnabled(null, key)).toBe(false)
+      expect(isAdminFeatureEnabled({ [key]: true }, key)).toBe(false)
+      expect(isAdminFeatureEnabled({ [key]: false }, key)).toBe(false)
+    }
+  })
+})
+
 describe('isAdminFeatureEnabled', () => {
   it('returns true when featureKey is null (no gate)', () => {
     expect(isAdminFeatureEnabled({}, null)).toBe(true)
