@@ -17,7 +17,7 @@
 
 export type SecretRevealMode = 'issue' | 'rotate'
 
-export type SecretRevealWindow = {
+type SecretRevealWindow = {
   /** 单调递增窗口号：用于把「同一个 credential 的不同次签发」严格区分开。 */
   windowId: number
   credentialId: string
@@ -27,7 +27,7 @@ export type SecretRevealWindow = {
   armedAt: number
 }
 
-export type SecretRevealRead = {
+type SecretRevealRead = {
   windowId: number
   credentialId: string
   credentialPrefix: string

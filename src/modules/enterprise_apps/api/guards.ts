@@ -21,7 +21,7 @@ import {
 // 1. 熔断守卫
 // ---------------------------------------------------------------------------
 
-export type ForbiddenKeyHit = { path: string; key: string }
+type ForbiddenKeyHit = { path: string; key: string }
 
 function walkForbiddenKeys(
   value: unknown,

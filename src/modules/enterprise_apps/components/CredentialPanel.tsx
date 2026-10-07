@@ -47,7 +47,7 @@ function toApiError(err: unknown): ApiErrorLike | null {
   return err && typeof err === 'object' ? (err as ApiErrorLike) : null
 }
 
-export type CredentialPanelProps = {
+type CredentialPanelProps = {
   scope: GovernanceScope
   /** Application 当前生命周期（archived 时禁写）。 */
   applicationArchived: boolean

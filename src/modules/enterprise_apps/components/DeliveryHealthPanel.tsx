@@ -22,7 +22,7 @@ import {
 } from '../api/pureFunctions'
 import { getDeliveryStats, listDeliveries, type GovernanceScope } from '../api/public'
 
-export type DeliveryHealthPanelProps = {
+type DeliveryHealthPanelProps = {
   scope: GovernanceScope
   /** 是否展示投递明细表（健康度摘要页为 true；详情页也复用）。 */
   showList?: boolean

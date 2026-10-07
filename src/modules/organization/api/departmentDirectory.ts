@@ -78,7 +78,7 @@ export function sortDepartmentTree(
   return sortNodes(tree)
 }
 
-export type HighlightPart = { text: string; match: boolean }
+type HighlightPart = { text: string; match: boolean }
 
 /**
  * 名称高亮切分：按首个大小写不敏感命中把名称切成 [前缀, 命中, 后缀]

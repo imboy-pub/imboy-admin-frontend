@@ -27,14 +27,14 @@ import type { EntityId } from '@/types/common'
 // 类型（出站白名单投影；敏感内部字段永不进入）
 // ===========================================================================
 
-export type OrgRole = 'owner' | 'admin' | 'member' | null
+type OrgRole = 'owner' | 'admin' | 'member' | null
 
 /**
  * 组织状态（adm 面）：C16 原有 active/archived 之外，新增入驻审核两态——
  * pending（待审核）/ rejected（已驳回）。服务端状态机：pending 经 review/approve
  * → active、review/reject → rejected；其余读写门禁不变。
  */
-export type OrgStatus = 'active' | 'archived' | 'pending' | 'rejected' | 'unknown'
+type OrgStatus = 'active' | 'archived' | 'pending' | 'rejected' | 'unknown'
 
 /** 列表服务端 status 筛选档位（GET /organizations?status=）。 */
 export type OrgStatusFilter = 'all' | 'active' | 'pending' | 'rejected' | 'archived'
@@ -95,7 +95,7 @@ export type InvitationView = {
   createdAt: number | null
 }
 
-export type DepartmentStatus = 'active' | 'archived' | 'unknown'
+type DepartmentStatus = 'active' | 'archived' | 'unknown'
 
 export type DepartmentRow = {
   id: EntityId
@@ -142,7 +142,7 @@ export type OrgPage<T> = {
 // 错误分类（400/401/403/404/409/422/503 稳定归类；只呈现安全归类与可重试动作）
 // ===========================================================================
 
-export type OrgFailureKind =
+type OrgFailureKind =
   | 'unauthorized'
   | 'forbidden'
   | 'not_found'
@@ -312,7 +312,7 @@ export function canTargetMemberRow(row: Pick<OrganizationMemberRow, 'role'>): bo
 // ===========================================================================
 
 /** 生命周期命令响应的 status 窄化（suspend→suspended / restore→active / remove→removed）。 */
-export type MemberLifecycleStatus = 'active' | 'suspended' | 'removed' | 'unknown'
+type MemberLifecycleStatus = 'active' | 'suspended' | 'removed' | 'unknown'
 
 /** suspend/restore/remove 响应 data 投影（后端 member_result/4）。
  * suspend/restore 含 role；remove（removed 终态）响应无 role → null。 */
@@ -798,7 +798,7 @@ export type CreateOrganizationResult = {
  * 区分"真实新建"与"幂等命中"（created=false）：二者都应导向同一详情页，
  * 但呈现金字塔不同——UI 不得把幂等命中当失败。
  */
-export type CreateOrganizationOutcome =
+type CreateOrganizationOutcome =
   | { kind: 'created'; organizationId: EntityId; workspaceId: EntityId }
   | { kind: 'idempotent'; organizationId: EntityId; workspaceId: EntityId }
 

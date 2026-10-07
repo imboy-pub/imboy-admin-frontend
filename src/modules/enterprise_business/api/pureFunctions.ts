@@ -254,7 +254,7 @@ export function parseOffboardingItemsStatusFilter(
   }
 }
 
-export type OffboardingListQueryInput = {
+type OffboardingListQueryInput = {
   status: EbOffboardingStatusFilter
   afterId: EntityId | null
   limit?: number
@@ -461,7 +461,7 @@ export function offboardingItemStatusLabel(status: string): string {
 // 列表错误态映射（401/403/404/422 + 409 冲突）
 // ---------------------------------------------------------------------------
 
-export type EbListFailure =
+type EbListFailure =
   | 'unauthenticated' // 401 —— 会话失效
   | 'permission_missing' // 403 —— 缺 enterprise_business:read/write
   | 'not_found' // 404 —— case 不在作用域内/不存在
@@ -470,7 +470,7 @@ export type EbListFailure =
   | 'unknown'
 
 /** 后端错误 envelope 形状（拦截器 reject 出 {code, msg}）。 */
-export type EbApiErrorLike = {
+type EbApiErrorLike = {
   code?: unknown
   msg?: unknown
 }

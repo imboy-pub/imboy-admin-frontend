@@ -35,7 +35,7 @@ import {
 } from './contracts'
 
 /** 未知取值的安全侧标记：不猜测、不误标。 */
-export type Unknownable<T extends string> = T | 'unknown'
+type Unknownable<T extends string> = T | 'unknown'
 
 // ---------------------------------------------------------------------------
 // 2. 白名单投影
@@ -301,7 +301,7 @@ export function lastUsedLabel(value: string): string {
 }
 
 /** 签发/轮换响应的**唯一**允许形状：元数据 + 一个 `secret`。 */
-export type IssuedCredentialOnce = {
+type IssuedCredentialOnce = {
   credential: CredentialMeta
   secret: string
 }
@@ -613,7 +613,7 @@ function renderFieldValue(value: unknown): string {
 // 4. 失败分类
 // ---------------------------------------------------------------------------
 
-export type GovernanceFailureKind =
+type GovernanceFailureKind =
   | 'contractViolation' // 响应契约违约（含禁止的 secret / payload 字段）—— 前端熔断
   | 'aggregationUnavailable' // 404 —— Admin 聚合面未接线（PENDING_A0_WIRING）
   | 'unauthenticated' // 401

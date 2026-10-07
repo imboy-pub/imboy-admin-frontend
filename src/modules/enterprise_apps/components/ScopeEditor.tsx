@@ -10,7 +10,7 @@ import {
 } from '../api/contracts'
 import { diffScopes, requiresExplicitConfirmation } from '../api/pureFunctions'
 
-export type ScopeEditorProps = {
+type ScopeEditorProps = {
   /** 当前选中的 scope（受控）。 */
   value: readonly EnterpriseScope[]
   onChange: (_next: EnterpriseScope[]) => void

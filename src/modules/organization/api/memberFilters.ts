@@ -16,7 +16,7 @@ import type { OrganizationMemberRow } from './pureFunctions'
 
 export type MemberRoleFilter = 'all' | 'owner' | 'admin' | 'member' | 'unknown'
 
-export type MemberCompositeFilter = {
+type MemberCompositeFilter = {
   role: MemberRoleFilter
   keyword: string
 }

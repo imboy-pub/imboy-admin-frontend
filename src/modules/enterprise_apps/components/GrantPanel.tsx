@@ -20,7 +20,7 @@ import {
 import { issueGrant, listGrants, newIdempotencyKey, patchGrant, type GovernanceScope } from '../api/public'
 import { ScopeEditor } from './ScopeEditor'
 
-export type GrantPanelProps = {
+type GrantPanelProps = {
   scope: GovernanceScope
   /** Application 当前版本（新增 Grant 的 CAS 期望值）。 */
   applicationVersion: number

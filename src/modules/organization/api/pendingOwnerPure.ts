@@ -33,12 +33,12 @@ import { classifyOrgError, type OrgFailure } from './pureFunctions'
 
 export type PendingOwnerMode = 'registered' | 'pending_phone'
 
-export type PendingOwnerInviteStatus = 'pending' | 'sms_failed' | 'activated' | 'superseded'
+type PendingOwnerInviteStatus = 'pending' | 'sms_failed' | 'activated' | 'superseded'
 
 /** UI 派生标签态：expired 由 TTL 谓词派生；reactivated 为动作成功提示态。 */
-export type PendingOwnerLabelStatus = PendingOwnerInviteStatus | 'expired' | 'reactivated'
+type PendingOwnerLabelStatus = PendingOwnerInviteStatus | 'expired' | 'reactivated'
 
-export type PendingOwnerInviteView = {
+type PendingOwnerInviteView = {
   inviteId: EntityId
   organizationId: EntityId
   ownerUserId: EntityId
@@ -62,7 +62,7 @@ export type PendingOwnerStatusView = {
   invite: PendingOwnerInviteView | null
 }
 
-export type CreatePendingOwnerActivationView = {
+type CreatePendingOwnerActivationView = {
   inviteId: EntityId
   organizationId: EntityId
   ownerUserId: EntityId
@@ -102,7 +102,7 @@ export type PendingOwnerCreateInput = {
 // 手机号归一化 / 脱敏（与后端 imboy_mobile 同口径）
 // ===========================================================================
 
-export type MobileNormalization =
+type MobileNormalization =
   | { ok: true; mobile: string }
   | { ok: false; error: string }
 

@@ -26,7 +26,7 @@ import type { EntityId } from '@/types/common'
 import { classifyOrgError, type OrgFailure } from './pureFunctions'
 
 /** 摘要使用的坐席行事实（出站白名单的安全子集）。 */
-export type CsSummarySeatFact = {
+type CsSummarySeatFact = {
   businessIdentityId: EntityId
   displayName: string | null
   enabled: boolean
@@ -139,7 +139,7 @@ export function aggregateOrgCsSummary(
 // 必须有可辨识的稳定类别，UI 给出明确反馈（不静默、不误导）。
 // ===========================================================================
 
-export type CsSummaryFailure = OrgFailure & {
+type CsSummaryFailure = OrgFailure & {
   /**
    * 409 / advisory lock / seat_limit_exceeded 类并发冲突：
    * 摘要读取与治理写并发时的瞬时态，UI 提示刷新后重试。

@@ -20,7 +20,7 @@ import {
 import { changeApplicationStatus, newIdempotencyKey, updateApplicationScopes, type GovernanceScope } from '../api/public'
 import { ScopeEditor } from './ScopeEditor'
 
-export type ApplicationGovernanceCardProps = {
+type ApplicationGovernanceCardProps = {
   scope: GovernanceScope
   detail: ApplicationDetail
   onRefresh: () => void

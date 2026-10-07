@@ -9,7 +9,7 @@ const MODE_LABELS: Record<SecretRevealMode, string> = {
   rotate: '轮换后',
 }
 
-export type SecretOncePanelProps = {
+type SecretOncePanelProps = {
   credentialId: string
   /** 销毁后的回调（父组件可据此清掉“待展示”状态）。 */
   onDismissed?: () => void

@@ -14,7 +14,7 @@ import { auditActionLabel, GOVERNANCE_BACKEND_WIRED } from '../api/contracts'
 import { classifyGovernanceFailure, governanceFailureMessage, type ApiErrorLike, type AuditEntry } from '../api/pureFunctions'
 import { listAuditLogs, type GovernanceScope } from '../api/public'
 
-export type AuditTrailPanelProps = {
+type AuditTrailPanelProps = {
   scope: GovernanceScope
 }
 
