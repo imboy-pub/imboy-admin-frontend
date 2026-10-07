@@ -20,7 +20,7 @@ function psql(sql: string): string {
   return result.stdout
 }
 
-export interface CanonicalMessageRow {
+interface CanonicalMessageRow {
   id: string
   conversation_id: string
   sender_type: string

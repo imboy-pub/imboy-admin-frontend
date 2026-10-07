@@ -15,7 +15,7 @@
 import type { EntityId } from '@/types/common'
 
 /** 由 URL 恢复的上下文；两个字段任一为 null 表示"未选/非法已降级"。 */
-export interface OrgWorkspaceQuery {
+interface OrgWorkspaceQuery {
   org: EntityId | null
   ws: EntityId | null
 }

@@ -22,7 +22,7 @@ import type { ColumnVisibilityState } from '@tanstack/react-table'
 
 const STORAGE_KEY_PREFIX = 'imboy_admin_column_state'
 
-export type UseColumnStateOptions = {
+type UseColumnStateOptions = {
   /** 调用方作用域 key（页面级唯一，如 'organization-members'） */
   storageKey: string
   /** 当前列 schema 的全部列 id（存储清洗 + 全隐藏守卫的依据） */
@@ -31,7 +31,7 @@ export type UseColumnStateOptions = {
   defaultHidden?: readonly string[]
 }
 
-export type UseColumnStateReturn = {
+type UseColumnStateReturn = {
   columnVisibility: ColumnVisibilityState
   setColumnVisibility: Dispatch<SetStateAction<ColumnVisibilityState>>
   toggleColumn: (_columnId: string) => void

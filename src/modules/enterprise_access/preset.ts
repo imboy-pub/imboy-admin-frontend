@@ -12,19 +12,19 @@
 import type { EntityId } from '@/types/common'
 
 export const ENTERPRISE_PRESET = 'enterprise' as const
-export type EnterprisePreset = typeof ENTERPRISE_PRESET
+type EnterprisePreset = typeof ENTERPRISE_PRESET
 
 export function isEnterprisePreset(value: string | null | undefined): boolean {
   return value === ENTERPRISE_PRESET
 }
 
-export interface EnterpriseScopeFilterParams {
+interface EnterpriseScopeFilterParams {
   preset?: EnterprisePreset
   organization_id?: EntityId
   workspace_id?: EntityId
 }
 
-export interface EnterpriseScopeSource {
+interface EnterpriseScopeSource {
   preset?: string | null
   organization_id?: string | null
   workspace_id?: string | null

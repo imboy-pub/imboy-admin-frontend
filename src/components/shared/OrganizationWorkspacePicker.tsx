@@ -39,7 +39,7 @@ export interface OrganizationWorkspaceValue {
   workspaceId: EntityId | null
 }
 
-export interface OrganizationWorkspacePickerProps {
+interface OrganizationWorkspacePickerProps {
   /** 受控：当前选中的组织 TSID。 */
   organizationId: EntityId | null
   /** 受控：当前选中的工作区 TSID。 */

@@ -6,7 +6,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { getOrganizations } from '@/modules/organization/api/public'
 
-export interface OrganizationFilterOption {
+interface OrganizationFilterOption {
   value: string
   label: string
 }

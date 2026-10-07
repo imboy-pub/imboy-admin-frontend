@@ -23,7 +23,7 @@ import type {
 } from '@/components/shared/OrganizationWorkspacePicker'
 import { getOrganizations, listOrganizationWorkspaces } from '@/modules/organization/api'
 
-export interface UseOrgWorkspaceScopeOptions {
+interface UseOrgWorkspaceScopeOptions {
   /**
    * 可选：组织列表的服务端搜索关键字（搜索框场景；空白串 = 不过滤）。
    * 不传时行为与共享选择器其他消费者一致（拉取前 50 个 active 组织）。

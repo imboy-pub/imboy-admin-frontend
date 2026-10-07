@@ -23,7 +23,7 @@ export type FeatureName =
   | 'group_task'
 
 export type StorageMode = 'disabled' | 'archived' | 'compliance_e2ee' | 'secure_e2ee'
-export type E2eeMode = 'disabled' | 'optional' | 'compliance' | 'required'
+type E2eeMode = 'disabled' | 'optional' | 'compliance' | 'required'
 
 // 存储模式展示名的单一真源。策略页下拉与套餐对比卡共用：`Record<StorageMode, string>`
 // 保证新增档位时这里先编译报错，而不是在展示层退化成「非归档 = 加密」的二值判断把
@@ -53,7 +53,7 @@ export function storageModeLabel(mode: string | undefined | null): string {
 // ⚠️ 新增/调整档位必须三处同步：本表、imboy_policy_catalog 注释、概念文档。
 export type EncryptionTierId = 'closed' | 'optional' | 'compliance' | 'required'
 
-export type EncryptionTier = {
+type EncryptionTier = {
   id: EncryptionTierId
   label: string
   description: string

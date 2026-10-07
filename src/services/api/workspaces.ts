@@ -42,7 +42,7 @@ export interface WorkspaceAdminRow {
  *   members 为嵌套分页 {list,page,size,total,total_page}（total 为准确总数）
  * 计数类字段经 Omit 移除，防止页面误读不存在扁平字段恒取 0/undefined。
  */
-export type WorkspaceAdminDetail = Omit<
+type WorkspaceAdminDetail = Omit<
   WorkspaceAdminRow,
   'project_count' | 'group_count' | 'channel_count' | 'member_count'
 > & {
@@ -233,7 +233,7 @@ export type ProjectMilestoneStatusFilter = 'all' | 'planned' | 'reached'
 
 export type ProjectAggregationType = 'pinned' | 'resources' | 'activity' | 'related_posts'
 
-export interface ProjectMemberRow {
+interface ProjectMemberRow {
   project_id: EntityId
   user_id: EntityId
   nickname?: string | null
@@ -244,7 +244,7 @@ export interface ProjectMemberRow {
   joined_at?: string | null
 }
 
-export interface ProjectMilestoneRow {
+interface ProjectMilestoneRow {
   id: EntityId
   project_id: EntityId
   name?: string | null
@@ -260,7 +260,7 @@ export interface ProjectMilestoneRow {
  * {channel_id, workspace_id, linked_at, name, avatar, channel_status}——
  * 无 id/subscriber_count/created_at 字段（关联时间键为 linked_at = rel.created_at）。
  */
-export interface ProjectChannelRow {
+interface ProjectChannelRow {
   channel_id: EntityId
   workspace_id?: EntityId
   name?: string | null
@@ -271,7 +271,7 @@ export interface ProjectChannelRow {
   linked_at?: number | string | null
 }
 
-export interface ProjectAggregationRow {
+interface ProjectAggregationRow {
   id: EntityId
   project_id?: EntityId
   type: ProjectAggregationType
@@ -283,23 +283,23 @@ export interface ProjectAggregationRow {
   extra?: Record<string, unknown>
 }
 
-export interface ProjectMembersParams {
+interface ProjectMembersParams {
   page?: number
   size?: number
 }
 
-export interface ProjectMilestonesParams {
+interface ProjectMilestonesParams {
   page?: number
   size?: number
   status?: ProjectMilestoneStatusFilter
 }
 
-export interface ProjectChannelsParams {
+interface ProjectChannelsParams {
   page?: number
   size?: number
 }
 
-export interface ProjectAggregationsParams {
+interface ProjectAggregationsParams {
   page?: number
   size?: number
   type?: ProjectAggregationType

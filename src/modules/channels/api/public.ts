@@ -48,7 +48,7 @@ export interface ChannelListParams {
   workspace_id?: EntityId
 }
 
-export interface ChannelSearchParams {
+interface ChannelSearchParams {
   keyword: string
   limit?: number
 }
@@ -82,7 +82,7 @@ export interface ChannelMessage {
   updated_at: string | null
 }
 
-export interface ChannelMessageListParams {
+interface ChannelMessageListParams {
   page?: number
   size?: number
 }
@@ -92,7 +92,7 @@ export interface ChannelGovernanceListParams {
   size?: number
 }
 
-export interface ChannelUserSummary {
+interface ChannelUserSummary {
   id: EntityId
   account?: string
   nickname?: string
@@ -157,7 +157,7 @@ export interface ChannelOrder {
   user?: ChannelUserSummary
 }
 
-export interface ChannelStats {
+interface ChannelStats {
   channel_id: EntityId
   subscriber_count: number
   total_messages: number

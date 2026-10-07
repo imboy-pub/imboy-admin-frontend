@@ -47,7 +47,7 @@ interface RawPushToken {
   updated_at?: unknown
 }
 
-export interface PushTokenListResponse {
+interface PushTokenListResponse {
   list: PushTokenView[]
   total: number
   page: number

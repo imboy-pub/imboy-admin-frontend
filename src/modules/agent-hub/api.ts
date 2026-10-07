@@ -1,12 +1,6 @@
 import client from '@/services/api/client'
 import { requireApiPayload } from '@/services/api/responseAdapter'
 
-export interface AiHubSignals {
-  mcpPending: number
-  deadDeliveries: number
-  bots: number
-}
-
 /** MCP 治理：待批 client 数（status=pending） */
 export async function fetchMcpPending(): Promise<number> {
   const res = await client.get('/mcp/clients', { params: { page: 1, size: 1, status: 'pending' } })

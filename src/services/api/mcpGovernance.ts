@@ -110,7 +110,7 @@ export async function listAudit(params: McpAuditListParams): Promise<PaginatedRe
 }
 
 /* ===== MCP-01：独立凭证创建（secret 仅本次响应返回） ===== */
-export interface McpClientCreated {
+interface McpClientCreated {
   client_id: EntityId
   client_key: string
   secret: string
