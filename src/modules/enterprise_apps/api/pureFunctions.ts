@@ -19,7 +19,6 @@ import {
   APPLICATION_STATUS_LABELS,
   AUDIT_DIFF_FIELDS,
   CREDENTIAL_SAFE_KEYS,
-  CREDENTIAL_STATUSES,
   DELIVERY_SAFE_KEYS,
   NEVER_IMPLIED_SCOPES,
   READ_PERMISSION,
@@ -110,10 +109,6 @@ export function applicationStatusLabel(status: Unknownable<ApplicationStatus>): 
   return APPLICATION_STATUS_LABELS[status]
 }
 
-export function toCredentialStatus(value: unknown): Unknownable<CredentialStatus> {
-  const raw = toStr(value)
-  return (CREDENTIAL_STATUSES as readonly string[]).includes(raw) ? (raw as CredentialStatus) : 'unknown'
-}
 
 /** 只接受固定枚举内的 scope；未登记/通配一律丢弃（不猜测、不透传）。 */
 export function toScopeList(value: unknown): EnterpriseScope[] {
@@ -133,33 +128,7 @@ export type ApplicationSummary = {
   updatedAt: string
 }
 
-const APPLICATION_SAFE_KEYS = [
-  'id',
-  'organization_id',
-  'name',
-  'status',
-  'scopes',
-  'version',
-  'created_at',
-  'updated_at',
-] as const
 
-export function toApplicationSummary(raw: unknown): ApplicationSummary | null {
-  if (!isPlainRecord(raw)) return null
-  const id = toId(raw.id)
-  if (id === null) return null
-  const safe = pickAllowed(raw, APPLICATION_SAFE_KEYS)
-  return {
-    id,
-    organizationId: toId(safe.organization_id) ?? '',
-    name: toStr(safe.name),
-    status: toApplicationStatus(safe.status),
-    scopes: toScopeList(safe.scopes),
-    version: toInt(safe.version, 1),
-    createdAt: toStr(safe.created_at),
-    updatedAt: toStr(safe.updated_at),
-  }
-}
 
 export type ApplicationPage = {
   items: ApplicationSummary[]
@@ -188,29 +157,7 @@ export type ApplicationDetail = ApplicationSummary & {
   ownerApplicationKey: string
 }
 
-const APPLICATION_DETAIL_SAFE_KEYS = [
-  'id',
-  'organization_id',
-  'name',
-  'status',
-  'scopes',
-  'version',
-  'created_at',
-  'updated_at',
-  'description',
-  'owner_application_key',
-] as const
 
-export function toApplicationDetail(raw: unknown): ApplicationDetail | null {
-  const summary = toApplicationSummary(raw)
-  if (summary === null || !isPlainRecord(raw)) return null
-  const safe = pickAllowed(raw, APPLICATION_DETAIL_SAFE_KEYS)
-  return {
-    ...summary,
-    description: toStr(safe.description),
-    ownerApplicationKey: toStr(safe.owner_application_key),
-  }
-}
 
 /**
  * 详情端点的两种后端形状都接受：
@@ -634,34 +581,10 @@ function toApiErrorLike(err: unknown): ApiErrorLike | null {
   return null
 }
 
-export function errorCodeOf(err: ApiErrorLike): number {
-  const code = err.code
-  if (typeof code === 'number' && Number.isFinite(code)) return code
-  if (typeof code === 'string') {
-    const parsed = Number(code)
-    if (Number.isFinite(parsed)) return parsed
-  }
-  return -1
-}
 
 const CAS_MARKERS = ['stale_version', 'cas_mismatch', 'version_conflict', 'expected_version', 'conflict_stale']
 const NETWORK_MARKERS = ['network', 'timeout', 'failed to fetch', 'load failed', 'econnrefused', 'etimedout']
 
-/**
- * 传输层错误识别（无 HTTP 状态码）：
- *  - 浏览器 `fetch` 抛 `TypeError`；
- *  - axios 无 response 的 `AxiosError`（`ERR_NETWORK` / 超时 / DNS 失败）。
- */
-export function isNetworkError(err: unknown): boolean {
-  if (err instanceof TypeError) return true
-  if (err === null || typeof err !== 'object') return false
-  const record = err as { name?: unknown; code?: unknown; response?: unknown }
-  if (typeof record.code === 'string' && record.code.startsWith('ERR_')) return true
-  if (record.name === 'AxiosError') {
-    return record.response === undefined || record.response === null
-  }
-  return false
-}
 
 const CONTRACT_VIOLATION_MARKERS = ['禁止的', '熔断', '二次回显', '触发熔断']
 const PERMISSION_GUARD_MARKERS = ['缺少 enterprise_business', '权限，拒绝执行']
@@ -751,8 +674,3 @@ export function assertWriteAllowed(permissions: readonly string[], action: strin
   }
 }
 
-/** 生命周期/授权变更是否触及「敏感动作」（需二次确认）——全部写动作都是。 */
-export function sensitivityOf(action: string): 'high' | 'medium' {
-  const highRisk = ['revoke_credential', 'rotate_credential', 'issue_credential', 'revoke_grant', 'archive_application']
-  return highRisk.includes(action) ? 'high' : 'medium'
-}
