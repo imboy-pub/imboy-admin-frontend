@@ -33,10 +33,10 @@ import type { EntityId } from '../types'
 
 /** G15：仅本文件 type 派生与值使用，撤 export。 */
 const SEAT_SESSION_STATUSES = ['queued', 'active', 'closed'] as const
-export type SeatSessionStatus = (typeof SEAT_SESSION_STATUSES)[number]
+type SeatSessionStatus = (typeof SEAT_SESSION_STATUSES)[number]
 
 /** §3.7 附件阶段（seat 只读视角；deleted 含过期清理占位）。 */
-export type SeatAttachmentPhase = 'pending_confirm' | 'active' | 'deleted'
+type SeatAttachmentPhase = 'pending_confirm' | 'active' | 'deleted'
 
 export type SeatAttachment = {
   assetId: EntityId
@@ -59,7 +59,7 @@ export type SeatMessage = {
   attachments: SeatAttachment[]
 }
 
-export type SeatLastMessage = {
+type SeatLastMessage = {
   id: EntityId | null
   /** CS-WEB-03 键名对齐（CSX-01 修正）：wire 键是 sender_type / created_at /
    *  preview（cs_session_app:last_message_with 冻结键集）——旧 parser 读
@@ -115,7 +115,7 @@ export type SeatSessionDetail = SeatSessionSummary & {
   visitorSource: string
 }
 
-export type SeatTransferTarget = {
+type SeatTransferTarget = {
   identityId: EntityId
   displayName: string
   available: boolean
@@ -151,13 +151,13 @@ export type SeatTransferTargetPage = {
  * 永不出现在本投影，前端解析器同口径丢弃未知键（双层白名单）。
  * 时间字段均为 epoch 秒（后端 extract(epoch)::bigint wire）。
  */
-export type SeatCustomerContextContact = {
+type SeatCustomerContextContact = {
   maskedName: string | null
   firstSeen: number | null
   lastSeen: number | null
 }
 
-export type SeatCustomerHistorySession = {
+type SeatCustomerHistorySession = {
   id: EntityId
   conversationId: EntityId | null
   workspaceId: EntityId | null
@@ -169,7 +169,7 @@ export type SeatCustomerHistorySession = {
   closedAt: number | null
 }
 
-export type SeatCustomerNote = {
+type SeatCustomerNote = {
   id: EntityId
   businessIdentityId: EntityId | null
   createdAt: number | null

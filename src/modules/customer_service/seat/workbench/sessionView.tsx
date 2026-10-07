@@ -26,7 +26,7 @@ import { type SeatAttachment, type SeatMessage, type SeatSessionDetail } from '.
 import { SeatEmptyState, SeatErrorState, SeatLoadingState, seatFailureMessage } from './states'
 import { seatFailureKind } from './workbenchHooks'
 
-export type SeatSessionViewProps = {
+type SeatSessionViewProps = {
   /** 附件内容获取（Seat Bearer fetch；由页面从 gateway 组装，org scope 闭包在内）。 */
   fetchAssetBlob: SeatAssetFetcher
   detail: SeatSessionDetail | null
@@ -50,7 +50,7 @@ export type SeatSessionViewProps = {
 }
 
 /** 附件字节获取器（org scope 由调用方闭包；signal 供取消/卸载中断）。 */
-export type SeatAssetFetcher = (_assetId: string, _signal: AbortSignal) => Promise<Blob>
+type SeatAssetFetcher = (_assetId: string, _signal: AbortSignal) => Promise<Blob>
 
 const ATTACHMENT_PHASE_LABEL: Record<SeatAttachment['phase'], string> = {
   pending_confirm: '附件处理中',

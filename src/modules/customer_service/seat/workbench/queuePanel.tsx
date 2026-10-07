@@ -24,7 +24,7 @@ import type { SeatSessionsView, SeatViewStatus } from './workbenchHooks'
 import { SeatEmptyState, SeatErrorState, SeatLoadingState, seatFailureMessage } from './states'
 import { seatFailureKind } from './workbenchHooks'
 
-export type SeatQueuePanelProps = {
+type SeatQueuePanelProps = {
   viewStatus: SeatViewStatus
   onViewStatusChange: (_status: SeatViewStatus) => void
   counts: { queued: number; active: number; closed: number } | null

@@ -41,7 +41,7 @@ export class SeatUploadTargetMissingError extends Error {
   }
 }
 
-export type SeatAttachmentUploadInput = {
+type SeatAttachmentUploadInput = {
   api: SeatWorkbenchApi
   orgId: EntityId
   conversationId: EntityId
@@ -53,7 +53,7 @@ export type SeatAttachmentUploadInput = {
   objectHash?: string | null
 }
 
-export type SeatAttachmentUploadResult = {
+type SeatAttachmentUploadResult = {
   assetId: EntityId
   objectHash: string
 }

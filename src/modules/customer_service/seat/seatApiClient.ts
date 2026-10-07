@@ -96,7 +96,7 @@ export function assertSeatQueryContract(path: string, query: Record<string, stri
   }
 }
 
-export type SeatRequestOptions = {
+type SeatRequestOptions = {
   method?: 'GET' | 'POST' | 'PUT'
   /** 值会被 encodeURIComponent；凭证键受 assertSeatQueryContract 管制。 */
   query?: Record<string, string>
@@ -107,13 +107,13 @@ export type SeatRequestOptions = {
 /** CS-WEB-01：二进制内容请求（附件 content 端点；成功是原始字节流）。
  * query 与 request 同规则：值 encodeURIComponent、凭证键受
  * assertSeatQueryContract 管制（workspace_id 必填门由后端裁决）。 */
-export type SeatBlobRequestOptions = {
+type SeatBlobRequestOptions = {
   signal?: AbortSignal
   query?: Record<string, string>
 }
 
 /** CS-WEB-02：裸 PUT 上传选项（presign 下发的 upload.url；目标由服务端权威签发）。 */
-export type SeatUploadPutOptions = {
+type SeatUploadPutOptions = {
   signal?: AbortSignal
 }
 

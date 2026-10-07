@@ -9,7 +9,7 @@
  * - QR 专属码：5201 expired / 5202 cancelled / 5203 already_used / 5204 not_scanned。
  */
 
-export type SeatErrorKind =
+type SeatErrorKind =
   | 'validation'
   | 'unauthorized'
   | 'forbidden'
@@ -26,7 +26,7 @@ export type SeatErrorKind =
   /** QR 登录专属：尚未扫码（cancel 等场景的过渡态） */
   | 'qr_not_scanned'
 
-export type SeatApiErrorInit = {
+type SeatApiErrorInit = {
   status?: number | null
   code?: number | null
   cause?: unknown

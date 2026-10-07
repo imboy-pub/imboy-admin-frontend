@@ -143,7 +143,7 @@ export function useSeatContexts() {
   })
 }
 
-export type SeatScopeSelection = {
+type SeatScopeSelection = {
   context: SeatContext | null
   organizationId: EntityId | null
   organizationName: string
@@ -285,7 +285,7 @@ export function useSeatSessionViews(orgId: EntityId | null, workspaceId: EntityI
 // CAS 写：claim / transfer / close（409 → 失效刷新 + 冲突标记）
 // ---------------------------------------------------------------------------
 
-export type SeatCasConflict = { sessionId: EntityId } | null
+type SeatCasConflict = { sessionId: EntityId } | null
 
 export function useSeatClaim(orgId: EntityId | null, workspaceId: EntityId | null) {
   const { api } = useSeatWorkbenchGateway()
@@ -384,7 +384,7 @@ export function useSeatMessages(
 }
 
 /** CS-WEB-02：发送草稿真源（hooks 持有；UI 只消费视图投影——失败保留/成功清零全在此）。 */
-export type SeatSendDraft = {
+type SeatSendDraft = {
   body: string
   file: File | null
   /** 首次上传已算 hash（重试不重算）。 */
@@ -407,13 +407,13 @@ function newClientMsgId(): string {
 }
 
 /** 草稿视图投影（File 对象不出 hooks 面；UI 只显示元信息）。 */
-export type SeatSendDraftView = {
+type SeatSendDraftView = {
   body: string
   fileName: string | null
   fileSize: number | null
 }
 
-export type SeatSendState = {
+type SeatSendState = {
   draft: SeatSendDraftView
   updateDraftBody: (_body: string) => void
   attachFile: (_file: File) => void
@@ -601,7 +601,7 @@ export function useSeatCustomerContext(
 // §3.6 事件流收敛：信封 → 权威刷新；resync → 全量；revocation → 写入口收回
 // ---------------------------------------------------------------------------
 
-export type SeatStreamState = {
+type SeatStreamState = {
   status: SeatEventStreamStatus
   /** seat.changed/assignment.changed revoked 或 403 关流后的写入口降级（立即生效）。 */
   writeRevoked: boolean

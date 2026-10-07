@@ -12,7 +12,7 @@
 import { create } from 'zustand'
 import type { EntityId, SeatSessionEndReason } from './types'
 
-export type SeatAuthStatus = 'anonymous' | 'authenticated'
+type SeatAuthStatus = 'anonymous' | 'authenticated'
 
 /** token 仅内存 vault：setToken 之前必须经过形状 sanity（JWT 三段式）。 */
 export class SeatTokenVault {
@@ -38,7 +38,7 @@ export class SeatTokenVault {
   }
 }
 
-export type SeatAuthState = {
+type SeatAuthState = {
   status: SeatAuthStatus
   userId: EntityId | null
   /** 最近一次会话终结原因（驱动登录页文案/工作台降级）。 */

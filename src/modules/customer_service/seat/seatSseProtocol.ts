@@ -34,9 +34,9 @@ const SEAT_SSE_RESOURCE_TYPES = [
 
 const SEAT_SSE_REASONS = ['created', 'updated', 'revoked', 'expired', 'unknown'] as const
 
-export type SeatSseEventType = (typeof SEAT_SSE_EVENT_TYPES)[number]
-export type SeatSseResourceType = (typeof SEAT_SSE_RESOURCE_TYPES)[number]
-export type SeatSseReason = (typeof SEAT_SSE_REASONS)[number]
+type SeatSseEventType = (typeof SEAT_SSE_EVENT_TYPES)[number]
+type SeatSseResourceType = (typeof SEAT_SSE_RESOURCE_TYPES)[number]
+type SeatSseReason = (typeof SEAT_SSE_REASONS)[number]
 
 /** §3.6 冻结信封（逐字段 fail-closed 校验后投影，TSID 全 string）。 */
 export type SeatSseEnvelope = {
@@ -132,7 +132,7 @@ export class SeatSseEventIdDeduper {
   }
 }
 
-export type SeatSseEvent = { id: string | null; event: string; data: string }
+type SeatSseEvent = { id: string | null; event: string; data: string }
 
 /** 解析单个 SSE 块（以空行分隔）；`: heartbeat` 注释行返回 null。 */
 export function parseSeatSseBlock(raw: string): { event: SeatSseEvent; retryMs: number | null } | null {

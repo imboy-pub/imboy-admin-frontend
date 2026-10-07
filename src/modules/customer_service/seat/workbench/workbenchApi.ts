@@ -69,7 +69,7 @@ function pageQuery(query: SeatPageQuery): Record<string, string> {
   return out
 }
 
-export type SeatWorkbenchApiOptions = {
+type SeatWorkbenchApiOptions = {
   client: SeatApiClient
 }
 

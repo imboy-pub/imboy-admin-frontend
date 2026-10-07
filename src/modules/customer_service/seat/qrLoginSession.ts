@@ -33,7 +33,7 @@ export const QR_LOGIN_POLL_INTERVAL_MS = 2000
 
 export type QrLoginPhase = 'creating' | 'awaiting_scan' | 'scanned' | 'confirmed' | 'ended'
 
-export type QrLoginCreated = {
+type QrLoginCreated = {
   /** 渲染二维码用的 qr_token（非凭证，后端 60s 自过期）。 */
   qrToken: string
   expiresInMs: number
@@ -50,7 +50,7 @@ export type QrLoginCallbacks = {
   onError?: (_error: SeatApiError) => void
 }
 
-export type QrLoginDevice = {
+type QrLoginDevice = {
   deviceId: string
   deviceName?: string
   platform?: string

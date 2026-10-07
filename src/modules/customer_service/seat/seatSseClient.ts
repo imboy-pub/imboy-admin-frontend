@@ -28,9 +28,9 @@ import {
 
 export type SeatEventStreamStatus = 'idle' | 'connecting' | 'online' | 'reconnecting' | 'offline' | 'closed'
 
-export type SeatEventStreamEndReason = 'unauthorized' | 'forbidden'
+type SeatEventStreamEndReason = 'unauthorized' | 'forbidden'
 
-export type SeatEventStreamOptions = {
+type SeatEventStreamOptions = {
   baseUrl?: string
   getToken: () => string | null
   fetchImpl?: SeatFetchLike

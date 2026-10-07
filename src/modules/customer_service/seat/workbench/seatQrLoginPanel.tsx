@@ -15,7 +15,7 @@ import { getOrCreateSeatDeviceId } from './deviceIdentity'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
-export type SeatQrLoginPanelProps = {
+type SeatQrLoginPanelProps = {
   createSession: (_callbacks: QrLoginCallbacks) => QrLoginSession
   onConfirmed: (_token: string) => void
   onEnded: (_reason: QrLoginEndReason) => void

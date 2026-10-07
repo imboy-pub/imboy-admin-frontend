@@ -26,7 +26,7 @@ export const SEAT_CAPABILITIES = [
 
 export type SeatCapability = (typeof SEAT_CAPABILITIES)[number]
 
-export type SeatWorkspaceRef = {
+type SeatWorkspaceRef = {
   id: EntityId
   name: string
 }

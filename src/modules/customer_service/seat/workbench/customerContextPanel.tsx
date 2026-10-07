@@ -62,7 +62,7 @@ function SectionEmpty({ message, testId }: { message: string; testId: string }) 
   )
 }
 
-export type SeatCustomerContextPanelProps = {
+type SeatCustomerContextPanelProps = {
   context: SeatCustomerContext | null
   loading: boolean
   error: unknown
