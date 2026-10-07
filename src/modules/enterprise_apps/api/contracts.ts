@@ -226,9 +226,6 @@ export const PAYLOAD_FORBIDDEN_KEYS = [
   'raw_body',
 ] as const
 
-/** 仅签发/轮换响应允许携带的唯一字段名。 */
-export const SECRET_ONCE_FIELD = 'secret'
-
 type QueryValue = string | number | undefined
 
 function query(params: Record<string, QueryValue>): string {

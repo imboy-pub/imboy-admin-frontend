@@ -755,9 +755,3 @@ export function assertWriteAllowed(permissions: readonly string[], action: strin
     throw new Error(`缺少 ${WRITE_PERMISSION} 权限，拒绝执行：${action}`)
   }
 }
-
-/** 生命周期/授权变更是否触及「敏感动作」（需二次确认）——全部写动作都是。 */
-export function sensitivityOf(action: string): 'high' | 'medium' {
-  const highRisk = ['revoke_credential', 'rotate_credential', 'issue_credential', 'revoke_grant', 'archive_application']
-  return highRisk.includes(action) ? 'high' : 'medium'
-}

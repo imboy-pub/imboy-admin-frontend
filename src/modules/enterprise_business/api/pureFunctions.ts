@@ -221,16 +221,6 @@ export type EbOffboardingStatusFilter =
   | 'completed'
   | 'failed'
 
-export const EB_OFFBOARDING_STATUS_FILTERS: readonly EbOffboardingStatusFilter[] = [
-  'all',
-  'draft',
-  'frozen',
-  'transferring',
-  'verifying',
-  'completed',
-  'failed',
-] as const
-
 /** URL/status 参数 → 契约 6 态白名单；非法值归 all（不把脏值发给后端）。 */
 export function parseOffboardingStatusFilter(raw: string | null | undefined): EbOffboardingStatusFilter {
   switch (raw) {
