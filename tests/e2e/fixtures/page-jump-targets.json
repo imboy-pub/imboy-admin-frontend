@@ -1,0 +1,144 @@
+{
+  "AdminListPage": [
+    "/roles",
+    "/logs"
+  ],
+  "SetupPage": [
+    "/login"
+  ],
+  "ChannelAdminPage": [
+    "/channels/:id"
+  ],
+  "ChannelDetailPage": [
+    "/channels",
+    "/channels/:id/messages",
+    "/channels/:id/subscribers",
+    "/channels/:id/admins",
+    "/channels/:id/invitations",
+    "/channels/:id/orders"
+  ],
+  "ChannelInvitationPage": [
+    "/channels/:id"
+  ],
+  "ChannelListPage": [
+    "/channels/:id",
+    "/channels/:id?edit=1",
+    "/channels/:id/messages"
+  ],
+  "ChannelMessagePage": [
+    "/channels/:id"
+  ],
+  "ChannelOrderPage": [
+    "/channels/:id"
+  ],
+  "ChannelSubscriberPage": [
+    "/channels/:id"
+  ],
+  "GroupAlbumManagePage": [
+    "/groups/:id"
+  ],
+  "GroupCategoryManagePage": [
+    "/groups/:id"
+  ],
+  "GroupContextGatewayPage": [
+    "/groups/:id:id?from=context"
+  ],
+  "GroupDetailPage": [
+    "/groups",
+    "/groups/:id/members",
+    "/groups/:id/votes",
+    "/groups/:id/notices",
+    "/groups/:id/tags",
+    "/groups/:id/categories",
+    "/groups/:id/files",
+    "/groups/:id/albums",
+    "/groups/:id/schedules",
+    "/groups/:id/tasks",
+    "/groups/:id/governance-logs"
+  ],
+  "GroupFileManagePage": [
+    "/groups/:id"
+  ],
+  "GroupGovernanceLogPage": [
+    "/groups/context?gid=:id"
+  ],
+  "GroupListPage": [
+    "/groups/:id"
+  ],
+  "GroupMemberManagePage": [
+    "/users/:id",
+    "/groups/:id"
+  ],
+  "GroupNoticeManagePage": [
+    "/groups/:id"
+  ],
+  "GroupScheduleManagePage": [
+    "/groups/:id"
+  ],
+  "GroupTagManagePage": [
+    "/groups/:id"
+  ],
+  "GroupTaskListPage": [
+    "/groups/:id",
+    "/groups/:id/tasks"
+  ],
+  "GroupTaskManagePage": [
+    "/groups/:id"
+  ],
+  "GroupVoteManagePage": [
+    "/groups/:id"
+  ],
+  "AuditLogPage": [
+    "/messages",
+    "/logout-applications"
+  ],
+  "MomentDetailPage": [
+    "/moments",
+    "/moments/reports"
+  ],
+  "MomentListPage": [
+    "/moments/:id",
+    "/moments/reports"
+  ],
+  "MomentReportPage": [
+    "/moments/:id"
+  ],
+  "PluginManagementPage": [
+    "/plugins/logs"
+  ],
+  "CapabilityConfigPage": [
+    "/settings"
+  ],
+  "ComplianceKeyPage": [
+    "/settings"
+  ],
+  "FeatureConfigPage": [
+    "/settings"
+  ],
+  "ProductExperiencePage": [
+    "/settings"
+  ],
+  "ProfileSwitchPage": [
+    "/settings"
+  ],
+  "PushTokenListPage": [
+    "/settings"
+  ],
+  "StorageOverviewPage": [
+    "/settings"
+  ],
+  "UserCollectManagePage": [
+    "/users/:id"
+  ],
+  "UserDetailPage": [
+    "/users",
+    "/users/:id/tags",
+    "/users/:id/collects"
+  ],
+  "UserListPage": [
+    "/users/:id"
+  ],
+  "UserTagManagePage": [
+    "/users/:id"
+  ]
+}

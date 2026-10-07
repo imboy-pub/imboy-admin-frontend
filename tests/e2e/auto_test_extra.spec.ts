@@ -1,7 +1,7 @@
 /**
  * auto_test 补充巡检（阶段A2）：
  * 1. 错误态注入：拦截页面主 API 返回 500，验证 ErrorState 渲染
- * 2. 跳转链接：按 md 里「跳转 /xxx」功能点检查 DOM 中链接存在
+ * 2. 跳转链接：按可复用导航判据检查 DOM 中链接存在
  * 3. 二次确认弹窗：点击危险按钮 → 检测确认 Dialog → 取消 → 断言无写请求
  *
  * 用法：
@@ -11,6 +11,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { test, type Route } from '@playwright/test'
 import { loginAsAdmin, requireAdminCredentials } from './support/adminAuth'
+import pageJumpTargets from './fixtures/page-jump-targets.json' with { type: 'json' }
 
 const ROUND = process.env.AUTO_TEST_ROUND || `extra-${Date.now() % 100000}`
 const EVIDENCE_ROOT = path.resolve(process.cwd(), 'tests/auto_test/evidence')
@@ -85,26 +86,9 @@ function saveReport() {
   fs.writeFileSync(REPORT_PATH, JSON.stringify({ round: ROUND, pages: report }, null, 2))
 }
 
-/** 从 md 计划中提取每页「跳转 /xxx」目标 */
+/** 导航判据属于测试源码，不依赖历史执行台账。 */
 function loadJumpTargets(): Map<string, string[]> {
-  const map = new Map<string, string[]>()
-  const mdRoot = path.resolve(process.cwd(), 'tests/auto_test')
-  for (const modDir of fs.readdirSync(mdRoot)) {
-    const modPath = path.join(mdRoot, modDir)
-    if (!fs.statSync(modPath).isDirectory() || modDir === 'evidence') continue
-    for (const mdFile of fs.readdirSync(modPath).filter((f) => f.endsWith('.md'))) {
-      const slug = mdFile.replace('.md', '')
-      const targets: string[] = []
-      for (const line of fs.readFileSync(path.join(modPath, mdFile), 'utf8').split('\n')) {
-        if (!line.startsWith('| ')) continue
-        const desc = line.split('|')[4] ?? ''
-        const m = desc.match(/跳转\s+`([^`]+)`/)
-        if (m) targets.push(m[1])
-      }
-      if (targets.length) map.set(slug, targets)
-    }
-  }
-  return map
+  return new Map(Object.entries(pageJumpTargets))
 }
 
 const DANGEROUS_BTN = /^(删除|移除|禁用|拉黑|屏蔽|注销|清理|撤销|重置密码|强制|下线|封禁|解封|恢复|驳回|拒绝|通过|标记)/
