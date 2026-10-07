@@ -40,34 +40,6 @@ export function pickSafeFields(
   return out
 }
 
-/** 坐席展示白名单（后端 cs_pg_seat SEAT_KEYS + active_count 的安全子集）。 */
-export const CS_SEAT_SAFE_KEYS = [
-  'organization_id',
-  'business_identity_id',
-  'function_key',
-  'enabled',
-  'max_concurrent',
-  'active_count',
-  'version',
-] as const
-
-/** 会话展示白名单（后端 cs_pg_session SESSION_KEYS 的安全子集）。 */
-export const CS_SESSION_SAFE_KEYS = [
-  'id',
-  'organization_id',
-  'workspace_id',
-  'contact_id',
-  'conversation_id',
-  'business_identity_id',
-  'status',
-  'rating',
-  'queued_at',
-  'claimed_at',
-  'closed_at',
-  'close_reason',
-  'version',
-] as const
-
 function toOptionalInt(value: unknown): number | null {
   if (typeof value === 'number' && Number.isFinite(value)) return Math.trunc(value)
   if (typeof value === 'string' && value.trim() !== '') {
@@ -299,13 +271,6 @@ export function paginateClientSide<T>(items: T[], page: number, size: number): T
 // ===========================================================================
 
 export type CsSessionStatusFilter = 'all' | 'queued' | 'active' | 'closed'
-
-export const CS_SESSION_STATUS_FILTERS: readonly CsSessionStatusFilter[] = [
-  'all',
-  'queued',
-  'active',
-  'closed',
-] as const
 
 /** URL/status 参数 → 白名单过滤值；非法值一律归 all（不把脏值发给后端，后端 422 兜底）。 */
 export function parseCsSessionStatusFilter(raw: string | null | undefined): CsSessionStatusFilter {
