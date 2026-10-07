@@ -85,7 +85,8 @@ export function findNodeByKey(items: SidebarMenuItem[], key: string): SidebarMen
  * 菜单路径身份归一：剥掉 query 串（企业菜单叶子携带 ?preset=enterprise 等
  * UI 状态，plan §13.1；身份匹配只看 pathname）。
  */
-export function normalizeMenuPath(path?: string): string {
+/** 仅本文件 isNodeActive 消费（Q10：全仓零外部引用，撤 export）。 */
+function normalizeMenuPath(path?: string): string {
   if (!path) return ''
   const qIndex = path.indexOf('?')
   return qIndex >= 0 ? path.slice(0, qIndex) : path

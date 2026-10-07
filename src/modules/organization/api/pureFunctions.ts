@@ -176,7 +176,8 @@ export function orgFailureKindFromStatus(status: number): OrgFailureKind {
   return 'unknown'
 }
 
-export function orgFailureMessage(kind: OrgFailureKind, detail: string): string {
+/** 仅本文件 orgFailure 消费（Q10：全仓零外部引用，撤 export）。 */
+function orgFailureMessage(kind: OrgFailureKind, detail: string): string {
   switch (kind) {
     case 'unauthorized':
       return `未认证（401）：${detail}。${ADM_SESSION_HINT}`
@@ -489,7 +490,8 @@ export function toOrganizationMemberRow(raw: unknown): OrganizationMemberRow {
   }
 }
 
-export function asInvitationStatus(value: unknown): InvitationStatus {
+/** 仅本文件 toInvitationView 消费（Q10：全仓零外部引用，撤 export）。 */
+function asInvitationStatus(value: unknown): InvitationStatus {
   return value === 'pending' || value === 'accepted' || value === 'rejected' || value === 'revoked' || value === 'expired'
     ? value
     : 'unknown'
@@ -719,16 +721,8 @@ export function invitationStatusLabel(status: InvitationStatus): string {
   }
 }
 
-export function departmentStatusLabel(status: DepartmentStatus): string {
-  switch (status) {
-    case 'active':
-      return 'active'
-    case 'archived':
-      return 'archived'
-    default:
-      return 'unknown'
-  }
-}
+// Q10：departmentStatusLabel（status→英文标签原样映射）全仓零引用已删除
+// （designs/Q10-candidates.md 纯函数组；DepartmentStatus 类型保留在用）。
 
 /** epoch 秒 → 本地可读时间（后端 expires_at/created_at 为 epoch 秒）。 */
 export function formatEpochSeconds(seconds: number | null): string {

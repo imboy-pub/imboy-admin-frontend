@@ -483,7 +483,8 @@ export type EbApiErrorLike = {
   msg?: unknown
 }
 
-export function toApiErrorLike(err: unknown): EbApiErrorLike | null {
+/** 仅本文件失败分类消费（Q10：全仓零外部引用，撤 export）。 */
+function toApiErrorLike(err: unknown): EbApiErrorLike | null {
   if (err && typeof err === 'object' && ('code' in err || 'msg' in err)) {
     return err as EbApiErrorLike
   }
