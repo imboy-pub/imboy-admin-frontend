@@ -14,7 +14,7 @@ import { assertNoTokenInUrl } from './widgetApi'
 
 export type SseEvent = { id: string | null; event: string; data: string }
 export type StreamStatus = 'connecting' | 'online' | 'reconnecting' | 'offline'
-export type FetchLike = (_input: string, _init?: RequestInit) => Promise<Response>
+type FetchLike = (_input: string, _init?: RequestInit) => Promise<Response>
 
 /** 解析单个 SSE 块（以空行分隔）；`: keep-alive` 注释返回 null。 */
 export function parseSseBlock(raw: string): { event: SseEvent; retryMs: number | null } | null {

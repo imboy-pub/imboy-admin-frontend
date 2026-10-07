@@ -171,7 +171,7 @@ export type CsActionFailure =
   | 'validation' // 400/422 —— 不可重试
   | 'unknown'
 
-export type ApiErrorLike = {
+type ApiErrorLike = {
   code?: unknown
   msg?: unknown
 }

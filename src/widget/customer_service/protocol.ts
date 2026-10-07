@@ -51,7 +51,7 @@ type WidgetToHostMessage =
   | { source: typeof WIDGET_MESSAGE_SOURCE; type: 'close' }
 
 /** loader → iframe：宿主上下文 + 打开/关闭通知（iframe 可感知面板可见性）。 */
-export type HostToWidgetMessage =
+type HostToWidgetMessage =
   | HostContextMessage
   | { source: typeof WIDGET_MESSAGE_SOURCE; type: 'panel'; open: boolean }
 

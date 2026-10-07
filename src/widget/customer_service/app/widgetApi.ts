@@ -37,7 +37,7 @@ import {
   type WidgetSession,
 } from './contract'
 
-export type FetchLike = (_input: string, _init?: RequestInit) => Promise<Response>
+type FetchLike = (_input: string, _init?: RequestInit) => Promise<Response>
 
 export class WidgetApiError extends Error {
   readonly status: number

@@ -7,7 +7,7 @@
 import { execFileSync } from 'node:child_process'
 import { CONSOLE_PUBLIC_ID, CS_ORIGIN, GW_PORT, SHOP } from './env'
 
-export interface ProbeResult {
+interface ProbeResult {
   ok: boolean
   detail: string
 }

@@ -19,7 +19,7 @@ import {
 } from './attachmentMachine'
 import { WidgetApiClient } from './widgetApi'
 
-export type FetchLike = (_input: string, _init?: RequestInit) => Promise<Response>
+type FetchLike = (_input: string, _init?: RequestInit) => Promise<Response>
 
 /** Web Crypto SHA-256 → 64 位小写 hex。 */
 export async function sha256Hex(bytes: ArrayBuffer): Promise<string> {
