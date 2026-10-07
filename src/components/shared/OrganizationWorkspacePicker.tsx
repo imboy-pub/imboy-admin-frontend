@@ -263,5 +263,3 @@ export function OrganizationWorkspacePicker({
     </>
   )
 }
-
-export default OrganizationWorkspacePicker

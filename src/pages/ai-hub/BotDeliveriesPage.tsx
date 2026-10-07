@@ -142,5 +142,3 @@ export function BotDeliveriesPage() {
     </div>
   )
 }
-
-export default BotDeliveriesPage

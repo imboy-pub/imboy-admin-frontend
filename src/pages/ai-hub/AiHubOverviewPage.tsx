@@ -74,5 +74,3 @@ export function AiHubOverviewPage() {
     </div>
   )
 }
-
-export default AiHubOverviewPage
