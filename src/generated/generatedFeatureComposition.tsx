@@ -21,10 +21,10 @@ const GroupTaskListPage = lazy(() => import('@/pages/groups/GroupTaskListPage').
 const GroupTaskManagePage = lazy(() => import('@/pages/groups/GroupTaskManagePage').then((m) => ({ default: m.GroupTaskManagePage })))
 const ComplianceKeyPage = lazy(() => import('@/pages/settings/ComplianceKeyPage').then((m) => ({ default: m.ComplianceKeyPage })))
 
-export const adminFeatureCompositionManifestHash =
-  "sha256:ecf552c01018513a34e445b49cedbb985962758542c9b64a93951185dc8f0ca8"
-export const adminFeatureCompositionSchemaVersion = 1
-export const adminFeatureCompositionFeatures = ["bot_webhook", "channel", "channel_discover", "channel_invitation", "channel_order", "core", "customer_service", "e2ee", "enterprise_business", "group_schedule", "group_task", "group_vote", "location", "moment", "project"] as const
+// Composition provenance; runtime feature metadata lives in productFeatures.ts.
+// manifest_hash: "sha256:ecf552c01018513a34e445b49cedbb985962758542c9b64a93951185dc8f0ca8"
+// schema_version: 1
+// compiled_features: ["bot_webhook", "channel", "channel_discover", "channel_invitation", "channel_order", "core", "customer_service", "e2ee", "enterprise_business", "group_schedule", "group_task", "group_vote", "location", "moment", "project"]
 
 export function compiledAdminFeatureRoutes() {
   return <>
