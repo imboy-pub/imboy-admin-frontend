@@ -41,7 +41,7 @@ import {
   type SeatSessionPage,
 } from './workbenchApi'
 
-export const SEAT_QUERY_ROOT_KEY = 'seat-workbench'
+const SEAT_QUERY_ROOT_KEY = 'seat-workbench'
 
 /** 流工厂回调包（与 SeatEventStream 构造 options 对齐；scope 由 start 提供）。 */
 export type SeatStreamHandlers = {
@@ -59,7 +59,7 @@ export type SeatWorkbenchGateway = {
   fetchImpl?: SeatFetchLike
 }
 
-export const SeatWorkbenchContext = createContext<SeatWorkbenchGateway | null>(null)
+const SeatWorkbenchContext = createContext<SeatWorkbenchGateway | null>(null)
 
 function defaultGateway(): SeatWorkbenchGateway {
   const client = new SeatApiClient({ getToken: () => seatTokenVault.getToken() })

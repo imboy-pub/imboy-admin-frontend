@@ -122,15 +122,8 @@ export const STATUS_TRANSITIONS: Record<ApplicationStatus, readonly ApplicationS
 export const CREDENTIAL_STATUSES = ['active', 'revoked', 'expired'] as const
 export type CredentialStatus = (typeof CREDENTIAL_STATUSES)[number]
 
-export const CREDENTIAL_STATUS_LABELS: Record<CredentialStatus, string> = {
-  active: '有效',
-  revoked: '已撤销',
-  expired: '已过期',
-}
-
 /** Grant workspace 范围语义（migration 139：一表一 Grant）。 */
-export const GRANT_WORKSPACE_SCOPE_KINDS = ['none', 'explicit'] as const
-export type GrantWorkspaceScopeKind = (typeof GRANT_WORKSPACE_SCOPE_KINDS)[number]
+export type GrantWorkspaceScopeKind = 'none' | 'explicit'
 
 export const GRANT_WORKSPACE_SCOPE_LABELS: Record<GrantWorkspaceScopeKind, string> = {
   none: 'Organization Grant（组织全域）',
@@ -138,8 +131,7 @@ export const GRANT_WORKSPACE_SCOPE_LABELS: Record<GrantWorkspaceScopeKind, strin
 }
 
 /** Grant 状态（后端 status 枚举镜像）。 */
-export const GRANT_STATUSES = ['active', 'revoked'] as const
-export type GrantStatus = (typeof GRANT_STATUSES)[number]
+export type GrantStatus = 'active' | 'revoked'
 
 /**
  * 投递列表允许出现的**元数据**字段白名单。

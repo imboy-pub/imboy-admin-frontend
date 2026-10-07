@@ -32,19 +32,6 @@ export type SeatConsole = {
   updated_at: string | null
 }
 
-/** console 展示白名单（无 branding 子结构，纯扁平键）。 */
-export const SEAT_CONSOLE_SAFE_KEYS = [
-  'id',
-  'organization_id',
-  'workspace_id',
-  'public_seat_console_id',
-  'allowed_origins',
-  'status',
-  'version',
-  'created_at',
-  'updated_at',
-] as const
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
