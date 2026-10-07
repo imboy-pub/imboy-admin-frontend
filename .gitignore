@@ -85,3 +85,10 @@ tests/e2e/customer-service-seat-embed/.artifacts/
 
 # Execution plans and candidate-specific reports belong outside Git.
 /tests/auto_test/LOOP_PROMPT.md
+
+# Page execution ledgers and historical report writers stay local, outside Git.
+/tests/auto_test/**/*.md
+/tests/auto_test/README.md
+/tests/auto_test/analyze_round.py
+/tests/auto_test/apply_round.py
+/tests/auto_test/regen_readme.py

@@ -1,6 +1,6 @@
 /**
  * 批次W2R2 复验：PluginManagementPage 5 个待修复 bug 的修复验证
- * 对应台账 tests/auto_test/plugin_management/PluginManagementPage.md：
+ * 插件管理页面回归：
  *   ① 安装路径标注「可选」实为后端必填 → 前端标注对齐 + 必填校验
  *   ② installed 态无启用入口 → 启用按钮条件加 installed（后端 installed→enable）
  *   ③ 禁用不可达（enabled 不可达连带）→ 随 ② 恢复 enabled 态后验证禁用
