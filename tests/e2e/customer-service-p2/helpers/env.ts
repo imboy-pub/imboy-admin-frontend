@@ -25,9 +25,6 @@ export const WORKSPACE_ID = '1776025844701027'
 export const INSTALLATION_ID = '5837897154422619'
 export const PUBLIC_WIDGET_ID = 'csww-e2e-widget-77729338'
 
-/** 合成坐席（A=org owner 具治理面权限；B=转接目标；种子来自 chain 配方）。 */
-export const SEAT_A = { account: '19900000001', identityId: '1812620870393267' }
-export const SEAT_B = { account: '19900000002', identityId: '8304657945488544' }
 export const SEAT_PASSWORD = 'CswwE2e2026'
 
 /** csww run 的 scratch PG（docker 容器 imboy_pg18；与 P1 共库）。 */

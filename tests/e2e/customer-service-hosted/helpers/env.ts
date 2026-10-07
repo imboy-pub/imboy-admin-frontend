@@ -24,7 +24,6 @@ export type BackendEnvelope = {
 export const CS_BROWSER = 'https://cs.test:18443'
 export const CS = 'https://127.0.0.1:18443'
 export const SHOP = 'https://shop.test:18443'
-export const SHOP2 = 'https://shop2.test:18443'
 
 /** 坐席侧主 API 面（直连 backend，不经 widget 网关）。（G15：仅本文件使用，撤 export） */
 const BE_MAIN = process.env.CP12_E2E_BACKEND ?? 'http://127.0.0.1:9805'
@@ -33,7 +32,6 @@ const BE_MAIN = process.env.CP12_E2E_BACKEND ?? 'http://127.0.0.1:9805'
 export const ORG = '700200000000000001'
 const WORKSPACE_ID = '700300000000000001'
 export const INST_A = '700400000000000001'
-export const INST_B = '700400000000000002' // revoked（kill switch 负例）
 export const WID_A = '702000000000000001'
 export const WID_B = '702000000000000002' // revoked
 export const ORIGIN = 'https://shop.test:18443'
