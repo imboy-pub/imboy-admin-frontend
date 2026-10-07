@@ -180,7 +180,7 @@ function normalizeChannel(item: RawChannel): Channel {
  * 获取频道列表
  * @deprecated Prefer `getChannelListPayload` to consume typed payload directly.
  */
-export async function getChannelList(
+async function getChannelList(
   params: ChannelListParams = { page: 1, size: 10 }
 ): Promise<ApiResponse<PaginatedResponse<Channel>>> {
   const response = await client.get('/channel/list', { params })
@@ -201,7 +201,7 @@ export async function getChannelListPayload(
  * 获取频道详情
  * @deprecated Prefer `getChannelDetailPayload` to consume typed payload directly.
  */
-export async function getChannelDetail(channelId: EntityId): Promise<ApiResponse<Channel>> {
+async function getChannelDetail(channelId: EntityId): Promise<ApiResponse<Channel>> {
   const response = await client.get(`/channel/detail/${channelId}`)
   return response.data
 }
@@ -215,7 +215,7 @@ export async function getChannelDetailPayload(channelId: EntityId): Promise<Chan
  * 搜索频道
  * @deprecated Prefer `searchChannelsPayload` to consume typed payload directly.
  */
-export async function searchChannels(
+async function searchChannels(
   params: ChannelSearchParams
 ): Promise<ApiResponse<PaginatedResponse<Channel>>> {
   const response = await client.get('/channel/search', { params })
@@ -247,7 +247,7 @@ export async function deleteChannel(id: EntityId): Promise<ApiResponse<Record<st
   return response.data
 }
 
-export async function getChannelMessages(
+async function getChannelMessages(
   channelId: EntityId,
   params: ChannelMessageListParams = { page: 1, size: 10 }
 ): Promise<ApiResponse<PaginatedResponse<ChannelMessage>>> {
@@ -287,7 +287,7 @@ export async function deleteChannelMessage(
   return response.data
 }
 
-export async function getChannelSubscribers(
+async function getChannelSubscribers(
   channelId: EntityId,
   params: ChannelGovernanceListParams = { page: 1, size: 10 }
 ): Promise<ApiResponse<PaginatedResponse<ChannelSubscriber>>> {
@@ -313,7 +313,7 @@ export async function removeChannelSubscriber(
   return response.data
 }
 
-export async function getChannelAdmins(
+async function getChannelAdmins(
   channelId: EntityId,
   params: ChannelGovernanceListParams = { page: 1, size: 10 }
 ): Promise<ApiResponse<PaginatedResponse<ChannelAdmin>>> {
@@ -348,7 +348,7 @@ export async function removeChannelAdmin(
   return response.data
 }
 
-export async function getChannelInvitations(
+async function getChannelInvitations(
   channelId: EntityId,
   params: ChannelGovernanceListParams = { page: 1, size: 10 }
 ): Promise<ApiResponse<PaginatedResponse<ChannelInvitation>>> {
@@ -366,7 +366,7 @@ export async function getChannelInvitationsPayload(
   )
 }
 
-export async function getChannelOrders(
+async function getChannelOrders(
   channelId: EntityId,
   params: ChannelGovernanceListParams = { page: 1, size: 10 }
 ): Promise<ApiResponse<PaginatedResponse<ChannelOrder>>> {
@@ -384,7 +384,7 @@ export async function getChannelOrdersPayload(
   )
 }
 
-export async function getChannelStats(channelId: EntityId): Promise<ApiResponse<ChannelStats>> {
+async function getChannelStats(channelId: EntityId): Promise<ApiResponse<ChannelStats>> {
   const response = await client.get(`/channel/${channelId}/stats`)
   return response.data
 }
