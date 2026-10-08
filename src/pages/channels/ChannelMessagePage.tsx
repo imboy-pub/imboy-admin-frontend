@@ -16,12 +16,15 @@ import {
   deleteChannelMessage,
   getChannelMessagesPayload,
   pinChannelMessage,
+  setChannelMessageEssence,
 } from '@/modules/channels/api'
 import type { EntityId } from '@/types/common'
 import { formatDate, truncate, cn } from '@/lib/utils'
 import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 import { getErrorMessage } from '@/lib/errorUtils'
 import { useListQueryState } from '@/hooks/useListQueryState'
+import { useAdminPermission } from '@/hooks/useAdminPermission'
+import { useMicroCommunityEnabled } from './ChannelDiscussionPanel'
 
 /** 消息类型图标映射 */
 const MSG_TYPE_ICONS: Record<string, React.ReactNode> = {
@@ -134,6 +137,8 @@ export function ChannelMessagePage() {
   const { id } = useParams<{ id: string }>()
   const queryClient = useQueryClient()
   const channelId = id ?? ''
+  const microEnabled = useMicroCommunityEnabled()
+  const { allowed: canSetEssence } = useAdminPermission({ permission: 'channels:update', roles: ['1', '2'] })
 
   const { state: params, setState: setParams } = useListQueryState<{ page: number; size: number }>({
     page: 1,
@@ -147,6 +152,11 @@ export function ChannelMessagePage() {
   const [pinningMessageId, setPinningMessageId] = useState<EntityId | null>(null)
 
   const queryKey = ['channel-messages', channelId, params] as const
+  const essenceMutation = useMutation({
+    mutationFn: ({ messageId, value }: { messageId: EntityId; value: boolean }) => setChannelMessageEssence(channelId, messageId, value),
+    onSuccess: () => { toast.success('精华状态已更新'); void queryClient.invalidateQueries({ queryKey: ['channel-messages', channelId] }) },
+    onError: error => toast.error(getErrorMessage(error, '精华设置失败')),
+  })
 
   const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
     queryKey,
@@ -328,6 +338,11 @@ export function ChannelMessagePage() {
           : <span className="text-muted-foreground text-xs">—</span>
       ),
     },
+    ...(microEnabled ? [{
+      accessorKey: 'is_essence',
+      header: '精华',
+      cell: ({ row }: { row: { original: ChannelMessage } }) => <span>{row.original.is_essence ? '精华' : '-'}</span>,
+    }] : []),
     {
       accessorKey: 'view_count',
       header: '阅读量',
@@ -348,6 +363,11 @@ export function ChannelMessagePage() {
         const toggledPinned = !message.is_pinned
         return (
           <div className="flex items-center gap-1">
+            {microEnabled && canSetEssence && <Button variant="ghost" size="sm"
+              disabled={essenceMutation.isPending}
+              onClick={() => essenceMutation.mutate({ messageId: message.id, value: !message.is_essence })}>
+              {message.is_essence ? '取消精华' : '设为精华'}
+            </Button>}
             <Button
               variant="ghost"
               size="icon"

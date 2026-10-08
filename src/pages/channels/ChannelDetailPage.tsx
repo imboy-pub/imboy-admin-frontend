@@ -18,6 +18,7 @@ import { useAdminPermission } from '@/hooks/useAdminPermission'
 import { isAdminFeatureEnabled } from '@/services/api/features'
 import { getErrorMessage } from '@/lib/errorUtils'
 import { Select } from '@/components/ui/select'
+import { ChannelDiscussionPanel } from './ChannelDiscussionPanel'
 
 type ChannelForm = {
   name: string
@@ -91,6 +92,7 @@ export function ChannelDetailPage() {
     permission: 'channels:delete',
     roles: ['1', '2'],
   })
+  const { allowed: canManageDiscussionGroup } = useAdminPermission({ permission: 'groups:update', roles: ['1', '2'] })
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['channel', channelId],
@@ -651,6 +653,8 @@ onClick={() => {
           </TabsContent>
         )}
       </Tabs>
+
+      {channel.scope === 'personal' && channel.status === 1 && <ChannelDiscussionPanel channelId={channelId} canManage={canUpdateChannel && canManageDiscussionGroup} />}
 
       <ConfirmDialog
         open={canDeleteChannel && showConfirm}

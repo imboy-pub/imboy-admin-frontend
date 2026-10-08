@@ -28,6 +28,7 @@ export interface Channel {
   currency?: string
   original_price?: number
   subscription_type?: number
+  discussion_group_id?: EntityId | null
 }
 
 export interface ChannelListParams {
@@ -77,9 +78,40 @@ export interface ChannelMessage {
   content: string
   msg_type: string
   is_pinned: boolean
+  is_essence?: boolean
+  payload?: { tags?: string[]; [key: string]: unknown }
   view_count: number
   created_at: string
   updated_at: string | null
+}
+
+interface DiscussionBinding { discussion_group_id: EntityId | null }
+interface DiscussionCandidate { id: EntityId; title: string }
+
+export async function getDiscussionBinding(channelId: EntityId): Promise<DiscussionBinding> {
+  const response = await client.get(`/channel/${channelId}/discussion`)
+  return requireApiPayload(response.data, '/channel/:id/discussion')
+}
+
+export async function setDiscussionBinding(channelId: EntityId, groupId: EntityId | null): Promise<DiscussionBinding> {
+  const response = await client.put(`/channel/${channelId}/discussion`, { discussion_group_id: groupId })
+  return requireApiPayload(response.data, '/channel/:id/discussion')
+}
+
+export async function getDiscussionCandidates(channelId: EntityId, page = 1, size = 10): Promise<PaginatedResponse<DiscussionCandidate>> {
+  const response = await client.get(`/channel/${channelId}/discussion/candidates`, { params: { page, size } })
+  return requireApiPayload(response.data, '/channel/:id/discussion/candidates')
+}
+
+export async function setChannelMessageEssence(channelId: EntityId, messageId: EntityId, isEssence: boolean): Promise<void> {
+  await client.put(`/channel/${channelId}/message/${messageId}/essence`, { is_essence: isEssence })
+}
+
+/** Live authoritative policy only. Missing/unknown profiles and flags deny entry. */
+export async function getMicroCommunityEnabled(): Promise<boolean> {
+  const response = await client.get('/admin/config/policy')
+  const policy = requireApiPayload<{ profile?: string; features?: Record<string, boolean> }>(response.data, '/admin/config/policy')
+  return ['community', 'enterprise', 'overseas_baseline'].includes(policy.profile ?? '') && policy.features?.channel === true
 }
 
 interface ChannelMessageListParams {

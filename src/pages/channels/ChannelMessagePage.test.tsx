@@ -77,6 +77,28 @@ function renderChannelMessagePage() {
 }
 
 describe('ChannelMessagePage flow', () => {
+  it('toggles essence independently from a pinned message', async () => {
+    let essence = false
+    const calls: unknown[] = []
+    mutableClient.get = async (url: string) => {
+      if (url === '/admin/config/policy') return { data: { payload: { profile: 'community', features: { channel: true } } } }
+      if (url === '/rbac/me') return { data: { payload: { role_ids: [1], permissions: ['channels:update'], menu_paths: [] } } }
+      if (url === '/channel/8/messages') return { data: { payload: {
+        items: [{ ...makeMessage('101', 1, true), is_essence: essence }], page: 1, size: 10, total: 1, total_pages: 1,
+      } } }
+      throw new Error(`unexpected GET ${url}`)
+    }
+    mutableClient.put = async (url: string, body: { is_essence: boolean }) => {
+      calls.push([url, body]); essence = body.is_essence
+      return { data: { code: 0, payload: {} } }
+    }
+    const view = renderChannelMessagePage()
+    const buttons = await view.findAllByText('设为精华')
+    fireEvent.click(buttons[buttons.length - 1])
+    await view.findAllByText('取消精华')
+    expect(calls).toEqual([['/channel/8/message/101/essence', { is_essence: true }]])
+    expect(view.getAllByTitle('取消置顶').length).toBeGreaterThan(0)
+  })
   beforeEach(() => {
     document.body.innerHTML = ''
     // Default no-op stubs for mutations
