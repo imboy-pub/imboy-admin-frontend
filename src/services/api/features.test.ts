@@ -105,14 +105,18 @@ describe('isAdminFeatureEnabled', () => {
       expect(isAdminFeatureEnabled(flags, 'channel_invitation')).toBe(false)
     })
 
-    it('returns true when both child and parent are enabled', () => {
+    it('allows enabled child and parent only when the child is compiled', () => {
       const flags: FeatureFlags = { channel: true, channel_invitation: true }
-      expect(isAdminFeatureEnabled(flags, 'channel_invitation')).toBe(true)
+      expect(isAdminFeatureEnabled(flags, 'channel_invitation')).toBe(
+        (compiledProductFeatures as readonly string[]).includes('channel_invitation')
+      )
     })
 
-    it('returns true when child enabled and parent absent (default allow)', () => {
+    it('defaults an absent parent to allow without bypassing the compiled child boundary', () => {
       const flags: FeatureFlags = { channel_invitation: true }
-      expect(isAdminFeatureEnabled(flags, 'channel_invitation')).toBe(true)
+      expect(isAdminFeatureEnabled(flags, 'channel_invitation')).toBe(
+        (compiledProductFeatures as readonly string[]).includes('channel_invitation')
+      )
     })
 
     it('handles channel_order with channel parent', () => {
@@ -122,7 +126,9 @@ describe('isAdminFeatureEnabled', () => {
 
     it('handles channel_discover with channel parent', () => {
       const flags: FeatureFlags = { channel: true, channel_discover: true }
-      expect(isAdminFeatureEnabled(flags, 'channel_discover')).toBe(true)
+      expect(isAdminFeatureEnabled(flags, 'channel_discover')).toBe(
+        (compiledProductFeatures as readonly string[]).includes('channel_discover')
+      )
     })
   })
 })

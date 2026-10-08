@@ -82,13 +82,14 @@ describe('overseas_baseline effective flags', () => {
     expect(isAdminFeatureEnabled(overseasFlags, 'bot_webhook')).toBe(false)
   })
 
-  it('keeps baseline features on', () => {
+  it('keeps compiled baseline features on without resurrecting excluded features', () => {
     expect(isAdminFeatureEnabled(overseasFlags, 'channel')).toBe(true)
-    expect(isAdminFeatureEnabled(overseasFlags, 'channel_invitation')).toBe(true)
+    for (const key of ['channel_invitation', 'group_vote', 'group_schedule', 'group_task']) {
+      expect(isAdminFeatureEnabled(overseasFlags, key)).toBe(
+        (compiledProductFeatures as readonly string[]).includes(key)
+      )
+    }
     expect(isAdminFeatureEnabled(overseasFlags, 'moment')).toBe(true)
-    expect(isAdminFeatureEnabled(overseasFlags, 'group_vote')).toBe(true)
-    expect(isAdminFeatureEnabled(overseasFlags, 'group_schedule')).toBe(true)
-    expect(isAdminFeatureEnabled(overseasFlags, 'group_task')).toBe(true)
   })
 
   it('does not let the enabled channel parent resurrect a disabled child', () => {
@@ -132,12 +133,14 @@ describe('overseas_baseline sidebar visibility', () => {
     expect(labels).not.toContain('付费频道运营')
   })
 
-  it('keeps everything visible under the default (community) flags', () => {
+  it('default flags preserve the compiled paid-channel boundary', () => {
     const filtered = filterByFeatures(items, null)
     const ops = filtered.find((item) => item.key === 'ops')
     const labels = (ops?.children ?? []).map((child) => child.label)
 
-    expect(labels).toContain('付费频道运营')
+    expect(labels.includes('付费频道运营')).toBe(
+      (compiledProductFeatures as readonly string[]).includes('channel_order')
+    )
   })
 })
 
