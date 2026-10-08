@@ -97,6 +97,7 @@ tests/e2e/        Playwright 端到端测试
 - [模块地图](./docs/module_map.md)
 - [管理员与角色接口](./docs/api-contracts/admin_role_backend_api_contract.md)
 - [举报中心三端契约](./docs/api-contracts/report_center_3end_api_contract.md)
+- [朋友圈举报批量处理正式契约 / Canonical moment report batch contract](../imboy/api/paths/adm/v1/moment/report_batch_resolve.yaml)
 
 ## 许可证
 
