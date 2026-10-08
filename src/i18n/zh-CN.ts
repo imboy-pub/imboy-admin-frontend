@@ -4,7 +4,7 @@
  * 定位：零依赖、单 locale（current-main 事实：中文平台后台，无 locale 层）。
  * 键表是文案唯一真源——组件渲染输出必须经 `t(key)` 取值，不得字面量内联。
  *
- * 术语键（ent.term.*）沿用 docs/prototype-delta-ledger.md 的冻结术语表并按
+ * 术语键（ent.term.*）沿用 docs/enterprise-interface-terminology.md 的术语表并按
  * ENT-UX-01 复核口径扩至 8 个核心术语；禁用同义漂移（"机构/团队/空间/公司"
  * 等一律不得出现于企业域用户可见文案）。
  */
