@@ -248,6 +248,7 @@ export function createWidgetController(deps: ControllerDeps) {
       // 纯附件气泡；绝不落「加密」占位（密文读面在生产可用，占位只会
       // 误导访客——产品裁决 2026-10-02，原 D5 占位常量随之废除）。
       body: message.body ?? '',
+      createdAt: message.createdAt,
       status: 'sent',
       attachment: null,
       // CS-WGT-01：历史 assets 投影（五键白名单已由 contract 解析）。
@@ -522,7 +523,7 @@ export function createWidgetController(deps: ControllerDeps) {
   async function sendTextWithKey(sessionId: string, clientMsgId: string, body: string): Promise<void> {
     if (scope === null) return
     const key = `local-${clientMsgId}`
-    dispatch({ type: 'message_optimistic', key, clientMsgId, body, attachment: null })
+    dispatch({ type: 'message_optimistic', key, clientMsgId, body, createdAt: new Date(deps.nowMs()).toISOString(), attachment: null })
     try {
       const confirmed = await deps.api.sendMessage(sessionId, scope, clientMsgId, body)
       dispatch({ type: 'message_confirmed', key, id: confirmed.id })
@@ -544,6 +545,7 @@ export function createWidgetController(deps: ControllerDeps) {
       key,
       clientMsgId,
       body: '',
+      createdAt: new Date(deps.nowMs()).toISOString(),
       attachment: {
         name,
         mime: file.type.length > 0 ? file.type : 'application/octet-stream',
@@ -605,7 +607,7 @@ export function createWidgetController(deps: ControllerDeps) {
       }
       return
     }
-    dispatch({ type: 'message_optimistic', key, clientMsgId, body: message.body, attachment: null })
+    dispatch({ type: 'message_optimistic', key, clientMsgId, body: message.body, createdAt: new Date(deps.nowMs()).toISOString(), attachment: null })
     try {
       const confirmed = await deps.api.sendMessage(state.session.id, scope, clientMsgId, message.body)
       dispatch({ type: 'message_confirmed', key, id: confirmed.id })

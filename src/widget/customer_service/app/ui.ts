@@ -162,7 +162,11 @@ export function createChatUi(root: HTMLElement, locale: string, handlers: ChatUi
   align-self: center; background: rgba(226,232,240,.6); color: #64748b;
   font-size: 12px; padding: 4px 12px; border-radius: 999px; box-shadow: none;
 }
-.cs-msg[data-status="pending"] { opacity: .55; }
+.cs-msg-meta { margin-top: 4px; font-size: 11px; line-height: 1.5; }
+.cs-msg[data-role="agent"] .cs-msg-meta { color: #475569; }
+.cs-msg[data-status="pending"] { opacity: .85; }
+.cs-send, .cs-attach, .cs-close, .cs-retry { min-height: 44px; min-width: 44px; }
+.cs-composer input { min-width: 0; }
 .cs-msg[data-status="failed"] { border: 2px solid #ef4444; padding: 8px 12px; }
 .cs-retry {
   margin-top: 6px; font-size: 12px; font-weight: 600; border: 1px solid #fca5a5;
@@ -350,7 +354,7 @@ export function createChatUi(root: HTMLElement, locale: string, handlers: ChatUi
   sendBtn.textContent = locale === 'zh-CN' ? '发送' : 'Send'
   sendBtn.addEventListener('click', submitInput)
   input.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter') submitInput()
+    if (event.key === 'Enter' && !event.isComposing && event.keyCode !== 229) submitInput()
   })
   composer.appendChild(attachBtn)
   composer.appendChild(input)
@@ -385,7 +389,6 @@ export function createChatUi(root: HTMLElement, locale: string, handlers: ChatUi
     composer.querySelectorAll('button, input').forEach((el) => {
       ;(el as HTMLButtonElement | HTMLInputElement).disabled = state.session === null
     })
-    const last = state.messages[state.messages.length - 1]
     // CP-CON-04：无坐席留言提示（queued 且无 online 坐席）——仅提示，绝不
     // 禁用 composer（发送路径不受此状态影响）。
     const leaveVisible = showLeaveMessageNotice(state)
@@ -393,7 +396,7 @@ export function createChatUi(root: HTMLElement, locale: string, handlers: ChatUi
     leaveHint.textContent = leaveVisible ? leaveMessageText() : ''
     banner.style.display = state.connection === 'offline' || state.connection === 'reconnecting' ? 'block' : 'none'
     banner.textContent = CONNECTION_LABELS[state.connection]
-    renderLog(state.messages, last !== undefined && last.role === 'agent')
+    renderLog(state.messages)
   }
 
   /** CP-CON-04：留言提示 i18n 文案（中/英）。 */
@@ -471,7 +474,14 @@ export function createChatUi(root: HTMLElement, locale: string, handlers: ChatUi
     return button
   }
 
-  function renderLog(messages: ChatMessage[], scrollToEnd: boolean): void {
+  let lastRenderedKey: string | undefined
+  function renderLog(messages: ChatMessage[]): void {
+    const last = messages[messages.length - 1]
+    const previousScrollTop = log.scrollTop
+    const nearBottom = log.scrollHeight - log.clientHeight - log.scrollTop <= 48
+    const scrollToEnd = lastRenderedKey === undefined || nearBottom
+      || (last?.key !== lastRenderedKey && last?.role === 'visitor')
+    lastRenderedKey = last?.key
     const frag = doc.createDocumentFragment()
     for (const message of messages) {
       const bubble = doc.createElement('div')
@@ -502,11 +512,35 @@ export function createChatUi(root: HTMLElement, locale: string, handlers: ChatUi
         if (message.body.length > 0 || attachment !== null) bubble.appendChild(doc.createElement('br'))
         bubble.appendChild(assetNode(message, asset))
       }
+      const meta = doc.createElement('div')
+      meta.className = 'cs-msg-meta'
+      const chinese = locale === 'zh-CN'
+      meta.append(doc.createTextNode(message.role === 'agent'
+        ? (chinese ? '客服回复' : 'Agent reply')
+        : message.role === 'visitor' ? (chinese ? '网站消息' : 'Website message')
+          : (chinese ? '系统消息' : 'System message')))
+      const timestamp = message.createdAt ? new Date(message.createdAt) : null
+      if (timestamp !== null && Number.isFinite(timestamp.getTime())) {
+        const time = doc.createElement('time')
+        time.dateTime = timestamp.toISOString()
+        time.textContent = timestamp.toLocaleString(locale, {
+          month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
+          hour12: false,
+        })
+        meta.append(doc.createTextNode(' · '), time)
+      }
+      if (message.role === 'visitor') {
+        const status = chinese
+          ? { pending: '发送中', sent: '已发送', failed: '发送失败' }
+          : { pending: 'Sending', sent: 'Sent', failed: 'Failed' }
+        meta.append(doc.createTextNode(' · ' + status[message.status]))
+      }
+      bubble.appendChild(meta)
       retryAfter()
       frag.appendChild(bubble)
     }
     log.replaceChildren(frag)
-    if (scrollToEnd) log.scrollTop = log.scrollHeight
+    log.scrollTop = scrollToEnd ? log.scrollHeight : previousScrollTop
   }
 
   /** 图片大图预览 overlay（打开时聚焦 overlay 承接键盘；Esc 关闭）。 */

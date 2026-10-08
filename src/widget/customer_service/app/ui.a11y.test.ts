@@ -287,3 +287,41 @@ describe('历史附件与图片预览（CS-WGT-01）', () => {
     }
   })
 })
+
+describe('消息时间与发送状态', () => {
+  const message: ChatMessage = {
+    key: 'metadata-message', id: '72057594037927940', clientMsgId: null,
+    role: 'visitor', body: '请查询订单', status: 'sent',
+    createdAt: '2026-10-08T03:32:00Z', attachment: null, attachments: [],
+  }
+  it('显示时间、发送方式和服务器确认状态，不伪造已读', () => {
+    const { root } = mountUi({ ...chatState(), messages: [message] })
+    expect(root.querySelector('time')?.getAttribute('datetime')).toBe('2026-10-08T03:32:00.000Z')
+    expect(root.querySelector('.cs-msg-meta')?.textContent).toContain('网站消息')
+    expect(root.querySelector('.cs-msg-meta')?.textContent).toContain('已发送')
+    expect(root.textContent).not.toContain('已读')
+    expect(root.textContent).not.toContain('已送达')
+  })
+  it('无效时间不显示假时间，失败仍可重发', () => {
+    const { root } = mountUi({ ...chatState(), messages: [{ ...message, createdAt: 'invalid', status: 'failed' }] })
+    expect(root.querySelector('time')).toBeNull()
+    expect(root.querySelector('.cs-msg-meta')?.textContent).toContain('发送失败')
+    expect(getByTestId(root, 'cs-msg-retry')).toBeDefined()
+  })
+  it('中文输入法确认候选字时回车不清空草稿', () => {
+    const { root } = mountUi()
+    const input = getByTestId(root, 'cs-input') as HTMLInputElement
+    input.value = '正在选字'
+    fireEvent.keyDown(input, { key: 'Enter', isComposing: true })
+    expect(input.value).toBe('正在选字')
+  })
+  it('收到回复时保留历史阅读位置', () => {
+    const { root, render } = mountUi({ ...chatState(), messages: [message] })
+    const log = getByRole(root, 'log')
+    Object.defineProperty(log, 'scrollHeight', { value: 2000, configurable: true })
+    Object.defineProperty(log, 'clientHeight', { value: 400, configurable: true })
+    log.scrollTop = 120
+    render({ ...chatState(), messages: [message, { ...message, key: 'agent-new', role: 'agent' }] })
+    expect(log.scrollTop).toBe(120)
+  })
+})

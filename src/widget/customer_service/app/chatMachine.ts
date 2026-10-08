@@ -78,6 +78,8 @@ export type ChatMessage = {
   clientMsgId: string | null
   role: 'visitor' | 'agent' | 'system'
   body: string
+  /** Local submission time for optimistic messages, replaced by server history. */
+  createdAt?: string | null
   status: 'pending' | 'sent' | 'failed'
   attachment: ChatAttachment | null
   /** 服务端投影附件（历史刷新 / SSE 补偿读回；刷新后仍在）。 */
@@ -109,7 +111,7 @@ type ChatEvent =
   | { type: 'consent_declined' }
   | { type: 'session_created'; session: WidgetSession }
   | { type: 'messages_loaded'; messages: ChatMessage[] }
-  | { type: 'message_optimistic'; key: string; clientMsgId: string; body: string; attachment?: ChatAttachment | null }
+  | { type: 'message_optimistic'; key: string; clientMsgId: string; body: string; createdAt?: string; attachment?: ChatAttachment | null }
   | { type: 'message_confirmed'; key: string; id: string }
   | { type: 'message_failed'; key: string }
   | { type: 'attachment_progress'; key: string; state: AttachmentUiState; assetId?: string | null }
@@ -249,6 +251,7 @@ export function reduceChat(state: ChatState, event: ChatEvent): ChatState {
           clientMsgId: event.clientMsgId,
           role: 'visitor',
           body: event.body,
+          createdAt: event.createdAt,
           status: 'pending',
           attachment: event.attachment ?? null,
           attachments: [],
