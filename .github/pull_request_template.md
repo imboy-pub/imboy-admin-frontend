@@ -21,7 +21,7 @@
 
 ### 编码规范
 
-- [ ] 遵守 [imboy-admin-frontend/CLAUDE.md](CLAUDE.md) 项目规范
+- [ ] 遵守 [imboy-admin-frontend/CLAUDE.md](../CLAUDE.md) 项目规范
 - [ ] **TSID 字段使用 `EntityId`（= `string`）类型，不直接写 `string`**，禁 `Number(id)` / `parseInt(id)`
 - [ ] axios `transformResponse` 已配 `safeParseBigIntJson`（client.ts），无需手动处理 16+ 位整数
 - [ ] 分页 UI 用 `DataTablePagination`（默认 `size:10`，搜索/筛选变化时重置 `page=1`）
