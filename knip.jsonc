@@ -8,6 +8,10 @@
   //
   "$schema": "https://unpkg.com/knip@6.7.0/schema.json",
   "entry": [
+    // Optional product entry: full-selected composition imports this page when
+    // group_task is compiled. Other profiles retain its source for that build.
+    // This models an alternate build root; it does not add a runtime route.
+    "src/pages/groups/GroupTaskListPage.tsx",
     // —— vite 构建产物入口（见 vite.config.ts widgetBuildOverrides）——
     // Admin SPA 默认入口：dev/build（mode production）；
     // index.html → src/main.tsx（knip vite 插件已识别，无需重复声明）
