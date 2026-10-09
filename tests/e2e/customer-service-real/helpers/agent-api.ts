@@ -202,32 +202,42 @@ export class SeatAgent {
 
 /** 访客面 API（bootstrap/建会话/读消息，供负例与评分预置用；真实后端）。 */
 export const visitorApi = {
-  async bootstrap(orgId: string, publicWidgetId: string, subjectId: string, origin: string): Promise<{ secret: string; contactId: string; consentVersion: string }> {
+  /**
+   * bootstrap（S3 零申报合同）：organization_id 是服务端派生键，body 申报即
+   * 400 server_derived_key_rejected（F1 实证）——组织归属由 public_widget_id
+   * 对应的 installation 派生，body 只带 public_widget_id + subject_id。
+   */
+  async bootstrap(publicWidgetId: string, subjectId: string, origin: string): Promise<{ secret: string; contactId: string; consentVersion: string }> {
     const res = await fetch(`${BACKEND_BASE}/api/v1/cs/widget/bootstrap`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', Origin: origin },
-      body: JSON.stringify({ organization_id: orgId, public_widget_id: publicWidgetId, subject_id: subjectId }),
+      body: JSON.stringify({ public_widget_id: publicWidgetId, subject_id: subjectId }),
     })
     if (res.status !== 200) throw new Error(`bootstrap failed: HTTP ${res.status}`)
     const payload = await envelope<{ secret: string; contact_id: string; consent_version: string }>(res)
     return { secret: payload.secret, contactId: payload.contact_id, consentVersion: payload.consent_version }
   },
 
-  /** 建会话（响应键 session_id；无 version）。 */
-  async createSession(orgId: string, installationId: string, visitToken: string): Promise<{ id: string }> {
+  /**
+   * 建会话（响应键 session_id；无 version）。S3 零申报合同（F4 实证）：
+   * organization_id 是服务派生键，body 申报即 400 server_derived_key_rejected
+   * ——由 installation_id 派生组织，body 只带 installation_id。
+   */
+  async createSession(installationId: string, visitToken: string): Promise<{ id: string }> {
     const res = await fetch(`${BACKEND_BASE}/api/v1/cs/widget/sessions`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-cs-visit-token': visitToken },
-      body: JSON.stringify({ organization_id: orgId, installation_id: installationId }),
+      body: JSON.stringify({ installation_id: installationId }),
     })
     if (res.status !== 200) throw new Error(`visitor create session failed: HTTP ${res.status}`)
     const payload = await envelope<{ session_id: string }>(res)
     return { id: payload.session_id }
   },
 
-  /** 原始响应版（负例专用：不断言成功，回传状态码给断言）。 */
-  async rawListMessages(orgId: string, installationId: string, sessionId: string, visitToken: string): Promise<Response> {
-    const qs = new URLSearchParams({ organization_id: orgId, installation_id: installationId })
+  /** 原始响应版（负例专用：不断言成功，回传状态码给断言）。合同查询串仅
+   * installation_id——organization_id 是派生键，查询串申报即 400（F3 实证）。 */
+  async rawListMessages(installationId: string, sessionId: string, visitToken: string): Promise<Response> {
+    const qs = new URLSearchParams({ installation_id: installationId })
     return fetch(`${BACKEND_BASE}/api/v1/cs/widget/sessions/${sessionId}/messages?${qs.toString()}`, {
       method: 'GET',
       headers: { 'x-cs-visit-token': visitToken },

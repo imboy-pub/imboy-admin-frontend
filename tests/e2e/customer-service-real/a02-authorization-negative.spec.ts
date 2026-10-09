@@ -20,7 +20,6 @@ import {
   INSTALLATION_ID,
   ORG_ID,
   OTHER_INSTALLATION_ID,
-  OTHER_ORG_ID,
   OTHER_PUBLIC_WIDGET_ID,
   PUBLIC_WIDGET_ID,
   SEAT_A,
@@ -54,10 +53,13 @@ test.afterAll(async () => {
 
 test('A02-1 错 Origin 宿主：CSP frame-ancestors 与 bootstrap 双层 fail-closed 拒绝', async ({ page }) => {
   // 接口面：直接以错 Origin 调真实 bootstrap（应 4xx，fail-closed）。
+  // 零申报合同：organization_id 是服务端派生键，body 申报即 400 错因空真
+  // （F1）——body 只带 public_widget_id + subject_id，此处的 4xx 只能来自
+  // Origin 拒绝链（实证 403 origin_not_allowed）。
   const response = await fetch(`${BACKEND_BASE}/api/v1/cs/widget/bootstrap`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', Origin: `http://localhost:${BAD_HOST_PORT}` },
-    body: JSON.stringify({ organization_id: ORG_ID, public_widget_id: PUBLIC_WIDGET_ID, subject_id: `neg-origin-${RUN_UNIQ}` }),
+    body: JSON.stringify({ public_widget_id: PUBLIC_WIDGET_ID, subject_id: `neg-origin-${RUN_UNIQ}` }),
   })
   expect(response.status).toBeGreaterThanOrEqual(400)
   expect(response.status).toBeLessThan(500)
@@ -68,7 +70,9 @@ test('A02-1 错 Origin 宿主：CSP frame-ancestors 与 bootstrap 双层 fail-cl
   // widget app 无法加载）——比 bootstrap 更前置的真实拒绝链。
   const frameCsp: string[] = []
   page.on('response', (res) => {
-    if (res.url().includes('/cs/widget/frame/')) {
+    // 现行 frame 路由是 /w/:public_widget_id（F2：旧 /cs/widget/frame/ 串
+    // 恒不匹配 → 断言假失败）。
+    if (res.url().includes('/w/')) {
       const csp = res.headers()['content-security-policy'] ?? ''
       frameCsp.push(csp)
     }
@@ -96,27 +100,32 @@ test('A02-1 错 Origin 宿主：CSP frame-ancestors 与 bootstrap 双层 fail-cl
 })
 
 test('A02-2 跨 installation 隔离：他安装访客 token 读不到他会话消息（4xx）', async ({ page }) => {
-  // 本组织安装（8901 allowlist 内）真实 bootstrap 拿访客 token。
-  const mine = await visitorApi.bootstrap(ORG_ID, PUBLIC_WIDGET_ID, `neg-iso-mine-${RUN_UNIQ}`, HOST_ORIGIN)
-  // 另一组织/安装真实建会话。
-  const otherSession = await visitorApi.createSession(OTHER_ORG_ID, OTHER_INSTALLATION_ID, mine.secret).catch(async () => {
+  // 本组织安装（8901 allowlist 内）真实 bootstrap 拿访客 token（零申报合同，
+  // F1——body 不带 organization_id）。
+  const mine = await visitorApi.bootstrap(PUBLIC_WIDGET_ID, `neg-iso-mine-${RUN_UNIQ}`, HOST_ORIGIN)
+  // 另一组织/安装真实建会话。建会话同为零申报合同（F4：body 带组织申报即
+  // 400 派生键拒绝）——A 安装 token 打 B installation 被拒 401 是 token/安装
+  // 不匹配的真实隔离语义。
+  const otherSession = await visitorApi.createSession(OTHER_INSTALLATION_ID, mine.secret).catch(async () => {
     // 他安装的 token 属于我方访客——预期被拒；用真实他安装访客 token 建会话再交叉读。
-    const theirs = await visitorApi.bootstrap(OTHER_ORG_ID, OTHER_PUBLIC_WIDGET_ID, `neg-iso-theirs-${RUN_UNIQ}`, HOST_ORIGIN)
-    return visitorApi.createSession(OTHER_ORG_ID, OTHER_INSTALLATION_ID, theirs.secret)
+    const theirs = await visitorApi.bootstrap(OTHER_PUBLIC_WIDGET_ID, `neg-iso-theirs-${RUN_UNIQ}`, HOST_ORIGIN)
+    return visitorApi.createSession(OTHER_INSTALLATION_ID, theirs.secret)
   })
 
   // 页面上下文内真实 fetch（宿主域同源反代 → 9802）：A 安装 token 读 B 安装会话。
+  // 合同查询串仅 installation_id（F3：organization_id 是派生键，查询串申报
+  // 即 400 错因空真，隔离语义未被真实验证）。
   // 先建立 8901 同源文档（about:blank 无 base 且跨源 fetch 会撞 CORS）。
   await page.goto('/')
   const status = await page.evaluate(
-    async ({ baseUrl, sessionId, token, orgId, installationId }) => {
-      const qs = new URLSearchParams({ organization_id: orgId, installation_id: installationId })
+    async ({ baseUrl, sessionId, token, installationId }) => {
+      const qs = new URLSearchParams({ installation_id: installationId })
       const res = await fetch(`${baseUrl}/api/v1/cs/widget/sessions/${sessionId}/messages?${qs.toString()}`, {
         headers: { 'x-cs-visit-token': token },
       })
       return res.status
     },
-    { baseUrl: HOST_ORIGIN, sessionId: otherSession.id, token: mine.secret, orgId: OTHER_ORG_ID, installationId: OTHER_INSTALLATION_ID }
+    { baseUrl: HOST_ORIGIN, sessionId: otherSession.id, token: mine.secret, installationId: OTHER_INSTALLATION_ID }
   )
   expect(status).toBeGreaterThanOrEqual(400)
   expect(status).toBeLessThan(500)
@@ -145,15 +154,16 @@ test('A02-3 吊销 visit token：治理面吊销生效落库 + 页面写请求 4
 
   // 凭证拒绝链（真实 4xx）：digest 未命中的 token（伪造值）必被认证层拒绝——
   // 这是「页面后续请求 4xx」的凭证机制证明（cs_auth credential_invalid 401）。
+  // 合同查询串仅 installation_id（F3：organization_id 申报即 400 错因空真）。
   const badTokenStatus = await page.evaluate(
-    async ({ baseUrl, orgId, installationId }) => {
-      const qs = new URLSearchParams({ organization_id: orgId, installation_id: installationId })
+    async ({ baseUrl, installationId }) => {
+      const qs = new URLSearchParams({ installation_id: installationId })
       const res = await fetch(`${baseUrl}/api/v1/cs/widget/sessions?${qs.toString()}`, {
         headers: { 'x-cs-visit-token': `forge-invalid-${Date.now()}` },
       })
       return res.status
     },
-    { baseUrl: HOST_ORIGIN, orgId: ORG_ID, installationId: INSTALLATION_ID }
+    { baseUrl: HOST_ORIGIN, installationId: INSTALLATION_ID }
   )
   expect(badTokenStatus).toBeGreaterThanOrEqual(400)
   expect(badTokenStatus).toBeLessThan(500)
