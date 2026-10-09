@@ -50,6 +50,8 @@
   ],
   "rbac": {
     "permissions": [
+      { "key": "organizations:read", "name": "查看企业组织", "module": "企业组织", "path": "/organizations" },
+      { "key": "organizations:write", "name": "管理企业组织", "module": "企业组织", "path": "/organizations" },
       { "key": "dashboard:view", "name": "查看仪表盘", "module": "仪表盘", "path": "/dashboard" },
 
       { "key": "users:read", "name": "查看用户资料", "module": "用户管理", "path": "/users" },
