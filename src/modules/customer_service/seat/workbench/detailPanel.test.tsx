@@ -59,6 +59,8 @@ function detailFixture(overrides: Partial<SeatSessionDetail> = {}): SeatSessionD
     contactMaskedName: '王***',
     lastMessage: { id: null, senderType: null, preview: null, createdAt: null },
     waitingSeconds: null,
+    unreadCount: null,
+    needsReply: null,
     visitorMaskedName: '王***',
     visitorSource: '网页组件',
     ...overrides,

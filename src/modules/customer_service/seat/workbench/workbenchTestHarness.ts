@@ -15,6 +15,8 @@ import { SeatEventStream } from '../seatSseClient'
 import { SeatWorkbenchApi } from './workbenchApi'
 import { seatTokenVault } from '../seatAuthStore'
 import type { SeatStreamHandlers, SeatWorkbenchGateway } from './workbenchHooks'
+import { safeParseBigIntJson } from '@/lib/safeParseBigIntJson'
+import { toSeatSessionSummary } from './contract'
 
 export const ORG = '2000000000000000002'
 export const WS = '3000000000000000003'
@@ -157,12 +159,18 @@ function sessionRowText(
   )
 }
 
-function pageText(view: 'queued' | 'active' | 'closed', rowVersion: number | null, state: SeatFakeBackendState): string {
+function pageText(view: 'queued' | 'active' | 'closed', rowVersion: number | null, state: SeatFakeBackendState, search = ''): string {
   let rows = rowVersion !== null ? [sessionRowText(view, rowVersion, state)] : []
   // CS-WEB-04：附加第二会话行（仅 queued 视图；行数/计数同步为服务端事实口径）。
   if (view === 'queued' && state.extraSessionInQueue) {
     rows = [...rows, sessionRowText('queued', state.version, state, SESSION2, '李***')]
   }
+  rows = rows.filter((text) => {
+    const row = toSeatSessionSummary(safeParseBigIntJson(text))
+    if (row === null) throw new Error('Invalid synthetic inbox row')
+    return [row.id, row.contactMaskedName ?? '', row.source]
+      .some((field) => String(field).toLowerCase().includes(search.trim().toLowerCase()))
+  })
   const countFinal = rows.length
   const counts =
     view === 'queued'
@@ -303,13 +311,13 @@ export class SeatFakeBackend {
     if (path === `/api/v1/seat/cs/organizations/${ORG}/sessions/queue`) {
       this.queueFetchCount += 1
       const s = this.state.sessionStatus
-      return ok(pageText(s, s === 'queued' ? this.state.version : null, this.state))
+      return ok(pageText(s, s === 'queued' ? this.state.version : null, this.state, new URL(url, 'http://localhost').searchParams.get('search') ?? ''))
     }
     if (path === `/api/v1/seat/cs/organizations/${ORG}/seats/sessions`) {
       const status = new URL(url, 'http://localhost').searchParams.get('status') ?? 'active'
       const view: 'active' | 'closed' = status === 'closed' ? 'closed' : 'active'
       const rowVersion = this.state.sessionStatus === view ? this.state.version : null
-      return ok(pageText(view, rowVersion, this.state))
+      return ok(pageText(view, rowVersion, this.state, new URL(url, 'http://localhost').searchParams.get('search') ?? ''))
     }
     // CS-WEB-04：客户上下文端点（imboy_router session_customer_context）。
     // 5 段路径；403（转接后原 Seat / 撤权）/ 500 递减 / 可编程延迟（陈旧

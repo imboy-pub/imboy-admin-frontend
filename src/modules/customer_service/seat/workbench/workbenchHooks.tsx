@@ -12,7 +12,7 @@
  *   （writeRevoked），状态可解释，并失效 contexts 复核事实；
  * - 401 → 统一清会话回登录（SEAT-01 guard 语义复用）。
  */
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
   useInfiniteQuery,
   useMutation,
@@ -59,7 +59,7 @@ export type SeatWorkbenchGateway = {
   fetchImpl?: SeatFetchLike
 }
 
-const SeatWorkbenchContext = createContext<SeatWorkbenchGateway | null>(null)
+const SeatWorkbenchContext = createContext<(SeatWorkbenchGateway & { authSessionId: string }) | null>(null)
 
 function defaultGateway(): SeatWorkbenchGateway {
   const client = new SeatApiClient({ getToken: () => seatTokenVault.getToken() })
@@ -76,11 +76,21 @@ export function SeatWorkbenchProvider({
   children: ReactNode
   gateway?: SeatWorkbenchGateway
 }) {
-  const value = useMemo(() => gateway ?? defaultGateway(), [gateway])
+  const queryClient = useQueryClient()
+  const providerId = useId()
+  const [generation, setGeneration] = useState(0)
+  const transport = useMemo(() => gateway ?? defaultGateway(), [gateway])
+  useEffect(() => useSeatAuthStore.subscribe(() => {
+    void queryClient.cancelQueries({ queryKey: [SEAT_QUERY_ROOT_KEY] })
+    queryClient.removeQueries({ queryKey: [SEAT_QUERY_ROOT_KEY] })
+    setGeneration((previous) => previous + 1)
+  }), [queryClient])
+  const value = useMemo(() => ({ ...transport, authSessionId: `${providerId}:${generation}` }),
+    [transport, providerId, generation])
   return <SeatWorkbenchContext.Provider value={value}>{children}</SeatWorkbenchContext.Provider>
 }
 
-export function useSeatWorkbenchGateway(): SeatWorkbenchGateway {
+export function useSeatWorkbenchGateway(): SeatWorkbenchGateway & { authSessionId: string } {
   const value = useContext(SeatWorkbenchContext)
   if (value === null) throw new Error('SeatWorkbenchProvider is missing')
   return value
@@ -132,12 +142,13 @@ function useInvalidateSeatQueries() {
 // ---------------------------------------------------------------------------
 
 export function useSeatContexts() {
-  const { api } = useSeatWorkbenchGateway()
+  const { api, authSessionId } = useSeatWorkbenchGateway()
   // 预认证期不发 seat-contexts：未建立坐席会话时该请求必然 401（浏览器还会
   // 记 console error）——QR confirmed 后 status 翻转自动触发首次加载。
   const status = useSeatAuthStore((state) => state.status)
+  const userId = useSeatAuthStore((state) => state.userId)
   return useQuery({
-    queryKey: [SEAT_QUERY_ROOT_KEY, 'contexts'],
+    queryKey: [SEAT_QUERY_ROOT_KEY, 'contexts', userId, authSessionId],
     queryFn: async () => selectActiveSeatContexts(await api.fetchContexts()),
     enabled: status === 'authenticated',
   })
@@ -220,13 +231,18 @@ function useSessionsInfiniteQuery(
   status: SeatViewStatus,
   enabled: boolean,
   api: SeatWorkbenchApi,
+  search: string,
+  identityId: EntityId | null,
 ): ViewQuery {
+  const { authSessionId } = useSeatWorkbenchGateway()
+  const userId = useSeatAuthStore((state) => state.userId)
+  const mine = status === 'active'
   return useInfiniteQuery({
-    queryKey: [SEAT_QUERY_ROOT_KEY, 'sessions', orgId, workspaceId, status],
+    queryKey: [SEAT_QUERY_ROOT_KEY, 'sessions', orgId, workspaceId, status, search, mine, userId, identityId, authSessionId],
     enabled,
     initialPageParam: null as EntityId | null,
     queryFn: ({ pageParam }) => {
-      const query: SeatPageQuery = { afterId: pageParam, limit: SEAT_SESSION_PAGE_LIMIT, workspaceId }
+      const query: SeatPageQuery = { afterId: pageParam, limit: SEAT_SESSION_PAGE_LIMIT, workspaceId, search, mine }
       return status === 'queued' ? api.fetchQueue(orgId, query) : api.fetchSessions(orgId, status, query)
     },
     getNextPageParam: (lastPage: SeatSessionPage) => lastPage.nextAfterId,
@@ -247,22 +263,26 @@ function toView(query: ViewQuery): SeatSessionsView {
   }
 }
 
-/** 三视图 + 服务端计数（任一视图最新页携带 total_by_status 即更新；纯派生）。 */
-export function useSeatSessionViews(orgId: EntityId | null, workspaceId: EntityId | null) {
+/** 三视图分别取各自服务端计数；三种响应未齐时保持未知。 */
+export function useSeatSessionViews(orgId: EntityId | null, workspaceId: EntityId | null, search = '', identityId: EntityId | null = null) {
   const { api } = useSeatWorkbenchGateway()
-  const enabled = orgId !== null && workspaceId !== null
+  const authStatus = useSeatAuthStore((state) => state.status)
+  const enabled = authStatus === 'authenticated' && orgId !== null && workspaceId !== null
 
-  const queued = useSessionsInfiniteQuery(orgId ?? '', workspaceId, 'queued', enabled, api)
-  const active = useSessionsInfiniteQuery(orgId ?? '', workspaceId, 'active', enabled, api)
-  const closed = useSessionsInfiniteQuery(orgId ?? '', workspaceId, 'closed', enabled, api)
+  const queued = useSessionsInfiniteQuery(orgId ?? '', workspaceId, 'queued', enabled, api, search, identityId)
+  const active = useSessionsInfiniteQuery(orgId ?? '', workspaceId, 'active', enabled, api, search, identityId)
+  const closed = useSessionsInfiniteQuery(orgId ?? '', workspaceId, 'closed', enabled, api, search, identityId)
 
   const pickLatest = (data: typeof queued.data): SeatSessionPage | undefined => {
     const pages = data?.pages ?? []
     return pages.length > 0 ? pages[pages.length - 1] : undefined
   }
-  // 服务端计数是派生值（禁本地推断）：取任一视图最新一页携带的 total_by_status。
-  const counts: SeatSessionCounts | null =
-    pickLatest(queued.data)?.counts ?? pickLatest(active.data)?.counts ?? pickLatest(closed.data)?.counts ?? null
+  const queuedPage = pickLatest(queued.data)
+  const activePage = pickLatest(active.data)
+  const closedPage = pickLatest(closed.data)
+  const counts: SeatSessionCounts | null = queuedPage && activePage && closedPage
+    ? { queued: queuedPage.counts.queued, active: activePage.counts.active, closed: closedPage.counts.closed }
+    : null
 
   const invalidate = useInvalidateSeatQueries()
   const refetchAll = useCallback(() => {

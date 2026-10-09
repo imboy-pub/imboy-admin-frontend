@@ -116,8 +116,9 @@ function SeatWorkspaceInner() {
   );
   const [viewStatus, setViewStatus] = useState<SeatViewStatus>("queued");
   const [pane, setPane] = useState<"list" | "conversation">("list");
+  const [search, setSearch] = useState("");
 
-  const views = useSeatSessionViews(scope.organizationId, scope.workspaceId);
+  const views = useSeatSessionViews(scope.organizationId, scope.workspaceId, search, scope.myIdentityId);
   const stream = useSeatEventStream(scope.organizationId, scope.workspaceId);
   // CS-WEB-05：presence 心跳（可见+在线才发送）与手动状态切换。
   const presenceQuery = useSeatPresenceHeartbeat(scope.organizationId, scope.workspaceId);
@@ -392,6 +393,7 @@ function SeatWorkspaceInner() {
               onChange={(event) => {
                 scope.selectOrganization(event.target.value);
                 setSelectedSessionId(null);
+                setSearch("");
               }}
             >
               {(contextsQuery.data ?? []).map((ctx) => (
@@ -411,6 +413,7 @@ function SeatWorkspaceInner() {
               onChange={(event) => {
                 scope.selectWorkspace(event.target.value);
                 setSelectedSessionId(null);
+                setSearch("");
               }}
             >
               {(scope.context?.workspaces ?? []).map((ws) => (
@@ -486,6 +489,8 @@ function SeatWorkspaceInner() {
             data-testid="seat-pane-list"
           >
             <SeatQueuePanel
+              search={search}
+              onSearchChange={setSearch}
               viewStatus={viewStatus}
               onViewStatusChange={setViewStatus}
               counts={views.counts}

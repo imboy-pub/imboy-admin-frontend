@@ -57,6 +57,8 @@ export type SeatPageQuery = {
   afterId?: EntityId | null
   limit?: number
   workspaceId?: EntityId | null
+  search?: string
+  mine?: boolean
 }
 
 function pageQuery(query: SeatPageQuery): Record<string, string> {
@@ -66,6 +68,8 @@ function pageQuery(query: SeatPageQuery): Record<string, string> {
     out.limit = String(query.limit)
   }
   if (typeof query.workspaceId === 'string' && query.workspaceId.length > 0) out.workspace_id = query.workspaceId
+  if (typeof query.search === 'string') out.search = query.search
+  if (typeof query.mine === 'boolean') out.mine = String(query.mine)
   return out
 }
 

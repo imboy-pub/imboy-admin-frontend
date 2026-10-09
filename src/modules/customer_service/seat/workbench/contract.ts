@@ -92,6 +92,8 @@ export type SeatSessionSummary = {
    * 绝不做本地时钟计算（负值防御在渲染层 max(0)）。
    */
   waitingSeconds: number | null
+  unreadCount: number | null
+  needsReply: boolean | null
 }
 
 /** 服务端计数（禁本地推断）：total_by_status 是三视图 Tab 的唯一数字来源。 */
@@ -352,6 +354,8 @@ export function toSeatSessionSummary(raw: unknown): SeatSessionSummary | null {
     contactMaskedName: optStr(contact.masked_name),
     lastMessage: toLastMessage(raw.last_message),
     waitingSeconds: optInt(raw.waiting_seconds),
+    unreadCount: typeof raw.unread_count === 'number' && Number.isSafeInteger(raw.unread_count) && raw.unread_count >= 0 ? raw.unread_count : null,
+    needsReply: typeof raw.needs_reply === 'boolean' ? raw.needs_reply : null,
   }
 }
 

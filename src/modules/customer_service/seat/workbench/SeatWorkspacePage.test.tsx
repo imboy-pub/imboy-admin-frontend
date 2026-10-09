@@ -504,26 +504,23 @@ describe('SeatWorkspacePage CS-WEB-03 队列 triage（preview/等待时长/筛�
     expect(waiting.textContent).not.toMatch(/-\d/)
   })
 
-  it('搜索过滤已加载行（掩码名/摘要）：无匹配给筛选空态；Tab 计数保持服务端值', async () => {
+  it('搜索提交服务端（掩码名）：无匹配给权威空态；Tab 计数保持服务端值', async () => {
     const backend = new SeatFakeBackend()
     const view = renderWorkspace(backend, new FakeSseStream())
     await waitFor(() => expect(view.getByTestId(`seat-session-item-${SESSION}`)).toBeDefined())
     const search = view.getByTestId('seat-queue-search')
     const user = userEvent.setup()
-    // 命中摘要关键词 → 行保留；Tab 计数仍是服务端 total_by_status（queued=1）。
-    await user.type(search, '8891')
+    await user.type(search, '王***')
+    await waitFor(() => expect(view.getByTestId('seat-tab-queued').textContent).toContain('1'))
     expect(view.getByTestId(`seat-session-item-${SESSION}`)).toBeDefined()
-    expect(view.getByTestId('seat-tab-queued').textContent).toContain('1')
-    // 无匹配 → 筛选空态（区别于服务端空态）。
-    const noMatch = '不存在的关键词'
-    await user.type(search, noMatch.slice('8891'.length))
-    expect(view.getByTestId('seat-queue-filter-empty')).toBeDefined()
+    const noMatch = '王***不存在的关键词'
+    await user.type(search, noMatch.slice('王***'.length))
+    await waitFor(() => expect(view.getByTestId('seat-queue-empty')).toBeDefined())
     expect(view.queryByTestId(`seat-session-item-${SESSION}`)).toBeNull()
-    // Tab 计数仍是服务端值（过滤是显示层动作，不改计数）。
-    expect(view.getByTestId('seat-tab-queued').textContent).toContain('1')
+    expect(view.getByTestId('seat-tab-queued').textContent).toContain('0')
     // 清空 → 恢复全部（React19 受控输入 user.clear 不生效，退格序列清空）。
     await user.type(search, '{Backspace}'.repeat(noMatch.length))
-    expect(view.getByTestId(`seat-session-item-${SESSION}`)).toBeDefined()
+    await waitFor(() => expect(view.getByTestId(`seat-session-item-${SESSION}`)).toBeDefined())
   })
 
   it('筛选/切换视图不丢 selection（aria-current 保持）', async () => {
@@ -533,7 +530,7 @@ describe('SeatWorkspacePage CS-WEB-03 队列 triage（preview/等待时长/筛�
     expect(view.getByTestId(`seat-session-item-${SESSION}`).getAttribute('aria-current')).toBe('true')
     // 搜索（选中行仍命中）→ selection 不丢。
     const user = userEvent.setup()
-    await user.type(view.getByTestId('seat-queue-search'), '8891')
+    await user.type(view.getByTestId('seat-queue-search'), '王***')
     expect(view.getByTestId(`seat-session-item-${SESSION}`).getAttribute('aria-current')).toBe('true')
     // 切到 active 再切回 queued → selection 不丢。
     fireEvent.click(view.getByTestId('seat-tab-active'))
