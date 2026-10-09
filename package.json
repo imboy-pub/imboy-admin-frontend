@@ -24,7 +24,9 @@
     "lint:fix": "eslint . --fix",
     "typecheck": "tsc --noEmit -p tsconfig.app.json",
     "deadcode": "knip",
-    "check": "eslint . && tsc --noEmit -p tsconfig.app.json && knip"
+    "check": "eslint . && tsc --noEmit -p tsconfig.app.json && knip",
+    "licenses:generate": "bun scripts/generate-third-party-licenses.mts",
+    "licenses:check": "bun scripts/generate-third-party-licenses.mts --check"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
