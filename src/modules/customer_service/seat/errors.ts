@@ -53,7 +53,7 @@ export function isSeatApiError(value: unknown): value is SeatApiError {
 
 /** HTTP 状态 / 业务 code → 分类（码位与后端 error_code.hrl 对齐）。 */
 export function classifySeatError(status: number | null, code: number | null, msg: string): SeatApiError {
-  const effective = code ?? status
+  const effective = status === 401 || status === 403 ? status : code ?? status
   const init: SeatApiErrorInit = { status, code }
   if (effective === 400) return new SeatApiError('validation', msg, init)
   if (effective === 401) return new SeatApiError('unauthorized', msg, init)

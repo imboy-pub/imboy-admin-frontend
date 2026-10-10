@@ -129,7 +129,13 @@ function buildQuery(path: string, query: Record<string, string> | undefined): st
 }
 
 function unwrapEnvelope(raw: unknown, httpStatus: number): unknown {
-  if (!isRecord(raw)) throw seatInvalidResponse('seat response is not a JSON object')
+  if (!isRecord(raw)) {
+    if (httpStatus === 401 || httpStatus === 403) throw classifySeatError(httpStatus, null, `seat http error ${httpStatus}`)
+    throw seatInvalidResponse('seat response is not a JSON object')
+  }
+  const code = typeof raw.code === 'number' ? raw.code : httpStatus
+  const msg = nonEmptyString(raw.msg) ? raw.msg : `seat api error ${code}`
+  if (httpStatus === 401 || httpStatus === 403) throw classifySeatError(httpStatus, code, msg)
   if (raw.code === 0) {
     // 载荷允许对象或数组（elib_response:success/2 → map() | list()；列表端点
     // 如消息历史是裸数组载荷）。缺失/标量仍然 fail-closed。
@@ -138,8 +144,6 @@ function unwrapEnvelope(raw: unknown, httpStatus: number): unknown {
     }
     return raw.payload
   }
-  const code = typeof raw.code === 'number' ? raw.code : httpStatus
-  const msg = nonEmptyString(raw.msg) ? raw.msg : `seat api error ${code}`
   throw classifySeatError(httpStatus, code, msg)
 }
 
