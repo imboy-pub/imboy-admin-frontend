@@ -38,9 +38,11 @@ import {
   lastUsedLabel,
   nextAllowedStatuses,
   requiresExplicitConfirmation,
+  parseRedirectUris,
   toApplicationDetailFromPayload,
   toApplicationPage,
   toApplicationStatus,
+  toApplicationSummary,
   toAuditEntry,
   toAuditList,
   toCredentialMeta,
@@ -50,6 +52,7 @@ import {
   toDeliveryStats,
   toGrantList,
   toGrantView,
+  toIdentityList,
   toIssuedCredentialOnce,
   toScopeList,
   validateScopeSelection,
@@ -573,5 +576,72 @@ describe('F. RBAC 纯闸门（UI 隐藏之外的第二道锁）', () => {
       expect(canReadGovernance(rolePermissions[role]!)).toBe(false)
       expect(canWriteGovernance(rolePermissions[role]!)).toBe(false)
     }
+  })
+})
+
+describe('G. 应用创建 / 身份映射（A-15..A-18 纯函数）', () => {
+  describe('parseRedirectUris', () => {
+    it('逐行解析、去空白行、去重且保序', () => {
+      expect(
+        parseRedirectUris(
+          'https://a.example.com/cb\n\n  https://b.example.com/cb  \nhttps://a.example.com/cb\n'
+        )
+      ).toEqual(['https://a.example.com/cb', 'https://b.example.com/cb'])
+    })
+
+    it('空输入返回空数组', () => {
+      expect(parseRedirectUris('')).toEqual([])
+      expect(parseRedirectUris('  \n \n')).toEqual([])
+    })
+  })
+
+  describe('toIdentityList', () => {
+    it('白名单投影 + ID 字符串化；非法行与未知键丢弃', () => {
+      const list = toIdentityList([
+        {
+          id: '1140000000000000001',
+          external_user_id: 'E10001',
+          user_id: '2230000000000000002',
+          status: 'active',
+          created_at: '2026-10-10T00:00:00Z',
+          updated_at: '2026-10-10T00:00:00Z',
+          secret: 'should-be-dropped',
+        },
+        'garbage',
+      ])
+      expect(list).toHaveLength(1)
+      expect(list[0]).toEqual({
+        id: '1140000000000000001',
+        externalUserId: 'E10001',
+        userId: '2230000000000000002',
+        status: 'active',
+        createdAt: '2026-10-10T00:00:00Z',
+        updatedAt: '2026-10-10T00:00:00Z',
+      })
+    })
+
+    it('非数组输入返回空数组', () => {
+      expect(toIdentityList(null)).toEqual([])
+      expect(toIdentityList({})).toEqual([])
+    })
+  })
+
+  describe('toApplicationSummary（创建响应复用）', () => {
+    it('创建响应投影为摘要视图', () => {
+      const summary = toApplicationSummary({
+        id: '9910000000000000003',
+        organization_id: '114022088375011328',
+        name: 'OA 联调测试',
+        status: 'active',
+        scopes: [],
+        version: 1,
+        created_at: '2026-10-10T00:00:00Z',
+        updated_at: '2026-10-10T00:00:00Z',
+      })
+      expect(summary).not.toBeNull()
+      expect(summary?.id).toBe('9910000000000000003')
+      expect(summary?.name).toBe('OA 联调测试')
+      expect(summary?.status).toBe('active')
+    })
   })
 })

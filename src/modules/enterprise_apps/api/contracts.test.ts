@@ -71,6 +71,13 @@ describe('FULL-04 冻结合同 / contracts', () => {
     )
     expect(ENDPOINTS.deliveries(ORG, APP)).toBe(`/enterprise/organizations/${ORG}/applications/${APP}/deliveries`)
     expect(ENDPOINTS.auditLogs(ORG, APP)).toBe(`/enterprise/organizations/${ORG}/applications/${APP}/audit-logs`)
+    expect(ENDPOINTS.createApplication(ORG)).toBe(`/enterprise/organizations/${ORG}/applications`)
+    expect(ENDPOINTS.identities(ORG, APP)).toBe(
+      `/enterprise/organizations/${ORG}/applications/${APP}/identities`
+    )
+    expect(ENDPOINTS.identityUnbind(ORG, APP, 'E10001')).toBe(
+      `/enterprise/organizations/${ORG}/applications/${APP}/identities?external_user_id=E10001`
+    )
   })
 
   it('admin 治理面前缀不是 internal 前缀（结构上不可能误调 INV-2/INV-3 禁面）', () => {
@@ -88,6 +95,9 @@ describe('FULL-04 冻结合同 / contracts', () => {
       ENDPOINTS.deliveryStats(ORG, APP),
       ENDPOINTS.deliveries(ORG, APP),
       ENDPOINTS.auditLogs(ORG, APP),
+      ENDPOINTS.createApplication(ORG),
+      ENDPOINTS.identities(ORG, APP),
+      ENDPOINTS.identityUnbind(ORG, APP, 'E10001'),
     ]
     for (const path of all) {
       expect(path.startsWith('/enterprise/')).toBe(true)

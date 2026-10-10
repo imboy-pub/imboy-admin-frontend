@@ -13,6 +13,7 @@ import { ApplicationGovernanceCard } from '../components/ApplicationGovernanceCa
 import { AuditTrailPanel } from '../components/AuditTrailPanel'
 import { CredentialPanel } from '../components/CredentialPanel'
 import { GrantPanel } from '../components/GrantPanel'
+import { IdentityPanel } from '../components/IdentityPanel'
 
 function toApiError(err: unknown): ApiErrorLike | null {
   return err && typeof err === 'object' ? (err as ApiErrorLike) : null
@@ -99,6 +100,7 @@ export function EnterpriseApplicationDetailPage() {
           </Card>
 
           <ApplicationGovernanceCard scope={scope} detail={detail} onRefresh={refetch} />
+          <IdentityPanel scope={scope} applicationArchived={detail.status === 'archived'} />
           <CredentialPanel scope={scope} applicationArchived={detail.status === 'archived'} />
           <GrantPanel
             scope={scope}

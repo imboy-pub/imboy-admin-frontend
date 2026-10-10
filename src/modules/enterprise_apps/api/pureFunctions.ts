@@ -145,8 +145,8 @@ const APPLICATION_SAFE_KEYS = [
   'updated_at',
 ] as const
 
-/** G15：仅本文件使用，撤 export。 */
-function toApplicationSummary(raw: unknown): ApplicationSummary | null {
+/** A-15 放开 export：创建应用的响应投影复用本解析器。 */
+export function toApplicationSummary(raw: unknown): ApplicationSummary | null {
   if (!isPlainRecord(raw)) return null
   const id = toId(raw.id)
   if (id === null) return null
@@ -161,6 +161,65 @@ function toApplicationSummary(raw: unknown): ApplicationSummary | null {
     createdAt: toStr(safe.created_at),
     updatedAt: toStr(safe.updated_at),
   }
+}
+
+/** A-16..A-18 身份映射视图（external_user_id <-> IMBoy user）。 */
+export type IdentityView = {
+  id: EntityId
+  externalUserId: string
+  userId: EntityId
+  status: string
+  createdAt: string
+  updatedAt: string
+}
+
+const IDENTITY_SAFE_KEYS = [
+  'id',
+  'external_user_id',
+  'user_id',
+  'status',
+  'created_at',
+  'updated_at',
+] as const
+
+function toIdentitySummary(raw: unknown): IdentityView | null {
+  if (!isPlainRecord(raw)) return null
+  const id = toId(raw.id)
+  if (id === null) return null
+  const safe = pickAllowed(raw, IDENTITY_SAFE_KEYS)
+  return {
+    id,
+    externalUserId: toStr(safe.external_user_id),
+    userId: toId(safe.user_id) ?? '',
+    status: toStr(safe.status),
+    createdAt: toStr(safe.created_at),
+    updatedAt: toStr(safe.updated_at),
+  }
+}
+
+/** 身份映射列表投影（白名单键 + ID 字符串化；非法行丢弃不猜测）。 */
+export function toIdentityList(raw: unknown): IdentityView[] {
+  const rawItems = Array.isArray(raw) ? raw : []
+  return rawItems
+    .map((item) => toIdentitySummary(item))
+    .filter((item): item is IdentityView => item !== null)
+}
+
+/**
+ * 新建应用表单的 redirect_uris 输入解析：textarea 每行一条，去空白行、
+ * 去重（保持首次出现顺序）。https/fragment/长度/数量等合法性由服务层与
+ * 后端共同判定，这里只做纯文本整形。
+ */
+export function parseRedirectUris(text: string): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const line of text.split(/\r?\n/)) {
+    const uri = line.trim()
+    if (uri.length === 0 || seen.has(uri)) continue
+    seen.add(uri)
+    out.push(uri)
+  }
+  return out
 }
 
 export type ApplicationPage = {

@@ -1,26 +1,41 @@
-import { useCallback, useMemo } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useLegacyTable, getCoreRowModel, type LegacyColumnDef } from '@tanstack/react-table/legacy'
 import { Building2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { DataTable, DataTablePagination, EmptyState, ErrorState, PageHeader } from '@/components/shared'
 import { useAdminPermission } from '@/hooks/useAdminPermission'
 import { useListQueryState } from '@/hooks/useListQueryState'
-import { APPLICATION_STATUSES, APPLICATION_STATUS_LABELS, READ_PERMISSION, GOVERNANCE_BACKEND_WIRED } from '../api/contracts'
+import {
+  APPLICATION_STATUSES,
+  APPLICATION_STATUS_LABELS,
+  READ_PERMISSION,
+  WRITE_PERMISSION,
+  GOVERNANCE_BACKEND_WIRED,
+} from '../api/contracts'
 import {
   applicationStatusLabel,
   classifyGovernanceFailure,
   governanceFailureMessage,
+  parseRedirectUris,
   type ApiErrorLike,
   type ApplicationSummary,
 } from '../api/pureFunctions'
-import { listApplications } from '../api/public'
+import { createApplication, listApplications, newIdempotencyKey } from '../api/public'
 
 type ListState = {
   org: string
@@ -54,6 +69,7 @@ export function EnterpriseApplicationsPage() {
   const organizationId = state.org.trim()
   const scopeReady = organizationId.length > 0
   const { allowed: canRead, loading: permLoading } = useAdminPermission({ permission: READ_PERMISSION })
+  const { allowed: canWrite } = useAdminPermission({ permission: WRITE_PERMISSION })
   const readReady = canRead && !permLoading
 
   const query = useQuery({
@@ -82,6 +98,58 @@ export function EnterpriseApplicationsPage() {
     },
     [navigate, organizationId]
   )
+
+  const queryClient = useQueryClient()
+  const [createOpen, setCreateOpen] = useState(false)
+  const [createForm, setCreateForm] = useState({ key: '', name: '', redirectUris: '' })
+  const [createError, setCreateError] = useState<string | null>(null)
+
+  const createMutation = useMutation({
+    mutationFn: async () =>
+      createApplication(
+        organizationId,
+        {
+          applicationKey: createForm.key,
+          name: createForm.name,
+          redirectUris: parseRedirectUris(createForm.redirectUris),
+        },
+        { permissions: canWrite ? [WRITE_PERMISSION] : [], idempotencyKey: newIdempotencyKey() }
+      ),
+    onSuccess: (created) => {
+      setCreateError(null)
+      setCreateOpen(false)
+      setCreateForm({ key: '', name: '', redirectUris: '' })
+      void queryClient.invalidateQueries({
+        queryKey: ['enterprise_apps', 'applications', organizationId],
+      })
+      openDetail(created)
+    },
+    onError: (err: unknown) => {
+      const message = err instanceof Error ? err.message : String(err)
+      const apiError = toApiError(err)
+      setCreateError(
+        apiError !== null
+          ? `${governanceFailureMessage(classifyGovernanceFailure(apiError, { wired: GOVERNANCE_BACKEND_WIRED }))}（${message}）`
+          : message
+      )
+    },
+  })
+
+  const submitCreate = () => {
+    if (createForm.key.trim().length === 0) {
+      setCreateError('请填写 application_key')
+      return
+    }
+    if (createForm.name.trim().length === 0) {
+      setCreateError('请填写应用名')
+      return
+    }
+    if (parseRedirectUris(createForm.redirectUris).length === 0) {
+      setCreateError('请至少填写一条 redirect_uri')
+      return
+    }
+    createMutation.mutate()
+  }
 
   const columns = useMemo<LegacyColumnDef<ApplicationSummary>[]>(
     () => [
@@ -209,11 +277,69 @@ export function EnterpriseApplicationsPage() {
       </Card>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <CardTitle className="text-base">Application 列表</CardTitle>
+          <Button
+            size="sm"
+            data-testid="create-application"
+            disabled={!scopeReady || !canWrite}
+            onClick={() => setCreateOpen(true)}
+          >
+            新建应用
+          </Button>
         </CardHeader>
         <CardContent>{body}</CardContent>
       </Card>
+
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>新建企业应用（OA 接入）</DialogTitle>
+            <DialogDescription>
+              创建后到应用详情完成身份映射，成员才能在工作台看到应用并按需免登取码。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="ea-create-key">application_key（8..128 位，Org 内唯一）</Label>
+              <Input
+                id="ea-create-key"
+                value={createForm.key}
+                onChange={(event) => setCreateForm({ ...createForm, key: event.target.value })}
+                placeholder="例如 imboy-oa-test-app"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="ea-create-name">应用名</Label>
+              <Input
+                id="ea-create-name"
+                value={createForm.name}
+                onChange={(event) => setCreateForm({ ...createForm, name: event.target.value })}
+                placeholder="例如 OA 联调测试"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="ea-create-uris">redirect_uri 白名单（每行一条，仅 https，逐字节精确匹配）</Label>
+              <textarea
+                id="ea-create-uris"
+                className="min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-xs"
+                value={createForm.redirectUris}
+                onChange={(event) => setCreateForm({ ...createForm, redirectUris: event.target.value })}
+                placeholder={'https://www.imboy.pub/test_oa.html'}
+              />
+            </div>
+            {createError !== null && <p className="text-sm text-destructive">{createError}</p>}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={createMutation.isPending}>
+              取消
+            </Button>
+            <Button onClick={submitCreate} disabled={createMutation.isPending}>
+              {createMutation.isPending ? '创建中…' : '创建'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

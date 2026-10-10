@@ -31,21 +31,25 @@ import {
   assertWriteAllowed,
   toApplicationDetailFromPayload,
   toApplicationPage,
+  toApplicationSummary,
   toAuditList,
   toCredentialMetaList,
   toDeliveryList,
   toDeliveryStats,
   toGrantList,
+  toIdentityList,
   toIssuedCredentialOnce,
   toScopeList,
   validateScopeSelection,
   type ApplicationDetail,
   type ApplicationPage,
+  type ApplicationSummary,
   type AuditEntry,
   type CredentialMeta,
   type DeliveryRow,
   type DeliveryStats,
   type GrantView,
+  type IdentityView,
 } from './pureFunctions'
 import { armOnce } from './secretOnetime'
 
@@ -410,6 +414,100 @@ export async function patchGrant(
   )
   const payload = requireApiPayload(response.data, 'PATCH admin grant')
   guardRead(payload, 'PATCH admin grant')
+}
+
+// ---------------------------------------------------------------------------
+// A-15..A-18 应用创建 / 身份映射（OA 按需免登的工作台可见性与签发前提）
+// ---------------------------------------------------------------------------
+
+export type CreateApplicationInput = {
+  applicationKey: string
+  name: string
+  redirectUris: readonly string[]
+}
+
+/** A-15 创建 Application。 */
+export async function createApplication(
+  organizationId: EntityId,
+  input: CreateApplicationInput,
+  options: MutateOptions
+): Promise<ApplicationSummary> {
+  assertWriteAllowed(options.permissions, 'create_application')
+  const applicationKey = input.applicationKey.trim()
+  const name = input.name.trim()
+  const redirectUris = Array.from(
+    new Set(input.redirectUris.map((uri) => uri.trim()).filter(Boolean))
+  )
+  if (organizationId.trim().length === 0) throw new Error('缺少必填 ID：organization_id')
+  if (applicationKey.length === 0) throw new Error('缺少 application_key')
+  if (name.length === 0) throw new Error('缺少应用名')
+  const response = await client.post<ApiResponse<unknown>>(
+    ENDPOINTS.createApplication(organizationId),
+    { application_key: applicationKey, name, redirect_uris: redirectUris },
+    { headers: writeHeaders(options) }
+  )
+  const payload = requireApiPayload(response.data, 'POST admin create application')
+  guardRead(payload, 'POST admin create application')
+  const summary = toApplicationSummary(payload)
+  if (summary === null) throw new Error('创建应用响应格式异常')
+  return summary
+}
+
+/** A-16 身份映射列表（含 removed 历史）。 */
+export async function listIdentities(scope: GovernanceScope): Promise<IdentityView[]> {
+  const { organizationId, applicationId } = requireScope(scope)
+  const response = await client.get<ApiResponse<unknown>>(
+    ENDPOINTS.identities(organizationId, applicationId)
+  )
+  const payload = requireApiPayload(response.data, 'GET admin identities')
+  guardRead(payload, 'GET admin identities')
+  return toIdentityList(payload)
+}
+
+export type BindIdentityInput = {
+  externalUserId: string
+  userId: EntityId
+}
+
+/** A-17 绑定 external_user_id <-> user（幂等 upsert，重绑即复活）。 */
+export async function bindIdentity(
+  scope: GovernanceScope,
+  input: BindIdentityInput,
+  options: MutateOptions
+): Promise<IdentityView | null> {
+  assertWriteAllowed(options.permissions, 'bind_identity')
+  const { organizationId, applicationId } = requireScope(scope)
+  const externalUserId = input.externalUserId.trim()
+  const userId = input.userId.trim()
+  if (externalUserId.length === 0) throw new Error('缺少 external_user_id')
+  if (!/^[1-9][0-9]{0,18}$/.test(userId)) throw new Error('user_id 须为纯数字 TSID')
+  const response = await client.post<ApiResponse<unknown>>(
+    ENDPOINTS.identities(organizationId, applicationId),
+    { external_user_id: externalUserId, user_id: userId },
+    { headers: writeHeaders(options) }
+  )
+  const payload = requireApiPayload(response.data, 'POST admin bind identity')
+  guardRead(payload, 'POST admin bind identity')
+  const list = toIdentityList(Array.isArray(payload) ? payload : [payload])
+  return list[0] ?? null
+}
+
+/** A-18 解绑（软删）。 */
+export async function unbindIdentity(
+  scope: GovernanceScope,
+  externalUserId: string,
+  options: MutateOptions
+): Promise<void> {
+  assertWriteAllowed(options.permissions, 'unbind_identity')
+  const { organizationId, applicationId } = requireScope(scope)
+  const key = externalUserId.trim()
+  if (key.length === 0) throw new Error('缺少 external_user_id')
+  const response = await client.delete<ApiResponse<unknown>>(
+    ENDPOINTS.identityUnbind(organizationId, applicationId, key),
+    { headers: writeHeaders(options) }
+  )
+  const payload = requireApiPayload(response.data, 'DELETE admin identity')
+  guardRead(payload, 'DELETE admin identity')
 }
 
 /** 清空指纹集（测试/登出）。 */

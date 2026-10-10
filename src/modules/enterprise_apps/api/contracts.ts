@@ -302,6 +302,13 @@ export const ENDPOINTS = {
   /** A-14 审计（before/after diff） */
   auditLogs: (orgId: EntityId, appId: EntityId, params: { page?: number; size?: number } = {}) =>
     `${appPath(orgId, appId)}/audit-logs${query({ page: params.page, size: params.size })}`,
+  /** A-15 创建 Application（POST，挂在列表路径） */
+  createApplication: (orgId: EntityId) => appPath(orgId),
+  /** A-16 身份映射列表（GET）/ A-17 绑定（POST） */
+  identities: (orgId: EntityId, appId: EntityId) => `${appPath(orgId, appId)}/identities`,
+  /** A-18 解绑（DELETE + query external_user_id） */
+  identityUnbind: (orgId: EntityId, appId: EntityId, externalUserId: string) =>
+    `${appPath(orgId, appId)}/identities${query({ external_user_id: externalUserId })}`,
 } as const
 
 /** 分页边界（列表页统一默认 size=10，与仓内规范一致）。 */
