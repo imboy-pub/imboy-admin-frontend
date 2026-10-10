@@ -120,6 +120,14 @@ describe('会话页投影（服务端计数合同）', () => {
 })
 
 describe('消息投影（含 ACK 与附件）', () => {
+  it('真实 Seat canonical 业务身份优先且空值或非法值不回退旧别名', () => {
+    const row = { id: HUGE_TSID, sender_type: 'business_identity', sender_identity_id: '6000000000000000006' }
+    expect(toSeatMessage({ ...row, sender_business_identity_id: HUGE_TSID })?.senderIdentityId).toBe(HUGE_TSID)
+    expect(toSeatMessage({ ...row, sender_business_identity_id: null })?.senderIdentityId).toBeNull()
+    expect(toSeatMessage({ ...row, sender_business_identity_id: 'invalid' })?.senderIdentityId).toBeNull()
+    expect(toSeatMessage(row)?.senderIdentityId).toBe('6000000000000000006')
+  })
+
   // CS-WEB-01：assets[] 镜像后端冻结投影键 {id,mime,size_bytes,file_name,status}。
   const MESSAGE_ROW = {
     id: HUGE_TSID,

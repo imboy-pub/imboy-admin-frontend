@@ -303,7 +303,7 @@ export function toSeatMessage(raw: unknown): SeatMessage | null {
     id,
     senderType: raw.sender_type,
     senderContactId: optTsid(raw.sender_contact_id),
-    senderIdentityId: optTsid(raw.sender_identity_id),
+    senderIdentityId: optTsid('sender_business_identity_id' in raw ? raw.sender_business_identity_id : raw.sender_identity_id),
     clientMsgId: optStr(raw.client_msg_id),
     body: optStr(raw.body),
     createdAt: optStr(raw.created_at),

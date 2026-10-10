@@ -594,3 +594,206 @@ describe('CX03 UNKNOWN — 最新有限消息页未命中不是负向精确证�
     expect(view.sendMessage).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('CX03 ASC history pagination — mock API/JSDOM unit evidence only, not Required acceptance', () => {
+  function historyPage(pageNumber: number): SeatMessage[] {
+    return Array.from({ length: 50 }, (_, rowIndex) => ({
+      ...message(), id: (72057594037928000n + BigInt((pageNumber - 1) * 50 + rowIndex)).toString(),
+    }))
+  }
+
+  function expectHistoryQueries(view: Harness, afterIds: (EntityId | null)[]) {
+    expect(view.fetchMessages.mock.calls.map((call) => call.slice(0, 3))).toEqual(
+      afterIds.map(() => [SCOPE.orgId, SCOPE.conversationId, SCOPE.workspaceId]),
+    )
+    expect(view.fetchMessages.mock.calls.map((call) => call[3]?.afterId ?? null)).toEqual(afterIds)
+    expect(view.fetchMessages.mock.calls.map((call) => call[3]?.limit)).toEqual(afterIds.map(() => 50))
+  }
+
+  it.each([2, 5])('mock/JSDOM: 已提交答复在第 %s 页，逐页 afterId + 原 scope 命中才清原稿，POST 总计 1', async (targetPage) => {
+    const view = harness()
+    const file = attachment()
+    setDraft(view, BODY, file)
+    const original = await failSend(view, new SeatApiError('network', 'mock committed POST response lost'))
+    const pages = Array.from({ length: targetPage }, (_, pageIndex) => historyPage(pageIndex + 1)
+      .map((row, rowIndex) => pageIndex === targetPage - 1 && rowIndex === 25
+        ? { ...message(original), id: row.id } : row))
+    view.fetchMessages.mockImplementation(async (_org, _conversation, _workspace, query) => {
+      const pageIndex = query?.afterId == null ? 0
+        : pages.findIndex((page) => page[49]!.id === query.afterId) + 1
+      if (view.fetchMessages.mock.calls.length > targetPage || pageIndex >= targetPage
+        || (query?.afterId != null && pageIndex === 0)) throw new Error('mock history fixture exhausted')
+      return pages[pageIndex]!
+    })
+    await act(async () => view.result.current.retry())
+    await waitFor(() => expect(view.result.current.sending).toBe(false))
+    expect(view.sendMessage).toHaveBeenCalledTimes(1)
+    expectHistoryQueries(view, [null, ...pages.slice(0, -1).map((page) => page[49]!.id)])
+    expect(original.clientMsgId).toBeTruthy()
+    expect(original.identityId).toBe(SCOPE.identityId!)
+    expect(view.result.current.outcomeUnknown).toBe(false)
+    expectDraft(view, '', null)
+    expect(view.result.current.error).toBeNull()
+    expect(view.presign).toHaveBeenCalledTimes(1)
+    expect(view.upload).toHaveBeenCalledTimes(1)
+    expect(view.confirm).toHaveBeenCalledTimes(1)
+  })
+
+  it('mock/JSDOM: 跨页错 identity 或错 clientMsgId 不解锁，查至空页仍 UNKNOWN 且 POST 总计 1', async () => {
+    const view = harness()
+    const file = attachment()
+    setDraft(view, BODY, file)
+    const original = await failSend(view, new SeatApiError('network', 'mock uncertain POST outcome'))
+    const pages = [historyPage(1), historyPage(2)].map((page, pageIndex) => page.map((row, rowIndex) =>
+      rowIndex === 25 ? { ...message({ ...original, ...(pageIndex === 0
+        ? { identityId: '72057594037927999' } : { clientMsgId: 'wrong-id 🧾' }) }), id: row.id } : row))
+    view.fetchMessages.mockImplementation(async (_org, _conversation, _workspace, query) => {
+      if (view.fetchMessages.mock.calls.length > 3) throw new Error('mock history fixture exhausted')
+      if (query?.afterId == null) return pages[0]!
+      if (query.afterId === pages[0]![49]!.id) return pages[1]!
+      if (query.afterId === pages[1]![49]!.id) return []
+      throw new Error('mock unexpected history cursor')
+    })
+    await act(async () => view.result.current.retry())
+    await waitFor(() => expect(view.result.current.sending).toBe(false))
+    expect(view.sendMessage).toHaveBeenCalledTimes(1)
+    expectDraft(view, BODY, file)
+    expect(view.result.current.outcomeUnknown).toBe(true)
+    expect(view.result.current.error).not.toBeNull()
+    expectHistoryQueries(view, [null, pages[0]![49]!.id, pages[1]![49]!.id])
+  })
+
+  it('mock/JSDOM: 分页第 2 页在途注销/切会话，迟到命中或未命中不续查、不清新稿', async () => {
+    const observations = []
+    for (const transition of ['logout', 'conversation'] as const) {
+      for (const lateHit of [false, true]) {
+        const view = harness()
+        setDraft(view)
+        const original = await failSend(view, new SeatApiError('network', 'mock uncertain POST outcome'))
+        const firstPage = historyPage(1)
+        const pendingPage = deferred<SeatMessage[]>()
+        view.fetchMessages.mockResolvedValue(firstPage)
+          .mockImplementationOnce(async () => firstPage).mockImplementationOnce(() => pendingPage.promise)
+          .mockRejectedValueOnce(new Error('mock forbidden continuation after cancellation'))
+        await act(async () => view.result.current.retry())
+        const beforeTransition = { getCount: view.fetchMessages.mock.calls.length, pending: view.result.current.sending }
+        if (transition === 'logout') {
+          act(() => { useSeatAuthStore.getState().clearSession('logout'); useSeatAuthStore.getState().setSession(OTHER_USER) })
+        } else view.rerender(SCOPE_CHANGES[0]!.scope)
+        const freshFile = attachment('B')
+        setDraft(view, '新会话草稿 🧾', freshFile)
+        const latePage = historyPage(2).map((row, rowIndex) =>
+          lateHit && rowIndex === 25 ? { ...message(original), id: row.id } : row)
+        await act(async () => pendingPage.resolve(latePage))
+        expectDraft(view, '新会话草稿 🧾', freshFile)
+        expect(view.result.current.error).toBeNull()
+        expect(view.result.current.outcomeUnknown).toBe(false)
+        expect(view.result.current.sending).toBe(false)
+        expect(view.sendMessage).toHaveBeenCalledTimes(1)
+        const queries = view.fetchMessages.mock.calls.map((call) => [
+          ...call.slice(0, 3), call[3]?.afterId ?? null, call[3]?.limit,
+        ])
+        if (transition === 'conversation') {
+          view.rerender(SCOPE)
+          expectDraft(view, BODY, null)
+          expect(view.result.current.outcomeUnknown).toBe(true)
+        }
+        observations.push({ transition, lateHit, beforeTransition, queries })
+        view.unmount()
+      }
+    }
+    expect(observations).toEqual(['logout', 'conversation'].flatMap((transition) => [false, true].map((lateHit) => ({
+      transition, lateHit, beforeTransition: { getCount: 2, pending: true },
+      queries: [null, historyPage(1)[49]!.id].map((afterId) => [
+        SCOPE.orgId, SCOPE.conversationId, SCOPE.workspaceId, afterId, 50,
+      ]),
+    }))))
+  })
+
+  it('mock/JSDOM: 重复/倒退 cursor 有界停止，坏页即使带原 clientMsgId + identity 也不解锁或盲 POST', async () => {
+    const observations = []
+    for (const cursorKind of ['repeated', 'regressing'] as const) {
+      const view = harness()
+      const file = attachment()
+      setDraft(view, BODY, file)
+      const original = await failSend(view, new SeatApiError('network', 'mock uncertain POST outcome'))
+      const history = cursorKind === 'repeated'
+        ? [historyPage(2), historyPage(2)] : [historyPage(2), historyPage(3), historyPage(1)]
+      const pages = history.map((page, pageIndex) => page.map((row, rowIndex) =>
+        pageIndex === history.length - 1 && rowIndex === 25 ? { ...message(original), id: row.id } : row))
+      view.fetchMessages.mockImplementation(async () => {
+        const requestIndex = view.fetchMessages.mock.calls.length - 1
+        if (requestIndex >= pages.length) throw new Error('mock cursor loop tripwire')
+        return pages[requestIndex]!
+      })
+      await act(async () => view.result.current.retry())
+      await waitFor(() => expect(view.result.current.sending).toBe(false))
+      expect(view.sendMessage).toHaveBeenCalledTimes(1)
+      expectDraft(view, BODY, file)
+      expect(view.result.current.outcomeUnknown).toBe(true)
+      expect(view.result.current.error).not.toBeNull()
+      observations.push({ cursorKind, afterIds: view.fetchMessages.mock.calls.map((call) => call[3]?.afterId ?? null) })
+      view.unmount()
+    }
+    expect(observations).toEqual([
+      { cursorKind: 'repeated', afterIds: [null, historyPage(2)[49]!.id] },
+      { cursorKind: 'regressing', afterIds: [null, historyPage(2)[49]!.id, historyPage(3)[49]!.id] },
+    ])
+  })
+
+  it('mock/JSDOM: 50 条/页连续 20 页耗尽未命中，停止 GET、保原稿与 UNKNOWN，POST 总计 1', async () => {
+    const view = harness()
+    const file = attachment()
+    setDraft(view, BODY, file)
+    await failSend(view, new SeatApiError('network', 'mock uncertain POST outcome'))
+    const pages = Array.from({ length: 20 }, (_, pageIndex) => historyPage(pageIndex + 1))
+    view.fetchMessages.mockImplementation(async (_org, _conversation, _workspace, query) => {
+      const pageIndex = query?.afterId == null ? 0
+        : pages.findIndex((page) => page[49]!.id === query.afterId) + 1
+      if (view.fetchMessages.mock.calls.length > 20 || pageIndex >= pages.length
+        || (query?.afterId != null && pageIndex === 0)) throw new Error('mock forbidden GET beyond 20 pages')
+      return pages[pageIndex]!
+    })
+    await act(async () => view.result.current.retry())
+    await waitFor(() => expect(view.result.current.sending).toBe(false))
+    expect(view.sendMessage).toHaveBeenCalledTimes(1)
+    expectDraft(view, BODY, file)
+    expect(view.result.current.outcomeUnknown).toBe(true)
+    expect(view.result.current.error).not.toBeNull()
+    expectHistoryQueries(view, [null, ...pages.slice(0, -1).map((page) => page[49]!.id)])
+    expect(view.fetchMessages).toHaveBeenCalledTimes(20)
+    expect(view.confirm).toHaveBeenCalledTimes(1)
+  })
+
+  it('mock/JSDOM: 第 2 页在途 A→B→A 后迟到命中/未命中均不清原稿、不续查或重放 POST', async () => {
+    const file = attachment(); const observations = []
+    for (const lateHit of [false, true]) {
+      const view = harness(); setDraft(view, BODY, file)
+      const original = await failSend(view, new SeatApiError('network', 'mock uncertain POST outcome'))
+      const pendingPage = deferred<SeatMessage[]>()
+      view.fetchMessages.mockResolvedValue([]).mockResolvedValueOnce(historyPage(1)).mockImplementationOnce(() => pendingPage.promise)
+      await act(async () => view.result.current.retry())
+      expectHistoryQueries(view, [null, historyPage(1)[49]!.id]); expect(view.result.current.sending).toBe(true)
+      view.rerender(SCOPE_CHANGES[0]!.scope); view.rerender(SCOPE)
+      await act(async () => pendingPage.resolve(historyPage(2).map((row, rowIndex) => lateHit && rowIndex === 0 ? { ...message(original), id: row.id } : row)))
+      observations.push({ lateHit, getCount: view.fetchMessages.mock.calls.length, postCount: view.sendMessage.mock.calls.length, unknown: view.result.current.outcomeUnknown, pending: view.result.current.sending, draft: view.result.current.draft })
+      view.unmount()
+    }
+    expect(observations).toEqual([false, true].map((lateHit) => ({ lateHit, getCount: 2, postCount: 1, unknown: true, pending: false, draft: { body: BODY, fileName: file.name, fileSize: file.size } })))
+  })
+
+  it('mock/JSDOM: 页前部命中原 clientMsgId + identity，但页尾重复/倒退 ID，整页验证必须先于解锁', async () => {
+    for (const cursorKind of ['repeated', 'regressing'] as const) {
+      const view = harness(); const file = attachment(); setDraft(view, BODY, file)
+      const original = await failSend(view, new SeatApiError('network', 'mock uncertain POST outcome'))
+      const page = historyPage(1)
+      const rows = page.map((row, rowIndex) => rowIndex === 0 ? { ...message(original), id: row.id } : rowIndex === 49 ? { ...row, id: page[cursorKind === 'repeated' ? 48 : 0]!.id } : row)
+      view.fetchMessages.mockResolvedValue([]).mockResolvedValueOnce(rows)
+      await act(async () => view.result.current.retry())
+      await waitFor(() => expect(view.result.current.sending).toBe(false))
+      expectHistoryQueries(view, [null]); expect(view.sendMessage).toHaveBeenCalledTimes(1)
+      expectDraft(view, BODY, file); expect(view.result.current.outcomeUnknown).toBe(true); expect(view.result.current.error).not.toBeNull()
+      view.unmount()
+    }
+  })
+})

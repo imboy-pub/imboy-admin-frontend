@@ -168,6 +168,15 @@ describe('CAS 写合同（claim / transfer / close）', () => {
 })
 
 describe('消息合同（历史 + 幂等发送）', () => {
+  it('真实 Seat GET 与 POST 保留 canonical sender_business_identity_id 的大整数身份', async () => {
+    const raw = '{"id":9000000000000000009,"sender_type":"business_identity","sender_business_identity_id":9223372036854775807,"client_msg_id":"seat-canonical"}'
+    const { api } = makeFetch((_url, init) => envelope(init?.method === 'POST' ? `{"message":${raw}}` : `[${raw}]`))
+    const history = await api.fetchMessages(ORG, CONV, WS, { limit: 50 })
+    const sent = await api.sendMessage(ORG, CONV, { body: '您好', clientMsgId: 'seat-canonical', workspaceId: WS, identityId: IDENTITY })
+    expect(history[0]?.senderIdentityId).toBe('9223372036854775807')
+    expect(sent.senderIdentityId).toBe('9223372036854775807')
+  })
+
   it('历史：GET enterprise conversations 路径族 + 必带 workspace_id/organization_id（DF-9R）+ 裸数组载荷', async () => {
     const message = `{"id":9000000000000000009,"sender_type":"contact","body":"你好","client_msg_id":"cm-1","read_at":null}`
     const { calls, api } = makeFetch(() => envelope(`[${message}]`))

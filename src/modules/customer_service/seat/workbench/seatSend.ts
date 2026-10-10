@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { isSeatApiError } from '../errors'
 import { useSeatAuthStore } from '../seatAuthStore'
 import type { EntityId } from '../types'
@@ -57,15 +57,30 @@ async function uploadDraft(
   return { ...draft, objectHash: uploaded.objectHash, confirmedAssetId: uploaded.assetId }
 }
 
-async function querySendResult(api: SeatWorkbenchApi, scope: SendScope, attempt: SendAttempt, signal: AbortSignal) {
-  const messages = await api.fetchMessages(scope.orgId, scope.conversationId, scope.workspaceId, {
-    limit: SEAT_MESSAGE_PAGE_LIMIT,
-  })
-  signal.throwIfAborted()
-  if (!messages.some((message) => message.clientMsgId === attempt.clientMsgId
-    && message.senderIdentityId === scope.myIdentityId)) {
-    throw new Error('发送结果仍未知；有限消息页未命中不能证明未写入，请稍后查询，勿重复发送')
+async function querySendResult(
+  api: SeatWorkbenchApi, scope: SendScope, attempt: SendAttempt, signal: AbortSignal, isActiveScope: () => boolean,
+) {
+  let afterId: EntityId | undefined
+  for (let page = 0; page < 20; page += 1) {
+    signal.throwIfAborted()
+    if (!isActiveScope()) throw new Error('会话已切换，发送结果查询已停止')
+    const messages = await api.fetchMessages(scope.orgId, scope.conversationId, scope.workspaceId, {
+      ...(afterId === undefined ? {} : { afterId }), limit: SEAT_MESSAGE_PAGE_LIMIT,
+    })
+    signal.throwIfAborted()
+    if (!isActiveScope()) throw new Error('会话已切换，发送结果查询已停止')
+    if (messages.length === 0) break
+    let cursor = BigInt(afterId ?? '0')
+    for (const message of messages) {
+      const messageId = BigInt(message.id)
+      if (messageId <= cursor) throw new Error('消息分页游标未前进，发送结果仍未知')
+      cursor = messageId
+    }
+    if (messages.some((message) => message.clientMsgId === attempt.clientMsgId
+      && message.senderIdentityId === scope.myIdentityId)) return
+    afterId = messages[messages.length - 1]!.id
   }
+  throw new Error('发送结果仍未知；最多查询1000条，未命中不能证明未写入，请勿重复发送')
 }
 
 function useSendCache(key: string) {
@@ -74,6 +89,8 @@ function useSendCache(key: string) {
   const controllers = useRef<Record<string, AbortController>>({})
   const authEpoch = useRef(0)
   const mounted = useRef(true)
+  const scopeEpoch = useRef(0)
+  useLayoutEffect(() => { scopeEpoch.current += 1 }, [key])
   useEffect(() => {
     mounted.current = true
     const abort = () => {
@@ -112,7 +129,7 @@ function useSendCache(key: string) {
     }
     updateEntry(scopeKey, epoch, (previous) => ({ ...previous, pending: false }))
   }, [updateEntry])
-  return { entry: entries[key] ?? EMPTY_ENTRY, authEpoch, isCurrent, begin, updateEntry, edit, finish }
+  return { entry: entries[key] ?? EMPTY_ENTRY, authEpoch, scopeEpoch, isCurrent, begin, updateEntry, edit, finish }
 }
 
 type SendCache = ReturnType<typeof useSendCache>
@@ -144,10 +161,12 @@ async function runSend(
   cache: SendCache, key: string, invalidate: (..._subKeys: ('messages' | 'sessions' | 'detail')[]) => void,
 ) {
   const epoch = cache.authEpoch.current
+  const scopeEpoch = cache.scopeEpoch.current
   let attempt = initial
   let messageStarted = false
   try {
-    if (attempt.unknown) await querySendResult(api, scope, attempt, controller.signal)
+    if (attempt.unknown) await querySendResult(api, scope, attempt, controller.signal,
+      () => cache.scopeEpoch.current === scopeEpoch)
     else {
       const draft = attempt.draft.file !== null && attempt.draft.confirmedAssetId === null
         ? await uploadDraft(api, scope, attempt.draft, controller.signal) : attempt.draft
