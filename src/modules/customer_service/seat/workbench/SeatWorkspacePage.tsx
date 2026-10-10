@@ -110,6 +110,8 @@ function SeatWorkspaceInner() {
   const { api, fetchImpl } = useSeatWorkbenchGateway();
 
   const contextsQuery = useSeatContexts();
+  const sendContexts = useMemo(() => seatFailureKind(contextsQuery.error) === "forbidden" ? [] : contextsQuery.data,
+    [contextsQuery.error, contextsQuery.data]);
   const scope = useSeatScopeSelection(contextsQuery.data);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
     null,
@@ -160,6 +162,10 @@ function SeatWorkspaceInner() {
     conversationId,
     scope.workspaceId,
     scope.myIdentityId,
+    stream.writeRevoked || (scope.context !== null && !scope.canWrite) ||
+      seatFailureKind(contextsQuery.error) === "forbidden" ||
+      (contextsQuery.isSuccess && contextsQuery.data.length === 0),
+    sendContexts,
   );
   const claim = useSeatClaim(scope.organizationId, scope.workspaceId);
   const transfer = useSeatTransfer(

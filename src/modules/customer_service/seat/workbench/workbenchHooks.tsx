@@ -408,10 +408,17 @@ export function useSeatSend(
   conversationId: EntityId | null,
   workspaceId: EntityId | null,
   myIdentityId: EntityId | null,
+  writeRevoked = false,
+  contexts?: SeatContext[],
 ) {
   const { api, authSessionId } = useSeatWorkbenchGateway()
   const invalidate = useInvalidateSeatQueries()
-  return useSeatSendState({ api, authSessionId, orgId, conversationId, workspaceId, myIdentityId, invalidate })
+  const writablePrefixes = useMemo(() => contexts?.filter((context) => context.seatEnabled &&
+    context.businessIdentityId !== null && context.capabilities.includes('conversation.write'))
+    .flatMap((context) => context.workspaces.map((workspace) =>
+      `${JSON.stringify([authSessionId, context.organizationId, workspace.id, context.businessIdentityId]).slice(0, -1)},`)),
+  [contexts, authSessionId])
+  return useSeatSendState({ api, authSessionId, orgId, conversationId, workspaceId, myIdentityId, invalidate, writeRevoked, writablePrefixes })
 }
 
 export function useSeatTransferTargets(orgId: EntityId | null, enabled: boolean) {
@@ -466,13 +473,17 @@ type SeatStreamState = {
 }
 
 export function useSeatEventStream(organizationId: EntityId | null, workspaceId: EntityId | null): SeatStreamState {
-  const { createStream } = useSeatWorkbenchGateway()
+  const { createStream, authSessionId } = useSeatWorkbenchGateway()
+  const authState = useSeatAuthStore()
   const invalidate = useInvalidateSeatQueries()
   const [status, setStatus] = useState<SeatEventStreamStatus>('idle')
-  const [writeRevoked, setWriteRevoked] = useState(false)
+  const scopeKey = organizationId !== null && workspaceId !== null ? `${authSessionId}:${organizationId}:${workspaceId}` : null
+  const [revokedScopes, setRevokedScopes] = useState<Record<string, boolean>>({})
+  const writeRevoked = scopeKey !== null && revokedScopes[scopeKey] === true
 
   const applyEnvelope = useCallback(
     (envelope: SeatSseEnvelope) => {
+      if (useSeatAuthStore.getState() !== authState) return
       // 信封不是业务真源：只按资源类型触发对应权威查询的失效刷新。
       if (envelope.resourceType === 'message') {
         invalidate('messages', 'detail', 'sessions')
@@ -485,27 +496,29 @@ export function useSeatEventStream(organizationId: EntityId | null, workspaceId:
         return
       }
       // assignment/seat：撤权/停用事实变化 → 立即收回写入口并复核上下文。
-      if (envelope.reason === 'revoked') setWriteRevoked(true)
+      if (envelope.reason === 'revoked' && scopeKey !== null) {
+        setRevokedScopes((previous) => ({ ...previous, [scopeKey]: true }))
+      }
       invalidate('contexts', 'sessions', 'detail')
     },
-    [invalidate],
+    [invalidate, scopeKey, authState],
   )
 
   const handleEnded = useCallback(
     (reason: 'unauthorized' | 'forbidden') => {
+      if (useSeatAuthStore.getState() !== authState) return
       // 401 → 清会话回登录；403（suspend/offboarding/撤权）→ 降级可解释态。
       if (reason === 'unauthorized') {
         useSeatAuthStore.getState().clearSession('unauthorized')
         return
       }
-      setWriteRevoked(true)
+      if (scopeKey !== null) setRevokedScopes((previous) => ({ ...previous, [scopeKey]: true }))
       invalidate('contexts')
     },
-    [invalidate],
+    [invalidate, scopeKey, authState],
   )
 
   const streamRef = useRef<SeatEventStream | null>(null)
-  const scopeKey = organizationId !== null && workspaceId !== null ? `${organizationId}:${workspaceId}` : null
 
   useEffect(() => {
     if (scopeKey === null || organizationId === null || workspaceId === null) return
@@ -525,9 +538,9 @@ export function useSeatEventStream(organizationId: EntityId | null, workspaceId:
   }, [scopeKey, organizationId, workspaceId, createStream, applyEnvelope, invalidate, handleEnded])
 
   const retry = useCallback(() => {
+    if (useSeatAuthStore.getState() !== authState) return
     const current = streamRef.current
     if (current !== null) current.stop()
-    setWriteRevoked(false)
     if (organizationId === null || workspaceId === null) return
     const stream = createStream({
       onEnvelope: applyEnvelope,
@@ -537,7 +550,7 @@ export function useSeatEventStream(organizationId: EntityId | null, workspaceId:
     })
     streamRef.current = stream
     stream.start({ organizationId, workspaceId })
-  }, [organizationId, workspaceId, createStream, applyEnvelope, invalidate, handleEnded])
+  }, [organizationId, workspaceId, createStream, applyEnvelope, invalidate, handleEnded, authState])
 
   return { status, writeRevoked, retry }
 }

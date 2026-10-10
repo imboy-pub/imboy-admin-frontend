@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { isSeatApiError } from '../errors'
 import { useSeatAuthStore } from '../seatAuthStore'
 import type { EntityId } from '../types'
@@ -83,13 +83,40 @@ async function querySendResult(
   throw new Error('发送结果仍未知；最多查询1000条，未命中不能证明未写入，请勿重复发送')
 }
 
-function useSendCache(key: string) {
+function useSendRevocation(
+  prefix: string, writeRevoked: boolean, controllersRef: { current: Record<string, AbortController> },
+  setEntries: React.Dispatch<React.SetStateAction<Record<string, SendEntry>>>,
+  writablePrefixes: string[] | undefined,
+) {
+  const generations = useRef<Record<string, object>>({})
+  const denied = useRef(new Set<string>())
+  const generation = useMemo(() => ({ prefix, writeRevoked }), [prefix, writeRevoked])
+  useLayoutEffect(() => {
+    const isRevoked = (scopeKey: string) => (writeRevoked && scopeKey.startsWith(prefix)) ||
+      (writablePrefixes !== undefined && !writablePrefixes.some((allowed) => scopeKey.startsWith(allowed)))
+    generations.current = Object.fromEntries(Object.entries({ ...generations.current, [prefix]: generation })
+      .filter(([scopeKey]) => !isRevoked(scopeKey)))
+    if (!writeRevoked && writablePrefixes === undefined) return
+    for (const [scopeKey, controller] of Object.entries(controllersRef.current)) {
+      if (isRevoked(scopeKey)) controller.abort()
+    }
+    controllersRef.current = Object.fromEntries(Object.entries(controllersRef.current).filter(([scopeKey]) => !isRevoked(scopeKey)))
+    denied.current = new Set([...denied.current].filter((scopeKey) => !isRevoked(scopeKey)))
+    setEntries((previous) => Object.fromEntries(Object.entries(previous).filter(([scopeKey]) => !isRevoked(scopeKey))))
+  }, [prefix, writeRevoked, generation, controllersRef, setEntries, writablePrefixes])
+  const isWritable = useCallback(() => !writeRevoked && generation === generations.current[prefix],
+    [prefix, writeRevoked, generation])
+  return { isWritable, denied }
+}
+
+function useSendCache(key: string, prefix: string, writeRevoked: boolean, writablePrefixes: string[] | undefined) {
   const [entries, setEntries] = useState<Record<string, SendEntry>>({})
   const authState = useSeatAuthStore()
   const controllers = useRef<Record<string, AbortController>>({})
   const authEpoch = useRef(0)
   const mounted = useRef(true)
   const scopeEpoch = useRef(0)
+  const { isWritable, denied } = useSendRevocation(prefix, writeRevoked, controllers, setEntries, writablePrefixes)
   useLayoutEffect(() => { scopeEpoch.current += 1 }, [key])
   useEffect(() => {
     mounted.current = true
@@ -97,18 +124,19 @@ function useSendCache(key: string) {
       authEpoch.current += 1
       for (const controller of Object.values(controllers.current)) controller.abort()
       controllers.current = {}
+      denied.current.clear()
     }
     const unsubscribe = useSeatAuthStore.subscribe(() => { abort(); setEntries({}) })
     return () => { mounted.current = false; unsubscribe(); abort() }
-  }, [])
+  }, [denied])
   const isCurrent = useCallback(() => mounted.current && authState.status === 'authenticated'
-    && useSeatAuthStore.getState() === authState, [authState])
-  const begin = useCallback(() => {
-    if (!isCurrent() || controllers.current[key] !== undefined) return null
+    && useSeatAuthStore.getState() === authState && isWritable(), [authState, isWritable])
+  const begin = useCallback((queryOnly: boolean) => {
+    if (!isCurrent() || (!queryOnly && denied.current.has(key)) || controllers.current[key] !== undefined) return null
     const controller = new AbortController()
     controllers.current = { ...controllers.current, [key]: controller }
     return controller
-  }, [isCurrent, key])
+  }, [isCurrent, key, denied])
   const updateEntry = useCallback((scopeKey: string, epoch: number, update: (_entry: SendEntry) => SendEntry) => {
     if (epoch !== authEpoch.current || !mounted.current) return
     setEntries((previous) => epoch === authEpoch.current
@@ -119,9 +147,9 @@ function useSendCache(key: string) {
     updateEntry(key, authEpoch.current, (previous) => ({
       ...previous, draft: update(previous.draft), revision: previous.revision + 1,
       attempt: previous.attempt?.unknown ? previous.attempt : null,
-      error: previous.attempt?.unknown ? previous.error : null,
+      error: previous.attempt?.unknown || denied.current.has(key) ? previous.error : null,
     }))
-  }, [isCurrent, key, updateEntry])
+  }, [isCurrent, key, updateEntry, denied])
   const finish = useCallback((scopeKey: string, epoch: number, controller: AbortController) => {
     if (controllers.current[scopeKey] === controller) {
       const { [scopeKey]: _finished, ...remaining } = controllers.current
@@ -129,7 +157,7 @@ function useSendCache(key: string) {
     }
     updateEntry(scopeKey, epoch, (previous) => ({ ...previous, pending: false }))
   }, [updateEntry])
-  return { entry: entries[key] ?? EMPTY_ENTRY, authEpoch, scopeEpoch, isCurrent, begin, updateEntry, edit, finish }
+  return { entry: entries[key] ?? EMPTY_ENTRY, authEpoch, scopeEpoch, denied, isCurrent, begin, updateEntry, edit, finish }
 }
 
 type SendCache = ReturnType<typeof useSendCache>
@@ -150,6 +178,7 @@ function handleSendFailure(cache: SendCache, key: string, epoch: number, attempt
     return
   }
   const failed = { ...attempt, unknown: attempt.unknown || (messageStarted && mayHaveCommitted(error)) }
+  if (isSeatApiError(error) && error.kind === 'forbidden' && !failed.unknown) cache.denied.current.add(key)
   cache.updateEntry(key, epoch, (previous) => ({
     ...previous, attempt: failed.unknown || previous.revision === failed.revision ? failed : previous.attempt,
     error: failed.unknown || previous.revision === failed.revision ? error : previous.error,
@@ -188,14 +217,14 @@ async function runSend(
     }))
     if (epoch === cache.authEpoch.current) invalidate('messages', 'sessions', 'detail')
   } catch (error: unknown) {
-    handleSendFailure(cache, key, epoch, attempt, messageStarted, error)
+    if (!controller.signal.aborted) handleSendFailure(cache, key, epoch, attempt, messageStarted, error)
   } finally {
-    cache.finish(key, epoch, controller)
+    if (!controller.signal.aborted) cache.finish(key, epoch, controller)
   }
 }
 
 export function useSeatSendState({
-  api, authSessionId, orgId, conversationId, workspaceId, myIdentityId, invalidate,
+  api, authSessionId, orgId, conversationId, workspaceId, myIdentityId, invalidate, writeRevoked = false, writablePrefixes,
 }: {
   api: SeatWorkbenchApi
   authSessionId: string
@@ -203,10 +232,16 @@ export function useSeatSendState({
   conversationId: EntityId | null
   workspaceId: EntityId | null
   myIdentityId: EntityId | null
+  writeRevoked?: boolean
+  writablePrefixes?: string[]
   invalidate: (..._subKeys: ('messages' | 'sessions' | 'detail')[]) => void
 }) {
-  const key = JSON.stringify([authSessionId, orgId, workspaceId, conversationId, myIdentityId])
-  const cache = useSendCache(key)
+  const prefix = `${JSON.stringify([authSessionId, orgId, workspaceId, myIdentityId]).slice(0, -1)},`
+  const [lastPrefix, setLastPrefix] = useState(prefix)
+  const hasScope = orgId !== null && workspaceId !== null && myIdentityId !== null
+  if (hasScope && lastPrefix !== prefix) setLastPrefix(prefix)
+  const key = JSON.stringify([authSessionId, orgId, workspaceId, myIdentityId, conversationId])
+  const cache = useSendCache(key, hasScope ? prefix : lastPrefix, writeRevoked, writablePrefixes)
   const { entry, edit, isCurrent, updateEntry } = cache
   const send = useCallback(() => {
     if (!isCurrent()) return
@@ -218,7 +253,7 @@ export function useSeatSendState({
     const draft = { ...entry.draft, body: entry.draft.body.trim() }
     const attempt = entry.attempt ?? { draft, revision: entry.revision, clientMsgId: newClientMsgId(), unknown: false }
     if (!attempt.unknown && draft.body.length === 0 && draft.file === null) return
-    const controller = cache.begin()
+    const controller = cache.begin(attempt.unknown)
     if (controller === null) return
     updateEntry(key, epoch, (previous) => ({
       ...previous, draft: attempt.unknown ? previous.draft : draft, attempt, pending: true,

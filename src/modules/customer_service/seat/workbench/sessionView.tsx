@@ -394,6 +394,8 @@ export function SeatSessionView(props: SeatSessionViewProps) {
   const composerVisible = canWrite && detail.status === 'active'
   const canSubmit = draft.body.trim().length > 0 || draft.fileName !== null
   const sendErrorMessage = sendErrorText(sendError)
+  const sendForbidden = isSeatApiError(sendError) && sendError.kind === 'forbidden'
+  const canRetrySend = sendOutcomeUnknown || (composerVisible && !sendForbidden)
 
   return (
     <section aria-label="会话内容" className="flex min-h-0 flex-1 flex-col" data-testid="seat-conversation">
@@ -516,8 +518,8 @@ export function SeatSessionView(props: SeatSessionViewProps) {
               <Button
                 type="button"
                 size="sm"
-                disabled={sending || sendOutcomeUnknown || !canSubmit}
-                aria-disabled={sending || sendOutcomeUnknown || !canSubmit}
+                disabled={sending || sendOutcomeUnknown || sendForbidden || !canSubmit}
+                aria-disabled={sending || sendOutcomeUnknown || sendForbidden || !canSubmit}
                 aria-label={canSubmit ? '发送' : '请输入正文或添加附件'}
                 data-testid="seat-send"
                 onClick={onSend}
@@ -545,11 +547,12 @@ export function SeatSessionView(props: SeatSessionViewProps) {
             {/* 服务端 422 语义透传（presign mime/size/hash 拒绝等）；无消息时回退通案。 */}
             <span data-testid="seat-send-error-text">
               {sendOutcomeUnknown ? '发送结果待确认；内容已保留，请先查询服务器结果，勿重复发送'
+                : sendForbidden ? '发送权限被拒绝；内容已保留，请先复核坐席权限，不会直接重发'
                 : sendErrorMessage !== null ? `发送失败：${sendErrorMessage}（内容已保留，可重试）` : '发送失败，内容已保留'}
             </span>
-            <Button type="button" variant="outline" size="sm" disabled={sending} onClick={onRetrySend} data-testid="seat-send-retry">
+            {canRetrySend && <Button type="button" variant="outline" size="sm" disabled={sending} onClick={onRetrySend} data-testid="seat-send-retry">
               {sendOutcomeUnknown ? '查询发送结果' : '重试发送'}
-            </Button>
+            </Button>}
           </div>
         )}
       </div>
