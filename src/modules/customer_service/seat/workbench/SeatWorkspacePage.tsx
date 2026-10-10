@@ -556,6 +556,7 @@ function SeatWorkspaceInner() {
               onRetrySend={send.retry}
               sendError={send.error}
               sending={send.sending}
+              sendOutcomeUnknown={send.outcomeUnknown}
               unreadCount={readStateQuery.data?.unreadCount}
             />
           </div>

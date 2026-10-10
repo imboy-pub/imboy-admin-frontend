@@ -56,6 +56,23 @@ function loginSeat(): void {
   expect(establishSeatSession('eyJh.eyJi.c2ln', null)).toBe(true)
 }
 
+function loseFirstSendResponse(backend: SeatFakeBackend): void {
+  const handle = backend.handle.bind(backend)
+  let committed: Record<string, unknown> | null = null
+  backend.handle = async (input, init) => {
+    const response = await handle(input, init)
+    const path = new URL(String(input), 'http://localhost').pathname
+    if (init?.method === 'POST' && path.endsWith(`/conversations/${CONV}/messages`) && committed === null) {
+      committed = JSON.parse(String(init.body)) as Record<string, unknown>
+      return new Response('{"code":500,"msg":"lost send response","payload":{}}', { status: 500 })
+    }
+    if (committed !== null && init?.method !== 'POST' && path.endsWith(`/conversations/${CONV}/messages`)) {
+      return new Response(`{"code":0,"msg":"ok","payload":{"messages":[{"id":9000000000000000011,"sender_type":"business_identity","sender_identity_id":${IDENTITY},"client_msg_id":${JSON.stringify(committed.client_msg_id)},"body":${JSON.stringify(committed.body ?? null)}}]}}`, { status: 200 })
+    }
+    return response
+  }
+}
+
 describe('SeatWorkspacePage 登录门（QR 合同 + device_id 持久化）', () => {
   beforeEach(() => {
     spyOn(console, 'error').mockImplementation(() => {})
@@ -381,19 +398,17 @@ describe('SeatWorkspacePage 工作台（A01/A02/A03/A04/A05/A06）', () => {
     await waitFor(() => expect(offlineView.queryByTestId('seat-offline-banner')).toBeNull(), { timeout: 3000 })
   })
 
-  it('发送失败 → 重试复用同一 client_msg_id（幂等合同），成功后清空', async () => {
+  it('POST 已提交但回包 500 → 查询原 client_msg_id 真源，零重放且成功后清空', async () => {
     const backend = new SeatFakeBackend()
     backend.state.sessionStatus = 'active'
     backend.state.version = 8
+    loseFirstSendResponse(backend)
     const view = renderWorkspace(backend, new FakeSseStream())
     // 会话已在坐席名下（active 视图）：切到进行中 Tab 再选中。
     fireEvent.click(await waitFor(() => view.getByTestId('seat-tab-active')))
     const item = await waitFor(() => view.getByTestId(`seat-session-item-${SESSION}`))
     fireEvent.click(item)
     const composer = await waitFor(() => view.getByTestId('seat-composer'))
-    // CS-WEB-02：改用 send 专属失败计数——全局 failingResponsesLeft 会被附件
-    // content 预取（异步 blob fetch）吃掉产生竞态；sendFailuresLeft 只作用发送端点。
-    backend.state.sendFailuresLeft = 1
     // CS-WEB-02：composer 转 React 受控（发送按钮禁用态需跟随草稿），受控输入
     // 必须用 user-event 驱动（RTL16.3+React19.2 下 fireEvent.change 无效——
     // PendingOwnerPanel.test 同款结论）。
@@ -401,27 +416,29 @@ describe('SeatWorkspacePage 工作台（A01/A02/A03/A04/A05/A06）', () => {
     await user.type(composer, '您好')
     fireEvent.click(view.getByTestId('seat-send'))
     await waitFor(() => expect(view.getByTestId('seat-send-error')).toBeDefined())
+    expect(view.getByTestId('seat-send-retry').textContent).toContain('查询发送结果')
+    expect((view.getByTestId('seat-send') as HTMLButtonElement).disabled).toBe(true)
+    const readsBeforeRecovery = backend.messageFetchCount
     fireEvent.click(view.getByTestId('seat-send-retry'))
-    // 幂等：两次 POST（一失败一成功）是同一 client_msg_id（失败请求也进 calls 日志）。
-    // DF-9：发送走企业真源写路径（/enterprise/organizations/:org/conversations/:id/messages）。
     await waitFor(() => {
+      expect(view.queryByTestId('seat-send-error')).toBeNull()
+      expect((composer as HTMLTextAreaElement).value).toBe('')
+      expect(backend.messageFetchCount).toBeGreaterThan(readsBeforeRecovery)
       const bodies = backend.calls
         .filter((call) => call.method === 'POST' && call.path.includes(`/conversations/${CONV}/messages`))
         .map((call) => (JSON.parse(call.body || '{}') as { client_msg_id?: string }).client_msg_id ?? '')
-      expect(bodies.length).toBe(2)
-      expect(bodies[0]).toBe(bodies[1])
+      expect(bodies.length).toBe(1)
       expect(bodies[0]?.length).toBeGreaterThan(0)
     })
     // DF-9 真实合同逐键：发送 body 必带 workspace_id / sender_type / identity_id。
     const sendCalls = backend.calls.filter(
       (call) => call.method === 'POST' && call.path === `/api/v1/seat/enterprise/organizations/${ORG}/conversations/${CONV}/messages`,
     )
-    expect(sendCalls.length).toBe(2)
+    expect(sendCalls.length).toBe(1)
     const firstSend = JSON.parse(sendCalls[0]?.body ?? '{}') as Record<string, unknown>
     expect(firstSend.workspace_id).toBe(WS)
     expect(firstSend.sender_type).toBe('business_identity')
     expect(firstSend.identity_id).toBe(IDENTITY)
-    // 假后端按真实合同受理：重试那次通过逐键校验并进入幂等登记。
     expect(backend.sentClientMsgIds).toHaveLength(1)
   })
 
@@ -700,33 +717,35 @@ describe('SeatWorkspacePage CS-WEB-02 单文件发送（presign → 裸 PUT → 
     expect(backend.sentClientMsgIds.length).toBe(1)
   })
 
-  it('发送失败 → 重试不重复 presign/PUT/confirm（已 confirm 的 assetId 复用）+ 同 client_msg_id', async () => {
+  it('附件消息已提交但回包 500 → 查询真源，零重复上传和消息重放', async () => {
     const backend = new SeatFakeBackend()
     backend.state.sessionStatus = 'active'
     backend.state.version = 8
-    backend.state.sendFailuresLeft = 1
+    loseFirstSendResponse(backend)
     const view = renderWorkspace(backend, new FakeSseStream())
     const { attachInput } = await openActiveConversation(view)
     const user = userEvent.setup()
     await user.upload(attachInput as HTMLInputElement, new File([FILE_BYTES.slice()], 'b.png', { type: 'image/png' }))
     fireEvent.click(view.getByTestId('seat-send'))
-    // 第一次：上传三步完成，发送 500。
     await waitFor(() => expect(view.getByTestId('seat-send-error')).toBeDefined())
     expect(backend.presignCount).toBe(1)
     expect(backend.uploadPutCount).toBe(1)
     expect(backend.confirmCount).toBe(1)
-    // 重试：直接复用已 confirm 的 assetId 发送——上传链计数不变。
+    expect(view.getByTestId('seat-send-retry').textContent).toContain('查询发送结果')
+    const readsBeforeRecovery = backend.messageFetchCount
     fireEvent.click(view.getByTestId('seat-send-retry'))
-    await waitFor(() => expect(backend.sentClientMsgIds.length).toBe(1))
+    await waitFor(() => {
+      expect(view.queryByTestId('seat-send-error')).toBeNull()
+      expect(backend.messageFetchCount).toBeGreaterThan(readsBeforeRecovery)
+    })
     expect(backend.presignCount).toBe(1)
     expect(backend.uploadPutCount).toBe(1)
     expect(backend.confirmCount).toBe(1)
     const sendAttempts = backend.calls
       .filter((call) => call.method === 'POST' && call.path.endsWith(`/conversations/${CONV}/messages`))
       .map((call) => (JSON.parse(call.body || '{}') as { client_msg_id?: string }).client_msg_id ?? '')
-    expect(sendAttempts.length).toBe(2)
-    expect(sendAttempts[0]).toBe(sendAttempts[1])
-    // 两次发送的 asset_ids 一致（同一 confirm 产物）。
+    expect(sendAttempts.length).toBe(1)
+    expect(sendAttempts[0]).toBe(backend.sentClientMsgIds[0])
     expect(backend.sentAssetIds.length).toBe(1)
     expect(backend.sentAssetIds[0]).toHaveLength(1)
   })
@@ -751,7 +770,7 @@ describe('SeatWorkspacePage CS-WEB-02 单文件发送（presign → 裸 PUT → 
     backend.state.presignRejection = null
     fireEvent.click(view.getByTestId('seat-attach-remove'))
     await user.upload(attachInput as HTMLInputElement, new File([FILE_BYTES.slice()], 'd.png', { type: 'image/png' }))
-    fireEvent.click(view.getByTestId('seat-send-retry'))
+    fireEvent.click(view.getByTestId('seat-send'))
     await waitFor(() => expect(backend.sentClientMsgIds.length).toBe(1))
     expect(backend.presignRequests[1]).toBeDefined()
   })

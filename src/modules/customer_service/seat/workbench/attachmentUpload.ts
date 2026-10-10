@@ -51,6 +51,7 @@ type SeatAttachmentUploadInput = {
   fileName?: string | null
   /** 重试复用（首次已算的 hash 不重算）；null/undefined = 现算。 */
   objectHash?: string | null
+  signal?: AbortSignal
 }
 
 type SeatAttachmentUploadResult = {
@@ -65,7 +66,9 @@ type SeatAttachmentUploadResult = {
 export async function runSeatAttachmentUpload(
   input: SeatAttachmentUploadInput,
 ): Promise<SeatAttachmentUploadResult> {
+  input.signal?.throwIfAborted()
   const objectHash = input.objectHash ?? (await blobSha256Hex(input.file))
+  input.signal?.throwIfAborted()
   if (!isValidSha256Hex(objectHash)) throw new TypeError('SHA-256 计算结果形状非法')
   const presign = await input.api.requestAssetPresign(input.orgId, input.conversationId, input.workspaceId, {
     mime: input.file.type.length > 0 ? input.file.type : 'application/octet-stream',
@@ -73,8 +76,11 @@ export async function runSeatAttachmentUpload(
     objectHash,
     fileName: input.fileName ?? null,
   })
+  input.signal?.throwIfAborted()
   if (presign.uploadUrl === null) throw new SeatUploadTargetMissingError()
   await input.api.uploadAssetBytes(presign.uploadUrl, input.file)
+  input.signal?.throwIfAborted()
   await input.api.confirmAssetUpload(input.orgId, input.workspaceId, presign.uploadRef)
+  input.signal?.throwIfAborted()
   return { assetId: presign.assetId, objectHash }
 }

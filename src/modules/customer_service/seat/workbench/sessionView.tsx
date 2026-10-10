@@ -45,6 +45,7 @@ type SeatSessionViewProps = {
   onRetrySend: () => void
   sendError: unknown
   sending: boolean
+  sendOutcomeUnknown?: boolean
   /** CS-WEB-05：当前会话未读数（服务端 read-state；badge 展示，undefined=未知不显示）。 */
   unreadCount?: number
 }
@@ -376,6 +377,7 @@ export function SeatSessionView(props: SeatSessionViewProps) {
     onRetrySend,
     sendError,
     sending,
+    sendOutcomeUnknown = false,
     unreadCount,
   } = props
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -514,13 +516,13 @@ export function SeatSessionView(props: SeatSessionViewProps) {
               <Button
                 type="button"
                 size="sm"
-                disabled={sending || !canSubmit}
-                aria-disabled={sending || !canSubmit}
+                disabled={sending || sendOutcomeUnknown || !canSubmit}
+                aria-disabled={sending || sendOutcomeUnknown || !canSubmit}
                 aria-label={canSubmit ? '发送' : '请输入正文或添加附件'}
                 data-testid="seat-send"
                 onClick={onSend}
               >
-                {sending ? '发送中…' : '发送'}
+                {sending ? sendOutcomeUnknown ? '核对中…' : '发送中…' : '发送'}
               </Button>
             </div>
             {!canSubmit && !sending && (
@@ -542,10 +544,11 @@ export function SeatSessionView(props: SeatSessionViewProps) {
           >
             {/* 服务端 422 语义透传（presign mime/size/hash 拒绝等）；无消息时回退通案。 */}
             <span data-testid="seat-send-error-text">
-              {sendErrorMessage !== null ? `发送失败：${sendErrorMessage}（内容已保留，可重试）` : '发送失败，内容已保留'}
+              {sendOutcomeUnknown ? '发送结果待确认；内容已保留，请先查询服务器结果，勿重复发送'
+                : sendErrorMessage !== null ? `发送失败：${sendErrorMessage}（内容已保留，可重试）` : '发送失败，内容已保留'}
             </span>
-            <Button type="button" variant="outline" size="sm" onClick={onRetrySend} data-testid="seat-send-retry">
-              重试发送
+            <Button type="button" variant="outline" size="sm" disabled={sending} onClick={onRetrySend} data-testid="seat-send-retry">
+              {sendOutcomeUnknown ? '查询发送结果' : '重试发送'}
             </Button>
           </div>
         )}

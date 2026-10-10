@@ -29,7 +29,7 @@ import { selectActiveSeatContexts } from '../seatContexts'
 import { seatTokenVault, useSeatAuthStore } from '../seatAuthStore'
 import { SeatApiClient, type SeatFetchLike } from '../seatApiClient'
 import type { SeatContext, EntityId } from '../types'
-import { runSeatAttachmentUpload } from './attachmentUpload'
+import { useSeatSendState } from './seatSend'
 import {
   SEAT_MESSAGE_PAGE_LIMIT,
   SEAT_SESSION_PAGE_LIMIT,
@@ -403,178 +403,15 @@ export function useSeatMessages(
   })
 }
 
-/** CS-WEB-02：发送草稿真源（hooks 持有；UI 只消费视图投影——失败保留/成功清零全在此）。 */
-type SeatSendDraft = {
-  body: string
-  file: File | null
-  /** 首次上传已算 hash（重试不重算）。 */
-  objectHash: string | null
-  /** 已 confirm 的 assetId（发送失败重试跳过整条上传链）。 */
-  confirmedAssetId: EntityId | null
-}
-
-const EMPTY_SEND_DRAFT: SeatSendDraft = { body: '', file: null, objectHash: null, confirmedAssetId: null }
-
-/**
- * 生成唯一 client_msg_id（唯一性不变量：任何发送路径的两条消息绝不共享同一 id——
- * 常量兜底会被服务端按重放裁决：同 asset_ids 回显旧消息，异 asset_ids 409）。
- * 生成惯例与 deviceIdentity 同款：randomUUID 优先，不可用退化为时间戳+随机。
- */
-function newClientMsgId(): string {
-  const cryptoApi = globalThis.crypto
-  if (typeof cryptoApi?.randomUUID === 'function') return `seat-web-${cryptoApi.randomUUID()}`
-  return `seat-web-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
-}
-
-/** 草稿视图投影（File 对象不出 hooks 面；UI 只显示元信息）。 */
-type SeatSendDraftView = {
-  body: string
-  fileName: string | null
-  fileSize: number | null
-}
-
-type SeatSendState = {
-  draft: SeatSendDraftView
-  updateDraftBody: (_body: string) => void
-  attachFile: (_file: File) => void
-  detachFile: () => void
-  /** 发送当前草稿（空正文+无附件时忽略；UI 按钮禁用兜底）。 */
-  send: () => void
-  retry: () => void
-  sending: boolean
-  error: unknown
-}
-
-/**
- * 发送状态机（CS-WEB-02 附件扩展）：草稿（正文 + 单文件）是本 hook 的 state
- * 真源——成功清零、失败原样保留（正文与文件选择都不丢），UI 无本地镜像 effect。
- * client_msg_id 在「草稿 → 成功」区间内复用——失败后 retry() 用同一 id 重发
- * （服务端同 id 幂等返回同一 message），已 confirm 的 assetId 直接复用
- * （不重复 presign/PUT/confirm）。附件链顺序冻结：
- * hash → presign → 裸 PUT → confirm → 发送（asset_ids）。
- * 正文与附件不能同时空：send() 前置忽略 + 服务端 422 兜底。
- * DF-9：真实合同（企业真源写路径）要求 workspace_id + 本人 identity_id
- * （缺失 identity_id 真链 500 identity_required）——二者来自坐席上下文 scope。
- */
 export function useSeatSend(
   orgId: EntityId | null,
   conversationId: EntityId | null,
   workspaceId: EntityId | null,
   myIdentityId: EntityId | null,
-): SeatSendState {
-  const { api } = useSeatWorkbenchGateway()
+) {
+  const { api, authSessionId } = useSeatWorkbenchGateway()
   const invalidate = useInvalidateSeatQueries()
-  const clientMsgIdRef = useRef<string | null>(null)
-  const [draft, setDraft] = useState<SeatSendDraft>(EMPTY_SEND_DRAFT)
-  const [pending, setPending] = useState(false)
-  const [sendError, setSendError] = useState<unknown>(null)
-
-  const run = useCallback(
-    async (snapshot: SeatSendDraft) => {
-      if (orgId === null || conversationId === null || workspaceId === null || myIdentityId === null) {
-        setSendError(new Error('seat send requires scope'))
-        return
-      }
-      setPending(true)
-      setSendError(null)
-      try {
-        let assetId = snapshot.confirmedAssetId
-        let objectHash = snapshot.objectHash
-        if (snapshot.file !== null && assetId === null) {
-          const uploaded = await runSeatAttachmentUpload({
-            api,
-            orgId,
-            conversationId,
-            workspaceId,
-            file: snapshot.file,
-            fileName: snapshot.file.name,
-            objectHash,
-          })
-          assetId = uploaded.assetId
-          objectHash = uploaded.objectHash
-          // confirm 已成功：草稿推进（发送失败重试时跳过整条上传链）。
-          setDraft((prev) => (prev === snapshot ? { ...prev, objectHash, confirmedAssetId: assetId } : prev))
-        }
-        // ref 未置位（防御性可达路径）时兜底生成并回写：失败后 retry 复用同一 id，
-        // 且任何路径下绝不发出常量/重复 id（唯一性不变量见 newClientMsgId）。
-        if (clientMsgIdRef.current === null) clientMsgIdRef.current = newClientMsgId()
-        await api.sendMessage(orgId, conversationId, {
-          body: snapshot.body,
-          clientMsgId: clientMsgIdRef.current,
-          workspaceId,
-          identityId: myIdentityId,
-          assetIds: assetId !== null ? [assetId] : [],
-        })
-        clientMsgIdRef.current = null
-        // 成功清零（唯一清空点；失败保留草稿全量）。发送中草稿冻结（composer
-        // disabled），直接清零不判等——上传推进会换草稿引用，判等会漏清。
-        setDraft(EMPTY_SEND_DRAFT)
-        invalidate('messages', 'sessions', 'detail')
-      } catch (error: unknown) {
-        // 失败保留 clientMsgIdRef 与草稿：retry 复用同一 id 与上传事实（幂等合同）。
-        if (isSeatUnauthorized(error)) useSeatAuthStore.getState().clearSession('unauthorized')
-        setSendError(error)
-      } finally {
-        setPending(false)
-      }
-    },
-    [api, orgId, conversationId, workspaceId, myIdentityId, invalidate],
-  )
-
-  const updateDraftBody = useCallback((body: string) => {
-    setDraft((prev) => ({ ...prev, body }))
-  }, [])
-
-  const attachFile = useCallback((file: File) => {
-    setDraft((prev) => ({ ...prev, file, objectHash: null, confirmedAssetId: null }))
-  }, [])
-
-  const detachFile = useCallback(() => {
-    setDraft((prev) => ({ ...prev, file: null, objectHash: null, confirmedAssetId: null }))
-  }, [])
-
-  /** 以 trim 后正文为快照（引用稳定：未变时复用原 draft，供 run 的 prev===snapshot 判等）。 */
-  const snapshotOf = useCallback((current: SeatSendDraft): SeatSendDraft => {
-    const trimmed = current.body.trim()
-    return current.body === trimmed ? current : { ...current, body: trimmed }
-  }, [])
-
-  const send = useCallback(() => {
-    if (pending) return
-    const snapshot = snapshotOf(draft)
-    // 前端校验：正文与附件不能同时空（服务端 422 兜底；UI 禁用按钮）。
-    if (snapshot.body.length === 0 && snapshot.file === null) return
-    if (clientMsgIdRef.current === null) {
-      clientMsgIdRef.current = newClientMsgId()
-    }
-    // 发送中的草稿冻结（composer disabled）；快照与 state 同引用则无需写回。
-    if (snapshot !== draft) setDraft(snapshot)
-    void run(snapshot)
-  }, [draft, pending, run, snapshotOf])
-
-  const retry = useCallback(() => {
-    if (pending) return
-    const snapshot = snapshotOf(draft)
-    if (snapshot.body.length === 0 && snapshot.file === null) return
-    // 幂等复用：不换 client_msg_id，不丢草稿（含已 confirm 的 assetId）。
-    if (snapshot !== draft) setDraft(snapshot)
-    void run(snapshot)
-  }, [draft, pending, run, snapshotOf])
-
-  return {
-    draft: {
-      body: draft.body,
-      fileName: draft.file?.name ?? null,
-      fileSize: draft.file?.size ?? null,
-    },
-    updateDraftBody,
-    attachFile,
-    detachFile,
-    send,
-    retry,
-    sending: pending,
-    error: sendError,
-  }
+  return useSeatSendState({ api, authSessionId, orgId, conversationId, workspaceId, myIdentityId, invalidate })
 }
 
 export function useSeatTransferTargets(orgId: EntityId | null, enabled: boolean) {
