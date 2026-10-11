@@ -1,3 +1,5 @@
+import type { EntityId } from '../../../types/common'
+import { createVisitorReads } from './visitorRead'
 /**
  * FE-W01：Widget 聊天控制器（宿主/IO 无关，注入依赖、可单测）。
  *
@@ -48,6 +50,8 @@ type HostContext = {
 
 export type ControllerIo = {
   render: (_state: ChatState) => void
+  stopReadObservation?: () => void
+  refreshReadObservation?: () => void
   postToHost: (_message: Record<string, unknown>) => void
   /** CS-WGT-01：非图片附件下载出口（浏览器侧 anchor download；测试注入替身）。
    * 缺省为 no-op（宿主环境无 DOM 出口时静默跳过，不伪造成功）。 */
@@ -72,6 +76,7 @@ type ControllerDeps = {
   createObjectUrl?: (_blob: Blob) => string
   /** 退出清理时释放对象 URL（与 createObjectUrl 配对；测试注入）。 */
   revokeObjectUrl?: (_url: string) => void
+  readForeground?: () => boolean
   /** 测试注入；缺省用 WidgetEventStream。 */
   streamFactory?: (_opts: {
     path: string
@@ -103,6 +108,24 @@ export function createWidgetController(deps: ControllerDeps) {
   const attachmentFiles = new Map<string, Blob>()
   /** CS-WGT-01：本会话创建过的 blob: URL（退出时统一 revoke，防累积泄漏）。 */
   const objectUrls = new Set<string>()
+  let readRevoked = false
+  let lifecycle = 0
+  const visitorReads = createVisitorReads(
+    () => !readRevoked && panelOpen && state.preview === null && state.phase === 'chat' && state.session !== null
+      && scope !== null && deps.api.currentToken() !== null && (deps.readForeground?.() ?? false),
+    async (ids, signal) => {
+      if (state.session === null || scope === null) return
+      const generation = lifecycle
+      try { await deps.api.confirmMessageReads(state.session.id, scope, ids, signal) }
+      catch (error) { if (generation === lifecycle && isRevoke(error)) onRevoke(); throw error }
+    },
+  )
+  function observeVisibleAgentMessages(ids: EntityId[]): void {
+    if (state.preview !== null) { visitorReads.visible([]); return }
+    const allowed = new Set(state.messages.filter(m => m.role === 'agent' && m.id !== null).map(m => m.id))
+    visitorReads.visible(ids.filter(id => allowed.has(id)))
+  }
+
 
   function dispatch(event: Parameters<typeof reduceChat>[1]): void {
     state = reduceChat(state, event)
@@ -124,6 +147,11 @@ export function createWidgetController(deps: ControllerDeps) {
   }
 
   function onRevoke(): void {
+    deps.api.invalidateCredential()
+    lifecycle += 1
+    readRevoked = true
+    visitorReads.reset()
+    deps.io.stopReadObservation?.()
     // 吊销/过期：短期恢复状态立即清理（合同：revoke 清理）。
     if (deps.storage !== null && visitScope !== null) clearVisitSubject(deps.storage, visitScope)
     postToHost({ source: 'imboy-cs-widget', type: 'status', state: 'error' })
@@ -169,6 +197,9 @@ export function createWidgetController(deps: ControllerDeps) {
   // -------------------------------------------------------------------------
 
   async function runBootstrap(): Promise<void> {
+    const generation = ++lifecycle
+    visitorReads.reset()
+    readRevoked = true
     if (context === null) return
     // public_widget_id 全局唯一 → 唯一 installation（合同 S3）：widgetId 即
     // 客户端侧安装作用域键（visit 恢复存储命名空间）。
@@ -177,6 +208,10 @@ export function createWidgetController(deps: ControllerDeps) {
     const recovered =
       deps.storage !== null ? loadVisitSubject(deps.storage, visitScope, deps.nowMs()) : null
     subjectId = recovered ?? deps.newId()
+    stream?.stop()
+    lastCursor = '0'
+    deduper.reset()
+    dispatch({ type: 'retry' })
     dispatch({ type: 'bootstrap_started' })
     try {
       const result: BootstrapResult = await deps.api.bootstrap({
@@ -184,6 +219,7 @@ export function createWidgetController(deps: ControllerDeps) {
         subjectId,
         subjectKey: deps.getSubjectKey?.() ?? '',
       })
+      if (generation !== lifecycle) return
       // installation_id 只来自 bootstrap 成功响应体（合同 S3 冻结）：
       // 仅内存持有、后续动作以响应值为参，绝不写 storage/URL/log。
       scope = { installationId: result.installationId }
@@ -198,6 +234,7 @@ export function createWidgetController(deps: ControllerDeps) {
       dispatch({ type: 'bootstrap_succeeded', brand: result.branding, notice })
       if (notice.state === 'accepted') await ensureSession()
     } catch (error) {
+      if (generation !== lifecycle) return
       if (isRevoke(error)) onRevoke()
       dispatch({ type: 'bootstrap_failed', message: error instanceof Error ? error.message : 'bootstrap 失败' })
       postToHost({ source: 'imboy-cs-widget', type: 'status', state: 'error' })
@@ -219,12 +256,17 @@ export function createWidgetController(deps: ControllerDeps) {
 
   async function ensureSession(): Promise<void> {
     if (scope === null || state.session !== null) return
+    const generation = lifecycle
     try {
       const session = await deps.api.createSession(scope)
+      if (generation !== lifecycle) return
+      visitorReads.reset()
+      readRevoked = false
       dispatch({ type: 'session_created', session })
       await refreshHistory()
-      startStream(session.id)
+      if (generation === lifecycle) startStream(session.id)
     } catch (error) {
+      if (generation !== lifecycle) return
       if (isRevoke(error)) onRevoke()
       dispatch({ type: 'bootstrap_failed', message: error instanceof Error ? error.message : '创建会话失败' })
       postToHost({ source: 'imboy-cs-widget', type: 'status', state: 'error' })
@@ -268,8 +310,11 @@ export function createWidgetController(deps: ControllerDeps) {
   /** 历史 after_id 权威刷新（cursor = 消息 id 十进制字符串；resync 后从 0 全量）。 */
   async function refreshHistory(): Promise<void> {
     if (state.session === null || scope === null) return
+    const generation = lifecycle
+    const sessionId = state.session.id
     try {
-      const page = await deps.api.listMessages(state.session.id, scope, lastCursor === '0' ? null : lastCursor)
+      const page = await deps.api.listMessages(sessionId, scope, lastCursor === '0' ? null : lastCursor)
+      if (generation !== lifecycle || state.session?.id !== sessionId) return
       let agentDelta = 0
       for (const row of page) {
         const before = state.messages.length
@@ -284,6 +329,7 @@ export function createWidgetController(deps: ControllerDeps) {
       // CS-WGT-01：历史图片附件缩略（授权代理拉取 → 内存 blob: URL）。
       await hydrateImageThumbnails()
     } catch (error) {
+      if (generation !== lifecycle) return
       if (isRevoke(error)) onRevoke()
       throw error
     }
@@ -304,26 +350,29 @@ export function createWidgetController(deps: ControllerDeps) {
   function startStream(sessionId: string): void {
     stream?.stop()
     if (scope === null) return
+    const generation = lifecycle
+    const current = () => generation === lifecycle && state.session?.id === sessionId
     const handle =
       deps.streamFactory?.({
         path: buildSsePath(sessionId, scope),
-        token: () => deps.api.currentToken() ?? '',
-        onEvent: (event) => void handleSseFrame(event),
-        onStatus: (status) => reportStatus(status),
-        onRevoke,
+        token: () => current() ? deps.api.currentToken() ?? '' : '',
+        onEvent: (event) => { if (current()) void handleSseFrame(event) },
+        onStatus: (status) => { if (current()) reportStatus(status) },
+        onRevoke: () => { if (current()) onRevoke() },
       }) ??
       new WidgetEventStream({
         path: buildSsePath(sessionId, scope),
-        token: () => deps.api.currentToken() ?? '',
-        onEvent: (event) => void handleSseFrame(event),
-        onStatus: (status) => reportStatus(status),
-        onRevoke,
+        token: () => current() ? deps.api.currentToken() ?? '' : '',
+        onEvent: (event) => { if (current()) void handleSseFrame(event) },
+        onStatus: (status) => { if (current()) reportStatus(status) },
+        onRevoke: () => { if (current()) onRevoke() },
       })
     stream = handle
     handle.start()
   }
 
   async function handleSseFrame(event: SseEvent): Promise<void> {
+    const generation = lifecycle
     const classified = classifySseFrame(event)
     if (classified.kind === 'ignore') return
     if (classified.kind === 'envelope') {
@@ -335,6 +384,7 @@ export function createWidgetController(deps: ControllerDeps) {
         deduper.reset()
         lastCursor = '0'
         await refreshSessionStatus()
+        if (generation !== lifecycle) return
         await refreshHistory()
         return
       }
@@ -361,6 +411,7 @@ export function createWidgetController(deps: ControllerDeps) {
     } catch {
       /* 刷新失败由重连/后续事件收敛 */
     }
+    if (generation !== lifecycle) return
     if (classified.messageId !== null && isCursorAhead(classified.messageId, lastCursor)) {
       lastCursor = classified.messageId
     }
@@ -371,14 +422,17 @@ export function createWidgetController(deps: ControllerDeps) {
    * 不覆盖既有判定；false/true 为权威结论）。 */
   async function refreshSessionStatus(): Promise<void> {
     if (scope === null || state.session === null) return
+    const generation = lifecycle
+    const sessionId = state.session.id
     try {
       const sessions = await deps.api.listSessions(scope)
+      if (generation !== lifecycle || state.session?.id !== sessionId) return
       const current = sessions.find((s) => s.id === state.session?.id)
       if (current !== undefined) {
         dispatch({ type: 'session_status', status: current.status, agentsOnline: current.agentsOnline ?? undefined })
       }
     } catch (error) {
-      if (isRevoke(error)) onRevoke()
+      if (generation === lifecycle && isRevoke(error)) onRevoke()
     }
   }
 
@@ -425,6 +479,7 @@ export function createWidgetController(deps: ControllerDeps) {
   async function hydrateImageThumbnails(): Promise<void> {
     if (state.session === null) return
     const sessionId = state.session.id
+    const generation = lifecycle
     const pending: Array<{ key: string; assetId: string }> = []
     for (const message of state.messages) {
       for (const asset of message.attachments) {
@@ -435,7 +490,9 @@ export function createWidgetController(deps: ControllerDeps) {
     }
     for (const item of pending) {
       try {
+        if (generation !== lifecycle) return
         const blob = await fetchAssetBlob(sessionId, item.assetId)
+        if (generation !== lifecycle || state.session?.id !== sessionId) return
         const objectUrl = createObjectUrlSafe(blob)
         if (objectUrl === null) {
           dispatch({ type: 'asset_content_failed', key: item.key, assetId: item.assetId })
@@ -444,6 +501,7 @@ export function createWidgetController(deps: ControllerDeps) {
         objectUrls.add(objectUrl)
         dispatch({ type: 'asset_content_ready', key: item.key, assetId: item.assetId, objectUrl })
       } catch (error) {
+        if (generation !== lifecycle) return
         if (isRevoke(error)) {
           onRevoke()
           return
@@ -481,6 +539,7 @@ export function createWidgetController(deps: ControllerDeps) {
         objectUrls.add(objectUrl)
         dispatch({ type: 'asset_content_ready', key, assetId, objectUrl })
       }
+      visitorReads.visible([])
       dispatch({
         type: 'asset_preview_opened',
         preview: { key, assetId, objectUrl, mime: asset.mime, fileName: asset.name },
@@ -502,6 +561,7 @@ export function createWidgetController(deps: ControllerDeps) {
 
   function closePreview(): void {
     dispatch({ type: 'asset_preview_closed' })
+    deps.io.refreshReadObservation?.()
   }
 
   // -------------------------------------------------------------------------
@@ -646,12 +706,18 @@ export function createWidgetController(deps: ControllerDeps) {
 
   function setPanelOpen(open: boolean): void {
     panelOpen = open
-    if (open) unread = 0
+    if (!open) visitorReads.visible([])
+    if (open) { unread = 0; deps.io.refreshReadObservation?.() }
     reportUnread()
   }
 
   /** 退出（关闭聊天）：visit 恢复状态清理（关闭后不可恢复，A05）+ blob URL 释放。 */
   function closeAndCleanup(): void {
+    deps.api.invalidateCredential()
+    lifecycle += 1
+    readRevoked = true
+    visitorReads.reset()
+    deps.io.stopReadObservation?.()
     if (deps.storage !== null && visitScope !== null) clearVisitSubject(deps.storage, visitScope)
     attachmentFiles.clear()
     revokeTrackedObjectUrls()
@@ -675,6 +741,7 @@ export function createWidgetController(deps: ControllerDeps) {
   }
 
   return {
+    observeVisibleAgentMessages,
     handleHostMessage,
     acceptConsent,
     declineConsent,

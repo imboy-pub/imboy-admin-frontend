@@ -487,6 +487,7 @@ export function createChatUi(root: HTMLElement, locale: string, handlers: ChatUi
       const bubble = doc.createElement('div')
       bubble.className = 'cs-msg'
       bubble.setAttribute('data-role', message.role)
+      if (message.role === 'agent' && message.id !== null) bubble.setAttribute('data-message-id', message.id)
       bubble.setAttribute('data-status', message.status)
       bubble.setAttribute('data-test-key', message.key)
       // 附件消息：气泡主体 = 附件行（名称+状态文字）；正文（caption）可空。

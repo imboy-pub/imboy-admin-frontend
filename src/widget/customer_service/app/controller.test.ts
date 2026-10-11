@@ -48,6 +48,7 @@ function memoryStorage(): StorageLike & { dump: () => Record<string, string> } {
 
 function makeEnv(
   opts: {
+    readForeground?: () => boolean
     consentVersion?: string
     messagesStatus?: number
     sessionsStatus?: string
@@ -90,6 +91,9 @@ function makeEnv(
       })
     } else if (method === 'GET' && url.includes('/sessions') && !url.includes('/messages')) {
       payload = [{ id: '72057594037927936', status: opts.sessionsStatus ?? 'active', version: 3 }]
+    } else if (method === 'PATCH' && url.includes('/messages')) {
+      const ids = (body as { message_ids: string[] }).message_ids
+      payload = {session_id:'72057594037927936',highest_confirmed_id:ids[0],receipts:ids.map(id => ({message_id:id,read_at:'2026-10-11T01:00:00Z'}))}
     } else if (method === 'GET' && url.includes('/messages')) {
       if (opts.messagesStatus === 401) {
         ok = false
@@ -108,6 +112,7 @@ type Harness = ReturnType<typeof makeHarness>
 
 function makeHarness(
   opts: {
+    readForeground?: () => boolean
     consentVersion?: string
     messagesStatus?: number
     history?: unknown[]
@@ -135,8 +140,9 @@ function makeHarness(
     streams.push(o)
     return { start: () => undefined, stop: () => undefined }
   }
+  const api = new WidgetApiClient(env.fetchImpl)
   const controller = createWidgetController({
-    api: new WidgetApiClient(env.fetchImpl),
+    api,
     storage,
     nowMs: () => (clock += 1000),
     newId: (() => {
@@ -144,6 +150,7 @@ function makeHarness(
       return () => `gen-${(n += 1)}`
     })(),
     fetchImpl: env.fetchImpl,
+    readForeground: opts.readForeground,
     createObjectUrl: () => {
       const url = `blob:stub-${(urlSeq += 1)}`
       objectUrls.push(url)
@@ -185,7 +192,7 @@ function makeHarness(
       ...overrides,
     }),
   })
-  return { controller, env, storage, posted, rendered, streams, downloads, objectUrls, revokedUrls, settle, hostContext, envelopeFrame }
+  return { controller, api, env, storage, posted, rendered, streams, downloads, objectUrls, revokedUrls, settle, hostContext, envelopeFrame }
 }
 
 async function reachConsent(harness: Harness): Promise<void> {
@@ -484,4 +491,64 @@ it('SSE credential rejection clears visit recovery state and reports error', asy
   expect(h.storage.dump()[SCOPE_KEY]).toBeUndefined()
   expect(h.posted.some((m) => m.type === 'status' && m.state === 'error')).toBe(true)
   h.controller.closeAndCleanup()
+})
+
+it('new bootstrap invalidates old session before restoring chat', async () => {
+  const h = makeHarness(); h.hostContext(); await h.settle()
+  expect(h.controller.currentState().session).not.toBeNull()
+  h.controller.retryBootstrap()
+  expect(h.controller.currentState().session).toBeNull()
+  await h.settle()
+  expect(h.env.requests.filter(r => r.method === 'POST' && r.url.endsWith('/sessions')).length).toBe(2)
+})
+
+it('history and SSE do not confirm; observed agent ids need focus, panel and live credential', async () => {
+  let foreground = false
+  const h = makeHarness({readForeground: () => foreground,history:[
+    {id:'72057594037927941',sender_type:'business_identity',body:'客服😀',assets:[]},
+    {id:'72057594037927942',sender_type:'contact',body:'访客',assets:[]},
+  ]})
+  h.hostContext(); await h.settle()
+  const patches = () => h.env.requests.filter(r => r.method === 'PATCH')
+  expect(patches()).toEqual([])
+  h.controller.observeVisibleAgentMessages(['72057594037927941']); await h.settle(); expect(patches()).toEqual([])
+  foreground = true; h.controller.setPanelOpen(false)
+  h.controller.observeVisibleAgentMessages(['72057594037927941']); await h.settle(); expect(patches()).toEqual([])
+  h.controller.setPanelOpen(true)
+  h.controller.observeVisibleAgentMessages(['72057594037927941','72057594037927942','999']); await h.settle()
+  expect(patches().map(r => r.body)).toEqual([{installation_id:'72057594037928001',message_ids:['72057594037927941']}])
+  h.controller.closeAndCleanup()
+  h.controller.observeVisibleAgentMessages(['72057594037927941']); await h.settle(); expect(patches().length).toBe(1)
+})
+
+it('image modal occludes otherwise visible agent bubbles until closed and freshly observed', async () => {
+  const history = HISTORY_WITH_ASSETS.map(row => ({...row,sender_type:'business_identity'}))
+  const h = makeHarness({history,readForeground: () => true})
+  await reachChat(h); await h.settle(10)
+  const message = h.controller.currentState().messages[0]!
+  await h.controller.openAttachment(message.key, '72057594037928101')
+  expect(h.controller.currentState().preview).not.toBeNull()
+  h.controller.observeVisibleAgentMessages([message.id!]); await h.settle()
+  expect(h.env.requests.filter(r => r.method === 'PATCH')).toHaveLength(0)
+  h.controller.closePreview(); await h.settle()
+  expect(h.env.requests.filter(r => r.method === 'PATCH')).toHaveLength(0)
+  h.controller.observeVisibleAgentMessages([message.id!]); await h.settle()
+  expect(h.env.requests.filter(r => r.method === 'PATCH')).toHaveLength(1)
+})
+
+it('old session history and stopped stream cannot populate a newly bootstrapped session', async () => {
+  const h = makeHarness({readForeground:()=>true}); await reachChat(h)
+  let resolveHistory!: (_rows: Awaited<ReturnType<WidgetApiClient['listMessages']>>) => void
+  const original = h.api.listMessages.bind(h.api)
+  let pending = true
+  h.api.listMessages = (...args) => pending ? (pending = false, new Promise(resolve=>{resolveHistory=resolve})) : original(...args)
+  const old = h.controller.handleSseFrame(h.envelopeFrame('old-history','message.appended'))
+  const oldStream = h.streams[0]!
+  h.controller.retryBootstrap(); await h.settle()
+  resolveHistory([{id:'10',senderType:'business_identity',senderContactId:null,clientMsgId:null,body:'old-session',createdAt:null,assets:[]}])
+  await old
+  expect(h.controller.currentState().messages).toEqual([])
+  oldStream.onStatus('offline'); expect(h.controller.currentState().connection).not.toBe('offline')
+  h.controller.observeVisibleAgentMessages(['10']); await h.settle()
+  expect(h.env.requests.filter(r=>r.method==='PATCH')).toEqual([])
 })
