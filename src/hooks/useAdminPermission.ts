@@ -42,7 +42,7 @@ export function useAdminPermission(options: UseAdminPermissionOptions = {}) {
 
   const shouldResolvePermission = gateEnabled && (hasPermissionConstraint || hasRoleConstraint)
 
-  const { data: rbacProfile, isLoading: rbacLoading, isError: rbacError } = useQuery({
+  const { data: rbacProfile, isLoading: rbacLoading, isError: rbacError, refetch: refetchRbac, isFetching: rbacFetching } = useQuery({
     queryKey: ['rbac', 'me', 'permission-gate'],
     queryFn: () => getMyRbacProfilePayload(),
     enabled: shouldResolvePermission,
@@ -50,7 +50,7 @@ export function useAdminPermission(options: UseAdminPermissionOptions = {}) {
     staleTime: 5 * 60 * 1000,
   })
 
-  const { data: sidebarConfig, isLoading: configLoading } = useQuery({
+  const { data: sidebarConfig, isLoading: configLoading, refetch: refetchConfig, isFetching: configFetching } = useQuery({
     queryKey: ['admin-config', 'sidebar', 'permission-gate'],
     queryFn: () => fetchSidebarMenuConfig(),
     enabled: shouldResolvePermission,
@@ -136,8 +136,13 @@ export function useAdminPermission(options: UseAdminPermissionOptions = {}) {
   const loading =
     waitingForRoleResolution || waitingForPermissionResolution
 
+  const unavailable = shouldResolvePermission && rbacError && !rbacProfile &&
+    !(roleAllowed && permissionAllowed)
+
   return {
-    allowed: roleAllowed && permissionAllowed,
-    loading,
+    allowed: !unavailable && roleAllowed && permissionAllowed,
+    loading: loading || (unavailable && (rbacFetching || configFetching)),
+    unavailable,
+    retry: () => Promise.all([refetchRbac(), refetchConfig()]),
   }
 }

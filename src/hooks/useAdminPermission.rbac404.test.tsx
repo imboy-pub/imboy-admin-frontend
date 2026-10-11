@@ -121,6 +121,7 @@ describe('useAdminPermission — rbac 404 后的权限证据判定', () => {
 
     await waitFor(() => expect(result.current.loading).toBe(false))
     expect(result.current.allowed).toBe(false)
+    expect(result.current.unavailable).toBe(true)
   })
 
   it('rbac profile 明确返回空权限时不得回退 sidebar 模板', async () => {
@@ -139,6 +140,7 @@ describe('useAdminPermission — rbac 404 后的权限证据判定', () => {
 
     await waitFor(() => expect(result.current.loading).toBe(false))
     expect(result.current.allowed).toBe(false)
+    expect(result.current.unavailable).toBe(false)
   })
 
   it('中间态：rbac 已快速失败 + sidebar 模板仍在加载 → loading 必须为 true（不得用 false 锁门）', async () => {
@@ -183,4 +185,20 @@ describe('useAdminPermission — rbac 404 后的权限证据判定', () => {
     await waitFor(() => expect(result.current.loading).toBe(false))
     expect(result.current.allowed).toBe(true)
   })
+  it('权限数据源均失败时报告不可用，重试成功后恢复访问', async () => {
+    sidebarFetcher = async () => { throw new Error('rate limited') }
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const wrapper = ({ children }: { children: ReactElement }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    )
+    const { result } = renderHook(() => useAdminPermission({ permission: 'channels:read' }), { wrapper })
+    await waitFor(() => expect(result.current.unavailable).toBe(true))
+    expect(result.current.allowed).toBe(false)
+    rbacFetcher = async () => ({ role_ids: ['1'], permissions: ['channels:read'] })
+    sidebarFetcher = defaultSidebarFetcher
+    await act(async () => { await result.current.retry() })
+    await waitFor(() => expect(result.current.allowed).toBe(true))
+    expect(result.current.unavailable).toBe(false)
+  })
+
 })
