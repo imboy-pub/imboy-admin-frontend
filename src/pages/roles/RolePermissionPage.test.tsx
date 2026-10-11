@@ -151,4 +151,25 @@ describe('RolePermissionPage flow', () => {
       expect(view.container.textContent).toContain('super_admin')
     })
   })
+  for (const permission of ['organizations:read', 'organizations:write']) {
+    it(`displays the stored custom ${permission} permission instead of zero`, async () => {
+      mutableClient.get = async (url: string) => ({ data: { code: 0, msg: 'ok', payload:
+        url === '/current' ? adminFixture : url === '/rbac/me' ? rbacFixture :
+          url === '/role/list' ? { items: [{ ...roleFixture, id: '117121196000294912', name: 'custom-org', permissions: [permission] }] } : {}
+      } })
+      const view = renderPage()
+      await waitFor(() => {
+        const card = view.container.querySelector('[data-role-name="custom-org"]')
+        expect(card?.textContent).toContain('已授权 1 项能力')
+        expect(view.container.textContent).toContain('查看企业组织')
+        expect(view.container.textContent).toContain('管理企业组织')
+        const rows = Array.from(view.container.querySelectorAll('tbody tr'))
+        const readRow = rows.find(row => row.textContent?.includes('查看企业组织'))
+        const writeRow = rows.find(row => row.textContent?.includes('管理企业组织'))
+        expect(readRow?.querySelectorAll('.lucide-check').length).toBe(permission === 'organizations:read' ? 1 : 0)
+        expect(writeRow?.querySelectorAll('.lucide-check').length).toBe(permission === 'organizations:write' ? 1 : 0)
+      })
+    })
+  }
+
 })

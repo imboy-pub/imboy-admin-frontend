@@ -29,6 +29,10 @@ export function FeatureDisabledPage({ feature }: { feature: string }) {
     channel_order: '频道排序',
     channel_discover: '频道发现',
     project: '项目管理',
+    bot_webhook: 'Bot 机器人',
+    agent_hub: 'Agent Hub',
+    mcp: 'MCP 管理',
+    e2ee: '端到端加密',
   }
 
   const label = featureLabels[feature] ?? feature
@@ -44,11 +48,11 @@ export function FeatureDisabledPage({ feature }: { feature: string }) {
         </CardHeader>
         <CardContent className="text-center space-y-4">
           <p className="text-sm text-muted-foreground">
-            「{label}」功能当前未开启。请前往系统设置中的功能开关页面开启此功能。
+            「{label}」功能当前不可用。可在功能设置中查看配置；未纳入当前版本的能力无法通过开关启用。
           </p>
           <Button onClick={() => navigate('/settings/features')} className="w-full">
             <Settings className="mr-2 h-4 w-4" />
-            前往开启
+            查看功能设置
           </Button>
         </CardContent>
       </Card>

@@ -7,6 +7,7 @@ import { act } from 'react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { DashboardPage } from './DashboardPage'
 import client from '../../services/api/client'
+import { clearRbacUnavailable } from '../../services/api/rbac'
 
 type AnyFn = (..._args: unknown[]) => unknown
 type MutableClient = { get: AnyFn }
@@ -47,7 +48,7 @@ function renderPage() {
 }
 
 describe('DashboardPage flow', () => {
-  beforeEach(() => { document.body.innerHTML = '' })
+  beforeEach(() => { document.body.innerHTML = ''; clearRbacUnavailable() })
 
   afterEach(() => {
     mutableClient.get = originalGet
@@ -107,4 +108,64 @@ describe('DashboardPage flow', () => {
       expect(view.container.textContent).toContain('50')
     })
   })
+  for (const [roleId, permissions, expected] of [
+    ['3', [], false],
+    ['1', [], false],
+    ['3', ['finance:read'], false],
+    ['1', ['finance:read'], true],
+    ['2', ['finance:read'], true],
+  ] as const) {
+    it(`aligns finance cards and requests with role ${roleId} / ${permissions}`, async () => {
+      const calls: string[] = []
+      mutableClient.get = async (url: string) => {
+        calls.push(url)
+        const payload = url === '/stats/overview' ? overviewFixture
+          : url === '/rbac/me' ? { role_id: roleId, role_ids: [roleId], permissions }
+          : url === '/stats/user' ? emptyDailyStats
+          : url === '/stats/message' ? emptyMessageStats
+          : url === '/stats/group' ? emptyGroupStats
+          : url === '/stats/ranking' ? emptyRankingStats
+          : { active_subscriptions: 2, pending_withdrawals: 3 }
+        return { data: { code: 0, msg: 'ok', payload } }
+      }
+      let view: ReturnType<typeof renderPage>
+      await act(async () => { view = renderPage() })
+      await waitFor(() => expect(view.container.textContent).toContain('1,000'))
+      // Flush settled RBAC/query notifications before checking denied requests.
+      await act(async () => { await new Promise(resolve => setTimeout(resolve, 30)) })
+      expect(calls.includes('/stats/finance')).toBe(expected)
+      expect(view.container.textContent?.includes('提现审核')).toBe(expected)
+      expect(view.container.textContent?.includes('有效订阅')).toBe(expected)
+      expect(view.container.querySelector('a[href="/billing-invoices"]') !== null).toBe(expected)
+    })
+  }
+
+  it('waits for resolved finance authorization before querying or showing cards', async () => {
+    let resolveProfile: (_value: unknown) => void = () => {}
+    const calls: string[] = []
+    mutableClient.get = async (url: string) => {
+      calls.push(url)
+      if (url === '/rbac/me') return new Promise(resolve => { resolveProfile = resolve })
+      const payload = url === '/stats/overview' ? overviewFixture
+        : url === '/stats/user' ? emptyDailyStats
+        : url === '/stats/message' ? emptyMessageStats
+        : url === '/stats/group' ? emptyGroupStats
+        : url === '/stats/ranking' ? emptyRankingStats
+        : { active_subscriptions: 2, pending_withdrawals: 3 }
+      return { data: { code: 0, msg: 'ok', payload } }
+    }
+    let view: ReturnType<typeof renderPage>
+    await act(async () => { view = renderPage() })
+    await waitFor(() => expect(calls).toContain('/rbac/me'))
+    expect(calls).not.toContain('/stats/finance')
+    expect(view.container.textContent).not.toContain('提现审核')
+    await act(async () => {
+      resolveProfile({ data: { code: 0, msg: 'ok', payload: {
+        role_id: '2', role_ids: ['2'], permissions: ['finance:read'],
+      } } })
+    })
+    await waitFor(() => expect(calls).toContain('/stats/finance'))
+    await waitFor(() => expect(view.container.textContent).toContain('提现审核'))
+  })
+
 })

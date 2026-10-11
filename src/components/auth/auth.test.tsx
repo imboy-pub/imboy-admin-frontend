@@ -55,7 +55,7 @@ describe('FeatureDisabledPage', () => {
 
   it('renders navigate button', () => {
     const { getByText } = wrap(<FeatureDisabledPage feature="moment" />)
-    expect(getByText('前往开启')).toBeTruthy()
+    expect(getByText('查看功能设置')).toBeTruthy()
   })
 })
 

@@ -20,6 +20,7 @@ import {
 import { getSystemHealthStats } from '@/services/api/systemHealth'
 import type { OverviewStats } from '@/services/api/stats'
 import { dashboardPanelRegistry } from '@/modules/dashboard/registry/dashboardPanelRegistry'
+import { useAdminPermission } from '@/hooks/useAdminPermission'
 import {
   LineChart,
   Line,
@@ -197,6 +198,8 @@ function RecentActivityCard() {
 }
 
 export function DashboardPage() {
+  const financePermission = useAdminPermission({ permission: 'finance:read', roles: ['1', '2'] })
+  const financeAllowed = financePermission.allowed && !financePermission.loading
   // 获取总览统计 — 每 60 秒自动刷新
   const { data: stats, isLoading: overviewLoading, error: overviewError, refetch, dataUpdatedAt } = useQuery({
     queryKey: ['stats', 'overview'],
@@ -241,6 +244,7 @@ export function DashboardPage() {
     queryKey: ['stats', 'finance'],
     queryFn: getFinanceSummary,
     staleTime: 60_000,
+    enabled: financeAllowed,
   })
 
   if (overviewLoading) {
@@ -348,20 +352,22 @@ export function DashboardPage() {
       </div>
 
       {/* 财务 KPI */}
-      <div className="grid gap-4 sm:grid-cols-2">
-        <StatsCard
-          title="有效订阅"
-          value={financeStats?.active_subscriptions ?? '-'}
-          description="当前生效的 SaaS 订阅数"
-          icon={Receipt}
-        />
-        <StatsCard
-          title="待处理提现"
-          value={financeStats?.pending_withdrawals ?? '-'}
-          description={financeStats?.pending_withdrawals ? '需要人工审核打款' : '暂无待处理提现'}
-          icon={ArrowDownToLine}
-        />
-      </div>
+      {financeAllowed && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <StatsCard
+            title="有效订阅"
+            value={financeStats?.active_subscriptions ?? '-'}
+            description="当前生效的 SaaS 订阅数"
+            icon={Receipt}
+          />
+          <StatsCard
+            title="待处理提现"
+            value={financeStats?.pending_withdrawals ?? '-'}
+            description={financeStats?.pending_withdrawals ? '需要人工审核打款' : '暂无待处理提现'}
+            icon={ArrowDownToLine}
+          />
+        </div>
+      )}
 
       {/* 快捷操作入口 */}
       <div className="grid gap-4 md:grid-cols-4">
@@ -392,32 +398,34 @@ export function DashboardPage() {
       </div>
 
       {/* 财务快捷操作 */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <QuickActionCard
-          title="提现审核"
-          description={financeStats?.pending_withdrawals ? `${financeStats.pending_withdrawals} 笔待处理` : '查看提现申请'}
-          path="/withdrawals"
-          icon={ArrowDownToLine}
-        />
-        <QuickActionCard
-          title="订阅管理"
-          description="查看租户订阅状态"
-          path="/billing-subscriptions"
-          icon={Receipt}
-        />
-        <QuickActionCard
-          title="账单管理"
-          description="查看和导出账单"
-          path="/billing-invoices"
-          icon={FileText}
-        />
-        <QuickActionCard
-          title="充值订单"
-          description="查看充值与支付记录"
-          path="/recharge-orders"
-          icon={CreditCard}
-        />
-      </div>
+      {financeAllowed && (
+        <div className="grid gap-4 md:grid-cols-4">
+          <QuickActionCard
+            title="提现审核"
+            description={financeStats?.pending_withdrawals ? `${financeStats.pending_withdrawals} 笔待处理` : '查看提现申请'}
+            path="/withdrawals"
+            icon={ArrowDownToLine}
+          />
+          <QuickActionCard
+            title="订阅管理"
+            description="查看租户订阅状态"
+            path="/billing-subscriptions"
+            icon={Receipt}
+          />
+          <QuickActionCard
+            title="账单管理"
+            description="查看和导出账单"
+            path="/billing-invoices"
+            icon={FileText}
+          />
+          <QuickActionCard
+            title="充值订单"
+            description="查看充值与支付记录"
+            path="/recharge-orders"
+            icon={CreditCard}
+          />
+        </div>
+      )}
 
       {/* 趋势图表 - 第一行 */}
       <div className="grid gap-4 md:grid-cols-2">
