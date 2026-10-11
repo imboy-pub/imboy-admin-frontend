@@ -353,6 +353,29 @@ describe('CS-WEB-02 附件合同（presign / 裸 PUT / confirm / asset_ids 发�
     expect(result.objectHash).toBe(await blobSha256Hex(new Blob([FILE_BYTES.slice()])))
   })
 
+  it('撤权取消信号传入实际PUT，取消后不继续confirm', async () => {
+    const { calls, fetchImpl } = uploadStackResponder()
+    const controller = new AbortController()
+    let putSignal: AbortSignal | null | undefined
+    const guardedFetch = async (url: string, init?: RequestInit): Promise<Response> => {
+      if (url.split('?')[0] !== UPLOAD_PATH) return fetchImpl(url, init)
+      calls.push({ url, init })
+      putSignal = init?.signal
+      controller.abort()
+      throw new DOMException('Synthetic upload cancelled', 'AbortError')
+    }
+    const api = new SeatWorkbenchApi({ client: new SeatApiClient({ fetchImpl: guardedFetch, getToken: () => 'tok' }) })
+    await expect(runSeatAttachmentUpload({
+      api, orgId: ORG, conversationId: CONV, workspaceId: WS,
+      file: new Blob([FILE_BYTES.slice()], { type: 'image/png' }), signal: controller.signal,
+    })).rejects.toThrow()
+    expect(putSignal).toBe(controller.signal)
+    expect(putSignal?.aborted).toBe(true)
+    expect(calls.map((call) => call.url.split('?')[0])).toEqual([
+      `/api/v1/seat/enterprise/organizations/${ORG}/assets/presign`, UPLOAD_PATH,
+    ])
+  })
+
   it('upload.url 缺失（部署未开放对象 PUT）→ fail-closed：PUT/confirm 均不发生', async () => {
     const presignNoUrl = PRESIGN_PAYLOAD.replace(`"url":"${UPLOAD_PATH}",`, '')
     const calls: RecordedCall[] = []
