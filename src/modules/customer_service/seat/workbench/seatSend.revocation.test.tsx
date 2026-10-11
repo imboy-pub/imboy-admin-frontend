@@ -10,7 +10,7 @@ import type { SeatContext } from '../types'
 import type { SeatSessionDetail } from './contract'
 import { SeatWorkspacePage } from './SeatWorkspacePage'
 import { SeatSessionView } from './sessionView'
-import { SeatWorkbenchProvider, useSeatEventStream, useSeatScopeSelection, useSeatSend } from './workbenchHooks'
+import { SeatWorkbenchProvider, useSeatContexts, useSeatEventStream, useSeatScopeSelection, useSeatSend } from './workbenchHooks'
 import { CONV, FakeSseStream, IDENTITY, ORG, SESSION, SeatFakeBackend, WS, envelopeFrame, makeGateway } from './workbenchTestHarness'
 
 const SCOPE = { orgId: ORG, conversationId: CONV as string | null, workspaceId: WS, identityId: IDENTITY, writeRevoked: false }
@@ -154,6 +154,54 @@ describe('CX03 revocation — isolated mock/JSDOM, not browser/API/SQL acceptanc
       })
     })
     expect(view.result.current.writeRevoked).toBe(false)
+    expect(useSeatAuthStore.getState().status).toBe('authenticated')
+  })
+
+  it('停用seat过滤为空后，同挂载权威contexts恢复A/B时旧正文/File/error均为空', async () => {
+    const { gateway, wrapper } = setup()
+    const original = await gateway.api.fetchContexts()
+    const first = original.contexts[0]!
+    const second: SeatContext = { ...first, organizationId: '2000000000000000003', businessIdentityId: '4000000000000000003' }
+    const contexts = { ...original, contexts: [first, second] }
+    const contextsSpy = spyOn(gateway.api, 'fetchContexts').mockResolvedValue(contexts)
+    const send = spyOn(gateway.api, 'sendMessage').mockRejectedValue(new SeatApiError('conflict', '旧发送错误'))
+    spyOn(gateway.api, 'requestAssetPresign').mockResolvedValue({
+      assetId: '6000000000000000006', uploadUrl: 'https://mock.invalid/put', headers: {},
+    })
+    spyOn(gateway.api, 'uploadAssetBytes').mockResolvedValue(undefined)
+    spyOn(gateway.api, 'confirmAssetUpload').mockResolvedValue(undefined)
+    const view = renderHook(() => {
+      const grants = useSeatContexts()
+      const scope = useSeatScopeSelection(grants.data)
+      const composer = useSeatSend(scope.organizationId, CONV, scope.workspaceId, scope.myIdentityId, false, grants.data)
+      return { grants, scope, composer }
+    }, { wrapper })
+    await waitFor(() => expect(view.result.current.grants.data).toEqual(contexts.contexts))
+    for (const [index, context] of contexts.contexts.entries()) {
+      act(() => view.result.current.scope.selectOrganization(context.organizationId))
+      act(() => {
+        view.result.current.composer.updateDraftBody(`${index === 0 ? 'A' : 'B'}私密稿`)
+        view.result.current.composer.attachFile(new File(['secret'], `${index}.txt`))
+      })
+      act(() => view.result.current.composer.send())
+      await waitFor(() => expect(view.result.current.composer.error).toBeInstanceOf(SeatApiError))
+      expect(view.result.current.composer.draft.fileName).toBe(`${index}.txt`)
+    }
+    expect(send).toHaveBeenCalledTimes(2)
+    contextsSpy.mockResolvedValue({ ...contexts, contexts: contexts.contexts.map((context) => ({ ...context, seatEnabled: false })) })
+    await act(async () => { await view.result.current.grants.refetch() })
+    await waitFor(() => expect(view.result.current.grants.data).toEqual([]))
+    expect(view.result.current.scope.organizationId).toBeNull()
+    contextsSpy.mockResolvedValue(contexts)
+    await act(async () => { await view.result.current.grants.refetch() })
+    await waitFor(() => expect(view.result.current.grants.data).toEqual(contexts.contexts))
+    for (const context of contexts.contexts) {
+      act(() => view.result.current.scope.selectOrganization(context.organizationId))
+      expect(view.result.current.scope.organizationId).toBe(context.organizationId)
+      expect(view.result.current.scope.workspaceId).toBe(context.workspaces[0]!.id)
+      expect(view.result.current.composer.draft).toEqual({ body: '', fileName: null, fileSize: null })
+      expect(view.result.current.composer.error).toBeNull()
+    }
     expect(useSeatAuthStore.getState().status).toBe('authenticated')
   })
 
@@ -319,7 +367,7 @@ describe('CX03 revocation — isolated mock/JSDOM, not browser/API/SQL acceptanc
     expect(view.result.current.writeRevoked).toBe(true)
   })
 
-  it.each(['stream', 'capability', 'empty-contexts'] as const)('page权威%s撤权接通hook：confirm迟到不能POST；重新获权不恢复旧稿', async (source) => {
+  it.each(['stream', 'capability', 'empty-contexts', 'disabled-seat'] as const)('page权威%s撤权接通hook：confirm迟到不能POST；重新获权不恢复旧稿', async (source) => {
     const { gateway, sse, queryClient } = setup()
     const contexts = await gateway.api.fetchContexts()
     const contextsSpy = spyOn(gateway.api, 'fetchContexts').mockResolvedValue(contexts)
@@ -334,12 +382,29 @@ describe('CX03 revocation — isolated mock/JSDOM, not browser/API/SQL acceptanc
     fireEvent.change(view.getByTestId('seat-attach-input'), { target: { files: [new File(['x'], 'secret.txt')] } })
     fireEvent.click(view.getByTestId('seat-send'))
     await waitFor(() => expect(gateway.api.confirmAssetUpload).toHaveBeenCalledTimes(1))
-    contextsSpy.mockResolvedValue({ ...contexts, contexts: source === 'empty-contexts' ? [] : contexts.contexts.map((context) => ({ ...context, capabilities: context.capabilities.filter((capability) => capability !== 'conversation.write') })) })
+    contextsSpy.mockResolvedValue({ ...contexts, contexts: source === 'empty-contexts' ? [] : contexts.contexts.map((context) => source === 'disabled-seat'
+      ? { ...context, seatEnabled: false }
+      : { ...context, capabilities: context.capabilities.filter((capability) => capability !== 'conversation.write') }) })
     act(() => sse.push(envelopeFrame('9800000000000000001', 'seat.changed', 'seat', null, source === 'stream' ? 'revoked' : 'updated')))
     await waitFor(() => expect(view.queryByTestId('seat-composer') === null).toBe(true))
     await act(async () => pending.resolve())
     expect(send).not.toHaveBeenCalled()
     expect(useSeatAuthStore.getState().status).toBe('authenticated')
+    contextsSpy.mockResolvedValue(contexts)
+    await act(async () => { await queryClient.invalidateQueries({ queryKey: ['seat-workbench', 'contexts'] }) })
+    await waitFor(() => {
+      expect((view.getByTestId('seat-org-select') as HTMLSelectElement).value).toBe(ORG)
+      expect((view.getByTestId('seat-ws-select') as HTMLSelectElement).value).toBe(WS)
+    })
+    expect(view.queryByTestId('seat-attach-chip')).toBeNull()
+    expect(view.queryByTestId('seat-send-error')).toBeNull()
+    if (source === 'empty-contexts' || source === 'disabled-seat') {
+      fireEvent.click(view.getByTestId('seat-tab-active'))
+      fireEvent.click(await waitFor(() => view.getByTestId(`seat-session-item-${SESSION}`)))
+    }
+    if (source !== 'stream') {
+      await waitFor(() => expect((view.getByTestId('seat-composer') as HTMLTextAreaElement).value).toBe(''))
+    }
     if (source === 'capability') {
       contextsSpy.mockResolvedValue(contexts)
       act(() => sse.push(envelopeFrame('9800000000000000002', 'seat.changed', 'seat', null, 'updated')))
