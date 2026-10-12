@@ -59,3 +59,18 @@ it('a correctly echoed day and offset cannot hide a different or shortened windo
     expect(toCsSessionStats({ ...facts, ...change })).toBeNull()
   }
 })
+
+it('valid UTC windows may start before the Unix epoch without making counts negative', () => {
+  const result = toCsSessionStats({ ...facts, date: '1970-01-01', tz_offset: 480,
+    window_start: -28800, window_end: 57600,
+  })
+  expect(result?.windowStart).toBe(-28800)
+  expect(result?.windowEnd).toBe(57600)
+  expect(toCsSessionStats({ ...facts, new_sessions: -1 })).toBeNull()
+})
+
+it('window timestamps still reject coercion, fractional values and unsafe integers', () => {
+  for (const windowStart of [null, false, '', -0.5, '-0.5', Number.MIN_SAFE_INTEGER - 1]) {
+    expect(toCsSessionStats({ ...facts, window_start: windowStart })).toBeNull()
+  }
+})

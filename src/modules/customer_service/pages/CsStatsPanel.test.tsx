@@ -93,6 +93,18 @@ beforeEach(() => {
 })
 
 describe('CsStatsPanel — CS-GOV-03B', () => {
+  it('合法负 UTC 起点仍显示服务端统计窗口', async () => {
+    statsResult = fixture({ date: '1970-01-01', tzOffset: 480,
+      windowStart: -28800, windowEnd: 57600,
+    })
+    const view = render(host(<CsStatsPanel orgId={ORG} canRead={true} />))
+    await settleUntil(() => view.container.querySelector('[data-testid="cs-stats-window"]') !== null,
+      '负 UTC 窗口渲染')
+    const window = view.container.querySelector('[data-testid="cs-stats-window"]')
+    expect(window?.textContent).toContain('1969-12-31 16:00:00 UTC')
+    expect(window?.textContent).toContain('1970-01-01 16:00:00 UTC')
+  })
+
   it('数值与 fixture API 逐项相等（含窗口回显与时区可见）', async () => {
     statsResult = fixture()
     const { getByLabelText, getByTestId, container } = render(host(<CsStatsPanel orgId={ORG} canRead={true} />))

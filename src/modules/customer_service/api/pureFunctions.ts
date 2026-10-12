@@ -527,6 +527,12 @@ function statsCount(value: unknown): number | null {
   return count !== null && Number.isSafeInteger(count) ? count : null
 }
 
+function statsTimestamp(value: unknown): number | null {
+  if (typeof value !== 'number' && (typeof value !== 'string' || !/^-?\d+$/.test(value))) return null
+  const timestamp = Number(value)
+  return Number.isSafeInteger(timestamp) ? timestamp : null
+}
+
 function statsRecord(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
     ? value as Record<string, unknown> : null
@@ -556,7 +562,7 @@ export function toCsSessionStats(raw: unknown): CsSessionStats | null {
   const fr = statsMetric(payload.first_response, 'avg_seconds')
   const rating = statsMetric(payload.rating, 'avg', true)
   const current = statsRecord(payload.current)
-  const windowStart = statsCount(payload.window_start), windowEnd = statsCount(payload.window_end)
+  const windowStart = statsTimestamp(payload.window_start), windowEnd = statsTimestamp(payload.window_end)
   const newSessions = statsCount(payload.new_sessions), closedSessions = statsCount(payload.closed_sessions)
   const queued = statsCount(current?.queued), active = statsCount(current?.active)
   const tzOffset = payload.tz_offset

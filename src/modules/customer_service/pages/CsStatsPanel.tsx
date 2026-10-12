@@ -149,12 +149,10 @@ function StatsFacts({ stats, retrievedAt }: { stats: CsSessionStats; retrievedAt
   return (
     <div className="space-y-3">
       <StatsMetadata stats={stats} retrievedAt={retrievedAt} />
-      {stats.windowStart >= 0 && stats.windowEnd >= 0 && (
-        <p className="text-xs text-muted-foreground" data-testid="cs-stats-window">
-          统计窗口：{formatWindowSeconds(stats.windowStart)} →{' '}
-          {formatWindowSeconds(stats.windowEnd)}
-        </p>
-      )}
+      <p className="text-xs text-muted-foreground" data-testid="cs-stats-window">
+        统计窗口：{formatWindowSeconds(stats.windowStart)} →{' '}
+        {formatWindowSeconds(stats.windowEnd)}
+      </p>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <FactCard label="新会话" value={String(stats.newSessions)} sub={`窗口内开始`} />
         <FactCard
