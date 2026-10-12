@@ -30,8 +30,9 @@ import { seatTokenVault, useSeatAuthStore } from '../seatAuthStore'
 import { SeatApiClient, type SeatFetchLike } from '../seatApiClient'
 import type { SeatContext, EntityId } from '../types'
 import { useSeatSendState } from './seatSend'
+import { useSeatMessageHistory } from './seatMessageHistory'
+import { useSeatVisibleAck } from './seatFocusAck'
 import {
-  SEAT_MESSAGE_PAGE_LIMIT,
   SEAT_SESSION_PAGE_LIMIT,
   SeatWorkbenchApi,
   type SeatPageQuery,
@@ -392,15 +393,12 @@ export function useSeatMessages(
   conversationId: EntityId | null,
   workspaceId: EntityId | null,
 ) {
-  const { api } = useSeatWorkbenchGateway()
-  return useQuery({
-    queryKey: [SEAT_QUERY_ROOT_KEY, 'messages', conversationId, workspaceId],
-    enabled: orgId !== null && conversationId !== null && workspaceId !== null,
-    queryFn: () =>
-      api.fetchMessages(orgId as EntityId, conversationId as EntityId, workspaceId as EntityId, {
-        limit: SEAT_MESSAGE_PAGE_LIMIT,
-      }),
-  })
+  const { api, authSessionId } = useSeatWorkbenchGateway()
+  const authStatus = useSeatAuthStore((state) => state.status)
+  const scope = useMemo(() => ({
+    api, queryRoot: SEAT_QUERY_ROOT_KEY, authSessionId, authStatus, orgId, conversationId, workspaceId,
+  }), [api, authSessionId, authStatus, orgId, conversationId, workspaceId])
+  return useSeatMessageHistory(scope)
 }
 
 export function useSeatSend(
@@ -660,55 +658,19 @@ export function useSeatReadState(
 }
 
 /**
- * CS-WEB-05：聚焦/可见性驱动 ACK（单调 ref）。
- *
- * 多标签页不倒退游标：ref 只被更大的 message id 推进（本地单调）；即便两个
- * 标签页交错 ACK，服务端单调 upsert（`WHERE last_read < EXCLUDED`）把后到的
- * 旧值吞成零行 no-op——前后端双层单调。刷新恢复：ack 前的 read-state 与
- * 消息页都是服务端事实，刷新后重新拉取即可（无本地持久化）。
+ * 坐席 ACK 仅采用 DOM 可见目标；成功游标在认证与会话 scope 内单调。
+ * readAllowed 收回写入，旧 scope 的晚到请求不能推进新 scope。
  */
 export function useSeatFocusAck(
   orgId: EntityId | null,
   workspaceId: EntityId | null,
   sessionId: EntityId | null,
-  options: { lastSeenMessageId: EntityId | null },
+  options: { visibleMessageId: EntityId | null; readAllowed: boolean },
 ) {
-  const { api } = useSeatWorkbenchGateway()
-  const lastSeenRef = useRef<EntityId | null>(null)
-  const lastSeen = options.lastSeenMessageId
-
-  // ref 只在 effect 中推进（react-hooks/refs 纪律）：单调取更大 id。
-  useEffect(() => {
-    lastSeenRef.current = maxEntityId(lastSeenRef.current, lastSeen)
-  }, [lastSeen])
-
-  const ack = useCallback(async () => {
-    if (orgId === null || workspaceId === null || sessionId === null) return
-    const target = lastSeenRef.current
-    if (target === null) return
-    await api.ackRead(orgId, workspaceId, sessionId, target)
-  }, [api, orgId, workspaceId, sessionId])
-
-  useEffect(() => {
-    if (orgId === null || workspaceId === null || sessionId === null) return
-    const onVisible = () => {
-      if (pageVisible() && browserOnline()) void ack()
-    }
-    // 打开会话即 ACK 一次 + 回到可见时再 ACK（聚焦/可见性驱动）。
-    void ack()
-    document.addEventListener('visibilitychange', onVisible)
-    window.addEventListener('focus', onVisible)
-    return () => {
-      document.removeEventListener('visibilitychange', onVisible)
-      window.removeEventListener('focus', onVisible)
-    }
-  }, [ack, orgId, workspaceId, sessionId])
-}
-
-/** TSID 字符串的数值大小比较（等长十进制字符串可字典序；长度不同先比长度）。 */
-function maxEntityId(a: EntityId | null, b: EntityId | null): EntityId | null {
-  if (a === null) return b
-  if (b === null) return a
-  if (b.length !== a.length) return b.length > a.length ? b : a
-  return b > a ? b : a
+  const { api, authSessionId } = useSeatWorkbenchGateway()
+  const authStatus = useSeatAuthStore((state) => state.status)
+  const scope = useMemo(() => ({
+    api, authSessionId, authStatus, orgId, workspaceId, sessionId, readAllowed: options.readAllowed,
+  }), [api, authSessionId, authStatus, orgId, workspaceId, sessionId, options.readAllowed])
+  return useSeatVisibleAck(scope, options.visibleMessageId)
 }

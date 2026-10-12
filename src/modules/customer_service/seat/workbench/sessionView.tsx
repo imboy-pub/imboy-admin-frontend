@@ -18,13 +18,16 @@
  *   复用同一 client_msg_id；服务端 422 语义透传到 role=alert 错误条。
  * - 写入口关闭（canWrite=false 或非 active）→ composer 替换为可解释说明。
  */
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
 import { CheckCheck, Paperclip, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { isSeatApiError } from '../errors'
 import { type SeatAttachment, type SeatMessage, type SeatSessionDetail } from './contract'
 import { SeatEmptyState, SeatErrorState, SeatLoadingState, seatFailureMessage } from './states'
 import { seatFailureKind } from './workbenchHooks'
+import { useSeatMessageViewport } from './messageViewport'
+import type { EntityId } from '../types'
+import { messageTime } from './messageTime'
 
 type SeatSessionViewProps = {
   /** 附件内容获取（Seat Bearer fetch；由页面从 gateway 组装，org scope 闭包在内）。 */
@@ -48,6 +51,14 @@ type SeatSessionViewProps = {
   sendOutcomeUnknown?: boolean
   /** CS-WEB-05：当前会话未读数（服务端 read-state；badge 展示，undefined=未知不显示）。 */
   unreadCount?: number
+  messageScopeKey?: string
+  hasOlderMessages?: boolean
+  loadingOlder?: boolean
+  olderError?: unknown
+  onLoadOlder?: () => void
+  onVisibleMessageChange?: (_id: EntityId | null) => void
+  readError?: unknown
+  onRetryRead?: () => void
 }
 
 /** 附件字节获取器（org scope 由调用方闭包；signal 供取消/卸载中断）。 */
@@ -323,14 +334,15 @@ function MessageRow({
 }) {
   if (side === 'system') {
     return (
-      <li className="text-center text-xs text-muted-foreground" data-testid="seat-message-system">
+      <li className="text-center text-xs text-muted-foreground" data-testid="seat-message-system" data-message-id={message.id}>
         {message.body ?? ''}
       </li>
     )
   }
   const align = side === 'seat' ? 'items-end' : 'items-start'
+  const timestamp = messageTime(message.createdAt)
   return (
-    <li className={`flex flex-col ${align}`} data-testid={`seat-message-${message.id}`}>
+    <li className={`flex flex-col ${align}`} data-testid={`seat-message-${message.id}`} data-message-id={message.id}>
       <div className={`max-w-[75%] rounded-lg px-3 py-1.5 text-sm ${side === 'seat' ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'}`}>
         {message.body !== null && <p className="whitespace-pre-wrap break-words">{message.body}</p>}
         {message.attachments.length > 0 && (
@@ -347,7 +359,7 @@ function MessageRow({
             <CheckCheck aria-hidden="true" className="h-3 w-3" />
           </span>
         )}
-        {message.createdAt !== null ? message.createdAt : ''}
+        {timestamp && <time dateTime={timestamp.iso} title={`${timestamp.day} ${timestamp.time}`}>{timestamp.time}</time>}
       </span>
     </li>
   )
@@ -381,7 +393,11 @@ export function SeatSessionView(props: SeatSessionViewProps) {
     unreadCount,
   } = props
   const fileInputRef = useRef<HTMLInputElement | null>(null)
-  const conversationRef = useRef<HTMLDivElement | null>(null)
+  const { containerRef: conversationRef, onScroll, hasNewMessages, jumpToLatest } = useSeatMessageViewport(
+    props.messageScopeKey ?? detail?.id ?? '',
+    messages.map(message => message.id),
+    props.onVisibleMessageChange,
+  )
 
   if (detail === null) {
     return (
@@ -421,10 +437,27 @@ export function SeatSessionView(props: SeatSessionViewProps) {
         tabIndex={-1}
         className="min-h-0 flex-1 overflow-y-auto px-4 py-3 outline-none"
         data-testid="seat-message-list"
+        onScroll={onScroll}
       >
+        {props.hasOlderMessages && (
+          <Button type="button" variant="ghost" size="sm" disabled={props.loadingOlder}
+            onClick={props.onLoadOlder} data-testid="seat-load-older">
+            {props.loadingOlder ? '加载历史消息…' : '加载更早的消息'}
+          </Button>
+        )}
+        {props.olderError != null && (
+          <div role="alert" className="mb-2 text-sm text-destructive">
+            历史消息加载失败
+            <Button type="button" variant="ghost" size="sm" onClick={props.onLoadOlder}>重试</Button>
+          </div>
+        )}
+        {messages.length > 0 && seatFailureKind(messagesError) !== null && (
+          <SeatErrorState message={seatFailureMessage(seatFailureKind(messagesError)) ?? '消息更新失败'}
+            onRetry={onRetryMessages} testId="seat-messages-refresh-error" />
+        )}
         {messagesLoading && messages.length === 0 ? (
           <SeatLoadingState message="加载消息…" testId="seat-messages-loading" />
-        ) : seatFailureKind(messagesError) !== null ? (
+        ) : seatFailureKind(messagesError) !== null && messages.length === 0 ? (
           <SeatErrorState
             message={seatFailureMessage(seatFailureKind(messagesError)) ?? '消息加载失败'}
             onRetry={onRetryMessages}
@@ -434,12 +467,29 @@ export function SeatSessionView(props: SeatSessionViewProps) {
           <SeatEmptyState message="暂无消息" testId="seat-messages-empty" />
         ) : (
           <ul role="log" aria-live="polite" aria-label="消息记录" className="flex flex-col gap-2">
-            {messages.map((message) => (
-              <MessageRow key={message.id} message={message} side={sideOf(message)} fetchAssetBlob={fetchAssetBlob} />
-            ))}
+            {messages.map((message, index) => {
+              const day = messageTime(message.createdAt)?.day
+              const previousDay = index > 0 ? messageTime(messages[index - 1]!.createdAt)?.day : null
+              return <Fragment key={message.id}>
+                {day && day !== previousDay && (
+                  <li className="text-center text-xs text-muted-foreground" data-testid="seat-message-date">{day}</li>
+                )}
+                <MessageRow message={message} side={sideOf(message)} fetchAssetBlob={fetchAssetBlob} />
+              </Fragment>
+            })}
           </ul>
         )}
       </div>
+      {hasNewMessages && (
+        <Button type="button" variant="secondary" size="sm" onClick={jumpToLatest}
+          className="self-center" data-testid="seat-new-messages">查看新消息</Button>
+      )}
+      {props.readError != null && (
+        <div role="alert" className="px-4 py-1 text-sm text-destructive">
+          已读状态更新失败
+          <Button type="button" variant="ghost" size="sm" onClick={props.onRetryRead}>重试</Button>
+        </div>
+      )}
       <div className="border-t border-border p-3">
         {composerVisible ? (
           // 契约沙箱无 allow-forms：浏览器在 submit 事件触发前就拦截表单提交

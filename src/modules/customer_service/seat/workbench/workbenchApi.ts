@@ -61,6 +61,12 @@ export type SeatPageQuery = {
   mine?: boolean
 }
 
+export type SeatMessageQuery = Pick<SeatPageQuery, 'afterId' | 'limit'> & {
+  beforeId?: EntityId | null
+  order?: 'desc'
+  signal?: AbortSignal
+}
+
 function pageQuery(query: SeatPageQuery): Record<string, string> {
   const out: Record<string, string> = {}
   if (typeof query.afterId === 'string' && query.afterId.length > 0) out.after_id = query.afterId
@@ -133,10 +139,19 @@ export class SeatWorkbenchApi {
     orgId: EntityId,
     conversationId: EntityId,
     workspaceId: EntityId,
-    query: SeatPageQuery = {},
+    query: SeatMessageQuery = {},
   ): Promise<SeatMessage[]> {
+    const before = typeof query.beforeId === 'string' && query.beforeId.length > 0
+    const after = typeof query.afterId === 'string' && query.afterId.length > 0
+    if (before && after) throw new TypeError('message cursors are mutually exclusive')
+    if (query.order !== undefined && query.order !== 'desc') throw new TypeError('message order invalid')
     const payload = await this.client.request(buildConversationMessagesPath(conversationId), {
-      query: { workspace_id: workspaceId, organization_id: orgId, ...pageQuery(query) },
+      query: {
+        workspace_id: workspaceId, organization_id: orgId, ...pageQuery(query),
+        ...(before ? { before_id: query.beforeId as EntityId } : {}),
+        ...(query.order ? { order: query.order } : {}),
+      },
+      signal: query.signal,
     })
     return toSeatMessageList(payload)
   }

@@ -51,7 +51,7 @@ import {
 } from "./workbenchHooks";
 import { establishSeatSession, useSeatAuthStore } from "../seatAuthStore";
 import { QrLoginSession, type QrLoginEndReason } from "../qrLoginSession";
-import type { SeatSessionEndReason } from "../types";
+import type { EntityId, SeatSessionEndReason } from "../types";
 import type { SeatSessionSummary } from "./contract";
 import type { SeatViewStatus } from "./workbenchHooks";
 
@@ -107,7 +107,7 @@ function SeatWorkspaceInner() {
   const status = useSeatAuthStore((state) => state.status);
   const endReason = useSeatAuthStore((state) => state.endReason);
   const clearSession = useSeatAuthStore((state) => state.clearSession);
-  const { api, fetchImpl } = useSeatWorkbenchGateway();
+  const { api, fetchImpl, authSessionId } = useSeatWorkbenchGateway();
 
   const contextsQuery = useSeatContexts();
   const sendContexts = useMemo(() => seatFailureKind(contextsQuery.error) === "forbidden" ? [] : contextsQuery.data,
@@ -141,21 +141,19 @@ function SeatWorkspaceInner() {
 
   const conversationId = detail?.conversationId ?? null;
   const messagesQuery = useSeatMessages(scope.organizationId, conversationId, scope.workspaceId);
-  // CS-WEB-05：未读 badge（服务端 read-state）+ 聚焦/可见性驱动 ACK（单调 ref，
-  // 服务端单调 upsert 兜底——多标签页交错不倒退游标；lastSeen = 消息页最大 id）。
+  // 可见消息来自实际滚动视口，不能以已加载消息页的最大 ID 代替阅读。
   const readStateQuery = useSeatReadState(scope.organizationId, scope.workspaceId, selectedSessionId);
-  const lastSeenMessageId = useMemo(() => {
-    const items = messagesQuery.data ?? [];
-    let max: string | null = null;
-    for (const item of items) {
-      if (max === null || item.id.length > max.length || (item.id.length === max.length && item.id > max)) {
-        max = item.id;
-      }
-    }
-    return max;
-  }, [messagesQuery.data]);
-  useSeatFocusAck(scope.organizationId, scope.workspaceId, selectedSessionId, {
-    lastSeenMessageId,
+  const messageScopeKey = JSON.stringify([authSessionId, scope.organizationId, scope.workspaceId, selectedSessionId, conversationId]);
+  const [visibleMessage, setVisibleMessage] = useState<{ scope: string; id: EntityId | null } | null>(null);
+  const onVisibleMessageChange = useCallback((id: EntityId | null) => {
+    const allowedId = messagesQuery.readAllowed ? id : null;
+    setVisibleMessage(current => current?.scope === messageScopeKey && current.id === allowedId
+      ? current : { scope: messageScopeKey, id: allowedId });
+  }, [messageScopeKey, messagesQuery.readAllowed]);
+  const readAck = useSeatFocusAck(scope.organizationId, scope.workspaceId, selectedSessionId, {
+    readAllowed: messagesQuery.readAllowed,
+    visibleMessageId: visibleMessage?.scope === messageScopeKey &&
+      messagesQuery.data?.some(message => message.id === visibleMessage.id) ? visibleMessage.id : null,
   });
   const send = useSeatSend(
     scope.organizationId,
@@ -552,6 +550,14 @@ function SeatWorkspaceInner() {
               messagesLoading={messagesQuery.isLoading}
               messagesError={messagesQuery.error}
               onRetryMessages={() => void messagesQuery.refetch()}
+              messageScopeKey={messageScopeKey}
+              hasOlderMessages={messagesQuery.hasOlderMessages}
+              loadingOlder={messagesQuery.loadingOlder}
+              olderError={messagesQuery.olderError}
+              onLoadOlder={messagesQuery.loadOlder}
+              onVisibleMessageChange={onVisibleMessageChange}
+              readError={readAck.error}
+              onRetryRead={readAck.retry}
               canWrite={canWriteNow}
               writeClosedReason={writeClosedReason}
               draft={send.draft}
