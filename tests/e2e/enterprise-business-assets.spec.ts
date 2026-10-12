@@ -146,9 +146,11 @@ test.describe('AC15-ADM-03 企业业务资产页专项（EWS-09）', () => {
     await loginAsAdmin(page, { account: READONLY_ACCOUNT, password: READONLY_PASSWORD })
 
     await page.goto('/enterprise-business')
-    const pageRoot = page.locator('[data-page="enterprise-business-readonly"]')
-    await expect(pageRoot).toBeVisible({ timeout: 15_000 })
-    await expect(page.getByText('无查看权限').first()).toBeVisible()
+    // 现行路由守卫按菜单权限先拦截：audit_admin 的 MenuPaths 不含
+    // /enterprise-business → 渲染 403「无权限访问」整页，页面级「无查看权限」
+    // 空态（EnterpriseBusinessPage 内分支）不再可达。守卫是同一 AC 的更强
+    // 等价保护（页面组件根本不挂载），按现行行为断言。
+    await expect(page.getByRole('heading', { name: '无权限访问' })).toBeVisible({ timeout: 15_000 })
     // 附件 Tab（乃至整个 Tabs 面）不可达：无 tab 控件、无 asset 卡片。
     await expect(page.getByRole('tab', { name: '附件内容' })).toHaveCount(0)
     await expect(page.getByTestId('eb-assets')).toHaveCount(0)
