@@ -141,3 +141,11 @@ interface User {
 - 创建 CLAUDE.md
 - 记录 TSID 迁移的 JavaScript 精度风险和解决方案
 - 记录分页规范
+
+## 工程交付边界 / Engineering delivery boundaries
+
+代码优先复用，保持简洁，避免无需求抽象、重复实现、调试残留和假通过。优先更新权威文档，完成总结放对话，不为每次测试或讨论生成报告。临时日志、截图、覆盖率、缓存、数据和调试脚本默认不提交；必要的脱敏 fixtures、回归测试、生成物、验收证据按项目要求保留。禁止提交秘密或真实用户数据。
+
+开发阶段定向验证，最终集成候选统一执行适用全量检查；不跳过强制门禁，证据失效必须重验。测试/文档可选不代表免验证。仅在任务授权 commit 时提交，push/合并/部署另按授权；一次提交是完整可评审可回滚的功能或 fix，捆绑必要测试/迁移/文档，独立 docs/test/refactor 可单独提交。不按每步或每个小测试提交。审查 diff、明确路径/块暂存、审查最终暂存区，禁止盲目 git add . 或 -A。保护既有 WIP，多 agent 由主集成者控制共享分支提交，不绕过 hooks/CI。
+
+Keep code simple and reuse existing capabilities. Update authoritative docs; summarize in conversation instead of creating routine reports. Exclude temporary artifacts, but retain required sanitized fixtures, regression tests, generated deliverables and acceptance evidence. Never commit secrets or real user data. Use focused validation during development and applicable full gates on the final integration candidate; revalidate stale evidence. Commit only when authorized, with one reviewable, reversible logical change; review explicit staging and preserve existing WIP. The integrator controls shared-branch commits. Do not bypass hooks or CI.
