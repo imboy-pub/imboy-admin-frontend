@@ -15,7 +15,7 @@ export function SeatDetailPanel(props: SeatDetailPanelProps) {
   return <aside aria-label="会话详情"
     className="flex min-h-0 flex-col gap-4 overflow-y-auto border-l border-border p-4" data-testid="seat-detail-panel">
     <BasicDetails {...props} detail={props.detail} />
-    {props.detail.status === 'closed' && <ClosedRating />}
+    {props.detail.status === 'closed' && <ClosedRating detail={props.detail} />}
     {!props.canWrite && props.writeClosedReason !== null && <p
       className="rounded border border-amber-300 bg-amber-50 px-2 py-1.5 text-xs text-amber-900"
       role="note" data-testid="seat-write-revoked">{props.writeClosedReason}</p>}
@@ -58,9 +58,13 @@ function DetailError({ error, onRetry }: { error: unknown; onRetry: () => void }
   </p>
 }
 
-function ClosedRating() {
+function ClosedRating({ detail }: { detail: SeatSessionDetail }) {
+  const evaluation = detail.evaluation
+  const text = evaluation?.state === 'rated'
+    ? `访客评价：${evaluation.score} 星；评分时间：${new Date(evaluation.at * 1000).toISOString()}（UTC）`
+    : evaluation?.state === 'unrated' ? '会话已结束，访客尚未评价。' : '会话已结束，评价状态未知，请刷新详情核对。'
   return <section aria-label="评分状态" className="text-sm" data-testid="seat-rating-state">
     <h3 className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">评分状态</h3>
-    <p className="text-muted-foreground">会话已结束，等待访客评价或已关闭</p>
+    <p className="text-muted-foreground">{text}</p>
   </section>
 }

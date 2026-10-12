@@ -49,7 +49,7 @@ function formatAvgSeconds(avgSeconds: number | null): string {
 
 export function CsStatsPanel({ orgId, canRead }: Props) {
   const [date, setDate] = useState<string>(todayLocalIsoDate)
-  const [tzOffset, setTzOffset] = useState<number>(0)
+  const [tzOffset, setTzOffset] = useState<number>(() => -new Date().getTimezoneOffset())
 
   const query = useQuery({
     queryKey: ['customer_service', 'stats', orgId ?? '', date, tzOffset],
@@ -99,7 +99,7 @@ export function CsStatsPanel({ orgId, canRead }: Props) {
       />
     )
   } else {
-    body = <StatsFacts stats={stats} />
+    body = <StatsFacts stats={stats} retrievedAt={query.dataUpdatedAt} />
   }
 
   return (
@@ -145,9 +145,10 @@ export function CsStatsPanel({ orgId, canRead }: Props) {
 }
 
 /** 五指标事实卡：每个数值逐字来自响应投影字段（CS-GOV-03B 逐项相等）。 */
-function StatsFacts({ stats }: { stats: CsSessionStats }) {
+function StatsFacts({ stats, retrievedAt }: { stats: CsSessionStats; retrievedAt: number }) {
   return (
     <div className="space-y-3">
+      <StatsMetadata stats={stats} retrievedAt={retrievedAt} />
       {stats.windowStart >= 0 && stats.windowEnd >= 0 && (
         <p className="text-xs text-muted-foreground" data-testid="cs-stats-window">
           统计窗口：{formatWindowSeconds(stats.windowStart)} →{' '}
@@ -157,7 +158,7 @@ function StatsFacts({ stats }: { stats: CsSessionStats }) {
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <FactCard label="新会话" value={String(stats.newSessions)} sub={`窗口内开始`} />
         <FactCard
-          label="首次响应"
+          label="接单等待"
           value={`${stats.firstResponse.count} 次`}
           sub={`平均 ${formatAvgSeconds(stats.firstResponse.avgSeconds)}`}
         />
@@ -177,6 +178,19 @@ function StatsFacts({ stats }: { stats: CsSessionStats }) {
       </div>
     </div>
   )
+}
+
+function StatsMetadata({ stats, retrievedAt }: { stats: CsSessionStats; retrievedAt: number }) {
+  return <>
+    <p className="text-xs text-muted-foreground" data-testid="cs-stats-definitions">
+      新会话按开始排队时间统计；接单等待为排队到接单的时长；关闭与评价按各自发生时间统计。
+      当前排队和接待为查询时的数量。未接单、未评价不计入对应均值。
+    </p>
+    <p className="text-xs text-muted-foreground" data-testid="cs-stats-retrieved-at">
+      数据获取时间（本地）：{new Date(retrievedAt).toLocaleString('zh-CN')}；
+      统计日：{stats.date}，时区偏移：{stats.tzOffset} 分钟。
+    </p>
+  </>
 }
 
 function FactCard({ label, value, sub }: { label: string; value: string; sub: string }) {

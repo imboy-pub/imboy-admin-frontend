@@ -111,7 +111,12 @@ export type SeatSessionPage = {
   nextAfterId: EntityId | null
 }
 
+export type SeatEvaluation = { state: 'unknown' } | { state: 'unrated' }
+  | { state: 'rated'; score: number; at: number }
+
 export type SeatSessionDetail = SeatSessionSummary & {
+  /** Optional for legacy callers; absence is unknown, never unrated. */
+  evaluation?: SeatEvaluation
   /** 访客最小资料：只有掩码名/来源，无 PII（合同：contact.masked_name）。 */
   visitorMaskedName: string | null
   visitorSource: string
@@ -403,8 +408,19 @@ export function toSeatSessionDetail(raw: unknown): SeatSessionDetail {
   return {
     ...base,
     visitorMaskedName: base.contactMaskedName ?? optStr(contact.display_name),
+    evaluation: toSeatEvaluation(raw),
     visitorSource: optStr(raw.source) ?? 'shop_key',
   }
+}
+
+function toSeatEvaluation(raw: Record<string, unknown>): SeatEvaluation {
+  if (raw.rating === null && raw.rating_at === null) return { state: 'unrated' }
+  if (typeof raw.rating === 'number' && Number.isInteger(raw.rating) && raw.rating >= 1 && raw.rating <= 5
+    && typeof raw.rating_at === 'number' && Number.isSafeInteger(raw.rating_at)
+    && raw.rating_at > 0 && raw.rating_at <= 8_640_000_000_000) {
+    return { state: 'rated', score: raw.rating, at: raw.rating_at }
+  }
+  return { state: 'unknown' }
 }
 
 /** transfer-targets 页投影（{targets, next_after_id}；排除本人由服务端裁决）。 */

@@ -136,7 +136,7 @@ describe('SeatDetailPanel 关闭/转接写入口（组件级）', () => {
     expect(view.getByTestId('seat-detail-status').textContent).toBe('已结束')
     expect(view.getByTestId('seat-detail-version').textContent).toContain('9')
     // 评分是访客动作：坐席只见只读说明区。
-    expect(view.getByTestId('seat-rating-state').textContent).toContain('等待访客评价')
+    expect(view.getByTestId('seat-rating-state').textContent).toContain('评价状态未知')
     expect(view.queryByTestId('seat-close-submit')).toBeNull()
     expect(view.queryByTestId('seat-transfer-submit')).toBeNull()
   })
@@ -359,4 +359,15 @@ describe('SeatDetailPanel 写动作全链（× 假后端：wire 形状 + 成功/
     expect(submit.disabled).toBe(false)
     expect(submit.textContent).toContain('关闭会话')
   })
+})
+
+
+it('closed panel renders authoritative rating, explicit unrated and unknown separately', () => {
+  const { view, props } = renderPanel({ detail: detailFixture({ status: 'closed' }) })
+  expect(view.getByTestId('seat-rating-state').textContent).toContain('评价状态未知')
+  view.rerender(<SeatDetailPanel {...props} detail={{ ...detailFixture({ status: 'closed' }), evaluation: { state: 'unrated' } }} />)
+  expect(view.getByTestId('seat-rating-state').textContent).toContain('尚未评价')
+  view.rerender(<SeatDetailPanel {...props} detail={{ ...detailFixture({ status: 'closed' }), evaluation: { state: 'rated', score: 4, at: 1700000000 } }} />)
+  expect(view.getByTestId('seat-rating-state').textContent).toContain('4 星')
+  expect(view.getByTestId('seat-rating-state').textContent).toContain('2023-11-14T22:13:20.000Z')
 })

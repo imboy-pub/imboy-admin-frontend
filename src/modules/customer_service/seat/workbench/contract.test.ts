@@ -437,3 +437,15 @@ describe('CS-WEB-04 客户上下文投影（CS-BE-03 白名单双层防线）', 
     )
   })
 })
+
+
+it('detail distinguishes rated, explicit unrated and unknown rating facts', () => {
+  expect(toSeatSessionDetail({ ...SESSION_ROW, rating: 4, rating_at: 1700000000 }).evaluation)
+    .toEqual({ state: 'rated', score: 4, at: 1700000000 })
+  expect(toSeatSessionDetail({ ...SESSION_ROW, rating: null, rating_at: null }).evaluation).toEqual({ state: 'unrated' })
+  for (const facts of [{}, { rating: null }, { rating: 0, rating_at: 1700000000 },
+    { rating: 6, rating_at: 1700000000 }, { rating: '4', rating_at: 1700000000 },
+    { rating: 4, rating_at: null }, { rating: 4, rating_at: -1 }]) {
+    expect(toSeatSessionDetail({ ...SESSION_ROW, ...facts }).evaluation).toEqual({ state: 'unknown' })
+  }
+})

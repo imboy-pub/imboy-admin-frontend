@@ -250,8 +250,10 @@ export async function getCsSessionStats(params: CsSessionStatsParams): Promise<C
     { params: query }
   )
   const stats = toCsSessionStats(requireApiPayload(response.data, 'GET cs session stats'))
-  if (stats === null) {
-    throw new Error('统计响应缺少 organization_id，无法投影')
+  if (stats === null || stats.organizationId !== organizationId
+    || (date.length > 0 && stats.date !== date)
+    || stats.tzOffset !== (query.tz_offset ?? 0)) {
+    throw new Error('统计响应的事实、组织或时间范围不一致，无法展示')
   }
   return stats
 }

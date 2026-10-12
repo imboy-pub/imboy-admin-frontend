@@ -120,7 +120,10 @@ describe('CsStatsPanel — CS-GOV-03B', () => {
     expect(getByLabelText(/时区偏移/)).toBeTruthy()
     // 参数按面板当前输入透传（date 缺省=今日、tz 缺省 0）
     expect(calls[0]?.organizationId).toBe(ORG)
-    expect(calls[0]?.tzOffset).toBe(0)
+    expect(calls[0]?.tzOffset).toBe(-new Date().getTimezoneOffset())
+    expect(facts[1]?.textContent).toContain('接单等待')
+    expect(getByTestId('cs-stats-definitions').textContent).toContain('排队到接单')
+    expect(getByTestId('cs-stats-retrieved-at').textContent).toContain('数据获取时间')
   })
 
   it('无样本均值为 null 时诚实显示「无样本」（不伪装成 0）', async () => {
