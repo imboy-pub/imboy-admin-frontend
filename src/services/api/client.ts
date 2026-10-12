@@ -91,6 +91,12 @@ client.interceptors.response.use(
       return response
     }
 
+    // 流式/二进制响应（blob 等）不是 JSON 信封：直接透传给调用方
+    // （如 AC15-ADM-03 授权代理附件内容流）。信封校验只对 JSON 响应生效。
+    if (response.config?.responseType && response.config.responseType !== 'json') {
+      return response
+    }
+
     const data = response.data as ApiResponse
 
     if (data.code !== 0) {
