@@ -1,6 +1,6 @@
 # 贡献指南 / Contributing
 
-> **最后更新 / Last updated**: 2026-09-30
+> **最后更新 / Last updated**: 2026-10-12
 >（权威语言为简体中文 · [English](./CONTRIBUTING.en.md) · 双语规则见 [CLAUDE.md](./CLAUDE.md)）
 
 ## 开发环境
@@ -30,6 +30,7 @@ bun run dev        # http://127.0.0.1:8082，/api/adm 等代理到本地后端
 | `bun run lint` / `lint:fix` | ESLint 检查 / 自动修复 |
 | `bun run typecheck` | TypeScript 类型检查 |
 | `bun run deadcode` | knip 死代码检测 |
+| `bun run licenses:generate` / `licenses:check` | 第三方依赖许可证清单生成 / 同步校验 |
 | `bun run check` | lint + typecheck + deadcode 组合门 |
 
 <!-- AUTO-GENERATED: END -->
@@ -88,4 +89,4 @@ bun run test:e2e
    - 质量门：lint（ratchet ≤10）、typecheck（ratchet ≤31）、knip（ratchet ≤35）、单测全绿、E2E 关键流
    - 契约变更：跨仓（imboy / imboyapp）同步发版要求
    - 安全：无硬编码凭据（gitleaks）、无 `console.log` 残留
-4. CI（`.github/workflows/`）：`quality.yml`（lint+tsc+knip+secrets）、`sonar.yml`、`ci.yml`、`admin-e2e.yml`；合并前全部 status check 须通过。
+4. CI（`.github/workflows/`）：`quality.yml`（lint+tsc+knip+secrets）、`sonar.yml`、`ci.yml`、`admin-e2e.yml`、`widget-pairing.yml`（跨仓挂件资产配对门）；合并前全部 status check 须通过。

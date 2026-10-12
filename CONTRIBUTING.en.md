@@ -1,6 +1,6 @@
 # Contributing
 
-> **Last updated**: 2026-09-30
+> **Last updated**: 2026-10-12
 >
 > **Languages**: [简体中文](./CONTRIBUTING.md)（authoritative） | English
 
@@ -31,6 +31,7 @@ bun run dev        # http://127.0.0.1:8082, /api/adm etc. proxied to local backe
 | `bun run lint` / `lint:fix` | ESLint check / auto-fix |
 | `bun run typecheck` | TypeScript type check |
 | `bun run deadcode` | knip dead-code detection |
+| `bun run licenses:generate` / `licenses:check` | Third-party license inventory generation / sync check |
 | `bun run check` | lint + typecheck + deadcode combined gate |
 
 <!-- AUTO-GENERATED: END -->
@@ -89,4 +90,4 @@ Type and architecture conventions (TSID/`EntityId`, pagination, payload-first): 
    - Quality gates: lint (ratchet ≤10), typecheck (ratchet ≤31), knip (ratchet ≤35), unit tests green, E2E key flows
    - Contract changes: cross-repo (imboy / imboyapp) synchronized release requirement
    - Security: no hardcoded credentials (gitleaks), no leftover `console.log`
-4. CI (`.github/workflows/`): `quality.yml` (lint+tsc+knip+secrets), `sonar.yml`, `ci.yml`, `admin-e2e.yml`; all status checks must pass before merge.
+4. CI (`.github/workflows/`): `quality.yml` (lint+tsc+knip+secrets), `sonar.yml`, `ci.yml`, `admin-e2e.yml`, `widget-pairing.yml` (cross-repo widget asset pairing gate); all status checks must pass before merge.

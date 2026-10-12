@@ -1,6 +1,6 @@
 # IMBoy Admin 运维手册 / RUNBOOK
 
-> **最后更新 / Last updated**: 2026-09-30
+> **最后更新 / Last updated**: 2026-10-12
 > 语言 / Languages: 简体中文（权威） | [English](./RUNBOOK.en.md)
 > 适用范围：本仓（React 管理后台 SPA）的生产部署、健康检查与回滚。
 > 部署编排真源在后端主仓：`../imboy/deploy/`（本文只交叉引用，不复制内容）。
@@ -56,7 +56,7 @@ rsync -az --delete dist/ <user>@<host>:/www/wwwroot/prodadm.imboy.pub/
 
 admin 域（`prodadm.imboy.pub`）与 API 域（`pro.imboy.pub`）**跨域**，以下 5 点为上线实证过的契约，改动任一处都会破坏登录：
 
-1. **`.env.production` 已入仓**（`git ls-files` 在库，仅含 `__IMBOY_API_HOST__` 占位符，见 `.gitignore` 39-40 行注释）：CI/Docker 构建把占位符 bake 进产物、容器 entrypoint 运行时替换。**静态上传形态的域注入真源是 `../imboy/scripts/imboy-deploy.sh:396-425`（即 2.1 的方式一）**：构建期生成 `.env.production.local`（优先级高于 `.env.production`）注入**同源值**——API 基址为相对路径 `/api/adm`（请求经 prodadm 同源反代到 9800，**不是**跨域直连 `pro.imboy.pub`），构建后对 `dist/index.html` 后置 sed 清除 CSP 占位符残留，并以「dist 无 `__IMBOY_API_HOST__` 残留」为 fail 门。方式二纯手工 `bun run build` 不经此注入链，产物会保留占位符、**不可直接上线**——手工部署必须先复刻方式一的注入步骤。验收口径：走方式一的产物 API 基址应为 `/api/adm`（同源），出现占位符或跨域直连域即配错。
+1. **`.env.production` 已入仓**（`git ls-files` 在库，仅含 `__IMBOY_API_HOST__` 占位符，见 `.gitignore` 39-40 行注释）：CI/Docker 构建把占位符 bake 进产物、容器 entrypoint 运行时替换。**静态上传形态的域注入真源是 `../imboy/scripts/imboy-deploy.sh` 的 `deploy_admin()` 函数（即 2.1 的方式一）**：构建期生成 `.env.production.local`（优先级高于 `.env.production`）注入**同源值**——API 基址为相对路径 `/api/adm`（请求经 prodadm 同源反代到 9800，**不是**跨域直连 `pro.imboy.pub`），构建后对 `dist/index.html` 后置 sed 清除 CSP 占位符残留，并以「dist 无 `__IMBOY_API_HOST__` 残留」为 fail 门。方式二纯手工 `bun run build` 不经此注入链，产物会保留占位符、**不可直接上线**——手工部署必须先复刻方式一的注入步骤。验收口径：走方式一的产物 API 基址应为 `/api/adm`（同源），出现占位符或跨域直连域即配错。
 2. **CSP `connect-src`**：`index.html` 的 meta CSP 必须保留 API 域槽位；Docker 形态用 `__IMBOY_API_HOST__` 占位符运行时注入；静态上传形态（方式一）因基址为同源相对路径，构建后 sed 把 CSP 中的占位符清空、退化为同源访问（仅剩 `'self'`）。
 3. **Cookie path=/ 契约**：admin 认证 cookie 的 path 必须是 `/`（后端 `adm_auth_middleware` 侧）。单 cookie 无法同时匹配 `/adm` 与 `/api/adm` 两个前缀，公共祖先只有 `/`；出现「验证码有误」先查 cookie path。
 4. **密码 md5hex 契约**：前端对明文先 `md5()` 再加密传输，后端按 `elib_password:generate(md5(明文))` 校验。重置 admin 密码必须存 `md5(明文)` 的 hex，直接存明文会恒「密码错误」。

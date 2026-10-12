@@ -50,6 +50,8 @@ bun run dev
 | `bun run lint:fix` | `eslint . --fix` | ESLint 自动修复 |
 | `bun run typecheck` | `tsc --noEmit -p tsconfig.app.json` | TypeScript 类型检查 |
 | `bun run deadcode` | `knip` | 死代码检测 |
+| `bun run licenses:generate` | `bun scripts/generate-third-party-licenses.mts` | 生成第三方依赖许可证清单（`docs/third-party-licenses.md`） |
+| `bun run licenses:check` | `bun scripts/generate-third-party-licenses.mts --check` | 校验许可证清单与依赖是否同步 |
 | `bun run check` | `eslint . && tsc --noEmit -p tsconfig.app.json && knip` | 提交前组合检查（lint + typecheck + deadcode） |
 
 <!-- AUTO-GENERATED: END -->
