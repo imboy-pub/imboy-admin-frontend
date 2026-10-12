@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { EntityId } from '../types'
 import type { SeatWorkbenchApi } from './workbenchApi'
 
-export type FocusAckScope = {
+type FocusAckScope = {
   api: SeatWorkbenchApi
   authSessionId: string
   authStatus: 'anonymous' | 'authenticated'

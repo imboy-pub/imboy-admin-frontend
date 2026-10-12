@@ -61,7 +61,7 @@ export type SeatPageQuery = {
   mine?: boolean
 }
 
-export type SeatMessageQuery = Pick<SeatPageQuery, 'afterId' | 'limit'> & {
+type SeatMessageQuery = Pick<SeatPageQuery, 'afterId' | 'limit'> & {
   beforeId?: EntityId | null
   order?: 'desc'
   signal?: AbortSignal

@@ -5,7 +5,7 @@ import type { EntityId } from '../types'
 import type { SeatMessage } from './contract'
 import { SEAT_MESSAGE_PAGE_LIMIT, type SeatWorkbenchApi } from './workbenchApi'
 
-export type MessageHistoryScope = {
+type MessageHistoryScope = {
   api: SeatWorkbenchApi
   queryRoot: string
   authSessionId: string

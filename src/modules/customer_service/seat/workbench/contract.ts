@@ -111,7 +111,7 @@ export type SeatSessionPage = {
   nextAfterId: EntityId | null
 }
 
-export type SeatEvaluation = { state: 'unknown' } | { state: 'unrated' }
+type SeatEvaluation = { state: 'unknown' } | { state: 'unrated' }
   | { state: 'rated'; score: number; at: number }
 
 export type SeatSessionDetail = SeatSessionSummary & {
