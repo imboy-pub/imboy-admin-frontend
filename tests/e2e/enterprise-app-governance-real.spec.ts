@@ -32,8 +32,17 @@ test.skip(!API, 'IMBOY_E2E_REAL_BACKEND 未设置：真后端联调用例仅显�
 
 const ORG = '997010'
 const APP = '997020'
-const ACCOUNT = process.env.IMBOY_E2E_ADMIN_ACCOUNT || 'admine2e_admin@example.invalid'
-const PASSWORD = process.env.IMBOY_E2E_ADMIN_PASSWORD || 'Admine2e#2026'
+// AC27 秘密扫描修正：凭据只允许环境注入（.env.e2e gitignored），
+// 禁止在仓内保留明文回退值。
+const ACCOUNT = process.env.IMBOY_E2E_ADMIN_ACCOUNT ?? ''
+const PASSWORD = process.env.IMBOY_E2E_ADMIN_PASSWORD ?? ''
+
+test.beforeAll(() => {
+  test.skip(
+    ACCOUNT === '' || PASSWORD === '',
+    '缺 IMBOY_E2E_ADMIN_ACCOUNT / IMBOY_E2E_ADMIN_PASSWORD（.env.e2e，不入仓）',
+  )
+})
 
 type Cookie = { name: string; value: string; domain: string; path: string }
 
