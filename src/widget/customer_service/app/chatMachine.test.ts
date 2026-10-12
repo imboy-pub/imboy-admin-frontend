@@ -222,3 +222,15 @@ describe('历史附件与图片预览（CS-WGT-01）', () => {
     expect(state.messages).toHaveLength(0)
   })
 })
+
+
+it('authority loss preserves unsent content while removing session and exposing re-entry', () => {
+  const original = initialChatState()
+  const withDraft = reduceChat(original, { type: 'message_optimistic', key: 'draft', clientMsgId: 'stable', body: '未确认内容' })
+  const ended = reduceChat(withDraft, { type: 'authority_ended', message: '请重新接入' })
+  expect(ended.phase).toBe('error')
+  expect(ended.session).toBeNull()
+  expect(ended.connection).toBe('offline')
+  expect(ended.messages).toEqual(withDraft.messages)
+  expect(ended.errorMessage).toBe('请重新接入')
+})

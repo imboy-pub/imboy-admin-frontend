@@ -313,6 +313,11 @@ export function createChatUi(root: HTMLElement, locale: string, handlers: ChatUi
   leaveHint.setAttribute('role', 'status')
   leaveHint.setAttribute('data-testid', 'cs-leave-message-hint')
   leaveHint.style.display = 'none'
+  const sessionHint = doc.createElement('div')
+  sessionHint.className = 'cs-leave'
+  sessionHint.setAttribute('role', 'status')
+  sessionHint.setAttribute('data-testid', 'cs-session-status')
+  sessionHint.style.display = 'none'
   const composer = doc.createElement('div')
   composer.className = 'cs-composer'
   // CS-WGT-01：图片大图预览 overlay（挂在 cs-body 内，覆盖消息区/composer）。
@@ -362,6 +367,7 @@ export function createChatUi(root: HTMLElement, locale: string, handlers: ChatUi
   composer.appendChild(fileInput)
   body.appendChild(center)
   body.appendChild(log)
+  body.appendChild(sessionHint)
   body.appendChild(leaveHint)
   body.appendChild(banner)
   body.appendChild(composer)
@@ -386,6 +392,8 @@ export function createChatUi(root: HTMLElement, locale: string, handlers: ChatUi
     center.style.display = 'none'
     log.style.display = 'flex'
     composer.style.display = 'flex'
+    sessionHint.style.display = 'block'
+    sessionHint.textContent = sessionStatusText(state)
     composer.querySelectorAll('button, input').forEach((el) => {
       ;(el as HTMLButtonElement | HTMLInputElement).disabled = state.session === null
     })
@@ -397,6 +405,17 @@ export function createChatUi(root: HTMLElement, locale: string, handlers: ChatUi
     banner.style.display = state.connection === 'offline' || state.connection === 'reconnecting' ? 'block' : 'none'
     banner.textContent = CONNECTION_LABELS[state.connection]
     renderLog(state.messages)
+  }
+
+  function sessionStatusText(state: ChatState): string {
+    const zh = locale === 'zh-CN'
+    if (state.session === null) return zh ? '正在建立会话…' : 'Starting your conversation…'
+    if (state.session.status === 'queued') return zh
+      ? '会话正在等待客服接待，你可以先发送问题。'
+      : 'Waiting for an agent. You can send your question now.'
+    if (state.session.status === 'active') return zh
+      ? '客服正在处理此会话。' : 'An agent is handling this conversation.'
+    return zh ? '暂时无法确认接待状态。' : 'The reception status is currently unknown.'
   }
 
   /** CP-CON-04：留言提示 i18n 文案（中/英）。 */
@@ -586,6 +605,8 @@ export function createChatUi(root: HTMLElement, locale: string, handlers: ChatUi
     banner.style.display = 'none'
     leaveHint.style.display = 'none'
     leaveHint.textContent = ''
+    sessionHint.style.display = 'none'
+    sessionHint.textContent = ''
     center.style.display = 'flex'
     if (state.phase === 'awaiting-context' || state.phase === 'bootstrapping') {
       center.replaceChildren(textNode('p', locale === 'zh-CN' ? '正在连接客服…' : 'Connecting…'))

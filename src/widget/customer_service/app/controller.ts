@@ -29,7 +29,6 @@ import {
   classifySseFrame,
   SseEventIdDeduper,
 } from './sseProtocol'
-import type { AttachmentItem } from './attachmentMachine'
 import { runAttachmentPipeline } from './uploader'
 import { parseHostToWidget } from '../protocol'
 import { WidgetApiClient, WidgetApiError } from './widgetApi'
@@ -149,11 +148,15 @@ export function createWidgetController(deps: ControllerDeps) {
   function onRevoke(): void {
     deps.api.invalidateCredential()
     lifecycle += 1
+    stream?.stop()
+    stream = null
+    scope = null
     readRevoked = true
     visitorReads.reset()
     deps.io.stopReadObservation?.()
     // 吊销/过期：短期恢复状态立即清理（合同：revoke 清理）。
     if (deps.storage !== null && visitScope !== null) clearVisitSubject(deps.storage, visitScope)
+    dispatch({ type: 'authority_ended', message: '接入凭证已失效，请重新接入；未确认的发送不会自动重发。' })
     postToHost({ source: 'imboy-cs-widget', type: 'status', state: 'error' })
   }
 
@@ -571,24 +574,41 @@ export function createWidgetController(deps: ControllerDeps) {
   async function sendMessage(body: string): Promise<void> {
     // consent 未同意（含 notice-rejected）一律不产生会话/消息动作。
     if (state.phase !== 'chat') return
+    const generation = lifecycle
     if (state.session === null) {
       await ensureSession()
     }
+    if (generation !== lifecycle) return
     const session = state.session
     if (session === null || scope === null) return
     const clientMsgId = deps.newId()
     await sendTextWithKey(session.id, clientMsgId, body)
   }
 
-  async function sendTextWithKey(sessionId: string, clientMsgId: string, body: string): Promise<void> {
+  function currentOperation(sessionId: string): () => boolean {
+    const generation = lifecycle, installation = scope?.installationId, token = deps.api.currentToken()
+    return () => generation === lifecycle && state.session?.id === sessionId
+      && scope?.installationId === installation && token !== null && deps.api.currentToken() === token
+  }
+
+  function currentWriteOperation(sessionId: string): () => boolean {
+    const current = currentOperation(sessionId)
+    return () => current() && state.phase === 'chat'
+      && (state.session?.status === 'queued' || state.session?.status === 'active')
+  }
+
+  async function sendTextWithKey(sessionId: string, clientMsgId: string, body: string, key = `local-${clientMsgId}`): Promise<void> {
     if (scope === null) return
-    const key = `local-${clientMsgId}`
+    const current = currentWriteOperation(sessionId)
+    if (!current()) return
     dispatch({ type: 'message_optimistic', key, clientMsgId, body, createdAt: new Date(deps.nowMs()).toISOString(), attachment: null })
     try {
       const confirmed = await deps.api.sendMessage(sessionId, scope, clientMsgId, body)
+      if (!current()) return
       dispatch({ type: 'message_confirmed', key, id: confirmed.id })
       if (isCursorAhead(confirmed.id, lastCursor)) lastCursor = confirmed.id
     } catch (error) {
+      if (!current()) return
       if (isRevoke(error)) onRevoke()
       dispatch({ type: 'message_failed', key })
     }
@@ -615,36 +635,25 @@ export function createWidgetController(deps: ControllerDeps) {
       },
     })
     attachmentFiles.set(clientMsgId, file)
-    const item = await runAttachmentPipeline({
-      sessionId,
-      scope,
-      file,
-      clientMsgId,
-      deps: {
-        api: deps.api,
-        fetchImpl: deps.fetchImpl,
-        onItem: applyAttachmentItem,
-      },
-    })
-    if (item.state === 'linked' && item.messageId !== null) {
-      dispatch({ type: 'message_confirmed', key, id: item.messageId })
-    } else {
-      dispatch({ type: 'message_failed', key })
-    }
+    await uploadAttachment(sessionId, scope, file, clientMsgId)
   }
 
-  function applyAttachmentItem(item: AttachmentItem): void {
-    dispatch({
-      type: 'attachment_progress',
-      key: item.key,
-      state: item.state,
-      assetId: item.assetId,
+  async function uploadAttachment(sessionId: string, operationScope: RequestScope, file: Blob, clientMsgId: string): Promise<void> {
+    const current = currentWriteOperation(sessionId)
+    const key = `local-${clientMsgId}`
+    const item = await runAttachmentPipeline({ sessionId, scope: operationScope, file, clientMsgId,
+      deps: { api: deps.api, fetchImpl: deps.fetchImpl, isCurrent: current, onCredentialRefused: onRevoke,
+        onItem: (next) => { if (current()) dispatch({ type: 'attachment_progress', key: next.key, state: next.state, assetId: next.assetId }) },
+      },
     })
+    if (!current()) return
+    if (item.state === 'linked' && item.messageId !== null) dispatch({ type: 'message_confirmed', key, id: item.messageId })
+    else dispatch({ type: 'message_failed', key })
   }
 
   async function retryMessage(key: string): Promise<void> {
     const message = state.messages.find((m) => m.key === key)
-    if (message === undefined || state.session === null || scope === null) return
+    if (state.phase !== 'chat' || message === undefined || state.session === null || scope === null) return
     const clientMsgId = message.clientMsgId ?? deps.newId()
     if (message.attachment !== null) {
       // 附件重试：复用同一 client_msg_id（幂等键）；hash 由流水线重算/复用。
@@ -653,47 +662,36 @@ export function createWidgetController(deps: ControllerDeps) {
         dispatch({ type: 'message_failed', key })
         return
       }
-      const item = await runAttachmentPipeline({
-        sessionId: state.session.id,
-        scope,
-        file,
-        clientMsgId,
-        deps: { api: deps.api, fetchImpl: deps.fetchImpl, onItem: applyAttachmentItem },
-      })
-      if (item.state === 'linked' && item.messageId !== null) {
-        dispatch({ type: 'message_confirmed', key, id: item.messageId })
-      } else {
-        dispatch({ type: 'message_failed', key })
-      }
+      await uploadAttachment(state.session.id, scope, file, clientMsgId)
       return
     }
-    dispatch({ type: 'message_optimistic', key, clientMsgId, body: message.body, createdAt: new Date(deps.nowMs()).toISOString(), attachment: null })
-    try {
-      const confirmed = await deps.api.sendMessage(state.session.id, scope, clientMsgId, message.body)
-      dispatch({ type: 'message_confirmed', key, id: confirmed.id })
-    } catch (error) {
-      if (isRevoke(error)) onRevoke()
-      dispatch({ type: 'message_failed', key })
-    }
+    await sendTextWithKey(state.session.id, clientMsgId, message.body, key)
   }
 
   async function submitRating(score: number): Promise<void> {
     if (state.session === null || scope === null) return
+    const sessionId = state.session.id, operationScope = scope
+    const current = currentOperation(sessionId)
     let expectedVersion: number
     try {
-      const sessions = await deps.api.listSessions(scope)
-      expectedVersion = sessions.find((s) => s.id === state.session?.id)?.version ?? 0
-    } catch {
-      expectedVersion = 0
+      const sessions = await deps.api.listSessions(operationScope)
+      expectedVersion = sessions.find((s) => s.id === sessionId)?.version ?? 0
+    } catch (error) {
+      if (!current()) return
+      if (isRevoke(error)) { onRevoke(); return }
+      dispatch({ type: 'rating_failed', message: '无法取得会话版本，请稍后重试。' })
+      return
     }
+    if (!current()) return
     if (!isValidExpectedVersion(expectedVersion)) {
       dispatch({ type: 'rating_failed', message: '无法取得会话版本（expected_version）' })
       return
     }
-    dispatch({ type: 'rating_submitted', score })
     try {
-      await deps.api.submitRating(state.session.id, scope, score, expectedVersion)
+      await deps.api.submitRating(sessionId, operationScope, score, expectedVersion)
+      if (current()) dispatch({ type: 'rating_submitted', score })
     } catch (error) {
+      if (!current()) return
       if (isRevoke(error)) onRevoke()
       // 幂等语义：评分失败允许重试（phase 保持 closed-rating）。
       dispatch({ type: 'rating_failed', message: error instanceof Error ? error.message : '评分提交失败' })
@@ -715,12 +713,16 @@ export function createWidgetController(deps: ControllerDeps) {
   function closeAndCleanup(): void {
     deps.api.invalidateCredential()
     lifecycle += 1
+    stream?.stop()
+    stream = null
+    scope = null
     readRevoked = true
     visitorReads.reset()
     deps.io.stopReadObservation?.()
     if (deps.storage !== null && visitScope !== null) clearVisitSubject(deps.storage, visitScope)
     attachmentFiles.clear()
     revokeTrackedObjectUrls()
+    dispatch({ type: 'authority_ended', message: '聊天窗口已关闭，请重新接入。' })
     postToHost({ source: 'imboy-cs-widget', type: 'close' })
   }
 

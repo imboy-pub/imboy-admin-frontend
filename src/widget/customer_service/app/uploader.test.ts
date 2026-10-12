@@ -177,3 +177,30 @@ describe('runAttachmentPipeline（hash→presign→裸PUT→confirm→asset_ids 
     expect(failedAgain.failureReason).toContain('422')
   })
 })
+
+
+for (const boundary of ['hash', 'presign', 'put']) {
+  it('stale lifecycle after ' + boundary + ' never performs the next upload write', async () => {
+    const env = makeEnv({ apiPutTarget: 'https://store.example/owned' })
+    let current = true
+    const api = new WidgetApiClient(env.fetchImpl)
+    let presigns = 0, confirms = 0, sends = 0, puts = 0
+    api.presignAttachment = async () => {
+      presigns += 1
+      if (boundary === 'presign') current = false
+      return { assetId: '1', uploadRef: 'ref', uploadUrl: 'https://store.example/owned' }
+    }
+    api.confirmAttachment = async () => { confirms += 1 }
+    api.sendMessage = async () => { sends += 1; return { id: '2', senderType: 'contact', senderContactId: null, clientMsgId: 'stable', body: '', createdAt: null, assets: [] } }
+    const file = new File(['x'], 'x.pdf', { type: 'application/pdf' })
+    if (boundary === 'hash') file.arrayBuffer = async () => { current = false; return new Uint8Array([1]).buffer }
+    const result = await runAttachmentPipeline({ sessionId: SESSION_ID, scope: SCOPE, file, clientMsgId: 'stable',
+      deps: { api, isCurrent: () => current, onItem: () => {}, fetchImpl: async () => {
+        puts += 1; if (boundary === 'put') current = false; return { ok: true, status: 200 } as Response
+      } } })
+    expect(result.state).toBe('failed')
+    expect(presigns).toBe(boundary === 'hash' ? 0 : 1)
+    expect(puts).toBe(boundary === 'put' ? 1 : 0)
+    expect(confirms).toBe(0); expect(sends).toBe(0)
+  })
+}

@@ -125,6 +125,7 @@ type ChatEvent =
   | { type: 'connection'; state: ChatConnectionState }
   | { type: 'rating_submitted'; score: number }
   | { type: 'rating_failed'; message: string }
+  | { type: 'authority_ended'; message: string }
   | { type: 'retry' }
 
 export function initialChatState(brand: WidgetBrand = { displayName: '在线客服', primaryColor: null, welcomeText: null }): ChatState {
@@ -311,6 +312,8 @@ export function reduceChat(state: ChatState, event: ChatEvent): ChatState {
       return { ...state, phase: 'rated', ratingScore: event.score }
     case 'rating_failed':
       return { ...state, errorMessage: event.message }
+    case 'authority_ended':
+      return { ...state, phase: 'error', session: null, connection: 'offline', preview: null, errorMessage: event.message }
     case 'retry':
       return { ...initialChatState(state.brand), phase: 'bootstrapping' }
     default:
