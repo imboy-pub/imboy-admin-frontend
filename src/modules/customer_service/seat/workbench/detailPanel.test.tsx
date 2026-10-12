@@ -124,6 +124,7 @@ describe('SeatDetailPanel 关闭/转接写入口（组件级）', () => {
     expect(view.getByTestId('seat-detail-status').textContent).toBe('进行中')
     expect(view.getByTestId('seat-detail-version').textContent).toContain('8')
     fireEvent.click(view.getByTestId('seat-close-submit'))
+    fireEvent.click(view.getByRole('button', { name: '确认结束' }))
     // CAS 基准 = 权威事实 detail.version；且只上抛一个参数（reason 可选留空）。
     expect(mocks.onClose).toHaveBeenCalledTimes(1)
     expect(mocks.onClose.mock.calls[0]?.length).toBe(1)
@@ -169,6 +170,7 @@ describe('SeatDetailPanel 关闭/转接写入口（组件级）', () => {
     await user.selectOptions(view.getByTestId('seat-transfer-target-select'), OTHER_IDENTITY)
     expect(submit.disabled).toBe(false)
     fireEvent.click(submit)
+    fireEvent.click(view.getByRole('button', { name: '确认转接' }))
     // api 调用形状：to = transfer-targets 的 identityId，CAS 基准 = detail.version。
     expect(mocks.onTransfer).toHaveBeenCalledTimes(1)
     expect(mocks.onTransfer.mock.calls[0]?.length).toBe(2)
@@ -286,6 +288,7 @@ describe('SeatDetailPanel 写动作全链（× 假后端：wire 形状 + 成功/
     const user = userEvent.setup()
     await user.selectOptions(view.getByTestId('seat-transfer-target-select'), OTHER_IDENTITY)
     fireEvent.click(view.getByTestId('seat-transfer-submit'))
+    fireEvent.click(view.getByRole('button', { name: '确认转接' }))
     await waitFor(() => {
       const call = backend.calls.find(
         (item) => item.method === 'POST' && item.path === `/api/v1/seat/cs/organizations/${ORG}/sessions/${SESSION}/transfer`,
@@ -311,6 +314,7 @@ describe('SeatDetailPanel 写动作全链（× 假后端：wire 形状 + 成功/
     )
     await openActiveDetail(view)
     fireEvent.click(view.getByTestId('seat-close-submit'))
+    fireEvent.click(view.getByRole('button', { name: '确认结束' }))
     // 成功：假后端 close 置 closed + version+1 → 权威刷新收敛到已结束。
     await waitFor(() => expect(view.getByTestId('seat-detail-status').textContent).toBe('已结束'))
     const closeCalls = backend.calls.filter(
@@ -339,6 +343,7 @@ describe('SeatDetailPanel 写动作全链（× 假后端：wire 形状 + 成功/
     await sleep(100)
     backend.state.failingResponsesLeft = 1
     fireEvent.click(view.getByTestId('seat-close-submit'))
+    fireEvent.click(view.getByRole('button', { name: '确认结束' }))
     await waitFor(() => {
       const closeCalls = backend.calls.filter(
         (item) => item.method === 'POST' && item.path.endsWith(`/sessions/${SESSION}/close`),

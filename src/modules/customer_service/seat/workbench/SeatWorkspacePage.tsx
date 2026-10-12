@@ -230,6 +230,8 @@ function SeatWorkspaceInner() {
   const contextsFailure = seatFailureKind(contextsQuery.error);
 
   const handleClaim = (session: SeatSessionSummary) => {
+    setSelectedSessionId(session.id);
+    setPane("conversation");
     claim.mutate({ sessionId: session.id, expectedVersion: session.version });
   };
 
@@ -269,6 +271,11 @@ function SeatWorkspaceInner() {
   const [detailDrawerOpen, setDetailDrawerOpen] = useState(false);
   const detailPanel = (
     <SeatDetailPanel
+      key={messageScopeKey}
+      actionScopeKey={messageScopeKey}
+      draftHasContent={send.draft.body.trim().length > 0 || send.draft.fileName !== null}
+      sending={send.sending}
+      sendOutcomeUnknown={send.outcomeUnknown}
       detail={detail}
       detailLoading={detailQuery.isLoading}
       detailError={detailQuery.error}
@@ -277,13 +284,17 @@ function SeatWorkspaceInner() {
       writeClosedReason={writeClosedReason}
       transferTargets={transferTargetsQuery.data ?? null}
       transferTargetsLoading={transferTargetsQuery.isLoading}
-      onTransfer={(toIdentityId, expectedVersion) => {
-        transfer.mutate({ toIdentityId, expectedVersion });
+      transferTargetsError={transferTargetsQuery.error}
+      onRetryTransferTargets={() => void transferTargetsQuery.refetch()}
+      transferError={transfer.error}
+      onTransfer={async (toIdentityId, expectedVersion) => {
+        await transfer.mutateAsync({ toIdentityId, expectedVersion });
       }}
       transferConflict={transfer.conflict}
       transferPending={transfer.isPending}
-      onClose={(expectedVersion) => {
-        close.mutate({ expectedVersion });
+      closeError={close.error}
+      onClose={async (expectedVersion) => {
+        await close.mutateAsync({ expectedVersion });
       }}
       closeConflict={close.conflict}
       closePending={close.isPending}

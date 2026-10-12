@@ -32,6 +32,7 @@ import type { SeatContext, EntityId } from '../types'
 import { useSeatSendState } from './seatSend'
 import { useSeatMessageHistory } from './seatMessageHistory'
 import { useSeatVisibleAck } from './seatFocusAck'
+import { useSeatCasMutation } from './seatCasMutation'
 import {
   SEAT_SESSION_PAGE_LIMIT,
   SeatWorkbenchApi,
@@ -306,63 +307,30 @@ export function useSeatSessionViews(orgId: EntityId | null, workspaceId: EntityI
 // CAS 写：claim / transfer / close（409 → 失效刷新 + 冲突标记）
 // ---------------------------------------------------------------------------
 
-type SeatCasConflict = { sessionId: EntityId } | null
-
 export function useSeatClaim(orgId: EntityId | null, workspaceId: EntityId | null) {
-  const { api } = useSeatWorkbenchGateway()
-  const invalidate = useInvalidateSeatQueries()
-  const [conflict, setConflict] = useState<SeatCasConflict>(null)
-  const mutation = useMutation({
-    mutationFn: async (input: { sessionId: EntityId; expectedVersion: number }) => {
-      if (orgId === null || workspaceId === null) throw new Error('seat claim requires scope')
-      await api.claim(orgId, input.sessionId, workspaceId, input.expectedVersion)
+  const { api, authSessionId } = useSeatWorkbenchGateway()
+  const mutation = useSeatCasMutation({ api, authSessionId, orgId, workspaceId, sessionId: null },
+    async (input: { sessionId: EntityId; expectedVersion: number }) => {
+      await api.claim(orgId as EntityId, input.sessionId, workspaceId as EntityId, input.expectedVersion)
       return input.sessionId
-    },
-    onSettled: (_data, error, variables) => {
-      // 成功与冲突都失效刷新：A01 成功方/失败方都自动收敛真实状态。
-      invalidate('sessions', 'detail')
-      if (error !== null && error !== undefined && isSeatApiError(error) && error.kind === 'conflict') {
-        setConflict({ sessionId: variables.sessionId })
-      } else if (error === null) {
-        setConflict(null)
-      }
-    },
-  })
-  return { ...mutation, conflict, clearConflict: () => setConflict(null) }
+    })
+  return { ...mutation, conflict: mutation.conflict && mutation.variables ? { sessionId: mutation.variables.sessionId } : null }
 }
 
 export function useSeatTransfer(orgId: EntityId | null, sessionId: EntityId | null, workspaceId: EntityId | null) {
-  const { api } = useSeatWorkbenchGateway()
-  const invalidate = useInvalidateSeatQueries()
-  const [conflict, setConflict] = useState(false)
-  const mutation = useMutation({
-    mutationFn: async (input: { toIdentityId: EntityId; expectedVersion: number }) => {
-      if (orgId === null || sessionId === null || workspaceId === null) throw new Error('seat transfer requires scope')
-      await api.transfer(orgId, sessionId, workspaceId, input)
-    },
-    onSettled: (_data, error) => {
-      invalidate('sessions', 'detail')
-      setConflict(isSeatApiError(error) && error.kind === 'conflict')
-    },
-  })
-  return { ...mutation, conflict }
+  const { api, authSessionId } = useSeatWorkbenchGateway()
+  return useSeatCasMutation({ api, authSessionId, orgId, workspaceId, sessionId },
+    async (input: { toIdentityId: EntityId; expectedVersion: number }) => {
+      await api.transfer(orgId as EntityId, sessionId as EntityId, workspaceId as EntityId, input)
+    })
 }
 
 export function useSeatClose(orgId: EntityId | null, sessionId: EntityId | null, workspaceId: EntityId | null) {
-  const { api } = useSeatWorkbenchGateway()
-  const invalidate = useInvalidateSeatQueries()
-  const [conflict, setConflict] = useState(false)
-  const mutation = useMutation({
-    mutationFn: async (input: { expectedVersion: number; reason?: string }) => {
-      if (orgId === null || sessionId === null || workspaceId === null) throw new Error('seat close requires scope')
-      await api.close(orgId, sessionId, workspaceId, input)
-    },
-    onSettled: (_data, error) => {
-      invalidate('sessions', 'detail')
-      setConflict(isSeatApiError(error) && error.kind === 'conflict')
-    },
-  })
-  return { ...mutation, conflict }
+  const { api, authSessionId } = useSeatWorkbenchGateway()
+  return useSeatCasMutation({ api, authSessionId, orgId, workspaceId, sessionId },
+    async (input: { expectedVersion: number; reason?: string }) => {
+      await api.close(orgId as EntityId, sessionId as EntityId, workspaceId as EntityId, input)
+    })
 }
 
 // ---------------------------------------------------------------------------
