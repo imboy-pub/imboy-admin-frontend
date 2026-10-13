@@ -96,6 +96,22 @@ describe('留言状态判定（queued 且无 online 坐席）', () => {
 })
 
 describe('widget 留言状态 UI（i18n 中英；不阻断发送）', () => {
+  it('queued、active 和未知状态只显示权威会话事实，不编造排队名次', () => {
+    const { root, render } = mountUi(chatWithSession({ status: 'queued', agentsOnline: null }))
+    const hint = getByTestId(root, 'cs-session-status')
+    expect(hint.textContent).toBe('会话正在等待客服接待，你可以先发送问题。')
+    render(chatWithSession({ status: 'active', agentsOnline: null }))
+    expect(hint.textContent).toBe('客服正在处理此会话。')
+    render(chatWithSession({ status: 'unknown', agentsOnline: null }))
+    expect(hint.textContent).toBe('暂时无法确认接待状态。')
+  })
+
+  it('英文排队提示以及无人在线留言提示来自各自的权威事实', () => {
+    const { root } = mountUi(chatWithSession({ status: 'queued', agentsOnline: false }), 'en-US')
+    expect(getByTestId(root, 'cs-session-status').textContent).toBe('Waiting for an agent. You can send your question now.')
+    expect(getByTestId(root, 'cs-leave-message-hint').textContent).toContain('No agents are online')
+  })
+
   it('无 online 坐席 + queued → 显示可留言提示（zh-CN 文案）', () => {
     const { root } = mountUi(chatWithSession({ status: 'queued', agentsOnline: false }))
     const hint = getByTestId(root, 'cs-leave-message-hint')

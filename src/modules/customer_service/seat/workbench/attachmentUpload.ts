@@ -78,7 +78,7 @@ export async function runSeatAttachmentUpload(
   })
   input.signal?.throwIfAborted()
   if (presign.uploadUrl === null) throw new SeatUploadTargetMissingError()
-  await input.api.uploadAssetBytes(presign.uploadUrl, input.file)
+  await input.api.uploadAssetBytes(presign.uploadUrl, input.file, input.signal)
   input.signal?.throwIfAborted()
   await input.api.confirmAssetUpload(input.orgId, input.workspaceId, presign.uploadRef)
   input.signal?.throwIfAborted()

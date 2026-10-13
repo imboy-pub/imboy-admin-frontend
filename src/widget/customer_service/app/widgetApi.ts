@@ -1,3 +1,5 @@
+import type { EntityId } from '../../../types/common'
+import { canonicalReadId } from './visitorRead'
 /**
  * CSW-01R / CSD-FE-01：Widget HTTP 客户端（轻量 fetch，独立于 Admin axios 实例）。
  *
@@ -65,9 +67,18 @@ function buildHeaders(visitToken: string | null, json: boolean): Record<string, 
 export class WidgetApiClient {
   private readonly fetchImpl: FetchLike
   private visitToken: string | null = null
+  private credentialEpoch = 0
+  private bootstrapRequest: AbortController | null = null
 
   constructor(fetchImpl: FetchLike = (...args) => fetch(...args)) {
     this.fetchImpl = fetchImpl
+  }
+
+  invalidateCredential(): void {
+    this.credentialEpoch += 1
+    this.bootstrapRequest?.abort()
+    this.bootstrapRequest = null
+    this.visitToken = null
   }
 
   currentToken(): string | null {
@@ -103,12 +114,19 @@ export class WidgetApiClient {
     subjectId: string
     subjectKey: string
   }): Promise<BootstrapResult> {
+    this.invalidateCredential()
+    const epoch = this.credentialEpoch
+    const request = new AbortController()
+    this.bootstrapRequest = request
     const payload = await this.requestJson(`${WIDGET_API_BASE}/bootstrap`, {
       method: 'POST',
       body: JSON.stringify(buildBootstrapBody(body)),
+      signal: request.signal,
     })
+    if (epoch !== this.credentialEpoch || request.signal.aborted) throw new DOMException('Stale bootstrap', 'AbortError')
     const result = toBootstrapResult(payload)
     if (result === null) throw new WidgetApiError('bootstrap 响应形状非法', 502)
+    this.bootstrapRequest = null
     this.visitToken = result.visitToken
     return result
   }
@@ -137,6 +155,30 @@ export class WidgetApiClient {
   async listMessages(sessionId: string, scope: RequestScope, afterId?: string | null): Promise<WidgetMessage[]> {
     const payload = await this.requestJson(buildMessagesPath(sessionId, scope, afterId ?? null), null)
     return toMessageList(payload)
+  }
+
+  async confirmMessageReads(sessionId: EntityId, scope: RequestScope, messageIds: EntityId[], signal?: AbortSignal): Promise<void> {
+    if (!canonicalReadId(sessionId) || !canonicalReadId(scope.installationId)
+      || !Array.isArray(messageIds) || messageIds.length < 1 || messageIds.length > 200
+      || !messageIds.every(canonicalReadId)) throw new WidgetApiError('阅读确认请求形状非法', 400)
+    const ids = [...new Set(messageIds)]
+    const payload = await this.requestJson(`${WIDGET_API_BASE}/sessions/${sessionId}/messages`, {
+      method: 'PATCH', signal,
+      body: JSON.stringify({ installation_id: scope.installationId, message_ids: ids }),
+    }) as { session_id?: unknown; highest_confirmed_id?: unknown; receipts?: unknown }
+    if (payload === null || typeof payload !== 'object' || payload.session_id !== sessionId
+      || !canonicalReadId(payload.highest_confirmed_id) || !Array.isArray(payload.receipts)
+      || payload.receipts.length !== ids.length) throw new WidgetApiError('阅读确认响应形状非法', 502)
+    const returned = new Set<EntityId>()
+    for (const value of payload.receipts) {
+      const receipt = value as { message_id?: unknown; read_at?: unknown }
+      if (receipt === null || !canonicalReadId(receipt.message_id) || !ids.includes(receipt.message_id)
+        || returned.has(receipt.message_id) || typeof receipt.read_at !== 'string'
+        || !/^\d{4}-\d{2}-\d{2}T/.test(receipt.read_at) || !Number.isFinite(Date.parse(receipt.read_at))) {
+        throw new WidgetApiError('阅读确认收据形状非法', 502)
+      }
+      returned.add(receipt.message_id)
+    }
   }
 
   /** POST /sessions/:id/messages（widget_visitor_message：client_msg_id 幂等；

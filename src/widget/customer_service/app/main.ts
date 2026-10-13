@@ -1,3 +1,4 @@
+import { observeReadVisibility } from './readVisibility'
 /**
  * FE-W01：Widget iframe 聊天应用入口（独立 entry，无 React/Router/Admin 依赖）。
  *
@@ -76,6 +77,11 @@ function boot(): void {
     }
   }
 
+  let readVisibility: ReturnType<typeof observeReadVisibility> | null = null
+  const refreshReadObservation = (): void => {
+    readVisibility ??= observeReadVisibility(rootElement, ids => controller.observeVisibleAgentMessages(ids))
+    readVisibility.refresh()
+  }
   const controller = createWidgetController({
     api,
     storage: sessionStorageAdapter(),
@@ -83,8 +89,11 @@ function boot(): void {
     newId,
     getSubjectKey: subjectKeyProvider,
     fetchImpl: (...args) => fetch(...args),
+    readForeground: () => document.visibilityState === 'visible' && document.hasFocus(),
     io: {
-      render: (state) => ui.render(state),
+      render: (state) => { ui.render(state); refreshReadObservation() },
+      stopReadObservation: () => { readVisibility?.stop(); readVisibility = null },
+      refreshReadObservation,
       downloadFile: downloadViaAnchor,
       postToHost: (message) => {
         try {
@@ -109,6 +118,8 @@ function boot(): void {
     onOpenAttachment: (key, assetId) => void controller.openAttachment(key, assetId),
     onClosePreview: () => controller.closePreview(),
   })
+
+  refreshReadObservation()
 
   window.addEventListener(
     'message',

@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict'
 import http from 'node:http'
-import { readFile } from 'node:fs/promises'
+import https from 'node:https'
+import { createHash } from 'node:crypto'
+import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { once } from 'node:events'
 import test from 'node:test'
@@ -15,6 +19,129 @@ const close = (server) => new Promise((resolve, reject) => {
   server.close((error) => error ? reject(error) : resolve())
   server.closeAllConnections()
 })
+
+for (const protocol of ['http', 'https']) {
+  test(`${protocol} proxy rejects every 300–399 before client headers and preserves 200 SSE streaming`, { timeout: 30000 }, async (context) => {
+    const closures = []
+    const trackClose = (stream) => closures.push(new Promise((resolve) => stream.once('close', resolve)))
+    let targetRequests = 0
+    const target = http.createServer((req, res) => {
+      targetRequests += 1
+      trackClose(req)
+      trackClose(res)
+      req.resume()
+      res.end('synthetic target')
+    })
+    let targetPort
+    const upstream = http.createServer((req, res) => {
+      trackClose(req)
+      trackClose(res)
+      req.resume()
+      if (req.url === '/api/transport-stream') {
+        res.writeHead(200, { 'content-type': 'text/event-stream' })
+        res.write('data: synthetic first event\n\n')
+        return
+      }
+      const status = Number(new URL(req.url, 'http://127.0.0.1').searchParams.get('status'))
+      res.writeHead(status, { location: `http://127.0.0.1:${targetPort}/synthetic-target`, 'x-upstream-redirect': 'synthetic' })
+      res.end('synthetic redirect body')
+    })
+    const previous = { host: process.env.CSWW_E2E_BACKEND_HOST, port: process.env.CSWW_E2E_BACKEND_PORT, widget: process.env.CSWW_E2E_WIDGET_ID }
+    let host
+    let certDir
+    try {
+      targetPort = await listen(target)
+      process.env.CSWW_E2E_BACKEND_HOST = '127.0.0.1'
+      process.env.CSWW_E2E_BACKEND_PORT = String(await listen(upstream))
+      process.env.CSWW_E2E_WIDGET_ID = '700200000000000001'
+      const module = await import(`${helper}?redirect-regression-${protocol}`)
+      if (protocol === 'https') certDir = await mkdtemp(path.join(tmpdir(), 'cs-static-host-cert-'))
+      host = protocol === 'https' ? module.createSecureStaticHost(certDir) : module.createStaticHost()
+      const port = await listen(host)
+      const transport = protocol === 'https' ? https : http
+      const options = { hostname: '127.0.0.1', port, agent: false, ...(protocol === 'https' ? { rejectUnauthorized: false } : {}) }
+      const statuses = [301, 302, 303, 304, 307, 308, ...Array.from({ length: 100 }, (_, index) => 300 + index).filter((status) => ![301, 302, 303, 304, 307, 308].includes(status))]
+      const expectedAudit = []
+      for (const status of statuses) {
+        for (const method of ['GET', 'POST', 'PUT', 'HEAD']) {
+          await context.test(`${method} upstream ${status}`, async () => {
+            const route = ['/api/redirect-proof', '/w/700200000000000001', '/seat/700200000000000002'][status % 3]
+            const requestPath = `${route}?status=${status}&probe=synthetic%20%E6%B5%8B%E8%AF%95`
+            const response = await new Promise((resolve, reject) => {
+              const request = transport.request({ ...options, method, path: requestPath }, (incoming) => {
+                trackClose(incoming)
+                const chunks = []
+                incoming.on('data', (chunk) => chunks.push(chunk))
+                incoming.once('end', () => resolve({ status: incoming.statusCode, headers: incoming.headers, body: Buffer.concat(chunks).toString() }))
+                incoming.once('error', reject)
+              })
+              trackClose(request)
+              request.once('error', reject)
+              request.setTimeout(2000, () => request.destroy(new Error('synthetic redirect request timed out')))
+              request.end(method === 'POST' || method === 'PUT' ? 'synthetic payload' : undefined)
+            })
+            await Promise.all(closures)
+            assert.equal(response.status, 599, `${protocol} ${method} upstream ${status} must be rejected`)
+            assert.equal(response.headers.location, undefined)
+            assert.equal(response.headers['x-upstream-redirect'], undefined)
+            assert.doesNotMatch(response.body, /synthetic redirect body/)
+            assert.equal(targetRequests, 0)
+            expectedAudit.push({ method, status, pathSha256: createHash('sha256').update(requestPath).digest('hex') })
+            assert.equal(typeof module.getRedirectAudit, 'function')
+            assert.deepEqual(module.getRedirectAudit(), expectedAudit)
+            const snapshot = module.getRedirectAudit()
+            snapshot[0].status = 200
+            snapshot.length = 0
+            assert.deepEqual(module.getRedirectAudit(), expectedAudit)
+          })
+        }
+      }
+      await context.test('200 SSE delivers an event while upstream remains open', async () => {
+        let upstreamEnded = false
+        let clientRequest
+        let clientResponse
+        try {
+          await new Promise((resolve, reject) => {
+            clientRequest = transport.get({ ...options, path: '/api/transport-stream' }, (incoming) => {
+              clientResponse = incoming
+              trackClose(incoming)
+              incoming.once('end', () => { upstreamEnded = true })
+              incoming.once('error', reject)
+              incoming.once('data', (chunk) => {
+                try {
+                  assert.equal(incoming.statusCode, 200)
+                  assert.match(incoming.headers['content-type'], /^text\/event-stream/)
+                  assert.equal(chunk.toString(), 'data: synthetic first event\n\n')
+                  assert.equal(upstreamEnded, false)
+                  resolve()
+                } catch (error) { reject(error) }
+              })
+            })
+            trackClose(clientRequest)
+            clientRequest.once('error', reject)
+            clientRequest.setTimeout(2000, () => clientRequest.destroy(new Error('SSE first event was buffered')))
+          })
+        } finally {
+          clientResponse?.destroy()
+          clientRequest?.destroy()
+          await Promise.all(closures)
+        }
+      })
+    } finally {
+      if (host) await close(host)
+      await close(upstream)
+      await close(target)
+      await Promise.all(closures)
+      if (certDir) await rm(certDir, { recursive: true, force: true })
+      for (const [key, value] of Object.entries({ CSWW_E2E_BACKEND_HOST: previous.host, CSWW_E2E_BACKEND_PORT: previous.port, CSWW_E2E_WIDGET_ID: previous.widget })) {
+        if (value === undefined) delete process.env[key]
+        else process.env[key] = value
+      }
+      assert.equal(targetRequests, 0, `${protocol} final target request count after every request closed`)
+      context.diagnostic(`${protocol}: all ${closures.length} tracked request/response close events settled; final target requests=${targetRequests}`)
+    }
+  })
+}
 
 test('current build assets and public frame are reachable through the real host', async () => {
   // Transport oracle only: this native upstream is not a customer-service business fixture.

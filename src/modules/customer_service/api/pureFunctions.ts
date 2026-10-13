@@ -516,42 +516,66 @@ export type CsSessionStats = {
   current: CsStatsCurrent
 }
 
-function toAvgNumber(value: unknown): number | null {
-  const n = typeof value === 'number' ? value : Number(value)
-  return Number.isFinite(n) ? n : null
+function statsNumber(value: unknown): number | null {
+  if (typeof value !== 'number' && (typeof value !== 'string' || !/^\d+(\.\d+)?$/.test(value))) return null
+  const number = Number(value)
+  return Number.isFinite(number) && number >= 0 ? number : null
 }
 
-/**
- * 统计响应整包解析。数值字段缺席/非法时按 0 处理（计数型）或 null
- * （均值型——服务端无样本语义）；窗口回显缺席按 -1 标记（UI 隐藏窗口行）。
- */
+function statsCount(value: unknown): number | null {
+  const count = statsNumber(value)
+  return count !== null && Number.isSafeInteger(count) ? count : null
+}
+
+function statsTimestamp(value: unknown): number | null {
+  if (typeof value !== 'number' && (typeof value !== 'string' || !/^-?\d+$/.test(value))) return null
+  const timestamp = Number(value)
+  return Number.isSafeInteger(timestamp) ? timestamp : null
+}
+
+function statsRecord(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown> : null
+}
+
+function statsMetric(value: unknown, averageKey: string, rating = false) {
+  const row = statsRecord(value)
+  if (row === null) return null
+  const count = statsCount(row.count)
+  const average = row[averageKey] === null ? null : statsNumber(row[averageKey])
+  if (count === null || (count === 0 ? row[averageKey] !== null : average === null)) return null
+  if (rating && average !== null && (average < 1 || average > 5)) return null
+  return { count, average }
+}
+
+function validStatsDate(value: unknown): value is string {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
+  const epoch = Date.parse(`${value}T00:00:00Z`)
+  return Number.isFinite(epoch) && new Date(epoch).toISOString().slice(0, 10) === value
+}
+
+/** 缺失或非法事实拒绝整包；只有服务端明确 null 才表示无样本。 */
 export function toCsSessionStats(raw: unknown): CsSessionStats | null {
-  if (!raw || typeof raw !== 'object') return null
-  const payload = raw as Record<string, unknown>
+  const payload = statsRecord(raw)
+  if (payload === null) return null
   const orgId = toIdOrNull(payload.organization_id)
-  if (orgId === null) return null
-  const fr = (payload.first_response ?? {}) as Record<string, unknown>
-  const rating = (payload.rating ?? {}) as Record<string, unknown>
-  const current = (payload.current ?? {}) as Record<string, unknown>
+  const fr = statsMetric(payload.first_response, 'avg_seconds')
+  const rating = statsMetric(payload.rating, 'avg', true)
+  const current = statsRecord(payload.current)
+  const windowStart = statsTimestamp(payload.window_start), windowEnd = statsTimestamp(payload.window_end)
+  const newSessions = statsCount(payload.new_sessions), closedSessions = statsCount(payload.closed_sessions)
+  const queued = statsCount(current?.queued), active = statsCount(current?.active)
+  const tzOffset = payload.tz_offset
+  if (orgId === null || fr === null || rating === null || windowStart === null || windowEnd === null
+    || windowEnd <= windowStart || newSessions === null || closedSessions === null || queued === null || active === null
+    || typeof tzOffset !== 'number' || !Number.isInteger(tzOffset) || Math.abs(tzOffset) > 840
+    || !Number.isFinite(new Date(windowStart * 1000).getTime())
+    || !Number.isFinite(new Date(windowEnd * 1000).getTime()) || !validStatsDate(payload.date)) return null
+  const expectedStart = Date.parse(`${payload.date}T00:00:00Z`) / 1000 - tzOffset * 60
+  if (windowStart !== expectedStart || windowEnd !== windowStart + 86400) return null
   return {
-    organizationId: orgId,
-    date: typeof payload.date === 'string' ? payload.date : null,
-    tzOffset: toOptionalInt(payload.tz_offset) ?? 0,
-    windowStart: toOptionalInt(payload.window_start) ?? -1,
-    windowEnd: toOptionalInt(payload.window_end) ?? -1,
-    newSessions: toOptionalInt(payload.new_sessions) ?? 0,
-    firstResponse: {
-      count: toOptionalInt(fr.count) ?? 0,
-      avgSeconds: toAvgNumber(fr.avg_seconds),
-    },
-    closedSessions: toOptionalInt(payload.closed_sessions) ?? 0,
-    rating: {
-      count: toOptionalInt(rating.count) ?? 0,
-      avg: toAvgNumber(rating.avg),
-    },
-    current: {
-      queued: toOptionalInt(current.queued) ?? 0,
-      active: toOptionalInt(current.active) ?? 0,
-    },
+    organizationId: orgId, date: payload.date, tzOffset, windowStart, windowEnd, newSessions, closedSessions,
+    firstResponse: { count: fr.count, avgSeconds: fr.average },
+    rating: { count: rating.count, avg: rating.average }, current: { queued, active },
   }
 }

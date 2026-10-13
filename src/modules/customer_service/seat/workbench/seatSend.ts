@@ -46,6 +46,12 @@ function mayHaveCommitted(error: unknown): boolean {
   return !isSeatApiError(error) || ['network', 'server', 'invalid_response'].includes(error.kind)
 }
 
+function bodyValidationError(body: string): Error | null {
+  if (/[\uD800-\uDFFF]/u.test(body)) return new Error('正文包含无效字符，请修改后发送')
+  if (Array.from(body).length > 4000) return new Error('正文超过4000个Unicode码点，请分条发送')
+  return null
+}
+
 async function uploadDraft(
   api: SeatWorkbenchApi, scope: SendScope, draft: SeatSendDraft, signal: AbortSignal,
 ): Promise<SeatSendDraft> {
@@ -251,6 +257,13 @@ export function useSeatSendState({
       return
     }
     const draft = { ...entry.draft, body: entry.draft.body.trim() }
+    if (entry.attempt?.unknown !== true) {
+      const error = bodyValidationError(draft.body)
+      if (error !== null) {
+        updateEntry(key, epoch, (previous) => ({ ...previous, error }))
+        return
+      }
+    }
     const attempt = entry.attempt ?? { draft, revision: entry.revision, clientMsgId: newClientMsgId(), unknown: false }
     if (!attempt.unknown && draft.body.length === 0 && draft.file === null) return
     const controller = cache.begin(attempt.unknown)

@@ -20,6 +20,7 @@ import http from 'node:http'
 import https from 'node:https'
 import { readFile } from 'node:fs/promises'
 import { existsSync, mkdirSync, readFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
 import { spawnSync } from 'node:child_process'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -27,6 +28,12 @@ import { fileURLToPath } from 'node:url'
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 // dist-widget 产物目录（仓库根下）。
 const DIST_WIDGET = path.resolve(HERE, '../../../..', 'dist-widget')
+const redirectAudit = []
+let reportRedirect = () => {}
+
+export function getRedirectAudit() {
+  return redirectAudit.map((entry) => ({ ...entry }))
+}
 
 const BACKEND_HOST = process.env.CSWW_E2E_BACKEND_HOST ?? '127.0.0.1'
 const BACKEND_PORT = Number(process.env.CSWW_E2E_BACKEND_PORT ?? 9802)
@@ -78,6 +85,16 @@ function proxyToBackend(req, res, cors) {
   const upstream = http.request(
     { host: BACKEND_HOST, port: BACKEND_PORT, path: req.url, method: req.method, headers },
     (up) => {
+      if (up.statusCode >= 300 && up.statusCode < 400) {
+        const entry = { method: req.method, status: up.statusCode,
+          pathSha256: createHash('sha256').update(req.url ?? '/').digest('hex') }
+        redirectAudit.push(entry)
+        up.destroy()
+        res.writeHead(599, { 'content-type': 'text/plain', 'cache-control': 'no-store' })
+        res.end('upstream redirect refused by local test boundary')
+        reportRedirect(entry)
+        return
+      }
       const outHeaders = { ...up.headers }
       // 部署层 CORS 补齐（仅 https 落点需要）：后端 CORS 中间件 allowlist 不含
       // dev.imboy.pub 且 allow-methods 无 PUT，而 presign 的 upload.url 正是
@@ -165,7 +182,7 @@ function ensureDevCert(dir = path.join(HERE, '..', '.artifacts', 'dev-cert')) {
     const r = spawnSync(
       'openssl',
       ['req', '-x509', '-newkey', 'rsa:2048', '-keyout', key, '-out', cert, '-days', '30', '-nodes', '-subj', '/CN=dev.imboy.pub', '-addext', 'subjectAltName=DNS:dev.imboy.pub'],
-      { stdio: 'ignore' }
+      { stdio: 'ignore', timeout: 10000 }
     )
     if (r.status !== 0) throw new Error('openssl dev-cert generation failed (exit ' + r.status + ')')
   }
@@ -196,6 +213,9 @@ export function startStack(httpPort, httpsPort) {
 
 const isMain = process.argv[1] !== undefined && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])
 if (isMain) {
+  const sourceSha256 = createHash('sha256').update(readFileSync(fileURLToPath(import.meta.url))).digest('hex')
+  console.error(JSON.stringify({ event: 'static_host_started', pid: process.pid, sourceSha256 }))
+  reportRedirect = (entry) => console.error(JSON.stringify({ event: 'redirect_rejected', ...entry }))
   const httpPort = Number(process.argv[2] ?? 8901)
   const httpsPort = Number(process.argv[3] ?? 8443)
   const stack = startStack(httpPort, httpsPort)

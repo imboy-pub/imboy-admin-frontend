@@ -11,7 +11,7 @@
  */
 import { describe, expect, it } from 'bun:test'
 import { createWidgetController, type ControllerIo, type StreamHandle } from './controller'
-import { WidgetApiClient } from './widgetApi'
+import { WidgetApiClient, WidgetApiError } from './widgetApi'
 import { subjectStorageKey, type StorageLike } from './visitStorage'
 import type { SseEvent } from './eventStream'
 
@@ -48,6 +48,7 @@ function memoryStorage(): StorageLike & { dump: () => Record<string, string> } {
 
 function makeEnv(
   opts: {
+    readForeground?: () => boolean
     consentVersion?: string
     messagesStatus?: number
     sessionsStatus?: string
@@ -90,6 +91,9 @@ function makeEnv(
       })
     } else if (method === 'GET' && url.includes('/sessions') && !url.includes('/messages')) {
       payload = [{ id: '72057594037927936', status: opts.sessionsStatus ?? 'active', version: 3 }]
+    } else if (method === 'PATCH' && url.includes('/messages')) {
+      const ids = (body as { message_ids: string[] }).message_ids
+      payload = {session_id:'72057594037927936',highest_confirmed_id:ids[0],receipts:ids.map(id => ({message_id:id,read_at:'2026-10-11T01:00:00Z'}))}
     } else if (method === 'GET' && url.includes('/messages')) {
       if (opts.messagesStatus === 401) {
         ok = false
@@ -108,6 +112,7 @@ type Harness = ReturnType<typeof makeHarness>
 
 function makeHarness(
   opts: {
+    readForeground?: () => boolean
     consentVersion?: string
     messagesStatus?: number
     history?: unknown[]
@@ -135,8 +140,9 @@ function makeHarness(
     streams.push(o)
     return { start: () => undefined, stop: () => undefined }
   }
+  const api = new WidgetApiClient(env.fetchImpl)
   const controller = createWidgetController({
-    api: new WidgetApiClient(env.fetchImpl),
+    api,
     storage,
     nowMs: () => (clock += 1000),
     newId: (() => {
@@ -144,6 +150,7 @@ function makeHarness(
       return () => `gen-${(n += 1)}`
     })(),
     fetchImpl: env.fetchImpl,
+    readForeground: opts.readForeground,
     createObjectUrl: () => {
       const url = `blob:stub-${(urlSeq += 1)}`
       objectUrls.push(url)
@@ -185,7 +192,7 @@ function makeHarness(
       ...overrides,
     }),
   })
-  return { controller, env, storage, posted, rendered, streams, downloads, objectUrls, revokedUrls, settle, hostContext, envelopeFrame }
+  return { controller, api, env, storage, posted, rendered, streams, downloads, objectUrls, revokedUrls, settle, hostContext, envelopeFrame }
 }
 
 async function reachConsent(harness: Harness): Promise<void> {
@@ -484,4 +491,186 @@ it('SSE credential rejection clears visit recovery state and reports error', asy
   expect(h.storage.dump()[SCOPE_KEY]).toBeUndefined()
   expect(h.posted.some((m) => m.type === 'status' && m.state === 'error')).toBe(true)
   h.controller.closeAndCleanup()
+})
+
+it('new bootstrap invalidates old session before restoring chat', async () => {
+  const h = makeHarness(); h.hostContext(); await h.settle()
+  expect(h.controller.currentState().session).not.toBeNull()
+  h.controller.retryBootstrap()
+  expect(h.controller.currentState().session).toBeNull()
+  await h.settle()
+  expect(h.env.requests.filter(r => r.method === 'POST' && r.url.endsWith('/sessions')).length).toBe(2)
+})
+
+it('history and SSE do not confirm; observed agent ids need focus, panel and live credential', async () => {
+  let foreground = false
+  const h = makeHarness({readForeground: () => foreground,history:[
+    {id:'72057594037927941',sender_type:'business_identity',body:'客服😀',assets:[]},
+    {id:'72057594037927942',sender_type:'contact',body:'访客',assets:[]},
+  ]})
+  h.hostContext(); await h.settle()
+  const patches = () => h.env.requests.filter(r => r.method === 'PATCH')
+  expect(patches()).toEqual([])
+  h.controller.observeVisibleAgentMessages(['72057594037927941']); await h.settle(); expect(patches()).toEqual([])
+  foreground = true; h.controller.setPanelOpen(false)
+  h.controller.observeVisibleAgentMessages(['72057594037927941']); await h.settle(); expect(patches()).toEqual([])
+  h.controller.setPanelOpen(true)
+  h.controller.observeVisibleAgentMessages(['72057594037927941','72057594037927942','999']); await h.settle()
+  expect(patches().map(r => r.body)).toEqual([{installation_id:'72057594037928001',message_ids:['72057594037927941']}])
+  h.controller.closeAndCleanup()
+  h.controller.observeVisibleAgentMessages(['72057594037927941']); await h.settle(); expect(patches().length).toBe(1)
+})
+
+it('image modal occludes otherwise visible agent bubbles until closed and freshly observed', async () => {
+  const history = HISTORY_WITH_ASSETS.map(row => ({...row,sender_type:'business_identity'}))
+  const h = makeHarness({history,readForeground: () => true})
+  await reachChat(h); await h.settle(10)
+  const message = h.controller.currentState().messages[0]!
+  await h.controller.openAttachment(message.key, '72057594037928101')
+  expect(h.controller.currentState().preview).not.toBeNull()
+  h.controller.observeVisibleAgentMessages([message.id!]); await h.settle()
+  expect(h.env.requests.filter(r => r.method === 'PATCH')).toHaveLength(0)
+  h.controller.closePreview(); await h.settle()
+  expect(h.env.requests.filter(r => r.method === 'PATCH')).toHaveLength(0)
+  h.controller.observeVisibleAgentMessages([message.id!]); await h.settle()
+  expect(h.env.requests.filter(r => r.method === 'PATCH')).toHaveLength(1)
+})
+
+it('old session history and stopped stream cannot populate a newly bootstrapped session', async () => {
+  const h = makeHarness({readForeground:()=>true}); await reachChat(h)
+  let resolveHistory!: (_rows: Awaited<ReturnType<WidgetApiClient['listMessages']>>) => void
+  const original = h.api.listMessages.bind(h.api)
+  let pending = true
+  h.api.listMessages = (...args) => pending ? (pending = false, new Promise(resolve=>{resolveHistory=resolve})) : original(...args)
+  const old = h.controller.handleSseFrame(h.envelopeFrame('old-history','message.appended'))
+  const oldStream = h.streams[0]!
+  h.controller.retryBootstrap(); await h.settle()
+  resolveHistory([{id:'10',senderType:'business_identity',senderContactId:null,clientMsgId:null,body:'old-session',createdAt:null,assets:[]}])
+  await old
+  expect(h.controller.currentState().messages).toEqual([])
+  oldStream.onStatus('offline'); expect(h.controller.currentState().connection).not.toBe('offline')
+  h.controller.observeVisibleAgentMessages(['10']); await h.settle()
+  expect(h.env.requests.filter(r=>r.method==='PATCH')).toEqual([])
+})
+
+
+it('revoked credential removes writable chat and requires explicit re-entry', async () => {
+  const h = makeHarness(); await reachChat(h)
+  h.streams[0]!.onRevoke()
+  expect(h.controller.currentState().phase).toBe('error')
+  expect(h.controller.currentState().session).toBeNull()
+  expect(h.controller.currentState().errorMessage).toContain('重新接入')
+  const before = h.env.requests.length
+  await h.controller.sendMessage('must not send')
+  await h.controller.retryMessage('anything')
+  expect(h.env.requests.length).toBe(before)
+})
+
+it('closing controller removes write authority until explicit bootstrap', async () => {
+  const h = makeHarness(); await reachChat(h)
+  h.controller.closeAndCleanup()
+  const before = h.env.requests.length
+  await h.controller.sendMessage('closed')
+  expect(h.env.requests.length).toBe(before)
+  expect(h.controller.currentState().session).toBeNull()
+})
+
+for (const outcome of ['success', '401']) {
+  it('old text ' + outcome + ' cannot mutate new session or revoke new credential', async () => {
+    const h = makeHarness(); await reachChat(h)
+    let resolve!: (_value: Awaited<ReturnType<WidgetApiClient['sendMessage']>>) => void
+    let reject!: (_error: Error) => void
+    h.api.sendMessage = () => new Promise((yes, no) => { resolve = yes; reject = no })
+    const old = h.controller.sendMessage('old text')
+    h.controller.retryBootstrap(); await h.settle()
+    if (outcome === 'success') resolve({ id: '99', senderType: 'contact', senderContactId: null, clientMsgId: 'old', body: 'old', createdAt: null, assets: [] }); else reject(new WidgetApiError('old', 401))
+    await old
+    expect(h.controller.currentState().phase).toBe('chat')
+    expect(h.controller.currentState().messages).toEqual([])
+    expect(h.api.currentToken()).not.toBeNull()
+  })
+}
+
+
+it('old attachment presign cannot PUT or confirm after re-entry', async () => {
+  const h = makeHarness(); await reachChat(h)
+  let resolve!: (_value: Awaited<ReturnType<WidgetApiClient['presignAttachment']>>) => void
+  h.api.presignAttachment = () => new Promise(yes => { resolve = yes })
+  const old = h.controller.sendAttachment(new File(['x'], 'x.pdf'))
+  await h.settle()
+  h.controller.retryBootstrap(); await h.settle()
+  const count = h.env.requests.length
+  resolve({ assetId: '1', uploadRef: 'ref', uploadUrl: 'https://store.example/owned' })
+  await old
+  expect(h.env.requests.length).toBe(count)
+  expect(h.controller.currentState().messages).toEqual([])
+})
+
+it('old rating lookup cannot submit against a newly bootstrapped session', async () => {
+  const h = makeHarness(); await reachChat(h)
+  let resolve!: (_value: Awaited<ReturnType<WidgetApiClient['listSessions']>>) => void
+  h.api.listSessions = () => new Promise(yes => { resolve = yes })
+  const oldSession = h.controller.currentState().session!
+  const old = h.controller.submitRating(5)
+  h.controller.retryBootstrap(); await h.settle()
+  resolve([{ ...oldSession, version: 8 }])
+  await old
+  expect(h.env.requests.filter(r => r.url.endsWith('/rating'))).toEqual([])
+  expect(h.controller.currentState().phase).toBe('chat')
+})
+
+
+it('current attachment credential refusal revokes authority without automatic resend', async () => {
+  const h = makeHarness(); await reachChat(h)
+  h.api.presignAttachment = async () => { throw new WidgetApiError('refused', 403) }
+  await h.controller.sendAttachment(new File(['x'], 'x.pdf'))
+  expect(h.controller.currentState().phase).toBe('error')
+  expect(h.api.currentToken()).toBeNull()
+})
+
+
+it('rating remains retryable until the server confirms success', async () => {
+  const h = makeHarness({ sessionsStatus: 'closed' }); await reachChat(h)
+  await h.controller.handleSseFrame(h.envelopeFrame('close-rating', 'session.changed'))
+  expect(h.controller.currentState().phase).toBe('closed-rating')
+  h.api.submitRating = async () => { throw new WidgetApiError('temporary', 500) }
+  await h.controller.submitRating(5)
+  expect(h.controller.currentState().phase).toBe('closed-rating')
+  expect(h.controller.currentState().ratingScore).toBeNull()
+  h.api.submitRating = async () => {}
+  await h.controller.submitRating(5)
+  expect(h.controller.currentState().phase).toBe('rated')
+})
+
+
+for (const stale of [false, true]) {
+  it('rating lookup 401 ' + (stale ? 'cannot revoke a new lifecycle' : 'revokes current authority'), async () => {
+    const h = makeHarness(); await reachChat(h)
+    let reject!: (_error: Error) => void
+    h.api.listSessions = () => new Promise((_resolve, no) => { reject = no })
+    const pending = h.controller.submitRating(5)
+    if (stale) { h.controller.retryBootstrap(); await h.settle() }
+    reject(new WidgetApiError('lookup refused', 401))
+    await pending
+    expect(h.controller.currentState().phase).toBe(stale ? 'chat' : 'error')
+    if (stale) expect(h.api.currentToken()).not.toBeNull()
+    else { expect(h.api.currentToken()).toBeNull(); expect(h.controller.currentState().session).toBeNull() }
+    expect(h.env.requests.filter(r => r.url.endsWith('/rating'))).toEqual([])
+  })
+}
+
+
+it('session closing during presign stops the next attachment write', async () => {
+  const h = makeHarness({ sessionsStatus: 'closed' }); await reachChat(h)
+  let resolve!: (_value: Awaited<ReturnType<WidgetApiClient['presignAttachment']>>) => void
+  h.api.presignAttachment = () => new Promise(yes => { resolve = yes })
+  const pending = h.controller.sendAttachment(new File(['x'], 'x.pdf'))
+  await h.settle()
+  await h.controller.handleSseFrame(h.envelopeFrame('closed-during-upload', 'session.changed'))
+  expect(h.controller.currentState().phase).toBe('closed-rating')
+  const count = h.env.requests.length
+  resolve({ assetId: '1', uploadRef: 'ref', uploadUrl: 'https://store.example/owned' })
+  await pending
+  expect(h.env.requests.length).toBe(count)
+  expect(h.controller.currentState().messages[0]?.status).not.toBe('sent')
 })

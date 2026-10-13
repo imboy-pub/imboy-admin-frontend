@@ -119,6 +119,8 @@ describe('SeatWorkspacePage 三会话入口（REVIEW-4 F2/B-7：结束会话/转
       const view = renderWorkspace(backend)
       await openActiveSession(view)
       fireEvent.click(view.getByTestId('seat-close-submit'))
+      expect(backend.calls.filter((call) => call.method === 'POST' && call.path === CLOSE_PATH)).toHaveLength(0)
+      fireEvent.click(view.getByRole('button', { name: '确认结束' }))
       // 请求合同：恰一次 POST，wire 逐键（真实页面不传 reason → 无 reason 键）。
       await waitFor(() => {
         const closeCalls = backend.calls.filter((call) => call.method === 'POST' && call.path === CLOSE_PATH)
@@ -151,6 +153,7 @@ describe('SeatWorkspacePage 三会话入口（REVIEW-4 F2/B-7：结束会话/转
       await openActiveSession(view)
       const detailFetchesBefore = backend.calls.filter((call) => call.path === DETAIL_PATH).length
       fireEvent.click(view.getByTestId('seat-close-submit'))
+      fireEvent.click(view.getByRole('button', { name: '确认结束' }))
       // 被拒请求的 payload 合同与成功路径逐键一致（CAS 基准仍是权威版本 8）。
       await waitFor(() => {
         const closeCalls = backend.calls.filter((call) => call.method === 'POST' && call.path === CLOSE_PATH)
@@ -161,7 +164,7 @@ describe('SeatWorkspacePage 三会话入口（REVIEW-4 F2/B-7：结束会话/转
       // 冲突播报（role=alert）——HTTP 409 → SeatApiError(conflict) → hook 冲突标记 → UI。
       await waitFor(() => expect(view.getByTestId('seat-close-conflict')).toBeDefined())
       expect(view.getByTestId('seat-close-conflict').getAttribute('role')).toBe('alert')
-      expect(view.getByTestId('seat-close-conflict').textContent).toContain('已刷新，请重试')
+      expect(view.getByTestId('seat-close-conflict').textContent).toContain('请刷新并核对后重新确认')
       // 失败方自动权威刷新（A01：失效刷新后收敛到真实状态）。
       await waitFor(() =>
         expect(backend.calls.filter((call) => call.path === DETAIL_PATH).length).toBeGreaterThan(
@@ -197,6 +200,8 @@ describe('SeatWorkspacePage 三会话入口（REVIEW-4 F2/B-7：结束会话/转
       await waitFor(() => expect(submit.disabled).toBe(false))
       const detailFetchesBefore = backend.calls.filter((call) => call.path === DETAIL_PATH).length
       fireEvent.click(submit)
+      expect(backend.calls.filter((call) => call.method === 'POST' && call.path === TRANSFER_PATH)).toHaveLength(0)
+      fireEvent.click(view.getByRole('button', { name: '确认转接' }))
       // 请求合同：恰一次 POST，payload 逐键（目标坐席 + 权威版本 + workspace 门）。
       await waitFor(() => {
         const transferCalls = backend.calls.filter(
@@ -242,6 +247,8 @@ describe('SeatWorkspacePage 三会话入口（REVIEW-4 F2/B-7：结束会话/转
       await user.selectOptions(select, OTHER_IDENTITY)
       const detailFetchesBefore = backend.calls.filter((call) => call.path === DETAIL_PATH).length
       fireEvent.click(view.getByTestId('seat-transfer-submit'))
+      expect(backend.calls.filter((call) => call.method === 'POST' && call.path === TRANSFER_PATH)).toHaveLength(0)
+      fireEvent.click(view.getByRole('button', { name: '确认转接' }))
       // 被拒请求的 payload 合同逐键一致（含 409 路径的 CAS 基准）。
       await waitFor(() => {
         const transferCalls = backend.calls.filter(
@@ -260,7 +267,7 @@ describe('SeatWorkspacePage 三会话入口（REVIEW-4 F2/B-7：结束会话/转
       // 冲突播报（role=alert）。
       await waitFor(() => expect(view.getByTestId('seat-transfer-conflict')).toBeDefined())
       expect(view.getByTestId('seat-transfer-conflict').getAttribute('role')).toBe('alert')
-      expect(view.getByTestId('seat-transfer-conflict').textContent).toContain('已刷新，请重试')
+      expect(view.getByTestId('seat-transfer-conflict').textContent).toContain('请刷新并核对后重新确认')
       // 失败方权威刷新；不伪成功：会话仍进行中、按钮复位可重试。
       await waitFor(() =>
         expect(backend.calls.filter((call) => call.path === DETAIL_PATH).length).toBeGreaterThan(

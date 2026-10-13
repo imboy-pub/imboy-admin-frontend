@@ -287,6 +287,8 @@ describe('SeatWorkspacePage 工作台（A01/A02/A03/A04/A05/A06）', () => {
     fireEvent.click(claimButton)
     await waitFor(() => expect(backend.state.sessionStatus).toBe('active'))
     await waitFor(() => expect(view.getByTestId('seat-tab-queued').textContent).toContain('0'))
+    await waitFor(() => expect(view.getByTestId('seat-detail-status').textContent).toBe('进行中'))
+    expect(view.getByTestId('seat-composer')).toBeDefined()
   })
 
   it('A02：SSE message.appended 去重——重复信封只触发一次权威刷新；resync → 全量刷新', async () => {

@@ -35,6 +35,8 @@ export async function blobSha256Hex(blob: Blob): Promise<string> {
 
 type UploaderDeps = {
   api: WidgetApiClient
+  isCurrent?: () => boolean
+  onCredentialRefused?: () => void
   /** 裸 PUT 通道（与 API 客户端同 fetch 注入口，测试替换）。 */
   fetchImpl: FetchLike
   onItem: (_item: AttachmentItem) => void
@@ -49,8 +51,17 @@ class PipelineFailure extends Error {
 
 function dispatch(item: AttachmentItem, event: AttachmentEvent, deps: UploaderDeps): AttachmentItem {
   const next = reduceAttachment(item, event)
-  if (next !== item) deps.onItem(next)
+  if (next !== item && (deps.isCurrent?.() ?? true)) deps.onItem(next)
   return next
+}
+
+function reportCredentialRefusal(error: unknown, deps: UploaderDeps): void {
+  const status = (error as { status?: number } | null)?.status
+  if ((status === 401 || status === 403) && (deps.isCurrent?.() ?? true)) deps.onCredentialRefused?.()
+}
+
+function requireCurrent(deps: UploaderDeps): void {
+  if (!(deps.isCurrent?.() ?? true)) throw new PipelineFailure('会话已变化，上传结果未确认；请重新接入')
 }
 
 /**
@@ -78,6 +89,7 @@ export async function runAttachmentPipeline(input: {
     item = dispatch(item, { type: 'retry_reset', key: item.key }, input.deps)
   }
   try {
+    requireCurrent(input.deps)
     item = await ensureHash(item, input.file, input.deps)
     const presigned = await ensurePresign(item, input.sessionId, input.scope, input.deps)
     item = await ensureConfirmed(presigned.item, presigned.result, input.file, input.sessionId, input.scope, input.deps)
@@ -91,7 +103,9 @@ export async function runAttachmentPipeline(input: {
 
 async function ensureHash(item: AttachmentItem, file: Blob, deps: UploaderDeps): Promise<AttachmentItem> {
   if (item.objectHash !== null) return item
+  requireCurrent(deps)
   const hash = await blobSha256Hex(file)
+  requireCurrent(deps)
   if (!isValidSha256Hex(hash)) throw new PipelineFailure('SHA-256 计算结果形状非法')
   return dispatch(item, { type: 'hash_computed', key: item.key, objectHash: hash }, deps)
 }
@@ -109,14 +123,17 @@ async function ensurePresign(
   if (item.objectHash === null) throw new PipelineFailure('缺少对象哈希（内部状态非法）')
   let presign: PresignResult
   try {
+    requireCurrent(deps)
     presign = await deps.api.presignAttachment(sessionId, scope, {
       mime: item.mime,
       sizeBytes: item.sizeBytes,
       objectHash: item.objectHash,
     })
   } catch (error) {
+    reportCredentialRefusal(error, deps)
     throw new PipelineFailure(error instanceof Error ? error.message : 'presign 失败')
   }
+  requireCurrent(deps)
   const next = dispatch(
     item,
     {
@@ -142,13 +159,16 @@ async function ensureConfirmed(
   if (item.state !== 'confirming') return item
   await barePutOrThrow(presign, file, deps)
   try {
+    requireCurrent(deps)
     await deps.api.confirmAttachment(sessionId, scope, presign.uploadRef)
   } catch (error) {
+    reportCredentialRefusal(error, deps)
     const status = (error as { status?: number }).status
     // 重复 confirm 409 不伪成功（§3.7）：按失败处理，重试换新 ref。
     const reason = status === 409 ? 'confirm 冲突（409），请重试' : 'confirm 失败'
     throw new PipelineFailure(error instanceof Error && status !== 409 ? error.message : reason)
   }
+  requireCurrent(deps)
   return dispatch(item, { type: 'confirm_succeeded', key: item.key }, deps)
 }
 
@@ -159,6 +179,7 @@ async function barePutOrThrow(presign: PresignResult, file: Blob, deps: Uploader
   }
   let response: Response
   try {
+    requireCurrent(deps)
     response = await deps.fetchImpl(presign.uploadUrl, {
       method: 'PUT',
       body: file,
@@ -168,6 +189,7 @@ async function barePutOrThrow(presign: PresignResult, file: Blob, deps: Uploader
   } catch {
     throw new PipelineFailure('附件字节上传失败（网络）')
   }
+  requireCurrent(deps)
   if (!response.ok) throw new PipelineFailure(`附件字节上传失败（HTTP ${response.status}）`)
 }
 
@@ -179,9 +201,12 @@ async function ensureLinked(
 ): Promise<AttachmentItem> {
   if (item.state !== 'sending' || item.assetId === null) return item
   try {
+    requireCurrent(deps)
     const message = await deps.api.sendMessage(sessionId, scope, item.clientMsgId, '', [item.assetId])
+    requireCurrent(deps)
     return dispatch(item, { type: 'append_succeeded', key: item.key, messageId: message.id }, deps)
   } catch (error) {
+    reportCredentialRefusal(error, deps)
     throw new PipelineFailure(error instanceof Error ? error.message : '附件消息发送失败')
   }
 }
