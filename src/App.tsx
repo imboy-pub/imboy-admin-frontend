@@ -92,6 +92,11 @@ const PlatformCsSessionsPage = lazy(() => import('@/modules/customer_service').t
 const CsSessionDetailPage = lazy(() => import('@/modules/customer_service').then((m) => ({ default: m.CsSessionDetailPage })))
 // CSW-01：客服 Widget 接入管理（installation 配置页）
 const CsWidgetInstallationsPage = lazy(() => import('@/modules/customer_service').then((m) => ({ default: m.CsWidgetInstallationsPage })))
+// v4 P0-10：AI 管理面 4 页（03-G；菜单真源为后端 sidebar 配置）
+const AiConfigPage = lazy(() => import('@/modules/customer_service').then((m) => ({ default: m.AiConfigPage })))
+const AiFaqPage = lazy(() => import('@/modules/customer_service').then((m) => ({ default: m.AiFaqPage })))
+const AiSessionsPage = lazy(() => import('@/modules/customer_service').then((m) => ({ default: m.AiSessionsPage })))
+const AiMetricsPage = lazy(() => import('@/modules/customer_service').then((m) => ({ default: m.AiMetricsPage })))
 const OffboardingCasesPage = lazy(() => import('@/modules/enterprise_business').then((m) => ({ default: m.OffboardingCasesPage })))
 const OffboardingCaseDetailPage = lazy(() => import('@/modules/enterprise_business').then((m) => ({ default: m.OffboardingCaseDetailPage })))
 // CS-03：客服开通向导（业务实现属 A5 lease；此处仅挂正式路由，不改页面逻辑）
@@ -664,6 +669,39 @@ function App() {
                 />
 
                 {/* MCP 治理（roadmap T3.5，后端 /api/adm/mcp/* 已就绪） */}
+                {/* v4 P0-10：AI 客服管理面（03-G 页面 1-4；菜单由后端 sidebar 下发） */}
+                <Route
+                  path="/customer-service/ai/config"
+                  element={(
+                    <PermissionRoute permission="customer_service:read" roles={['1', '2']}>
+                      <AiConfigPage />
+                    </PermissionRoute>
+                  )}
+                />
+                <Route
+                  path="/customer-service/ai/faq"
+                  element={(
+                    <PermissionRoute permission="customer_service:read" roles={['1', '2']}>
+                      <AiFaqPage />
+                    </PermissionRoute>
+                  )}
+                />
+                <Route
+                  path="/customer-service/ai/sessions"
+                  element={(
+                    <PermissionRoute permission="customer_service:read" roles={['1', '2']}>
+                      <AiSessionsPage />
+                    </PermissionRoute>
+                  )}
+                />
+                <Route
+                  path="/customer-service/ai/metrics"
+                  element={(
+                    <PermissionRoute permission="customer_service:read" roles={['1', '2']}>
+                      <AiMetricsPage />
+                    </PermissionRoute>
+                  )}
+                />
                 {/* AI 协作总览 + 出站交付死信（ADM-01） */}
                 <Route
                   path="/ai-hub"
