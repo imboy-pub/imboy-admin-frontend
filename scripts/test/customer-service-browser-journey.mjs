@@ -140,7 +140,39 @@ try {
   const secondIdentity = statuses[0] === 200 ? fixture.seat_b.identity_id : fixture.seat_a.identity_id
   responses.push({ action: 'concurrent-browser-claim', statuses })
   await openSession(first, session.id)
-  await reply(first, 'synthetic browser first seat reply')
+  let releaseReply
+  let committedReply = false
+  let replyPosts = 0
+  const replyHeld = new Promise((resolve) => { releaseReply = resolve })
+  const holdReply = async (route) => {
+    if (route.request().method() !== 'POST') return route.continue()
+    replyPosts += 1
+    const upstream = await route.fetch()
+    assert.equal(upstream.status(), 200)
+    assert.equal((await upstream.json()).code, 0)
+    committedReply = true
+    await replyHeld
+    await route.abort('failed')
+  }
+  await first.route('**/messages', holdReply)
+  await first.getByTestId('seat-composer').fill('synthetic browser first seat reply')
+  await first.getByTestId('seat-send').click()
+  await expect.poll(() => committedReply, { timeout: 15000 }).toBe(true)
+  const sendingClose = first.getByRole('alertdialog', { name: '确认结束会话' })
+  await first.getByTestId('seat-close-submit').click()
+  await expect(sendingClose).toContainText('有消息发送中，请核实发送结果。')
+  await sendingClose.getByRole('button', { name: '取消', exact: true }).click()
+  releaseReply()
+  await expect(first.getByTestId('seat-send-error')).toContainText('发送结果待确认')
+  await first.getByTestId('seat-close-submit').click()
+  await expect(sendingClose).toContainText('发送结果未确定，请先核实是否已送达。')
+  await sendingClose.getByRole('button', { name: '取消', exact: true }).click()
+  await first.getByTestId('seat-send-retry').click()
+  await expect(first.getByTestId('seat-send-error')).toHaveCount(0)
+  await expect(first.getByTestId('seat-composer')).toHaveValue('')
+  assert.equal(replyPosts, 1)
+  await first.unroute('**/messages', holdReply)
+  responses.push({ action: 'committed-reply-response-lost', replyPosts, recoveredBy: 'history query' })
   const messages = frame.getByTestId('cs-message-list')
   await expect(messages).toContainText('synthetic browser visitor question')
   await expect(messages).toContainText('synthetic browser first seat reply', { timeout: 25000 })
