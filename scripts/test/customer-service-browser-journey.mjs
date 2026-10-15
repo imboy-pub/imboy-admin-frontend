@@ -91,6 +91,16 @@ async function reply(page, text) {
   await page.getByTestId('seat-send').click()
   await expect(page.getByTestId('seat-send-error')).toHaveCount(0)
 }
+async function visibleAnchor(page) {
+  return page.getByTestId('seat-message-list').evaluate((box) => {
+    const bounds = box.getBoundingClientRect()
+    const row = [...box.querySelectorAll('[data-message-id]')].find((item) => {
+      const rect = item.getBoundingClientRect()
+      return rect.bottom > bounds.top && rect.top < bounds.bottom
+    })
+    return row ? { id: row.dataset.messageId, offset: row.getBoundingClientRect().top - bounds.top } : null
+  })
+}
 async function controlSeat(action, identity) {
   const command = path.join(dir, 'browser-control.json')
   await writeFile(`${command}.tmp`, JSON.stringify({ action, identity_id: identity }))
@@ -379,8 +389,34 @@ try {
     await expect(historyMessages).toHaveCount(50)
     await expect(restored.getByTestId('seat-attachment-download')).toHaveCount(0)
     for (const expectedCount of [100, 150, 200]) {
-      await restored.getByTestId('seat-load-older').click()
-      await expect(historyMessages).toHaveCount(expectedCount)
+      let releaseOlder
+      let reachedOlder = false
+      const olderReleased = new Promise((resolve) => { releaseOlder = resolve })
+      const holdOlder = async (route) => {
+        if (!new URL(route.request().url()).searchParams.has('before_id')) return route.continue()
+        reachedOlder = true
+        await olderReleased
+        await route.continue()
+      }
+      await restored.route('**/messages?*', holdOlder)
+      try {
+        await restored.getByTestId('seat-load-older').click()
+        await expect.poll(() => reachedOlder, { timeout: 10000 }).toBe(true)
+        const anchor = await visibleAnchor(restored)
+        assert.ok(anchor)
+        releaseOlder()
+        await expect(historyMessages).toHaveCount(expectedCount)
+        await expect.poll(async () => {
+          const offset = await restored.getByTestId(`seat-message-${anchor.id}`).evaluate((row) =>
+            row.getBoundingClientRect().top - row.closest('[data-testid="seat-message-list"]').getBoundingClientRect().top)
+          await writeFile(path.join(dir, 'viewport-anchor.json'), JSON.stringify({ messages: expectedCount, anchor, offset }))
+          return Math.abs(offset - anchor.offset)
+        }).toBeLessThanOrEqual(2)
+        responses.push({ action: 'prepend-preserves-visible-anchor', messages: expectedCount, anchorId: anchor.id, tolerancePixels: 2 })
+      } finally {
+        releaseOlder()
+        await restored.unroute('**/messages?*', holdOlder)
+      }
     }
     const historyIds = await historyMessages.evaluateAll((rows) => rows.map((row) => row.dataset.messageId))
     assert.equal(new Set(historyIds).size, 200)
@@ -401,6 +437,29 @@ try {
     }
     responses.push({ action: 'fresh-seat-login-attachment-history', attachmentCount: 2, bytes: expected.map((bytes) => bytes.length) })
     await restored.screenshot({ path: path.join(dir, 'seat-fresh-login-attachments.png') })
+    await restored.getByTestId('seat-message-list').evaluate((box) => {
+      box.scrollTop = (box.scrollHeight - box.clientHeight) / 2
+      box.dispatchEvent(new Event('scroll', { bubbles: true }))
+    })
+    const readingAnchor = await visibleAnchor(restored)
+    assert.ok(readingAnchor)
+    await frame.getByTestId('cs-input').fill('synthetic new message while reading history')
+    await frame.getByTestId('cs-send').click()
+    await expect(historyMessages).toHaveCount(201, { timeout: 25000 })
+    await expect(restored.getByTestId('seat-new-messages')).toBeVisible()
+    const afterNew = await visibleAnchor(restored)
+    assert.equal(afterNew?.id, readingAnchor.id)
+    assert.ok(Math.abs(afterNew.offset - readingAnchor.offset) <= 2)
+    await restored.getByTestId('seat-new-messages').click()
+    const bottomGap = () => restored.getByTestId('seat-message-list').evaluate((box) => box.scrollHeight - box.clientHeight - box.scrollTop)
+    await expect.poll(bottomGap).toBeLessThanOrEqual(16)
+    await expect(restored.getByTestId('seat-new-messages')).toHaveCount(0)
+    await frame.getByTestId('cs-input').fill('synthetic new message while following latest')
+    await frame.getByTestId('cs-send').click()
+    await expect(historyMessages).toHaveCount(202, { timeout: 25000 })
+    await expect.poll(bottomGap).toBeLessThanOrEqual(16)
+    await expect(restored.getByTestId('seat-new-messages')).toHaveCount(0)
+    responses.push({ action: 'reading-anchor-and-follow-latest', messages: 202, anchorId: readingAnchor.id, tolerancePixels: 2, bottomGapPixels: await bottomGap() })
   }
   let closeRequests = 0
   restored.on('request', (request) => {
