@@ -98,7 +98,11 @@ export function useSeatMessageViewport(
     if (!box) return
     const current = snapshot(box, scope)
     previous.current = current
-    setReading({ scope, last: current.last, atBottom: current.atBottom })
+    setReading(before => ({
+      scope,
+      last: current.atBottom || before?.scope !== scope ? current.last : before.last,
+      atBottom: current.atBottom,
+    }))
     publish(box)
   }, [scope, publish])
   const updateLayout = useCallback(() => {

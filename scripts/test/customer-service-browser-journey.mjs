@@ -11,6 +11,8 @@ process.env.CSWW_E2E_WIDGET_ID = fixture.public_widget_id
 const { createStaticHost, createSecureStaticHost } = await import('../../tests/e2e/customer-service-real/helpers/static-host.mjs')
 const host = fixture.attachments ? createSecureStaticHost(path.join(dir, 'tls')) : createStaticHost()
 let browser
+let releaseImage
+const seatImage = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1kAAAAASUVORK5CYII=', 'base64')
 const responses = []
 const seatTokens = new WeakMap()
 const org = fixture.organization_id
@@ -29,9 +31,8 @@ async function api(seat, url, body) {
   assert.equal(result.code, 0)
   return result.payload
 }
-async function openSeat(seat) {
-  const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 900 } })
-  const page = await context.newPage()
+async function openSeat(seat, existingPage) {
+  const page = existingPage ?? await (await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 900 } })).newPage()
   const qrStatuses = []
   let polls = 0
   let createdPurpose
@@ -44,7 +45,8 @@ async function openSeat(seat) {
   page.on('response', (response) => {
     if (response.url().includes('/qr_login/subscribe')) qrStatuses.push(response.status())
   })
-  await page.goto(`${process.env.CSWW_E2E_HOST_ORIGIN}/seat/${fixture.public_seat_console_id}`)
+  if (existingPage) await page.reload()
+  else await page.goto(`${process.env.CSWW_E2E_HOST_ORIGIN}/seat/${fixture.public_seat_console_id}`)
   const qr = page.getByTestId('seat-qr-code')
   await expect(qr).toHaveAttribute('data-qr-content', /imboy:\/\/qr_login\?qr_token=/, { timeout: 15000 })
   await page.waitForTimeout(1000)
@@ -91,6 +93,16 @@ async function reply(page, text) {
   await page.getByTestId('seat-send').click()
   await expect(page.getByTestId('seat-send-error')).toHaveCount(0)
 }
+async function visibleAnchor(page) {
+  return page.getByTestId('seat-message-list').evaluate((box) => {
+    const bounds = box.getBoundingClientRect()
+    const row = [...box.querySelectorAll('[data-message-id]')].find((item) => {
+      const rect = item.getBoundingClientRect()
+      return rect.bottom > bounds.top && rect.top < bounds.bottom
+    })
+    return row ? { id: row.dataset.messageId, offset: row.getBoundingClientRect().top - bounds.top } : null
+  })
+}
 async function controlSeat(action, identity) {
   const command = path.join(dir, 'browser-control.json')
   await writeFile(`${command}.tmp`, JSON.stringify({ action, identity_id: identity }))
@@ -127,6 +139,37 @@ try {
   }, { timeout: 10000 }).toBe(true)
   const seatA = await openSeat(fixture.seat_a)
   const seatB = await openSeat(fixture.seat_b)
+  await seatA.getByTestId('seat-tab-closed').click()
+  const historyRows = seatA.getByTestId('seat-session-list').locator('[data-testid^="seat-session-item-"]')
+  await expect(historyRows).toHaveCount(20)
+  const initialIds = await historyRows.evaluateAll((rows) => rows.map((row) => row.dataset.testid.replace('seat-session-item-', '')))
+  const unloadedId = fixture.history_session_ids.find((id) => !initialIds.includes(id))
+  assert.ok(unloadedId, 'search target must not be loaded on the first page')
+  const searchResponse = seatA.waitForResponse((response) => new URL(response.url()).searchParams.get('search') === unloadedId)
+  await seatA.getByTestId('seat-queue-search').fill(unloadedId)
+  const searched = await searchResponse
+  assert.equal(searched.status(), 200)
+  const searchResult = await searched.json()
+  assert.equal(searchResult.code, 0, JSON.stringify(searchResult))
+  await expect(historyRows).toHaveCount(1)
+  await expect(seatA.getByTestId(`seat-session-item-${unloadedId}`)).toBeVisible()
+  await seatA.getByTestId('seat-queue-search').fill('')
+  await expect(historyRows).toHaveCount(initialIds.length)
+  let historyPages = 1
+  while (await seatA.getByTestId('seat-queue-load-more').count()) {
+    assert.ok(historyPages < 10, 'history cursor must terminate')
+    const previousCount = await historyRows.count()
+    await seatA.getByTestId('seat-queue-load-more').click()
+    await expect.poll(() => historyRows.count()).toBeGreaterThan(previousCount)
+    historyPages += 1
+  }
+  const historyIds = await historyRows.evaluateAll((rows) => rows.map((row) => row.dataset.testid.replace('seat-session-item-', '')))
+  assert.ok(historyPages >= 3)
+  assert.equal(new Set(historyIds).size, historyIds.length)
+  assert.deepEqual([...historyIds].sort(), [...fixture.history_session_ids].sort())
+  assert.deepEqual(historyIds, [...historyIds].sort((left, right) => BigInt(left) > BigInt(right) ? -1 : 1))
+  responses.push({ action: 'history-server-search-and-pagination', sessions: historyIds.length, pages: historyPages, unloadedId })
+  await seatA.getByTestId('seat-tab-queued').click()
   const claimButton = `seat-claim-${session.id}`
   await expect(seatA.getByTestId(claimButton)).toBeVisible({ timeout: 20000 })
   await expect(seatB.getByTestId(claimButton)).toBeVisible({ timeout: 20000 })
@@ -140,14 +183,46 @@ try {
   const secondIdentity = statuses[0] === 200 ? fixture.seat_b.identity_id : fixture.seat_a.identity_id
   responses.push({ action: 'concurrent-browser-claim', statuses })
   await openSession(first, session.id)
-  await reply(first, 'synthetic browser first seat reply')
+  let releaseReply
+  let committedReply = false
+  let replyPosts = 0
+  const replyHeld = new Promise((resolve) => { releaseReply = resolve })
+  const holdReply = async (route) => {
+    if (route.request().method() !== 'POST') return route.continue()
+    replyPosts += 1
+    const upstream = await route.fetch()
+    assert.equal(upstream.status(), 200)
+    assert.equal((await upstream.json()).code, 0)
+    committedReply = true
+    await replyHeld
+    await route.abort('failed')
+  }
+  await first.route('**/messages', holdReply)
+  await first.getByTestId('seat-composer').fill('synthetic browser first seat reply')
+  await first.getByTestId('seat-send').click()
+  await expect.poll(() => committedReply, { timeout: 15000 }).toBe(true)
+  const sendingClose = first.getByRole('alertdialog', { name: '确认结束会话' })
+  await first.getByTestId('seat-close-submit').click()
+  await expect(sendingClose).toContainText('有消息发送中，请核实发送结果。')
+  await sendingClose.getByRole('button', { name: '取消', exact: true }).click()
+  releaseReply()
+  await expect(first.getByTestId('seat-send-error')).toContainText('发送结果待确认')
+  await first.getByTestId('seat-close-submit').click()
+  await expect(sendingClose).toContainText('发送结果未确定，请先核实是否已送达。')
+  await sendingClose.getByRole('button', { name: '取消', exact: true }).click()
+  await first.getByTestId('seat-send-retry').click()
+  await expect(first.getByTestId('seat-send-error')).toHaveCount(0)
+  await expect(first.getByTestId('seat-composer')).toHaveValue('')
+  assert.equal(replyPosts, 1)
+  await first.unroute('**/messages', holdReply)
+  responses.push({ action: 'committed-reply-response-lost', replyPosts, recoveredBy: 'history query' })
   const messages = frame.getByTestId('cs-message-list')
   await expect(messages).toContainText('synthetic browser visitor question')
   await expect(messages).toContainText('synthetic browser first seat reply', { timeout: 25000 })
   let attachmentContentPath
   if (fixture.attachments) {
     const visitorFile = Buffer.from('synthetic visitor attachment\n')
-    const seatFile = Buffer.from('synthetic seat attachment\n')
+    const seatFile = seatImage
     await frame.getByTestId('cs-file-input').setInputFiles({ name: 'visitor.txt', mimeType: 'text/plain', buffer: visitorFile })
     const seatDownload = first.getByTestId('seat-attachment-download').first()
     await expect(seatDownload).toBeVisible({ timeout: 25000 })
@@ -169,28 +244,32 @@ try {
     const visitorSaved = path.join(dir, 'visitor-attachment-downloaded.bin')
     await (await receivedVisitorFile).saveAs(visitorSaved)
     assert.deepEqual(await readFile(visitorSaved), visitorFile)
-    await first.getByTestId('seat-attach-input').setInputFiles({ name: 'seat.txt', mimeType: 'text/plain', buffer: seatFile })
+    await first.getByTestId('seat-attach-input').setInputFiles({ name: 'seat.png', mimeType: 'image/png', buffer: seatFile })
     await first.getByTestId('seat-send').click()
-    await expect(frame.getByTestId('cs-asset-download')).toHaveCount(2, { timeout: 25000 })
-    const receivedSeatFile = page.waitForEvent('download')
-    await frame.getByTestId('cs-asset-download').last().click()
-    const seatSaved = path.join(dir, 'seat-attachment-downloaded.bin')
-    await (await receivedSeatFile).saveAs(seatSaved)
-    assert.deepEqual(await readFile(seatSaved), seatFile)
-    responses.push({ action: 'bidirectional-attachment-download', visitorBytes: visitorFile.length, seatBytes: seatFile.length })
+    await expect(frame.getByTestId('cs-asset-download')).toHaveCount(1, { timeout: 25000 })
+    await frame.getByTestId('cs-asset-thumb').click()
+    const preview = frame.getByTestId('cs-preview').locator('img')
+    await expect.poll(() => preview.evaluate(image => image.complete && image.naturalWidth > 0)).toBe(true)
+    assert.deepEqual(Buffer.from(await preview.evaluate(async image => Array.from(new Uint8Array(await (await fetch(image.src)).arrayBuffer())))), seatFile)
+    await frame.getByTestId('cs-preview-close').click()
+    responses.push({ action: 'bidirectional-attachment-bytes', visitorBytes: visitorFile.length, seatBytes: seatFile.length })
     await first.screenshot({ path: path.join(dir, 'seat-attachments.png') })
     await page.screenshot({ path: path.join(dir, 'visitor-attachments.png') })
     await page.reload()
     await page.getByTestId('cs-widget-launcher').click()
     await expect(frame.getByTestId('cs-consent-accept')).toBeVisible({ timeout: 20000 })
     await frame.getByTestId('cs-consent-accept').click()
-    await expect(frame.getByTestId('cs-asset-download')).toHaveCount(2, { timeout: 25000 })
-    await expect(frame.getByTestId('cs-message-list').getByText('synthetic browser first seat reply', { exact: true })).toHaveCount(1)
+    await expect(frame.getByTestId('cs-asset-download')).toHaveCount(1, { timeout: 25000 })
+    await expect(frame.getByTestId('cs-message-list').locator('.cs-msg').filter({ hasText: 'synthetic browser first seat reply' })).toHaveCount(1)
     const reloadedDownload = page.waitForEvent('download')
-    await frame.getByTestId('cs-asset-download').last().click()
+    await frame.getByTestId('cs-asset-download').click()
     const reloadedSaved = path.join(dir, 'visitor-reloaded-attachment.bin')
     await (await reloadedDownload).saveAs(reloadedSaved)
-    assert.deepEqual(await readFile(reloadedSaved), seatFile)
+    assert.deepEqual(await readFile(reloadedSaved), visitorFile)
+    await frame.getByTestId('cs-asset-thumb').click()
+    await expect.poll(() => preview.evaluate(image => image.complete && image.naturalWidth > 0)).toBe(true)
+    assert.deepEqual(Buffer.from(await preview.evaluate(async image => Array.from(new Uint8Array(await (await fetch(image.src)).arrayBuffer())))), seatFile)
+    await frame.getByTestId('cs-preview-close').click()
     responses.push({ action: 'visitor-refresh-attachment-history', attachmentCount: 2, bytes: seatFile.length })
     await page.screenshot({ path: path.join(dir, 'visitor-refreshed-attachments.png') })
   }
@@ -214,8 +293,40 @@ try {
   await expect(first.getByTestId('seat-message-list').getByText('synthetic visitor message during seat outage', { exact: true })).toHaveCount(1)
   responses.push({ action: 'automatic-seat-reconnect', disconnects, newEventRequests: eventRequests - requestsBeforeOnline })
   await first.screenshot({ path: path.join(dir, 'seat-reconnected.png') })
+  const firstSeat = statuses[0] === 200 ? fixture.seat_a : fixture.seat_b
+  const detailPath = `/api/v1/cs/organizations/${org}/sessions/${session.id}?workspace_id=${ws}`
+  const beforeTransfer = await api(firstSeat, detailPath)
+  let transferRequests = 0
+  first.on('request', (request) => {
+    if (request.url().endsWith(`/sessions/${session.id}/transfer`) && request.method() === 'POST') transferRequests += 1
+  })
   await first.getByTestId('seat-transfer-target-select').selectOption(secondIdentity)
+  const transferTarget = await first.getByTestId('seat-transfer-target-select').locator('option:checked').textContent()
+  assert.ok(transferTarget?.trim())
   await first.getByTestId('seat-transfer-submit').click()
+  const transferDialog = first.getByRole('alertdialog', { name: '确认转接会话' })
+  await expect(transferDialog).toBeVisible()
+  await expect(transferDialog).toContainText(transferTarget.trim())
+  await expect(transferDialog).toContainText('只读')
+  await transferDialog.getByRole('button', { name: '取消', exact: true }).click()
+  await expect(transferDialog).toBeHidden()
+  const cancelledTransfer = await api(firstSeat, detailPath)
+  for (const field of ['business_identity_id', 'status', 'version']) {
+    assert.notEqual(beforeTransfer[field], undefined)
+    assert.equal(cancelledTransfer[field], beforeTransfer[field])
+  }
+  assert.equal(transferRequests, 0)
+  await expect(first.getByTestId('seat-composer')).toBeEnabled()
+  responses.push({ action: 'transfer-cancel-retains-owner', transferRequests, version: cancelledTransfer.version })
+  await first.getByTestId('seat-transfer-submit').click()
+  await expect(transferDialog).toBeVisible()
+  const [transferred] = await Promise.all([
+    first.waitForResponse((response) => response.url().endsWith(`/sessions/${session.id}/transfer`) && response.request().method() === 'POST'),
+    transferDialog.getByRole('button', { name: '确认转接', exact: true }).click(),
+  ])
+  assert.equal(transferred.status(), 200)
+  assert.equal((await transferred.json()).code, 0)
+  assert.equal(transferRequests, 1)
   await openSession(second, session.id)
   if (attachmentContentPath) {
     const statuses = []
@@ -265,12 +376,86 @@ try {
   responses.push({ action: 'seat-revoked', oldBrowserWriteStatus: denied.status, composerEnabled: false })
   await second.screenshot({ path: path.join(dir, 'seat-revoked.png') })
   await controlSeat('resume', secondIdentity)
+  const historySeedIds = []
+  if (fixture.attachments) {
+    const receivingSeat = statuses[0] === 200 ? fixture.seat_b : fixture.seat_a
+    for (let index = 0; index < 194; index += 1) {
+      const sent = await api(receivingSeat, `/api/v1/enterprise/organizations/${org}/conversations/${session.conversation_id}/messages`, {
+        workspace_id: ws, identity_id: secondIdentity, sender_type: 'business_identity',
+        client_msg_id: `synthetic-long-history-${index}`, body: `synthetic history message ${index}`,
+      })
+      assert.ok(sent.message?.id)
+      historySeedIds.push(String(sent.message.id))
+    }
+  }
   const restored = await openSeat(statuses[0] === 200 ? fixture.seat_b : fixture.seat_a)
+  let imageReached = false
+  const imageReleased = new Promise((resolve) => { releaseImage = resolve })
+  const delayImage = async (route) => {
+    imageReached = true
+    await imageReleased
+    await route.continue()
+  }
+  if (fixture.attachments) await restored.route('**/assets/*/content?*', delayImage)
   await openSession(restored, session.id)
   if (fixture.attachments) {
+    const historyMessages = restored.getByTestId('seat-message-list').locator('[data-message-id]')
+    await expect(historyMessages).toHaveCount(50)
+    await expect(restored.getByTestId('seat-attachment-download')).toHaveCount(0)
+    for (const expectedCount of [100, 150, 200]) {
+      let releaseOlder
+      let reachedOlder = false
+      const olderReleased = new Promise((resolve) => { releaseOlder = resolve })
+      const holdOlder = async (route) => {
+        if (!new URL(route.request().url()).searchParams.has('before_id')) return route.continue()
+        reachedOlder = true
+        await olderReleased
+        await route.continue()
+      }
+      await restored.route('**/messages?*', holdOlder)
+      try {
+        await restored.getByTestId('seat-load-older').click()
+        await expect.poll(() => reachedOlder, { timeout: 10000 }).toBe(true)
+        const anchor = await visibleAnchor(restored)
+        assert.ok(anchor)
+        releaseOlder()
+        await expect(historyMessages).toHaveCount(expectedCount)
+        await expect.poll(async () => {
+          const offset = await restored.getByTestId(`seat-message-${anchor.id}`).evaluate((row) =>
+            row.getBoundingClientRect().top - row.closest('[data-testid="seat-message-list"]').getBoundingClientRect().top)
+          await writeFile(path.join(dir, 'viewport-anchor.json'), JSON.stringify({ messages: expectedCount, anchor, offset }))
+          return Math.abs(offset - anchor.offset)
+        }).toBeLessThanOrEqual(2)
+        responses.push({ action: 'prepend-preserves-visible-anchor', messages: expectedCount, anchorId: anchor.id, tolerancePixels: 2 })
+      } finally {
+        releaseOlder()
+        await restored.unroute('**/messages?*', holdOlder)
+      }
+    }
+    const historyIds = await historyMessages.evaluateAll((rows) => rows.map((row) => row.dataset.messageId))
+    assert.equal(new Set(historyIds).size, 200)
+    assert.deepEqual(historyIds, [...historyIds].sort((left, right) => BigInt(left) < BigInt(right) ? -1 : 1))
+    assert.deepEqual(historyIds.slice(6), historySeedIds)
+    await expect(historyMessages.first()).toContainText('synthetic browser visitor question')
+    await expect(historyMessages.last()).toContainText('synthetic history message 193')
+    responses.push({ action: 'long-message-history', messages: 200, pages: 4, unique: 200, seedMessages: historySeedIds.length })
+    await expect.poll(() => imageReached, { timeout: 10000 }).toBe(true)
+    await expect(restored.getByTestId('seat-attachment-image-loading')).toBeVisible()
+    await historyMessages.nth(20).evaluate((row) => row.scrollIntoView({ block: 'center' }))
+    await restored.evaluate(() => new Promise(requestAnimationFrame))
+    const imageAnchor = await visibleAnchor(restored)
+    assert.ok(imageAnchor)
+    releaseImage()
+    const decodedImage = restored.getByTestId('seat-attachment-image')
+    await expect.poll(() => decodedImage.evaluate((image) => image.complete && image.naturalWidth > 0)).toBe(true)
+    const imageOffset = await restored.getByTestId(`seat-message-${imageAnchor.id}`).evaluate((row) =>
+      row.getBoundingClientRect().top - row.closest('[data-testid="seat-message-list"]').getBoundingClientRect().top)
+    assert.ok(Math.abs(imageOffset - imageAnchor.offset) <= 2)
+    await restored.unroute('**/assets/*/content?*', delayImage)
+    responses.push({ action: 'delayed-image-preserves-anchor', anchorId: imageAnchor.id, before: imageAnchor.offset, after: imageOffset, tolerancePixels: 2 })
     const downloads = restored.getByTestId('seat-attachment-download')
     await expect(downloads).toHaveCount(2, { timeout: 25000 })
-    const expected = [Buffer.from('synthetic visitor attachment\n'), Buffer.from('synthetic seat attachment\n')]
+    const expected = [Buffer.from('synthetic visitor attachment\n'), seatImage]
     for (let index = 0; index < expected.length; index += 1) {
       const received = restored.waitForEvent('download')
       await downloads.nth(index).click()
@@ -280,8 +465,82 @@ try {
     }
     responses.push({ action: 'fresh-seat-login-attachment-history', attachmentCount: 2, bytes: expected.map((bytes) => bytes.length) })
     await restored.screenshot({ path: path.join(dir, 'seat-fresh-login-attachments.png') })
+    await restored.getByTestId('seat-message-list').evaluate((box) => {
+      box.scrollTop = (box.scrollHeight - box.clientHeight) / 2
+      box.dispatchEvent(new Event('scroll', { bubbles: true }))
+    })
+    const readingAnchor = await visibleAnchor(restored)
+    assert.ok(readingAnchor)
+    await frame.getByTestId('cs-input').fill('synthetic new message while reading history')
+    await frame.getByTestId('cs-send').click()
+    await expect(historyMessages).toHaveCount(201, { timeout: 25000 })
+    await expect(restored.getByTestId('seat-new-messages')).toBeVisible()
+    const afterNew = await visibleAnchor(restored)
+    assert.equal(afterNew?.id, readingAnchor.id)
+    assert.ok(Math.abs(afterNew.offset - readingAnchor.offset) <= 2)
+    await restored.getByTestId('seat-new-messages').click()
+    const bottomGap = () => restored.getByTestId('seat-message-list').evaluate((box) => box.scrollHeight - box.clientHeight - box.scrollTop)
+    await expect.poll(bottomGap).toBeLessThanOrEqual(16)
+    await expect(restored.getByTestId('seat-new-messages')).toHaveCount(0)
+    await frame.getByTestId('cs-input').fill('synthetic new message while following latest')
+    await frame.getByTestId('cs-send').click()
+    await expect(historyMessages).toHaveCount(202, { timeout: 25000 })
+    await expect.poll(bottomGap).toBeLessThanOrEqual(16)
+    await expect(restored.getByTestId('seat-new-messages')).toHaveCount(0)
+    responses.push({ action: 'reading-anchor-and-follow-latest', messages: 202, anchorId: readingAnchor.id, tolerancePixels: 2, bottomGapPixels: await bottomGap() })
+    const beforeRefreshIds = await historyMessages.evaluateAll((rows) => rows.map((row) => row.dataset.messageId))
+    await openSeat(statuses[0] === 200 ? fixture.seat_b : fixture.seat_a, restored)
+    await openSession(restored, session.id)
+    await expect(historyMessages).toHaveCount(50)
+    for (const count of [100, 150, 200, 202]) {
+      await restored.getByTestId('seat-load-older').click()
+      await expect(historyMessages).toHaveCount(count)
+    }
+    assert.deepEqual(await historyMessages.evaluateAll((rows) => rows.map((row) => row.dataset.messageId)), beforeRefreshIds)
+    await expect(restored.getByTestId('seat-attachment-download')).toHaveCount(2)
+    await expect.poll(() => restored.getByTestId('seat-attachment-image').evaluate((image) => image.complete && image.naturalWidth > 0)).toBe(true)
+    responses.push({ action: 'seat-refresh-restores-history', messages: beforeRefreshIds.length, attachments: 2, reauthenticated: true })
   }
+  let closeRequests = 0
+  restored.on('request', (request) => {
+    if (request.url().endsWith(`/sessions/${session.id}/close`) && request.method() === 'POST') closeRequests += 1
+  })
+  const unsentDraft = 'synthetic unsent draft retained after cancel'
+  await restored.getByTestId('seat-composer').fill(unsentDraft)
   await restored.getByTestId('seat-close-submit').click()
+  const closeDialog = restored.getByRole('alertdialog', { name: '确认结束会话' })
+  await expect(closeDialog).toBeVisible()
+  await expect(closeDialog).toContainText('有未发送草稿，结束后不会自动发送。')
+  await closeDialog.getByRole('button', { name: '取消', exact: true }).click()
+  await expect(closeDialog).toBeHidden()
+  await expect(restored.getByTestId('seat-composer')).toHaveValue(unsentDraft)
+  const retained = await api(statuses[0] === 200 ? fixture.seat_b : fixture.seat_a,
+    `/api/v1/cs/organizations/${org}/sessions/${session.id}?workspace_id=${ws}`)
+  assert.equal(retained.status, 'active')
+  assert.equal(closeRequests, 0)
+  responses.push({ action: 'close-cancel-retains-draft', status: retained.status, closeRequests })
+  const closePattern = `**/sessions/${session.id}/close`
+  await restored.route(closePattern, async (route) => {
+    const contenders = await Promise.all([route.fetch(), route.fetch()])
+    const statuses = contenders.map((response) => response.status())
+    assert.deepEqual([...statuses].sort(), [200, 409])
+    assert.equal((await contenders[statuses.indexOf(200)].json()).code, 0)
+    responses.push({ action: 'concurrent-close-real-backend', statuses })
+    await route.fulfill({ response: contenders[statuses.indexOf(409)] })
+  })
+  await restored.getByTestId('seat-close-submit').click()
+  await expect(closeDialog).toBeVisible()
+  const [closed] = await Promise.all([
+    restored.waitForResponse((response) => response.url().endsWith(`/sessions/${session.id}/close`) && response.request().method() === 'POST'),
+    closeDialog.getByRole('button', { name: '确认结束', exact: true }).click(),
+  ])
+  assert.equal(closed.status(), 409)
+  assert.notEqual((await closed.json()).code, 0)
+  await restored.unroute(closePattern)
+  await expect(restored.getByTestId('seat-detail-status')).toHaveText('已结束')
+  await expect(restored.getByTestId('seat-close-submit')).toHaveCount(0)
+  await expect(restored.getByTestId('seat-composer')).toHaveCount(0)
+  assert.equal(closeRequests, 1)
   await expect(frame.getByTestId('cs-rate-5')).toBeVisible({ timeout: 25000 })
   const rated = page.waitForResponse((response) => response.url().includes('/rating') && response.request().method() === 'POST')
   await frame.getByTestId('cs-rate-5').click()
@@ -291,6 +550,7 @@ try {
   await writeFile(path.join(dir, 'browser-result.json'), JSON.stringify({ status: 'PASS', oracle: 'built Widget + real HTTP + isolated PG; seat controls use actual built workbench pages after real QR confirm with synthetic mobile credentials', responses }, null, 2))
   console.log('PASS: real visitor and two Seat workbench pages: QR, concurrent claim, offline recovery, revocation, fresh login, close, rating')
 } finally {
+  releaseImage?.()
   await writeFile(path.join(dir, 'browser-responses.json'), JSON.stringify(responses, null, 2))
   if (browser) await browser.close()
   await new Promise((resolve) => host.close(resolve))
