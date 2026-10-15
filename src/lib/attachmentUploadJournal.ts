@@ -1,6 +1,6 @@
 import type { EntityId } from '@/types/common'
 
-export type UploadPhase = 'intent' | 'registered' | 'uploaded' | 'confirmed'
+type UploadPhase = 'intent' | 'registered' | 'uploaded' | 'confirmed'
 export type UploadCheckpoint = {
   clientUploadId: string
   clientMsgId: string
