@@ -115,6 +115,7 @@ function boot(): void {
     onRating: (score) => void controller.submitRating(score),
     onClose: () => controller.closeAndCleanup(),
     onAttachment: (file) => void controller.sendAttachment(file),
+    onRecoverAttachment: (key, file) => void controller.recoverAttachment(key, file),
     onOpenAttachment: (key, assetId) => void controller.openAttachment(key, assetId),
     onClosePreview: () => controller.closePreview(),
   })

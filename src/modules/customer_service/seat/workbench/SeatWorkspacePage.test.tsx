@@ -1,3 +1,4 @@
+import '@/test/attachmentJournalFixture'
 /**
  * SEAT-02：坐席工作台页面组件级测试（bun test + testing-library，SEAT-01 同款
  * 合同 fixture 替身——不 mock 合同形状，假后端按冻结 wire 形状回包）。
@@ -67,7 +68,7 @@ function loseFirstSendResponse(backend: SeatFakeBackend): void {
       return new Response('{"code":500,"msg":"lost send response","payload":{}}', { status: 500 })
     }
     if (committed !== null && init?.method !== 'POST' && path.endsWith(`/conversations/${CONV}/messages`)) {
-      return new Response(`{"code":0,"msg":"ok","payload":{"messages":[{"id":9000000000000000011,"sender_type":"business_identity","sender_identity_id":${IDENTITY},"client_msg_id":${JSON.stringify(committed.client_msg_id)},"body":${JSON.stringify(committed.body ?? null)}}]}}`, { status: 200 })
+      return new Response(`{"code":0,"msg":"ok","payload":{"messages":[{"id":9000000000000000011,"sender_type":"business_identity","sender_identity_id":${IDENTITY},"client_msg_id":${JSON.stringify(committed.client_msg_id)},"body":${JSON.stringify(committed.body ?? null)},"assets":${JSON.stringify((committed.asset_ids as string[] ?? []).map(id => ({ id, status: 'active' })))}}]}}`, { status: 200 })
     }
     return response
   }
@@ -701,10 +702,10 @@ describe('SeatWorkspacePage CS-WEB-02 单文件发送（presign → 裸 PUT → 
     await waitFor(() => expect((view.getByTestId('seat-composer') as HTMLTextAreaElement).value).toBe('重传这份'))
     expect(view.getByTestId('seat-attach-chip-name').textContent).toBe('a.png')
     expect(backend.sentClientMsgIds).toHaveLength(0)
-    // 重试：PUT 失败 → 未 confirm → 重新 presign 换新 ref 再走全链。
+    // 重试：先查询同 UUID，再续期原资产，禁止重新登记。
     fireEvent.click(view.getByTestId('seat-send-retry'))
     await waitFor(() => expect(backend.sentClientMsgIds.length).toBe(1))
-    expect(backend.presignCount).toBe(2)
+    expect(backend.presignCount).toBe(1)
     // harness 的 uploadPutCount 只计成功（失败在计数前 return）；PUT 总尝试
     // （含第一次 500）以 calls 日志为准 = 2。
     expect(backend.uploadPutCount).toBe(1)

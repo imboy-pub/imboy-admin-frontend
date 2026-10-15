@@ -507,3 +507,17 @@ describe('CS-WEB-04 客户上下文合同（CS-BE-03 端点）', () => {
     expect(caught && typeof caught === 'object' && 'kind' in caught ? (caught as { kind: string }).kind : '').toBe('invalid_response')
   })
 })
+
+it('V5 recovery uses existing authenticated presign route and stable UUID, no declaration or URL invention', async () => {
+  const { api, calls } = makeFetch(() => envelope('{"asset_id":8100000000000000001,"session_state":"registered","upload_ref":"memory-only","upload":{"url":"https://store.example/put"}}'))
+  const id = '12345678-1234-4234-8234-123456789abc'
+  const status = await api.recoverAssetUpload(ORG, WS, id, 'status')
+  expect(status.assetId).toBe('8100000000000000001')
+  await api.recoverAssetUpload(ORG, WS, id, 'renew')
+  expect(calls.map((call) => JSON.parse(String(call.init?.body)))).toEqual([
+    { workspace_id: WS, client_upload_id: id, operation: 'status' },
+    { workspace_id: WS, client_upload_id: id, operation: 'renew' },
+  ])
+  await api.confirmRecoveredAsset(ORG, WS, status.assetId, null)
+  expect(JSON.parse(String(calls[2]!.init?.body))).toEqual({ workspace_id: WS, asset_id: status.assetId })
+})

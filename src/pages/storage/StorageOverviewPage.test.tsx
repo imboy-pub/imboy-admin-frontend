@@ -70,6 +70,17 @@ describe('StorageOverviewPage flow', () => {
     cleanup()
   })
 
+  it.each(['ready', 'retry_wait', 'blocked', 'done', 'future_state'])('shows logical and physical %s independently', async (physical) => {
+    mutableClient.get = async (url: string) => ({ data: { code: 0, payload: url === '/storage/stats' ? statsFixture : {
+      ...listFixture, list: [{ ...listFixture.list[0], id: '8100000000000000001', status: -1,
+        lifecycle_state: 'delete_intent', physical_state: physical, deletion_block_reason: 'legal_hold' }],
+    } } })
+    const view = renderPage()
+    const labels: Record<string, string> = { ready: '物理待删除', retry_wait: '物理删除待重试', blocked: '物理删除已阻断（legal_hold）', done: '物理删除已完成', future_state: '物理状态未知' }
+    await waitFor(() => expect(view.container.textContent).toContain(`逻辑已删除 · ${labels[physical]}`))
+    expect(view.container.textContent).not.toContain('一键物理删除')
+  })
+
   it('loads and displays storage stats with data', async () => {
     mutableClient.get = async (url: string) => {
       if (url === '/storage/stats') return { data: { code: 0, msg: 'ok', payload: statsFixture } }

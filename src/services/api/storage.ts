@@ -24,6 +24,9 @@ export type StorageItem = {
   referer_time: number
   status: number
   created_at: string
+  lifecycle_state?: string
+  physical_state?: string
+  deletion_block_reason?: string | null
 }
 
 export async function getStorageStats(): Promise<StorageStats> {
@@ -81,7 +84,7 @@ export async function getOrphanStats(ageDays = 30): Promise<OrphanStats> {
   )
 }
 
-type CleanupResult = { cleaned: number; errors: number }
+type CleanupResult = { cleaned: number; errors: number; queued?: number }
 
 export async function cleanupOrphans(ageDays = 30): Promise<CleanupResult> {
   return requireApiPayload<CleanupResult>(
@@ -96,4 +99,13 @@ export function formatFileSize(bytes: number): string {
   const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
   const i = Math.floor(Math.log(bytes) / Math.log(k))
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`
+}
+
+/** Logical deletion is not proof of physical erasure. Unknown server values remain unknown. */
+export function attachmentDeletionLabel(item: Pick<StorageItem, 'status' | 'lifecycle_state' | 'physical_state' | 'deletion_block_reason'>): string {
+  const logical = item.status === -1 || item.lifecycle_state === 'delete_intent' || item.lifecycle_state === 'deleted'
+    ? '逻辑已删除' : '未逻辑删除'
+  const physical: Record<string, string> = { ready: '物理待删除', leased: '物理删除处理中', retry_wait: '物理删除待重试', blocked: '物理删除已阻断', done: '物理删除已完成' }
+  const label = physical[item.physical_state ?? ''] ?? '物理状态未知'
+  return `${logical} · ${label}${item.physical_state === 'blocked' && item.deletion_block_reason ? `（${item.deletion_block_reason}）` : ''}`
 }

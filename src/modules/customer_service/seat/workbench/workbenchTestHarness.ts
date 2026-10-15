@@ -269,6 +269,7 @@ export class SeatFakeBackend {
   assetContentFetchCount = 0
   sentClientMsgIds: string[] = []
   /** CS-WEB-02：上传/发送观测（顺序与重试不重复上传断言的唯一事实源）。 */
+  private readonly uploadSessions = new Map<string, { assetId: string; uploadRef: string; uploadUrl: string | null }>()
   presignCount = 0
   uploadPutCount = 0
   confirmCount = 0
@@ -460,6 +461,14 @@ export class SeatFakeBackend {
     if (path === `/api/v1/seat/enterprise/organizations/${ORG}/assets/presign` && method === 'POST') {
       const parsed = JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>
       this.presignRequests.push(parsed)
+      if (parsed.operation === 'status' || parsed.operation === 'renew') {
+        const row = this.uploadSessions.get(String(parsed.client_upload_id))
+        if (!row || parsed.workspace_id !== WS) return new Response('{"code":404,"payload":{}}', { status: 404 })
+        const confirmed = this.confirmedUploadRefs.includes(row.uploadRef)
+        return ok(JSON.stringify({ asset_id: row.assetId, session_state: confirmed ? 'confirmed' : 'registered',
+          ...(parsed.operation === 'renew' && !confirmed ? { upload_ref: row.uploadRef, upload: { url: row.uploadUrl } } : {}) }))
+      }
+
       if (
         parsed.conversation_id !== CONV ||
         typeof parsed.mime !== 'string' ||
@@ -479,17 +488,18 @@ export class SeatFakeBackend {
       }
       this.presignCount += 1
       const uploadRef = `ur-${this.presignCount}`
-      const assetId = 8100000000000000000 + this.presignCount
+      const assetId = (8100000000000000000n + BigInt(this.presignCount)).toString()
       const uploadUrl = this.state.presignOmitUploadUrl
         ? null
         : `/api/v1/seat/enterprise/organizations/${ORG}/assets/upload/${this.presignCount}`
+      if (typeof parsed.client_upload_id === 'string') this.uploadSessions.set(parsed.client_upload_id, { assetId, uploadRef, uploadUrl })
       // 镜像 eb_asset_app:presign_view + widget BE-PATCH-01 的 upload.url 投影。
       const uploadText =
         uploadUrl === null
           ? '{"method":"PUT","token":"opaque","expires_at":1759000000,"adapter":"local_private_object_store","rule":"opaque_token_no_url_no_object_key"}'
           : `{"method":"PUT","url":"${uploadUrl}","token":"opaque","expires_at":1759000000,"adapter":"local_private_object_store","rule":"opaque_token_no_url_no_object_key"}`
       return ok(
-        `{"asset_id":${assetId},"upload_ref":"${uploadRef}","object_hash":"${parsed.object_hash}","mime":"${parsed.mime}",` +
+        `{"session_state":"registered","asset_id":${assetId},"upload_ref":"${uploadRef}","object_hash":"${parsed.object_hash}","mime":"${parsed.mime}",` +
           `"size_bytes":${parsed.size_bytes},"file_name":null,"retain_until":null,"expires_at":1759000000,"upload":${uploadText}}`,
       )
     }

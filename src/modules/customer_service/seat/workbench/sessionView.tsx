@@ -1,3 +1,4 @@
+import type { UploadCheckpoint } from '@/lib/attachmentUploadJournal'
 /**
  * SEAT-02 / CS-WEB-01 / CS-WEB-02：会话视图面板（消息历史 + 发送 + ACK + 附件）。
  *
@@ -42,6 +43,9 @@ type SeatSessionViewProps = {
   /** CS-WEB-02：草稿真源在 useSeatSend（成功清零/失败保留）；视图只消费投影。 */
   draft: { body: string; fileName: string | null; fileSize: number | null }
   onUpdateDraftBody: (_body: string) => void
+  recoverableAttachments?: UploadCheckpoint[]
+  recoveryError?: unknown
+  onSelectRecovery?: (_row: UploadCheckpoint) => void
   onAttachFile: (_file: File) => void
   onDetachFile: () => void
   onSend: () => void
@@ -495,6 +499,16 @@ export function SeatSessionView(props: SeatSessionViewProps) {
           // 契约沙箱无 allow-forms：浏览器在 submit 事件触发前就拦截表单提交
           // （A10 明确断言 form 提交被阻止），因此发送链路不得依赖 form submit。
           <div className="flex flex-col gap-2">
+            {sendOutcomeUnknown && sendError == null && (
+              <Button type="button" variant="outline" disabled={sending} onClick={onRetrySend}>查询发送结果</Button>
+            )}
+            {props.recoveryError != null && <p role="alert">上传恢复记录不可读取，请检查浏览器存储权限</p>}
+            {(props.recoverableAttachments ?? []).map((row) => (
+              <Button key={row.clientUploadId} type="button" variant="outline" size="sm" disabled={sending}
+                onClick={() => { props.onSelectRecovery?.(row); if (row.phase !== 'confirmed') fileInputRef.current?.click() }}>
+                恢复未完成附件（{row.sizeBytes} B · {row.phase === 'confirmed' ? '查询消息结果' : '重新选择原文件'}）
+              </Button>
+            ))}
             {draft.fileName !== null && (
               <span
                 className="inline-flex max-w-full items-center gap-1.5 self-start rounded border border-border bg-muted/50 px-2 py-1 text-xs"

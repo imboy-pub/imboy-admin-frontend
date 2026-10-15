@@ -1,3 +1,4 @@
+import { parseUploadSession } from '@/lib/attachmentUploadJournal'
 /**
  * SEAT-02：坐席工作台 API client（复用 SEAT-01 SeatApiClient，不新增传输栈）。
  *
@@ -207,6 +208,28 @@ export class SeatWorkbenchApi {
    * file_name 可选 1..256 字节；workspace_id handler 级必填）。
    * mime/size/hash 的合法性由服务端裁决（422 语义透传，前端提示不替代）。
    */
+  async recoverAssetUpload(orgId: EntityId, workspaceId: EntityId, clientUploadId: string, operation: 'status' | 'renew') {
+    return parseUploadSession(await this.client.request(buildAssetPresignPath(orgId), {
+      method: 'POST', body: { workspace_id: workspaceId, client_upload_id: clientUploadId, operation },
+    }))
+  }
+
+  async registerAssetUpload(orgId: EntityId, conversationId: EntityId, workspaceId: EntityId,
+    input: { mime: string; sizeBytes: number; objectHash: string; fileName?: string | null; clientUploadId: string }) {
+    return parseUploadSession(await this.client.request(buildAssetPresignPath(orgId), {
+      method: 'POST', body: { conversation_id: conversationId, workspace_id: workspaceId,
+        mime: input.mime, size_bytes: input.sizeBytes, object_hash: input.objectHash,
+        file_name: input.fileName, client_upload_id: input.clientUploadId, operation: 'register' },
+    }))
+  }
+
+  async confirmRecoveredAsset(orgId: EntityId, workspaceId: EntityId, assetId: EntityId, uploadRef: string | null) {
+    await this.client.request(buildAssetConfirmPath(orgId), {
+      method: 'POST', body: { workspace_id: workspaceId, asset_id: assetId,
+        ...(uploadRef === null ? {} : { upload_ref: uploadRef }) },
+    })
+  }
+
   async requestAssetPresign(
     orgId: EntityId,
     conversationId: EntityId,

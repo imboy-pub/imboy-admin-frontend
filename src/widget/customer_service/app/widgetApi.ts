@@ -1,3 +1,4 @@
+import { parseUploadSession } from '@/lib/attachmentUploadJournal'
 import type { EntityId } from '../../../types/common'
 import { canonicalReadId } from './visitorRead'
 /**
@@ -205,6 +206,30 @@ export class WidgetApiClient {
 
   /** POST /sessions/:id/assets/presign（widget_asset_upload 逐键：mime +
    * size_bytes + object_hash）。响应 = 不透明 upload_ref（+ 可选裸 PUT url）。 */
+  async recoverAttachment(sessionId: string, scope: RequestScope, clientUploadId: string, operation: 'status' | 'renew') {
+    return parseUploadSession(await this.requestJson(
+      `${WIDGET_API_BASE}/sessions/${encodeURIComponent(sessionId)}/assets/presign`,
+      { method: 'POST', body: JSON.stringify({ installation_id: scope.installationId,
+        client_upload_id: clientUploadId, operation }) },
+    ))
+  }
+
+  async registerAttachment(sessionId: string, scope: RequestScope,
+    file: { mime: string; sizeBytes: number; objectHash: string; clientUploadId: string }) {
+    return parseUploadSession(await this.requestJson(
+      `${WIDGET_API_BASE}/sessions/${encodeURIComponent(sessionId)}/assets/presign`,
+      { method: 'POST', body: JSON.stringify({ ...buildPresignBody(scope, file),
+        client_upload_id: file.clientUploadId, operation: 'register' }) },
+    ))
+  }
+
+  async confirmRecoveredAttachment(sessionId: string, scope: RequestScope, assetId: string, uploadRef: string | null) {
+    await this.requestJson(`${WIDGET_API_BASE}/sessions/${encodeURIComponent(sessionId)}/assets/confirm`, {
+      method: 'POST', body: JSON.stringify({ installation_id: scope.installationId, asset_id: assetId,
+        ...(uploadRef === null ? {} : { upload_ref: uploadRef }) }),
+    })
+  }
+
   async presignAttachment(
     sessionId: string,
     scope: RequestScope,

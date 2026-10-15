@@ -572,6 +572,9 @@ function SeatWorkspaceInner() {
               canWrite={canWriteNow}
               writeClosedReason={writeClosedReason}
               draft={send.draft}
+              recoverableAttachments={send.recoverableAttachments}
+              recoveryError={send.recoveryError}
+              onSelectRecovery={send.selectRecovery}
               onUpdateDraftBody={send.updateDraftBody}
               onAttachFile={send.attachFile}
               onDetachFile={send.detachFile}

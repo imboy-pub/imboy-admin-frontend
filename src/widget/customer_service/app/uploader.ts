@@ -1,3 +1,4 @@
+import { resumeUpload, uploadJournal } from '@/lib/attachmentUploadJournal'
 /**
  * FE-W01：附件上传流水线（§3.7：hash → presign → 裸 PUT → confirm → 消息 asset_ids）。
  *
@@ -75,6 +76,8 @@ export async function runAttachmentPipeline(input: {
   clientMsgId: string
   deps: UploaderDeps
   existing?: AttachmentItem | null
+  durable?: boolean
+  principalId?: string
 }): Promise<AttachmentItem> {
   let item: AttachmentItem =
     input.existing ??
@@ -91,11 +94,68 @@ export async function runAttachmentPipeline(input: {
   try {
     requireCurrent(input.deps)
     item = await ensureHash(item, input.file, input.deps)
+    if (input.durable) {
+      if (!input.principalId) throw new PipelineFailure('缺少上传恢复主体，已停止')
+      const current = () => input.deps.isCurrent?.() ?? true
+      const journal = uploadJournal(['widget', input.principalId ?? '', input.scope.installationId, input.sessionId], current)
+      return await journal.run(input.clientMsgId, async () => {
+      const previous = journal.load(input.clientMsgId)
+      const row = await resumeUpload({ journal, file: input.file, hash: item.objectHash!, clientMsgId: input.clientMsgId,
+        isCurrent: current,
+        onCheckpoint: async (checkpoint) => {
+          requireCurrent(input.deps)
+          if (checkpoint.phase !== 'intent') {
+            item = { ...item, assetId: checkpoint.assetId,
+              state: checkpoint.phase === 'confirmed' ? 'sending' : 'confirming' }
+            input.deps.onItem(item)
+          }
+        },
+        register: (clientUploadId) => input.deps.api.registerAttachment(input.sessionId, input.scope,
+          { clientUploadId, mime: item.mime, sizeBytes: item.sizeBytes, objectHash: item.objectHash! }),
+        status: (id) => input.deps.api.recoverAttachment(input.sessionId, input.scope, id, 'status'),
+        renew: (id) => input.deps.api.recoverAttachment(input.sessionId, input.scope, id, 'renew'),
+        put: (url) => barePutOrThrow({ assetId: '', uploadRef: '', uploadUrl: url }, input.file, input.deps),
+        confirm: (id, ref) => input.deps.api.confirmRecoveredAttachment(input.sessionId, input.scope, id, ref),
+      })
+      requireCurrent(input.deps)
+      item = { ...item, clientMsgId: row.clientMsgId, assetId: row.assetId, state: 'sending' }
+      input.deps.onItem(item)
+      if (previous?.phase === 'confirmed') {
+        let afterId: string | null = null
+        for (let page = 0; page < 20; page += 1) {
+          requireCurrent(input.deps)
+          const messages = await input.deps.api.listMessages(input.sessionId, input.scope, afterId)
+          requireCurrent(input.deps)
+          let cursor = BigInt(afterId ?? '0')
+          for (const message of messages) {
+            if (!/^\d+$/.test(message.id) || BigInt(message.id) <= cursor) throw new PipelineFailure('恢复分页游标未前进')
+            cursor = BigInt(message.id)
+          }
+          const found = messages.find((message) => message.clientMsgId === row.clientMsgId
+            && message.senderContactId === input.principalId && message.assets.length === 1 && message.assets[0]?.id === row.assetId)
+          if (found) {
+            item = dispatch(item, { type: 'append_succeeded', key: item.key, messageId: found.id }, input.deps)
+            await journal.remove(row.clientMsgId, row.clientUploadId)
+            return item
+          }
+          if (messages.length === 0) break
+          const next = messages[messages.length - 1]!.id
+          if (!/^\d+$/.test(next) || (afterId !== null && BigInt(next) <= BigInt(afterId))) throw new PipelineFailure('恢复分页游标未前进')
+          afterId = next
+        }
+        throw new PipelineFailure('消息结果仍未知，请继续查询原任务')
+      }
+      item = await ensureLinked(item, input.sessionId, input.scope, input.deps)
+      if (item.state === 'linked') await journal.remove(row.clientMsgId, row.clientUploadId)
+      return item
+      })
+    }
     const presigned = await ensurePresign(item, input.sessionId, input.scope, input.deps)
     item = await ensureConfirmed(presigned.item, presigned.result, input.file, input.sessionId, input.scope, input.deps)
     item = await ensureLinked(item, input.sessionId, input.scope, input.deps)
     return item
   } catch (error) {
+    reportCredentialRefusal(error, input.deps)
     const reason = error instanceof PipelineFailure ? error.message : '附件上传失败'
     return dispatch(item, { type: 'step_failed', key: item.key, reason }, input.deps)
   }

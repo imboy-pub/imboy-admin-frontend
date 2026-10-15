@@ -1,3 +1,4 @@
+import '@/test/attachmentJournalFixture'
 import '../../../../test/setupDom'
 
 import { afterEach, describe, expect, it, mock, spyOn } from 'bun:test'
@@ -41,14 +42,16 @@ function harness() {
   const environment = setup()
   const api = environment.gateway.api
   const send = spyOn(api, 'sendMessage').mockResolvedValue({
+    state: 'registered',
     id: '9000000000000000011', senderType: 'business_identity', senderIdentityId: IDENTITY,
     senderContactId: null, clientMsgId: null, body: 'reply', readAt: null, createdAt: null, attachments: [],
   })
-  const presign = spyOn(api, 'requestAssetPresign').mockResolvedValue({
+  const presign = spyOn(api, 'registerAssetUpload').mockResolvedValue({
+    state: 'registered',
     assetId: '8000000000000000012', uploadRef: 'mock-ref', uploadUrl: 'https://upload.invalid/mock', expiresAt: null,
   })
   const upload = spyOn(api, 'uploadAssetBytes').mockResolvedValue(undefined)
-  const confirm = spyOn(api, 'confirmAssetUpload').mockResolvedValue(undefined)
+  const confirm = spyOn(api, 'confirmRecoveredAsset').mockResolvedValue(undefined)
   const fetchMessages = spyOn(api, 'fetchMessages').mockResolvedValue([])
   const view = renderHook((scope: typeof SCOPE) => useSeatSend(
     scope.orgId, scope.conversationId, scope.workspaceId, scope.identityId, scope.writeRevoked,
@@ -74,6 +77,7 @@ async function failSend(view: Harness, kind: ConstructorParameters<typeof SeatAp
 }
 
 afterEach(() => {
+  localStorage.clear()
   cleanup()
   for (const queryClient of queryClients.splice(0)) queryClient.clear()
   mock.restore()
@@ -91,11 +95,12 @@ describe('CX03 revocation — isolated mock/JSDOM, not browser/API/SQL acceptanc
     const contexts = removal === 'workspace'
       ? [{ ...first, workspaces: [...first.workspaces, ...second.workspaces] }] : [first, second]
     const pending = deferred<void>()
-    spyOn(gateway.api, 'requestAssetPresign').mockResolvedValue({
-      assetId: '6000000000000000006', uploadUrl: 'https://mock.invalid/put', headers: {},
+    spyOn(gateway.api, 'registerAssetUpload').mockResolvedValue({
+    state: 'registered',
+      assetId: '6000000000000000006', uploadUrl: 'https://mock.invalid/put', uploadRef: null,
     })
     spyOn(gateway.api, 'uploadAssetBytes').mockResolvedValue(undefined)
-    spyOn(gateway.api, 'confirmAssetUpload').mockImplementationOnce(() => pending.promise)
+    spyOn(gateway.api, 'confirmRecoveredAsset').mockImplementationOnce(() => pending.promise)
     const send = spyOn(gateway.api, 'sendMessage')
     const view = renderHook((grants: SeatContext[]) => {
       const scope = useSeatScopeSelection(grants)
@@ -107,7 +112,7 @@ describe('CX03 revocation — isolated mock/JSDOM, not browser/API/SQL acceptanc
       view.result.current.composer.attachFile(new File(['secret'], 'secret.txt'))
     })
     act(() => view.result.current.composer.send())
-    await waitFor(() => expect(gateway.api.confirmAssetUpload).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(gateway.api.confirmRecoveredAsset).toHaveBeenCalledTimes(1))
     act(() => {
       view.result.current.scope.selectOrganization(second.organizationId)
       view.result.current.scope.selectWorkspace(second.workspaces[0]!.id)
@@ -165,11 +170,12 @@ describe('CX03 revocation — isolated mock/JSDOM, not browser/API/SQL acceptanc
     const contexts = { ...original, contexts: [first, second] }
     const contextsSpy = spyOn(gateway.api, 'fetchContexts').mockResolvedValue(contexts)
     const send = spyOn(gateway.api, 'sendMessage').mockRejectedValue(new SeatApiError('conflict', '旧发送错误'))
-    spyOn(gateway.api, 'requestAssetPresign').mockResolvedValue({
-      assetId: '6000000000000000006', uploadUrl: 'https://mock.invalid/put', headers: {},
+    spyOn(gateway.api, 'registerAssetUpload').mockResolvedValue({
+    state: 'registered',
+      assetId: '6000000000000000006', uploadUrl: 'https://mock.invalid/put', uploadRef: null,
     })
     spyOn(gateway.api, 'uploadAssetBytes').mockResolvedValue(undefined)
-    spyOn(gateway.api, 'confirmAssetUpload').mockResolvedValue(undefined)
+    spyOn(gateway.api, 'confirmRecoveredAsset').mockResolvedValue(undefined)
     const view = renderHook(() => {
       const grants = useSeatContexts()
       const scope = useSeatScopeSelection(grants.data)
@@ -372,7 +378,7 @@ describe('CX03 revocation — isolated mock/JSDOM, not browser/API/SQL acceptanc
     const contexts = await gateway.api.fetchContexts()
     const contextsSpy = spyOn(gateway.api, 'fetchContexts').mockResolvedValue(contexts)
     const pending = deferred<void>()
-    spyOn(gateway.api, 'confirmAssetUpload').mockImplementationOnce(() => pending.promise)
+    spyOn(gateway.api, 'confirmRecoveredAsset').mockImplementationOnce(() => pending.promise)
     const send = spyOn(gateway.api, 'sendMessage')
     const view = render(<QueryClientProvider client={queryClient}><SeatWorkspacePage gateway={gateway} /></QueryClientProvider>)
     fireEvent.click(await waitFor(() => view.getByTestId(`seat-session-item-${SESSION}`)))
@@ -381,7 +387,7 @@ describe('CX03 revocation — isolated mock/JSDOM, not browser/API/SQL acceptanc
     fireEvent.change(composer, { target: { value: 'page私密稿' } })
     fireEvent.change(view.getByTestId('seat-attach-input'), { target: { files: [new File(['x'], 'secret.txt')] } })
     fireEvent.click(view.getByTestId('seat-send'))
-    await waitFor(() => expect(gateway.api.confirmAssetUpload).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(gateway.api.confirmRecoveredAsset).toHaveBeenCalledTimes(1))
     contextsSpy.mockResolvedValue({ ...contexts, contexts: source === 'empty-contexts' ? [] : contexts.contexts.map((context) => source === 'disabled-seat'
       ? { ...context, seatEnabled: false }
       : { ...context, capabilities: context.capabilities.filter((capability) => capability !== 'conversation.write') }) })
