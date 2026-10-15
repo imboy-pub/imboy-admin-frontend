@@ -1,3 +1,5 @@
+import '@/test/attachmentJournalFixture'
+import { uploadJournal } from '@/lib/attachmentUploadJournal'
 /**
  * FE-W01：Widget 控制器单元测试（宿主 IO 注入）。
  *
@@ -9,7 +11,16 @@
  * - §3.6 SSE：信封消费、event_id 去重、resync.required 清游标全量权威刷新；
  *   visit token 不进 URL、不进存储。
  */
-import { describe, expect, it } from 'bun:test'
+import { beforeEach, describe, expect, it } from 'bun:test'
+beforeEach(() => {
+  const rows = new Map<string, string>()
+  Object.defineProperty(globalThis, 'location', { configurable: true, value: { origin: 'https://widget.example' } })
+  Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: {
+    getItem: (key: string) => rows.get(key) ?? null, setItem: (key: string, value: string) => rows.set(key, value),
+    removeItem: (key: string) => rows.delete(key),
+    get length() { return rows.size }, key: (index: number) => [...rows.keys()][index] ?? null,
+  } })
+})
 import { createWidgetController, type ControllerIo, type StreamHandle } from './controller'
 import { WidgetApiClient, WidgetApiError } from './widgetApi'
 import { subjectStorageKey, type StorageLike } from './visitStorage'
@@ -594,16 +605,18 @@ for (const outcome of ['success', '401']) {
 
 it('old attachment presign cannot PUT or confirm after re-entry', async () => {
   const h = makeHarness(); await reachChat(h)
-  let resolve!: (_value: Awaited<ReturnType<WidgetApiClient['presignAttachment']>>) => void
-  h.api.presignAttachment = () => new Promise(yes => { resolve = yes })
+  let resolve!: (_value: Awaited<ReturnType<WidgetApiClient['registerAttachment']>>) => void
+  h.api.registerAttachment = () => new Promise(yes => { resolve = yes })
   const old = h.controller.sendAttachment(new File(['x'], 'x.pdf'))
   await h.settle()
   h.controller.retryBootstrap(); await h.settle()
   const count = h.env.requests.length
-  resolve({ assetId: '1', uploadRef: 'ref', uploadUrl: 'https://store.example/owned' })
+  const restoredBeforeLateResponse = h.controller.currentState().messages
+  resolve({ state: 'registered', assetId: '1', uploadRef: 'ref', uploadUrl: 'https://store.example/owned' })
   await old
   expect(h.env.requests.length).toBe(count)
-  expect(h.controller.currentState().messages).toEqual([])
+  expect(h.controller.currentState().messages).toEqual(restoredBeforeLateResponse)
+  expect(restoredBeforeLateResponse.every((message) => message.attachment?.state === 'failed')).toBe(true)
 })
 
 it('old rating lookup cannot submit against a newly bootstrapped session', async () => {
@@ -622,7 +635,7 @@ it('old rating lookup cannot submit against a newly bootstrapped session', async
 
 it('current attachment credential refusal revokes authority without automatic resend', async () => {
   const h = makeHarness(); await reachChat(h)
-  h.api.presignAttachment = async () => { throw new WidgetApiError('refused', 403) }
+  h.api.registerAttachment = async () => { throw new WidgetApiError('refused', 403) }
   await h.controller.sendAttachment(new File(['x'], 'x.pdf'))
   expect(h.controller.currentState().phase).toBe('error')
   expect(h.api.currentToken()).toBeNull()
@@ -662,15 +675,96 @@ for (const stale of [false, true]) {
 
 it('session closing during presign stops the next attachment write', async () => {
   const h = makeHarness({ sessionsStatus: 'closed' }); await reachChat(h)
-  let resolve!: (_value: Awaited<ReturnType<WidgetApiClient['presignAttachment']>>) => void
-  h.api.presignAttachment = () => new Promise(yes => { resolve = yes })
+  let resolve!: (_value: Awaited<ReturnType<WidgetApiClient['registerAttachment']>>) => void
+  h.api.registerAttachment = () => new Promise(yes => { resolve = yes })
   const pending = h.controller.sendAttachment(new File(['x'], 'x.pdf'))
   await h.settle()
   await h.controller.handleSseFrame(h.envelopeFrame('closed-during-upload', 'session.changed'))
   expect(h.controller.currentState().phase).toBe('closed-rating')
   const count = h.env.requests.length
-  resolve({ assetId: '1', uploadRef: 'ref', uploadUrl: 'https://store.example/owned' })
+  resolve({ state: 'registered', assetId: '1', uploadRef: 'ref', uploadUrl: 'https://store.example/owned' })
   await pending
   expect(h.env.requests.length).toBe(count)
   expect(h.controller.currentState().messages[0]?.status).not.toBe('sent')
+})
+
+
+it('refresh enumerates only current visitor tasks; confirmed recovery queries without re-publish', async () => {
+  const id = '12345678-1234-4234-8234-123456789abc'
+  const journal = uploadJournal(['widget', '72057594037928002', WIDGET_ID, '72057594037927936'], () => true)
+  await journal.save({ clientUploadId: id, clientMsgId: 'restored-message', assetId: '8100000000000000001',
+    phase: 'confirmed', objectHash: 'a'.repeat(64), sizeBytes: 3, mime: 'text/plain', updatedAt: Date.now() })
+  const h = makeHarness(); await reachChat(h)
+  const message = h.controller.currentState().messages.find((row) => row.clientMsgId === 'restored-message')
+  expect(message?.attachment?.state).toBe('failed')
+  h.api.recoverAttachment = async () => ({ assetId: '8100000000000000001', state: 'confirmed', uploadRef: null, uploadUrl: null })
+  const before = h.env.requests.length
+  await h.controller.retryMessage(message!.key)
+  expect(h.env.requests.slice(before).filter((request) => request.method === 'POST')).toEqual([])
+  expect(journal.load('restored-message')).not.toBeNull()
+  expect(h.controller.currentState().messages.find((row) => row.clientMsgId === 'restored-message')?.status).toBe('failed')
+})
+
+it('restored widget upload re-selection rejects different bytes before network', async () => {
+  const journal = uploadJournal(['widget', '72057594037928002', WIDGET_ID, '72057594037927936'], () => true)
+  await journal.save({ clientUploadId: crypto.randomUUID(), clientMsgId: 'restored-bytes', assetId: null,
+    phase: 'intent', objectHash: 'a'.repeat(64), sizeBytes: 3, mime: 'text/plain', updatedAt: Date.now() })
+  const h = makeHarness(); await reachChat(h)
+  const before = h.env.requests.length
+  await h.controller.recoverAttachment('local-restored-bytes', new File(['abc'], 'original.txt', { type: 'text/plain' }))
+  expect(h.env.requests.length).toBe(before)
+  expect(h.controller.currentState().messages.find((row) => row.clientMsgId === 'restored-bytes')?.status).toBe('failed')
+})
+
+
+for (const outcome of ['empty', 'exhausted', 'http-error', 'wrong-contact', 'wrong-client', 'exact'] as const) {
+  it(`confirmed with-file recovery ${outcome} never republishes an unknown message`, async () => {
+    const clientMsgId = 'confirmed-file-recovery'
+    const file = new File(['abc'], 'original.txt', { type: 'text/plain' })
+    const bytes = new Uint8Array(await crypto.subtle.digest('SHA-256', await file.arrayBuffer()))
+    const objectHash = [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('')
+    const journal = uploadJournal(['widget', '72057594037928002', WIDGET_ID, '72057594037927936'], () => true)
+    await journal.save({ clientUploadId: crypto.randomUUID(), clientMsgId, assetId: '8100000000000000001',
+      phase: 'confirmed', objectHash, sizeBytes: file.size, mime: file.type, updatedAt: Date.now() })
+    const h = makeHarness(); await reachChat(h)
+    let append = 0, pages = 0
+    h.api.recoverAttachment = async () => ({ assetId: '8100000000000000001', state: 'confirmed', uploadRef: null, uploadUrl: null })
+    h.api.sendMessage = async () => { append += 1; throw new Error('must not append') }
+    h.api.listMessages = async () => {
+      pages += 1
+      if (outcome === 'http-error') throw new Error('HTTP 503')
+      if (outcome === 'empty') return []
+      return [{ id: String(100 + pages), senderType: 'contact',
+        senderContactId: outcome === 'wrong-contact' ? '999' : '72057594037928002',
+        clientMsgId: outcome === 'exhausted' || outcome === 'wrong-client' ? 'other' : clientMsgId,
+        body: null, createdAt: null,
+        assets: [{ id: '8100000000000000001', mime: 'text/plain', sizeBytes: 3, fileName: 'original.txt', status: 'active' }] }]
+    }
+    await h.controller.recoverAttachment(`local-${clientMsgId}`, file)
+    expect(append).toBe(0)
+    expect(pages).toBe(outcome === 'exact' || outcome === 'empty' || outcome === 'http-error' ? 1 : 20)
+    const message = h.controller.currentState().messages.find((row) => row.clientMsgId === clientMsgId)
+    expect(message?.status).toBe(outcome === 'exact' ? 'sent' : 'failed')
+    expect(journal.load(clientMsgId) === null).toBe(outcome === 'exact')
+  })
+}
+
+
+it('no-file confirmed recovery rejects a same-message same-contact different asset', async () => {
+  const clientMsgId = 'wrong-asset-without-file'
+  const journal = uploadJournal(['widget', '72057594037928002', WIDGET_ID, '72057594037927936'], () => true)
+  await journal.save({ clientUploadId: crypto.randomUUID(), clientMsgId, assetId: '8100000000000000001',
+    phase: 'confirmed', objectHash: 'a'.repeat(64), sizeBytes: 3, mime: 'text/plain', updatedAt: Date.now() })
+  const h = makeHarness(); await reachChat(h)
+  let append = 0
+  h.api.recoverAttachment = async () => ({ assetId: '8100000000000000001', state: 'confirmed', uploadRef: null, uploadUrl: null })
+  h.api.sendMessage = async () => { append += 1; throw new Error('must not publish') }
+  h.api.listMessages = async (_session, _scope, after) => after ? [] : [{
+    id: '100', senderType: 'contact', senderContactId: '72057594037928002', clientMsgId,
+    body: null, createdAt: null, assets: [{ id: '8100000000000000002', mime: 'text/plain', sizeBytes: 3, fileName: 'other.txt', status: 'active' }],
+  }]
+  await h.controller.retryMessage(`local-${clientMsgId}`)
+  expect(append).toBe(0)
+  expect(journal.load(clientMsgId)).not.toBeNull()
+  expect(h.controller.currentState().messages.find((row) => row.clientMsgId === clientMsgId)?.status).toBe('failed')
 })

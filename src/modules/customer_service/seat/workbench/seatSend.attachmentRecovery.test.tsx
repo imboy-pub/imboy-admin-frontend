@@ -1,3 +1,5 @@
+import '@/test/attachmentJournalFixture'
+import { uploadJournal } from '@/lib/attachmentUploadJournal'
 import '../../../../test/setupDom'
 
 import { afterEach, describe, expect, it, mock, spyOn } from 'bun:test'
@@ -37,9 +39,9 @@ function harness() {
     return handle(url, init)
   })
   const gateway = makeGateway(backend, new FakeSseStream())
-  const presign = spyOn(gateway.api, 'requestAssetPresign')
+  const presign = spyOn(gateway.api, 'registerAssetUpload')
   const upload = spyOn(gateway.api, 'uploadAssetBytes')
-  const confirm = spyOn(gateway.api, 'confirmAssetUpload')
+  const confirm = spyOn(gateway.api, 'confirmRecoveredAsset')
   const sendMessage = spyOn(gateway.api, 'sendMessage')
   const queryClient = new QueryClient({ defaultOptions: {
     queries: { retry: false, gcTime: Infinity }, mutations: { retry: false },
@@ -94,6 +96,7 @@ async function rejectSend(view: Harness, status: number, kind: string) {
 }
 
 afterEach(() => {
+  localStorage.clear()
   cleanup()
   for (const queryClient of queryClients.splice(0)) queryClient.clear()
   mock.restore()
@@ -172,6 +175,7 @@ describe('CX03 attachment recovery — unit/mock transport/JSDOM only, not Requi
     const outcomes = [new Error('mock GET connection lost'), response({ messages: [] }), response({ messages: [{
       id: '9000000000000000011', sender_type: 'business_identity', sender_identity_id: IDENTITY,
       client_msg_id: original.clientMsgId, body: BODY,
+      assets: [{ id: original.assetIds[0], mime: 'text/plain', size_bytes: file.size, file_name: file.name, status: 'active' }],
     }] })]
     for (const [index, outcome] of outcomes.entries()) {
       view.getOutcomes.push(outcome)
@@ -204,8 +208,8 @@ describe('CX03 attachment recovery — unit/mock transport/JSDOM only, not Requi
     const fileB = new File(['B'], fileA.name, { type: fileA.type, lastModified: 1 })
     const assetA = '8100000000000000001'
     const assetB = '8100000000000000002'
-    view.presign.mockResolvedValueOnce({ assetId: assetA, uploadRef: 'ref-A', uploadUrl: 'https://upload.invalid/A', expiresAt: null })
-      .mockResolvedValueOnce({ assetId: assetB, uploadRef: 'ref-B', uploadUrl: 'https://upload.invalid/B', expiresAt: null })
+    view.presign.mockResolvedValueOnce({ state: 'registered', assetId: assetA, uploadRef: 'ref-A', uploadUrl: 'https://upload.invalid/A' })
+      .mockResolvedValueOnce({ state: 'registered', assetId: assetB, uploadRef: 'ref-B', uploadUrl: 'https://upload.invalid/B' })
     view.upload.mockResolvedValue(undefined)
     view.confirm.mockResolvedValue(undefined)
     setDraft(view, 'A 答复', fileA)
@@ -238,11 +242,45 @@ describe('CX03 attachment recovery — unit/mock transport/JSDOM only, not Requi
       expect(view.sendMessage.mock.calls[index + 2]).toEqual([currentScope.orgId, CONV, original])
       expect(view.upload.mock.calls[index]![1]).toBe(file)
       expect(view.presign.mock.calls[index]!.slice(0, 3)).toEqual([currentScope.orgId, CONV, currentScope.workspaceId])
-      expect(view.confirm.mock.calls[index]).toEqual([currentScope.orgId, currentScope.workspaceId, index === 0 ? 'ref-A' : 'ref-B'])
+      expect(view.confirm.mock.calls[index]).toEqual([currentScope.orgId, currentScope.workspaceId, index === 0 ? assetA : assetB, index === 0 ? 'ref-A' : 'ref-B'])
       expectDraft(view, '', null)
       expectUploads(view, 2)
     }
     expect(view.presign.mock.calls[0]![3].objectHash).not.toBe(view.presign.mock.calls[1]![3].objectHash)
     expect(messageRequests(view, 'GET')).toHaveLength(0)
   })
+})
+
+
+it('refresh enumerates confirmed seat task and blocks re-publish when message result is unknown', async () => {
+  const journal = uploadJournal(['seat', '1000000000000000001', ORG, WS, IDENTITY, CONV], () => true)
+  await journal.save({ clientUploadId: crypto.randomUUID(), clientMsgId: 'restored-seat', assetId: '8100000000000000001',
+    phase: 'confirmed', objectHash: 'a'.repeat(64), sizeBytes: 3, mime: 'text/plain', updatedAt: Date.now() })
+  const view = harness()
+  await waitFor(() => expect(view.result.current.recoverableAttachments).toHaveLength(1))
+  act(() => view.result.current.selectRecovery(view.result.current.recoverableAttachments[0]!))
+  act(() => view.result.current.send())
+  await waitFor(() => expect(view.result.current.sending).toBe(false))
+  expect(view.sendMessage).toHaveBeenCalledTimes(0)
+  expect(view.result.current.error).toBeInstanceOf(Error)
+  expect(journal.load('restored-seat')).not.toBeNull()
+})
+
+
+it('confirmed seat recovery rejects the original message identity with a different asset', async () => {
+  const journal = uploadJournal(['seat', '1000000000000000001', ORG, WS, IDENTITY, CONV], () => true)
+  await journal.save({ clientUploadId: crypto.randomUUID(), clientMsgId: 'restored-wrong-asset', assetId: '8100000000000000001',
+    phase: 'confirmed', objectHash: 'a'.repeat(64), sizeBytes: 3, mime: 'text/plain', updatedAt: Date.now() })
+  const view = harness()
+  view.getOutcomes.push(response({ messages: [{ id: '100', sender_type: 'business_identity', sender_identity_id: IDENTITY,
+    client_msg_id: 'restored-wrong-asset', body: null, created_at: null,
+    assets: [{ id: '8100000000000000002', mime: 'text/plain', size_bytes: 3, file_name: 'other.txt', status: 'active' }] }] }), response({ messages: [] }))
+  await waitFor(() => expect(view.result.current.recoverableAttachments).toHaveLength(1))
+  act(() => view.result.current.selectRecovery(view.result.current.recoverableAttachments[0]!))
+  act(() => view.result.current.send())
+  await waitFor(() => expect(view.result.current.sending).toBe(false))
+  expect(view.sendMessage).toHaveBeenCalledTimes(0)
+  expect(view.result.current.outcomeUnknown).toBe(true)
+  expect(view.result.current.error).toBeInstanceOf(Error)
+  expect(journal.load('restored-wrong-asset')).not.toBeNull()
 })

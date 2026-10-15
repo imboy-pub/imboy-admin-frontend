@@ -176,7 +176,7 @@ describe('聊天 UI 可访问性（键盘/焦点/aria live）', () => {
     expect(bubble?.textContent).toContain('报表.pdf')
     expect(getByTestId(root, 'cs-att-state').getAttribute('data-state')).toBe('failed')
     expect(getByTestId(root, 'cs-att-state').textContent).toContain('发送失败')
-    expect(getByRole(root, 'button', { name: '重发这条消息' })).toBeTruthy()
+    expect(getByRole(root, 'button', { name: '查询或恢复附件' })).toBeTruthy()
 
     // linked：唯一成功态；重试入口消失
     let linked = chatState()

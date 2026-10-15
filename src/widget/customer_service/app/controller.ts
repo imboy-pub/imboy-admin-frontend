@@ -1,3 +1,4 @@
+import { uploadJournal } from '@/lib/attachmentUploadJournal'
 import type { EntityId } from '../../../types/common'
 import { createVisitorReads } from './visitorRead'
 /**
@@ -267,7 +268,7 @@ export function createWidgetController(deps: ControllerDeps) {
       readRevoked = false
       dispatch({ type: 'session_created', session })
       await refreshHistory()
-      if (generation === lifecycle) startStream(session.id)
+      if (generation === lifecycle) { restoreAttachmentTasks(session.id); startStream(session.id) }
     } catch (error) {
       if (generation !== lifecycle) return
       if (isRevoke(error)) onRevoke()
@@ -614,6 +615,59 @@ export function createWidgetController(deps: ControllerDeps) {
     }
   }
 
+  function restoreAttachmentTasks(sessionId: string): void {
+    if (scope === null || selfContact === null) return
+    const current = currentWriteOperation(sessionId)
+    try {
+      const journal = uploadJournal(['widget', selfContact, scope.installationId, sessionId], current)
+      for (const row of journal.list()) {
+        if (state.messages.some((message) => message.clientMsgId === row.clientMsgId)) continue
+        const key = `local-${row.clientMsgId}`
+        dispatch({ type: 'message_optimistic', key, clientMsgId: row.clientMsgId, body: '',
+          createdAt: new Date(row.updatedAt).toISOString(),
+          attachment: { name: '待恢复附件：重新选择原文件或查询消息', mime: row.mime,
+            sizeBytes: row.sizeBytes, assetId: row.assetId, state: 'failed' } })
+        dispatch({ type: 'message_failed', key })
+      }
+    } catch { dispatch({ type: 'bootstrap_failed', message: '附件恢复记录不可读取，请检查浏览器存储权限后重试' }) }
+  }
+
+  async function recoverAttachment(key: string, file: File): Promise<void> {
+    const message = state.messages.find((entry) => entry.key === key)
+    if (!message?.clientMsgId || state.session === null || scope === null || state.phase !== 'chat') return
+    attachmentFiles.set(message.clientMsgId, file)
+    await uploadAttachment(state.session.id, scope, file, message.clientMsgId)
+  }
+
+  async function queryRecoveredAttachment(key: string, clientMsgId: string): Promise<void> {
+    if (state.session === null || scope === null || selfContact === null) return
+    const sessionId = state.session.id, operationScope = scope
+    const current = currentWriteOperation(sessionId)
+    try {
+      const journal = uploadJournal(['widget', selfContact, operationScope.installationId, sessionId], current)
+      const row = journal.load(clientMsgId)
+      if (row === null) return
+      const result = await deps.api.recoverAttachment(sessionId, operationScope, row.clientUploadId, 'status')
+      if (!current() || result.state !== 'confirmed' || result.assetId !== row.assetId) return
+      let after: string | null = null
+      for (let page = 0; page < 20; page += 1) {
+        const messages = await deps.api.listMessages(sessionId, operationScope, after)
+        if (!current()) return
+        const found = messages.find((entry) => entry.clientMsgId === clientMsgId && entry.senderContactId === selfContact
+          && entry.assets.length === 1 && entry.assets[0]?.id === row.assetId)
+        if (found) {
+          await journal.remove(row.clientMsgId, row.clientUploadId)
+          if (current()) dispatch({ type: 'message_confirmed', key, id: found.id })
+          return
+        }
+        if (messages.length === 0) return
+        const next = messages[messages.length - 1]!.id
+        if (after !== null && BigInt(next) <= BigInt(after)) return
+        after = next
+      }
+    } catch (error) { if (current() && isRevoke(error)) onRevoke() }
+  }
+
   async function sendAttachment(file: Blob): Promise<void> {
     if (state.phase !== 'chat' || state.session === null || scope === null) return
     const sessionId = state.session.id
@@ -641,7 +695,7 @@ export function createWidgetController(deps: ControllerDeps) {
   async function uploadAttachment(sessionId: string, operationScope: RequestScope, file: Blob, clientMsgId: string): Promise<void> {
     const current = currentWriteOperation(sessionId)
     const key = `local-${clientMsgId}`
-    const item = await runAttachmentPipeline({ sessionId, scope: operationScope, file, clientMsgId,
+    const item = await runAttachmentPipeline({ sessionId, scope: operationScope, file, clientMsgId, durable: true, principalId: selfContact ?? undefined,
       deps: { api: deps.api, fetchImpl: deps.fetchImpl, isCurrent: current, onCredentialRefused: onRevoke,
         onItem: (next) => { if (current()) dispatch({ type: 'attachment_progress', key: next.key, state: next.state, assetId: next.assetId }) },
       },
@@ -659,6 +713,8 @@ export function createWidgetController(deps: ControllerDeps) {
       // 附件重试：复用同一 client_msg_id（幂等键）；hash 由流水线重算/复用。
       const file = attachmentFiles.get(clientMsgId)
       if (file === undefined) {
+        await queryRecoveredAttachment(key, clientMsgId)
+        if (state.messages.find((entry) => entry.key === key)?.status === 'sent') return
         dispatch({ type: 'message_failed', key })
         return
       }
@@ -749,6 +805,7 @@ export function createWidgetController(deps: ControllerDeps) {
     declineConsent,
     sendMessage,
     sendAttachment,
+    recoverAttachment,
     retryMessage,
     submitRating,
     handleSseFrame,

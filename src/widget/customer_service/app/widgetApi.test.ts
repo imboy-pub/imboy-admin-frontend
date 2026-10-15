@@ -375,3 +375,22 @@ describe('fetchAssetContent 授权内容代理（CS-WGT-01）', () => {
     }
   })
 })
+
+it('V5 widget status/renew retain installation and UUID with token only in headers', async () => {
+  const calls: RequestInit[] = []
+  const api = new WidgetApiClient(async (_url, init) => {
+    calls.push(init ?? {})
+    return new Response(JSON.stringify({ code: 0, payload: { asset_id: '8100000000000000001', session_state: 'registered' } }), {
+      status: 200, headers: { 'Content-Type': 'application/json' },
+    })
+  })
+  const scope = { installationId: '72057594037928001' }
+  const id = '12345678-1234-4234-8234-123456789abc'
+  await api.recoverAttachment('72057594037927936', scope, id, 'status')
+  await api.recoverAttachment('72057594037927936', scope, id, 'renew')
+  expect(calls.map((call) => JSON.parse(String(call.body)))).toEqual([
+    { installation_id: scope.installationId, client_upload_id: id, operation: 'status' },
+    { installation_id: scope.installationId, client_upload_id: id, operation: 'renew' },
+  ])
+  expect(calls.every((call) => call.credentials === 'omit')).toBe(true)
+})

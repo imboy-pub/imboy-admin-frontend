@@ -1,3 +1,4 @@
+import { uploadJournal, type UploadCheckpoint } from '@/lib/attachmentUploadJournal'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { isSeatApiError } from '../errors'
 import { useSeatAuthStore } from '../seatAuthStore'
@@ -10,6 +11,8 @@ type SeatSendDraft = {
   file: File | null
   objectHash: string | null
   confirmedAssetId: EntityId | null
+  recoveredClientMsgId?: string
+  recoveredPhase?: string
 }
 
 type SendAttempt = {
@@ -54,13 +57,14 @@ function bodyValidationError(body: string): Error | null {
 
 async function uploadDraft(
   api: SeatWorkbenchApi, scope: SendScope, draft: SeatSendDraft, signal: AbortSignal,
+  recovery: NonNullable<Parameters<typeof runSeatAttachmentUpload>[0]['recovery']>,
 ): Promise<SeatSendDraft> {
   if (draft.file === null || draft.confirmedAssetId !== null) return draft
   const uploaded = await runSeatAttachmentUpload({
-    api, ...scope, file: draft.file, fileName: draft.file.name, objectHash: draft.objectHash, signal,
+    api, ...scope, file: draft.file, fileName: draft.file.name, objectHash: draft.objectHash, signal, recovery,
   })
   signal.throwIfAborted()
-  return { ...draft, objectHash: uploaded.objectHash, confirmedAssetId: uploaded.assetId }
+  return { ...draft, objectHash: uploaded.objectHash, confirmedAssetId: uploaded.assetId, recoveredClientMsgId: uploaded.clientMsgId }
 }
 
 async function querySendResult(
@@ -83,7 +87,9 @@ async function querySendResult(
       cursor = messageId
     }
     if (messages.some((message) => message.clientMsgId === attempt.clientMsgId
-      && message.senderIdentityId === scope.myIdentityId)) return
+      && message.senderIdentityId === scope.myIdentityId
+      && (attempt.draft.confirmedAssetId === null ? message.attachments.length === 0
+        : message.attachments.length === 1 && message.attachments[0]?.assetId === attempt.draft.confirmedAssetId))) return
     afterId = messages[messages.length - 1]!.id
   }
   throw new Error('发送结果仍未知；最多查询1000条，未命中不能证明未写入，请勿重复发送')
@@ -199,16 +205,28 @@ async function runSend(
   const scopeEpoch = cache.scopeEpoch.current
   let attempt = initial
   let messageStarted = false
+  const current = () => !controller.signal.aborted && epoch === cache.authEpoch.current
+    && cache.scopeEpoch.current === scopeEpoch && cache.isCurrent()
+  let journal: ReturnType<typeof uploadJournal> | null = null
+  let expectedUploadId: string | undefined
   try {
+    if (attempt.draft.file !== null || attempt.draft.recoveredClientMsgId !== undefined) {
+      const userId = useSeatAuthStore.getState().userId ?? (await api.fetchContexts()).userId
+      if (!current()) throw new Error('上传身份或会话已变化')
+      journal = uploadJournal(['seat', userId, scope.orgId, scope.workspaceId, scope.myIdentityId, scope.conversationId], current)
+    }
+    const operation = async () => {
+    expectedUploadId = journal?.load(attempt.clientMsgId)?.clientUploadId
     if (attempt.unknown) await querySendResult(api, scope, attempt, controller.signal,
       () => cache.scopeEpoch.current === scopeEpoch)
     else {
       const draft = attempt.draft.file !== null && attempt.draft.confirmedAssetId === null
-        ? await uploadDraft(api, scope, attempt.draft, controller.signal) : attempt.draft
-      attempt = { ...attempt, draft }
+        ? await uploadDraft(api, scope, attempt.draft, controller.signal, { journal: journal!, clientMsgId: attempt.clientMsgId, isCurrent: current }) : attempt.draft
+      attempt = { ...attempt, draft, clientMsgId: draft.recoveredClientMsgId ?? attempt.clientMsgId }
       controller.signal.throwIfAborted()
       const confirmed = attempt
       cache.updateEntry(key, epoch, (previous) => withConfirmedDraft(previous, confirmed))
+      expectedUploadId ??= journal?.load(attempt.clientMsgId)?.clientUploadId
       messageStarted = true
       await api.sendMessage(scope.orgId, scope.conversationId, {
         body: draft.body, clientMsgId: attempt.clientMsgId, workspaceId: scope.workspaceId,
@@ -216,12 +234,16 @@ async function runSend(
       })
       controller.signal.throwIfAborted()
     }
+    if (journal !== null && expectedUploadId !== undefined) await journal.remove(attempt.clientMsgId, expectedUploadId)
     const completed = attempt
     cache.updateEntry(key, epoch, (previous) => ({
       ...previous, draft: previous.revision === completed.revision ? EMPTY_DRAFT : previous.draft,
       attempt: null, error: null,
     }))
     if (epoch === cache.authEpoch.current) invalidate('messages', 'sessions', 'detail')
+    }
+    if (journal !== null) await journal.run(attempt.clientMsgId, operation)
+    else await operation()
   } catch (error: unknown) {
     if (!controller.signal.aborted) handleSendFailure(cache, key, epoch, attempt, messageStarted, error)
   } finally {
@@ -264,7 +286,7 @@ export function useSeatSendState({
         return
       }
     }
-    const attempt = entry.attempt ?? { draft, revision: entry.revision, clientMsgId: newClientMsgId(), unknown: false }
+    const attempt = entry.attempt ?? { draft, revision: entry.revision, clientMsgId: draft.recoveredClientMsgId ?? newClientMsgId(), unknown: draft.recoveredPhase === 'confirmed' }
     if (!attempt.unknown && draft.body.length === 0 && draft.file === null) return
     const controller = cache.begin(attempt.unknown)
     if (controller === null) return
@@ -274,11 +296,36 @@ export function useSeatSendState({
     }))
     void runSend(api, { orgId, conversationId, workspaceId, myIdentityId }, attempt, controller, cache, key, invalidate)
   }, [api, cache, conversationId, entry, invalidate, isCurrent, key, myIdentityId, orgId, updateEntry, workspaceId])
+  const [recovery, setRecovery] = useState<{ key: string; rows: UploadCheckpoint[]; error: unknown }>({ key: '', rows: [], error: null })
+  useEffect(() => {
+    let disposed = false
+    const reload = async () => {
+      if (disposed || !isCurrent() || orgId === null || workspaceId === null || myIdentityId === null || conversationId === null) return
+      try {
+        const userId = useSeatAuthStore.getState().userId ?? (await api.fetchContexts()).userId
+        if (disposed || !isCurrent()) return
+        const journal = uploadJournal(['seat', userId, orgId, workspaceId, myIdentityId, conversationId], isCurrent)
+        setRecovery({ key, rows: journal.list(), error: null })
+      } catch (error) { if (!disposed && isCurrent()) setRecovery({ key, rows: [], error }) }
+    }
+    queueMicrotask(reload)
+    window.addEventListener('storage', reload)
+    return () => { disposed = true; window.removeEventListener('storage', reload) }
+  }, [key, entry.pending, orgId, workspaceId, myIdentityId, conversationId, isCurrent, api])
+  const selectRecovery = (row: UploadCheckpoint) => {
+    if (!isCurrent() || recovery.key !== key || !recovery.rows.some((saved) => saved.clientUploadId === row.clientUploadId)) return
+    edit(() => ({ body: '', file: null, objectHash: row.objectHash,
+      confirmedAssetId: row.phase === 'confirmed' ? row.assetId : null,
+      recoveredClientMsgId: row.clientMsgId, recoveredPhase: row.phase }))
+  }
   return {
-    draft: { body: entry.draft.body, fileName: entry.draft.file?.name ?? null, fileSize: entry.draft.file?.size ?? null },
+    draft: { body: entry.draft.body, fileName: entry.draft.file?.name ?? (entry.draft.recoveredClientMsgId ? '待恢复附件：请重选原文件或查询已确认消息' : null), fileSize: entry.draft.file?.size ?? null },
+    recoverableAttachments: recovery.key === key && isCurrent() ? recovery.rows : [],
+    recoveryError: recovery.key === key ? recovery.error : null,
+    selectRecovery,
     updateDraftBody: (body: string) => edit((draft) => ({ ...draft, body })),
     attachFile: (file: File) => edit((draft) => ({ ...draft, file, objectHash: null, confirmedAssetId: null })),
-    detachFile: () => edit((draft) => ({ ...draft, file: null, objectHash: null, confirmedAssetId: null })),
-    send, retry: send, sending: entry.pending, error: entry.error, outcomeUnknown: entry.attempt?.unknown ?? false,
+    detachFile: () => edit((draft) => ({ ...draft, file: null, objectHash: null, confirmedAssetId: null, recoveredClientMsgId: undefined, recoveredPhase: undefined })),
+    send, retry: send, sending: entry.pending, error: entry.error, outcomeUnknown: entry.attempt?.unknown ?? entry.draft.recoveredPhase === 'confirmed',
   }
 }

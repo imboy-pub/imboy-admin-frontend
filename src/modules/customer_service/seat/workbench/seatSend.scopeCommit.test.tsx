@@ -1,3 +1,4 @@
+import '@/test/attachmentJournalFixture'
 import '../../../../test/setupDom'
 
 import { afterEach, describe, expect, it, mock, spyOn } from 'bun:test'

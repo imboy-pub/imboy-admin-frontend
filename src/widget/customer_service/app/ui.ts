@@ -20,6 +20,7 @@ type ChatUiHandlers = {
   onRating: (_score: number) => void
   onClose: () => void
   onAttachment: (_file: File) => void
+  onRecoverAttachment?: (_key: string, _file: File) => void
   /** CS-WGT-01：点开历史附件（图片预览 / 非图片授权下载）。 */
   onOpenAttachment: (_key: string, _assetId: string) => void
   /** CS-WGT-01：关闭图片大图预览 overlay。 */
@@ -518,11 +519,24 @@ export function createChatUi(root: HTMLElement, locale: string, handlers: ChatUi
         retry.type = 'button'
         retry.className = 'cs-retry'
         retry.setAttribute('data-testid', 'cs-msg-retry')
-        retry.setAttribute('aria-label', '重发这条消息')
-        retry.textContent = locale === 'zh-CN' ? '重发' : 'Retry'
+        retry.setAttribute('aria-label', message.attachment ? '查询或恢复附件' : '重发这条消息')
+        retry.textContent = message.attachment ? '查询或恢复附件' : locale === 'zh-CN' ? '重发' : 'Retry'
         retry.addEventListener('click', () => handlers.onRetryMessage(message.key))
         bubble.appendChild(doc.createElement('br'))
         bubble.appendChild(retry)
+        if (message.attachment && handlers.onRecoverAttachment) {
+          const label = doc.createElement('label')
+          label.textContent = '重新选择原附件以恢复'
+          const picker = doc.createElement('input')
+          picker.type = 'file'
+          picker.setAttribute('aria-label', '重新选择原附件以恢复')
+          picker.addEventListener('change', () => {
+            const file = picker.files?.[0]
+            if (file) handlers.onRecoverAttachment?.(message.key, file)
+          })
+          label.appendChild(picker)
+          bubble.appendChild(label)
+        }
       }
       if (attachment !== null) {
         if (message.body.length > 0) bubble.appendChild(doc.createElement('br'))

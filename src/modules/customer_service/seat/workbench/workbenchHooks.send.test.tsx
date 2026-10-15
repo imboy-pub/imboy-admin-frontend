@@ -1,3 +1,4 @@
+import '@/test/attachmentJournalFixture'
 import '../../../../test/setupDom'
 
 import { afterEach, describe, expect, it, mock, spyOn } from 'bun:test'
@@ -49,7 +50,8 @@ function message(input?: Partial<SendInput>): SeatMessage {
   return {
     id: '72057594037927950', senderType: 'business_identity', senderContactId: null,
     senderIdentityId: input?.identityId ?? SCOPE.identityId, clientMsgId: input?.clientMsgId ?? null,
-    body: input?.body ?? BODY, createdAt: null, readAt: null, attachments: [],
+    body: input?.body ?? BODY, createdAt: null, readAt: null,
+    attachments: (input?.assetIds ?? []).map((assetId) => ({ assetId, phase: 'active', mime: 'text/plain', size: 1, fileName: 'attachment.txt' })),
   }
 }
 
@@ -67,12 +69,12 @@ function harness(initialProps: SendScope = SCOPE) {
   const api = new SeatWorkbenchApi({ client })
   const sendMessage = spyOn(api, 'sendMessage').mockImplementation(async (_org, _conversation, input) => message(input))
   const fetchMessages = spyOn(api, 'fetchMessages').mockResolvedValue([])
-  const presign = spyOn(api, 'requestAssetPresign').mockResolvedValue({
-    assetId: '72057594037927951', uploadRef: 'mock-upload-ref',
-    uploadUrl: 'https://upload.invalid/mock', expiresAt: null,
+  const presign = spyOn(api, 'registerAssetUpload').mockResolvedValue({
+    state: 'registered', assetId: '72057594037927951', uploadRef: 'mock-upload-ref',
+    uploadUrl: 'https://upload.invalid/mock',
   })
   const upload = spyOn(api, 'uploadAssetBytes').mockResolvedValue(undefined)
-  const confirm = spyOn(api, 'confirmAssetUpload').mockResolvedValue(undefined)
+  const confirm = spyOn(api, 'confirmRecoveredAsset').mockResolvedValue(undefined)
   const gateway: SeatWorkbenchGateway = {
     api, createStream: mock(() => { throw new Error('Send unit test must not start SSE') }),
   }
@@ -115,6 +117,7 @@ function expectDraft(view: Harness, body: string, file: File | null) {
 }
 
 afterEach(() => {
+  localStorage.clear()
   cleanup()
   for (const queryClient of queryClients.splice(0)) queryClient.clear()
   mock.restore()
@@ -418,13 +421,13 @@ describe('CX03 UNKNOWN — 最新有限消息页未命中不是负向精确证�
 
   it('presign 回包前注销重登，不能用新身份继续 PUT/confirm/POST', async () => {
     const view = harness()
-    const pending = deferred<Awaited<ReturnType<SeatWorkbenchApi['requestAssetPresign']>>>()
+    const pending = deferred<Awaited<ReturnType<SeatWorkbenchApi['registerAssetUpload']>>>()
     view.presign.mockImplementationOnce(() => pending.promise)
     setDraft(view, BODY, attachment())
     act(() => view.result.current.send())
     await waitFor(() => expect(view.presign).toHaveBeenCalledTimes(1))
     act(() => { useSeatAuthStore.getState().clearSession('logout'); useSeatAuthStore.getState().setSession(OTHER_USER) })
-    await act(async () => pending.resolve({ assetId: '72057594037927951', uploadRef: 'old-ref', uploadUrl: 'https://upload.invalid/mock', expiresAt: null }))
+    await act(async () => pending.resolve({ state: 'registered', assetId: '72057594037927951', uploadRef: 'old-ref', uploadUrl: 'https://upload.invalid/mock' }))
     expect(view.upload).not.toHaveBeenCalled()
     expect(view.confirm).not.toHaveBeenCalled()
     expect(view.sendMessage).not.toHaveBeenCalled()

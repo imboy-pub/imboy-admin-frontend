@@ -1,3 +1,4 @@
+import { resumeUpload, type UploadCheckpoint, type uploadJournal } from '@/lib/attachmentUploadJournal'
 /**
  * CS-WEB-02：坐席附件上传编排（hash → presign → 裸 PUT → confirm）。
  *
@@ -52,11 +53,13 @@ type SeatAttachmentUploadInput = {
   /** 重试复用（首次已算的 hash 不重算）；null/undefined = 现算。 */
   objectHash?: string | null
   signal?: AbortSignal
+  recovery?: { journal: ReturnType<typeof uploadJournal>; clientMsgId: string; isCurrent: () => boolean; onCheckpoint?: (_row: UploadCheckpoint) => Promise<void> }
 }
 
 type SeatAttachmentUploadResult = {
   assetId: EntityId
   objectHash: string
+  clientMsgId?: string
 }
 
 /**
@@ -70,6 +73,20 @@ export async function runSeatAttachmentUpload(
   const objectHash = input.objectHash ?? (await blobSha256Hex(input.file))
   input.signal?.throwIfAborted()
   if (!isValidSha256Hex(objectHash)) throw new TypeError('SHA-256 计算结果形状非法')
+  if (input.recovery) {
+    const recovery = input.recovery
+    const row = await resumeUpload({ ...recovery, file: input.file, hash: objectHash,
+      register: (clientUploadId) => input.api.registerAssetUpload(input.orgId, input.conversationId, input.workspaceId,
+        { clientUploadId, mime: input.file.type || 'application/octet-stream', sizeBytes: input.file.size,
+          objectHash, fileName: input.fileName }),
+      status: (id) => input.api.recoverAssetUpload(input.orgId, input.workspaceId, id, 'status'),
+      renew: (id) => input.api.recoverAssetUpload(input.orgId, input.workspaceId, id, 'renew'),
+      put: (url) => input.api.uploadAssetBytes(url, input.file, input.signal),
+      confirm: (id, ref) => input.api.confirmRecoveredAsset(input.orgId, input.workspaceId, id, ref),
+    })
+    if (row.assetId === null) throw new Error('上传资产身份缺失')
+    return { assetId: row.assetId, objectHash, clientMsgId: row.clientMsgId }
+  }
   const presign = await input.api.requestAssetPresign(input.orgId, input.conversationId, input.workspaceId, {
     mime: input.file.type.length > 0 ? input.file.type : 'application/octet-stream',
     sizeBytes: input.file.size,

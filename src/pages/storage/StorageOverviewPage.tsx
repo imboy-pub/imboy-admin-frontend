@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { PageHeader, LoadingState, ErrorState, StatsCard, DataTablePagination, StatusBadge, ConfirmDialog } from '@/components/shared'
 import {
-  getStorageStats, getStorageList, formatFileSize, type StorageItem,
+  getStorageStats, getStorageList, formatFileSize, attachmentDeletionLabel, type StorageItem,
   disableAttachment, enableAttachment, deleteAttachment,
   getDownloadUrl,
   getOrphanStats, cleanupOrphans,
@@ -100,8 +100,8 @@ export function StorageOverviewPage() {
     mutationFn: () => cleanupOrphans(ageDays),
     onSuccess: (result) => {
       const msg = result.errors > 0
-        ? `已物理删除 ${result.cleaned} 个，${result.errors} 个 S3 操作失败`
-        : `已物理删除 ${result.cleaned} 个文件`
+        ? `已提交清理；${result.errors} 项未成功，物理结果请查询状态`
+        : `已提交 ${result.queued ?? result.cleaned} 项清理请求，物理删除结果请查询状态`
       toast.success(msg)
       setOrphanQueryEnabled(false)
       invalidateStorage()
@@ -305,9 +305,10 @@ export function StorageOverviewPage() {
                           <td className="py-3">
                             <StatusBadge
                               status={item.status}
-                              labels={{ 1: '正常', 0: '已禁用', [-1]: '已删除' }}
+                              labels={{ 1: '正常', 0: '已禁用', [-1]: '逻辑已删除' }}
                               variants={{ 1: 'success', 0: 'warning', [-1]: 'error' }}
                             />
+                            <p className="mt-1 text-xs text-muted-foreground">{attachmentDeletionLabel(item)}</p>
                           </td>
                           <td className="py-3 text-right">
                             <div className="flex items-center justify-end gap-1">
@@ -387,7 +388,7 @@ export function StorageOverviewPage() {
       <Card>
         <CardHeader>
           <CardTitle>孤儿附件清理</CardTitle>
-          <CardDescription>清理引用计数为零且超过指定时限的孤儿文件（先删 S3，再删数据库）</CardDescription>
+          <CardDescription>为符合条件的孤儿文件提交清理请求；保留策略和 Hold 仍由服务端校验，物理结果以后台任务状态为准</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap items-center gap-3">
@@ -428,7 +429,7 @@ export function StorageOverviewPage() {
                   disabled={cleanupMutation.isPending}
                 >
                   {cleanupMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  一键物理删除 ⚠
+                  提交清理请求
                 </Button>
               )}
             </div>
@@ -460,9 +461,9 @@ export function StorageOverviewPage() {
       <ConfirmDialog
         open={deleteConfirmOpen}
         onOpenChange={setDeleteConfirmOpen}
-        title="确认物理删除"
-        description={`将永久删除 ${orphanData?.count ?? 0} 个孤儿文件（S3 对象 + 数据库行），此操作不可撤销。`}
-        confirmText="确认物理删除"
+        title="确认提交清理"
+        description={`将为 ${orphanData?.count ?? 0} 个候选文件提交清理请求；受保护或位置未知的文件可能被阻断。提交成功不代表字节已经删除。`}
+        confirmText="提交清理"
         variant="destructive"
         onConfirm={() => { void cleanupMutation.mutateAsync() }}
         loading={cleanupMutation.isPending}
