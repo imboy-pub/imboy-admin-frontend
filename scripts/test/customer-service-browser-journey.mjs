@@ -465,6 +465,29 @@ try {
     }
     responses.push({ action: 'fresh-seat-login-attachment-history', attachmentCount: 2, bytes: expected.map((bytes) => bytes.length) })
     await restored.screenshot({ path: path.join(dir, 'seat-fresh-login-attachments.png') })
+    const focusControl = await restored.context().newCDPSession(restored)
+    await focusControl.send('Emulation.setFocusEmulationEnabled', { enabled: false })
+    const readState = async () => {
+      const response = await fetch(`${base}/api/v1/seat/cs/organizations/${org}/sessions/${session.id}/read-cursor?workspace_id=${ws}`, {
+        headers: { authorization: seatTokens.get(restored) }, signal: AbortSignal.timeout(10000),
+      })
+      assert.equal(response.status, 200)
+      const result = JSON.parse(await response.text(), (key, value, context) =>
+        key === 'last_read_message_id' && typeof value === 'number' ? context.source : value)
+      assert.equal(result.code, 0)
+      return result.payload
+    }
+    const unchangedCursor = async (expectedCursor) => {
+      for (let sample = 0; sample < 4; sample += 1) {
+        assert.equal(String((await readState()).last_read_message_id), expectedCursor)
+        await restored.waitForTimeout(250)
+      }
+    }
+    await restored.getByTestId('seat-message-list').evaluate(box => { box.scrollTop = box.scrollHeight })
+    await restored.bringToFront()
+    await expect.poll(() => restored.evaluate(() => document.visibilityState === 'visible' && document.hasFocus())).toBe(true)
+    await expect.poll(async () => String((await readState()).last_read_message_id)).toBe(historyIds.at(-1))
+    const beforeOffscreen = String((await readState()).last_read_message_id)
     await restored.getByTestId('seat-message-list').evaluate((box) => {
       box.scrollTop = (box.scrollHeight - box.clientHeight) / 2
       box.dispatchEvent(new Event('scroll', { bubbles: true }))
@@ -474,6 +497,13 @@ try {
     await frame.getByTestId('cs-input').fill('synthetic new message while reading history')
     await frame.getByTestId('cs-send').click()
     await expect(historyMessages).toHaveCount(201, { timeout: 25000 })
+    const offscreenId = await historyMessages.last().getAttribute('data-message-id')
+    await restored.bringToFront()
+    await expect.poll(() => restored.evaluate(() => document.hasFocus())).toBe(true)
+    await expect(historyMessages.last()).not.toBeInViewport()
+    await unchangedCursor(beforeOffscreen)
+    assert.equal((await readState()).unread_count, 1)
+    responses.push({ action: 'offscreen-message-not-acknowledged', cursor: beforeOffscreen, messageId: offscreenId, focused: true, samples: 4 })
     await expect(restored.getByTestId('seat-new-messages')).toBeVisible()
     const afterNew = await visibleAnchor(restored)
     assert.equal(afterNew?.id, readingAnchor.id)
@@ -482,9 +512,24 @@ try {
     const bottomGap = () => restored.getByTestId('seat-message-list').evaluate((box) => box.scrollHeight - box.clientHeight - box.scrollTop)
     await expect.poll(bottomGap).toBeLessThanOrEqual(16)
     await expect(restored.getByTestId('seat-new-messages')).toHaveCount(0)
+    await expect.poll(async () => String((await readState()).last_read_message_id)).toBe(offscreenId)
+    const otherTab = await restored.context().newPage()
+    await otherTab.bringToFront()
+    await expect.poll(() => restored.evaluate(() => document.hasFocus())).toBe(false)
     await frame.getByTestId('cs-input').fill('synthetic new message while following latest')
     await frame.getByTestId('cs-send').click()
     await expect(historyMessages).toHaveCount(202, { timeout: 25000 })
+    const blurredId = await historyMessages.last().getAttribute('data-message-id')
+    await expect.poll(() => restored.evaluate(() => document.hasFocus())).toBe(false)
+    await expect(historyMessages.last()).toBeInViewport()
+    await unchangedCursor(offscreenId)
+    assert.equal((await readState()).unread_count, 1)
+    await restored.bringToFront()
+    await expect.poll(() => restored.evaluate(() => document.visibilityState === 'visible' && document.hasFocus())).toBe(true)
+    await expect.poll(async () => String((await readState()).last_read_message_id)).toBe(blurredId)
+    assert.equal((await readState()).unread_count, 0)
+    responses.push({ action: 'blur-defers-ack-focus-resumes', before: offscreenId, after: blurredId, samples: 4 })
+    await otherTab.close()
     await expect.poll(bottomGap).toBeLessThanOrEqual(16)
     await expect(restored.getByTestId('seat-new-messages')).toHaveCount(0)
     responses.push({ action: 'reading-anchor-and-follow-latest', messages: 202, anchorId: readingAnchor.id, tolerancePixels: 2, bottomGapPixels: await bottomGap() })
