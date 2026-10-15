@@ -339,14 +339,27 @@ try {
   assert.equal(retained.status, 'active')
   assert.equal(closeRequests, 0)
   responses.push({ action: 'close-cancel-retains-draft', status: retained.status, closeRequests })
+  const closePattern = `**/sessions/${session.id}/close`
+  await restored.route(closePattern, async (route) => {
+    const contenders = await Promise.all([route.fetch(), route.fetch()])
+    const statuses = contenders.map((response) => response.status())
+    assert.deepEqual([...statuses].sort(), [200, 409])
+    assert.equal((await contenders[statuses.indexOf(200)].json()).code, 0)
+    responses.push({ action: 'concurrent-close-real-backend', statuses })
+    await route.fulfill({ response: contenders[statuses.indexOf(409)] })
+  })
   await restored.getByTestId('seat-close-submit').click()
   await expect(closeDialog).toBeVisible()
   const [closed] = await Promise.all([
     restored.waitForResponse((response) => response.url().endsWith(`/sessions/${session.id}/close`) && response.request().method() === 'POST'),
     closeDialog.getByRole('button', { name: '确认结束', exact: true }).click(),
   ])
-  assert.equal(closed.status(), 200)
-  assert.equal((await closed.json()).code, 0)
+  assert.equal(closed.status(), 409)
+  assert.notEqual((await closed.json()).code, 0)
+  await restored.unroute(closePattern)
+  await expect(restored.getByTestId('seat-detail-status')).toHaveText('已结束')
+  await expect(restored.getByTestId('seat-close-submit')).toHaveCount(0)
+  await expect(restored.getByTestId('seat-composer')).toHaveCount(0)
   assert.equal(closeRequests, 1)
   await expect(frame.getByTestId('cs-rate-5')).toBeVisible({ timeout: 25000 })
   const rated = page.waitForResponse((response) => response.url().includes('/rating') && response.request().method() === 'POST')
