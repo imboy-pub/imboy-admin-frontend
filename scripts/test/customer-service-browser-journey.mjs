@@ -246,9 +246,32 @@ try {
   await expect(first.getByTestId('seat-message-list').getByText('synthetic visitor message during seat outage', { exact: true })).toHaveCount(1)
   responses.push({ action: 'automatic-seat-reconnect', disconnects, newEventRequests: eventRequests - requestsBeforeOnline })
   await first.screenshot({ path: path.join(dir, 'seat-reconnected.png') })
+  const firstSeat = statuses[0] === 200 ? fixture.seat_a : fixture.seat_b
+  const detailPath = `/api/v1/cs/organizations/${org}/sessions/${session.id}?workspace_id=${ws}`
+  const beforeTransfer = await api(firstSeat, detailPath)
+  let transferRequests = 0
+  first.on('request', (request) => {
+    if (request.url().endsWith(`/sessions/${session.id}/transfer`) && request.method() === 'POST') transferRequests += 1
+  })
   await first.getByTestId('seat-transfer-target-select').selectOption(secondIdentity)
+  const transferTarget = await first.getByTestId('seat-transfer-target-select').locator('option:checked').textContent()
+  assert.ok(transferTarget?.trim())
   await first.getByTestId('seat-transfer-submit').click()
   const transferDialog = first.getByRole('alertdialog', { name: '确认转接会话' })
+  await expect(transferDialog).toBeVisible()
+  await expect(transferDialog).toContainText(transferTarget.trim())
+  await expect(transferDialog).toContainText('只读')
+  await transferDialog.getByRole('button', { name: '取消', exact: true }).click()
+  await expect(transferDialog).toBeHidden()
+  const cancelledTransfer = await api(firstSeat, detailPath)
+  for (const field of ['business_identity_id', 'status', 'version']) {
+    assert.notEqual(beforeTransfer[field], undefined)
+    assert.equal(cancelledTransfer[field], beforeTransfer[field])
+  }
+  assert.equal(transferRequests, 0)
+  await expect(first.getByTestId('seat-composer')).toBeEnabled()
+  responses.push({ action: 'transfer-cancel-retains-owner', transferRequests, version: cancelledTransfer.version })
+  await first.getByTestId('seat-transfer-submit').click()
   await expect(transferDialog).toBeVisible()
   const [transferred] = await Promise.all([
     first.waitForResponse((response) => response.url().endsWith(`/sessions/${session.id}/transfer`) && response.request().method() === 'POST'),
@@ -256,6 +279,7 @@ try {
   ])
   assert.equal(transferred.status(), 200)
   assert.equal((await transferred.json()).code, 0)
+  assert.equal(transferRequests, 1)
   await openSession(second, session.id)
   if (attachmentContentPath) {
     const statuses = []
