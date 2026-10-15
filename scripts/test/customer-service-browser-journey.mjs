@@ -185,7 +185,7 @@ try {
     await expect(frame.getByTestId('cs-consent-accept')).toBeVisible({ timeout: 20000 })
     await frame.getByTestId('cs-consent-accept').click()
     await expect(frame.getByTestId('cs-asset-download')).toHaveCount(2, { timeout: 25000 })
-    await expect(frame.getByTestId('cs-message-list').getByText('synthetic browser first seat reply', { exact: true })).toHaveCount(1)
+    await expect(frame.getByTestId('cs-message-list').locator('.cs-msg').filter({ hasText: 'synthetic browser first seat reply' })).toHaveCount(1)
     const reloadedDownload = page.waitForEvent('download')
     await frame.getByTestId('cs-asset-download').last().click()
     const reloadedSaved = path.join(dir, 'visitor-reloaded-attachment.bin')
@@ -216,6 +216,14 @@ try {
   await first.screenshot({ path: path.join(dir, 'seat-reconnected.png') })
   await first.getByTestId('seat-transfer-target-select').selectOption(secondIdentity)
   await first.getByTestId('seat-transfer-submit').click()
+  const transferDialog = first.getByRole('alertdialog', { name: '确认转接会话' })
+  await expect(transferDialog).toBeVisible()
+  const [transferred] = await Promise.all([
+    first.waitForResponse((response) => response.url().endsWith(`/sessions/${session.id}/transfer`) && response.request().method() === 'POST'),
+    transferDialog.getByRole('button', { name: '确认转接', exact: true }).click(),
+  ])
+  assert.equal(transferred.status(), 200)
+  assert.equal((await transferred.json()).code, 0)
   await openSession(second, session.id)
   if (attachmentContentPath) {
     const statuses = []
@@ -281,7 +289,33 @@ try {
     responses.push({ action: 'fresh-seat-login-attachment-history', attachmentCount: 2, bytes: expected.map((bytes) => bytes.length) })
     await restored.screenshot({ path: path.join(dir, 'seat-fresh-login-attachments.png') })
   }
+  let closeRequests = 0
+  restored.on('request', (request) => {
+    if (request.url().endsWith(`/sessions/${session.id}/close`) && request.method() === 'POST') closeRequests += 1
+  })
+  const unsentDraft = 'synthetic unsent draft retained after cancel'
+  await restored.getByTestId('seat-composer').fill(unsentDraft)
   await restored.getByTestId('seat-close-submit').click()
+  const closeDialog = restored.getByRole('alertdialog', { name: '确认结束会话' })
+  await expect(closeDialog).toBeVisible()
+  await expect(closeDialog).toContainText('有未发送草稿，结束后不会自动发送。')
+  await closeDialog.getByRole('button', { name: '取消', exact: true }).click()
+  await expect(closeDialog).toBeHidden()
+  await expect(restored.getByTestId('seat-composer')).toHaveValue(unsentDraft)
+  const retained = await api(statuses[0] === 200 ? fixture.seat_b : fixture.seat_a,
+    `/api/v1/cs/organizations/${org}/sessions/${session.id}?workspace_id=${ws}`)
+  assert.equal(retained.status, 'active')
+  assert.equal(closeRequests, 0)
+  responses.push({ action: 'close-cancel-retains-draft', status: retained.status, closeRequests })
+  await restored.getByTestId('seat-close-submit').click()
+  await expect(closeDialog).toBeVisible()
+  const [closed] = await Promise.all([
+    restored.waitForResponse((response) => response.url().endsWith(`/sessions/${session.id}/close`) && response.request().method() === 'POST'),
+    closeDialog.getByRole('button', { name: '确认结束', exact: true }).click(),
+  ])
+  assert.equal(closed.status(), 200)
+  assert.equal((await closed.json()).code, 0)
+  assert.equal(closeRequests, 1)
   await expect(frame.getByTestId('cs-rate-5')).toBeVisible({ timeout: 25000 })
   const rated = page.waitForResponse((response) => response.url().includes('/rating') && response.request().method() === 'POST')
   await frame.getByTestId('cs-rate-5').click()
