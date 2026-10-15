@@ -56,14 +56,6 @@ export type AiFaqUpsertInput = {
   status?: AiFaq['status']
 }
 
-export type AiSessionRow = Record<string, unknown> & {
-  session_id?: EntityId
-  id?: EntityId
-  status?: string
-  current_intent?: string
-  unresolved_turns?: number
-}
-
 export type AiTurn = {
   seq: number
   direction?: string
@@ -75,7 +67,7 @@ export type AiTurn = {
   latency_ms?: number
 }
 
-export type AiStats = Record<string, unknown>
+type AiStats = Record<string, unknown>
 
 async function get<T>(path: string, params: Record<string, string | number>): Promise<T> {
   const response = await client.get<ApiResponse<T>>(`${BASE}${path}`, { params })
