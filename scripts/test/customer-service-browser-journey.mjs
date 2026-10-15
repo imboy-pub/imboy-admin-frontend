@@ -11,6 +11,8 @@ process.env.CSWW_E2E_WIDGET_ID = fixture.public_widget_id
 const { createStaticHost, createSecureStaticHost } = await import('../../tests/e2e/customer-service-real/helpers/static-host.mjs')
 const host = fixture.attachments ? createSecureStaticHost(path.join(dir, 'tls')) : createStaticHost()
 let browser
+let releaseImage
+const seatImage = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1kAAAAASUVORK5CYII=', 'base64')
 const responses = []
 const seatTokens = new WeakMap()
 const org = fixture.organization_id
@@ -29,9 +31,8 @@ async function api(seat, url, body) {
   assert.equal(result.code, 0)
   return result.payload
 }
-async function openSeat(seat) {
-  const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 900 } })
-  const page = await context.newPage()
+async function openSeat(seat, existingPage) {
+  const page = existingPage ?? await (await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 900 } })).newPage()
   const qrStatuses = []
   let polls = 0
   let createdPurpose
@@ -44,7 +45,8 @@ async function openSeat(seat) {
   page.on('response', (response) => {
     if (response.url().includes('/qr_login/subscribe')) qrStatuses.push(response.status())
   })
-  await page.goto(`${process.env.CSWW_E2E_HOST_ORIGIN}/seat/${fixture.public_seat_console_id}`)
+  if (existingPage) await page.reload()
+  else await page.goto(`${process.env.CSWW_E2E_HOST_ORIGIN}/seat/${fixture.public_seat_console_id}`)
   const qr = page.getByTestId('seat-qr-code')
   await expect(qr).toHaveAttribute('data-qr-content', /imboy:\/\/qr_login\?qr_token=/, { timeout: 15000 })
   await page.waitForTimeout(1000)
@@ -220,7 +222,7 @@ try {
   let attachmentContentPath
   if (fixture.attachments) {
     const visitorFile = Buffer.from('synthetic visitor attachment\n')
-    const seatFile = Buffer.from('synthetic seat attachment\n')
+    const seatFile = seatImage
     await frame.getByTestId('cs-file-input').setInputFiles({ name: 'visitor.txt', mimeType: 'text/plain', buffer: visitorFile })
     const seatDownload = first.getByTestId('seat-attachment-download').first()
     await expect(seatDownload).toBeVisible({ timeout: 25000 })
@@ -242,28 +244,32 @@ try {
     const visitorSaved = path.join(dir, 'visitor-attachment-downloaded.bin')
     await (await receivedVisitorFile).saveAs(visitorSaved)
     assert.deepEqual(await readFile(visitorSaved), visitorFile)
-    await first.getByTestId('seat-attach-input').setInputFiles({ name: 'seat.txt', mimeType: 'text/plain', buffer: seatFile })
+    await first.getByTestId('seat-attach-input').setInputFiles({ name: 'seat.png', mimeType: 'image/png', buffer: seatFile })
     await first.getByTestId('seat-send').click()
-    await expect(frame.getByTestId('cs-asset-download')).toHaveCount(2, { timeout: 25000 })
-    const receivedSeatFile = page.waitForEvent('download')
-    await frame.getByTestId('cs-asset-download').last().click()
-    const seatSaved = path.join(dir, 'seat-attachment-downloaded.bin')
-    await (await receivedSeatFile).saveAs(seatSaved)
-    assert.deepEqual(await readFile(seatSaved), seatFile)
-    responses.push({ action: 'bidirectional-attachment-download', visitorBytes: visitorFile.length, seatBytes: seatFile.length })
+    await expect(frame.getByTestId('cs-asset-download')).toHaveCount(1, { timeout: 25000 })
+    await frame.getByTestId('cs-asset-thumb').click()
+    const preview = frame.getByTestId('cs-preview').locator('img')
+    await expect.poll(() => preview.evaluate(image => image.complete && image.naturalWidth > 0)).toBe(true)
+    assert.deepEqual(Buffer.from(await preview.evaluate(async image => Array.from(new Uint8Array(await (await fetch(image.src)).arrayBuffer())))), seatFile)
+    await frame.getByTestId('cs-preview-close').click()
+    responses.push({ action: 'bidirectional-attachment-bytes', visitorBytes: visitorFile.length, seatBytes: seatFile.length })
     await first.screenshot({ path: path.join(dir, 'seat-attachments.png') })
     await page.screenshot({ path: path.join(dir, 'visitor-attachments.png') })
     await page.reload()
     await page.getByTestId('cs-widget-launcher').click()
     await expect(frame.getByTestId('cs-consent-accept')).toBeVisible({ timeout: 20000 })
     await frame.getByTestId('cs-consent-accept').click()
-    await expect(frame.getByTestId('cs-asset-download')).toHaveCount(2, { timeout: 25000 })
+    await expect(frame.getByTestId('cs-asset-download')).toHaveCount(1, { timeout: 25000 })
     await expect(frame.getByTestId('cs-message-list').locator('.cs-msg').filter({ hasText: 'synthetic browser first seat reply' })).toHaveCount(1)
     const reloadedDownload = page.waitForEvent('download')
-    await frame.getByTestId('cs-asset-download').last().click()
+    await frame.getByTestId('cs-asset-download').click()
     const reloadedSaved = path.join(dir, 'visitor-reloaded-attachment.bin')
     await (await reloadedDownload).saveAs(reloadedSaved)
-    assert.deepEqual(await readFile(reloadedSaved), seatFile)
+    assert.deepEqual(await readFile(reloadedSaved), visitorFile)
+    await frame.getByTestId('cs-asset-thumb').click()
+    await expect.poll(() => preview.evaluate(image => image.complete && image.naturalWidth > 0)).toBe(true)
+    assert.deepEqual(Buffer.from(await preview.evaluate(async image => Array.from(new Uint8Array(await (await fetch(image.src)).arrayBuffer())))), seatFile)
+    await frame.getByTestId('cs-preview-close').click()
     responses.push({ action: 'visitor-refresh-attachment-history', attachmentCount: 2, bytes: seatFile.length })
     await page.screenshot({ path: path.join(dir, 'visitor-refreshed-attachments.png') })
   }
@@ -383,6 +389,14 @@ try {
     }
   }
   const restored = await openSeat(statuses[0] === 200 ? fixture.seat_b : fixture.seat_a)
+  let imageReached = false
+  const imageReleased = new Promise((resolve) => { releaseImage = resolve })
+  const delayImage = async (route) => {
+    imageReached = true
+    await imageReleased
+    await route.continue()
+  }
+  if (fixture.attachments) await restored.route('**/assets/*/content?*', delayImage)
   await openSession(restored, session.id)
   if (fixture.attachments) {
     const historyMessages = restored.getByTestId('seat-message-list').locator('[data-message-id]')
@@ -425,9 +439,23 @@ try {
     await expect(historyMessages.first()).toContainText('synthetic browser visitor question')
     await expect(historyMessages.last()).toContainText('synthetic history message 193')
     responses.push({ action: 'long-message-history', messages: 200, pages: 4, unique: 200, seedMessages: historySeedIds.length })
+    await expect.poll(() => imageReached, { timeout: 10000 }).toBe(true)
+    await expect(restored.getByTestId('seat-attachment-image-loading')).toBeVisible()
+    await historyMessages.nth(20).evaluate((row) => row.scrollIntoView({ block: 'center' }))
+    await restored.evaluate(() => new Promise(requestAnimationFrame))
+    const imageAnchor = await visibleAnchor(restored)
+    assert.ok(imageAnchor)
+    releaseImage()
+    const decodedImage = restored.getByTestId('seat-attachment-image')
+    await expect.poll(() => decodedImage.evaluate((image) => image.complete && image.naturalWidth > 0)).toBe(true)
+    const imageOffset = await restored.getByTestId(`seat-message-${imageAnchor.id}`).evaluate((row) =>
+      row.getBoundingClientRect().top - row.closest('[data-testid="seat-message-list"]').getBoundingClientRect().top)
+    assert.ok(Math.abs(imageOffset - imageAnchor.offset) <= 2)
+    await restored.unroute('**/assets/*/content?*', delayImage)
+    responses.push({ action: 'delayed-image-preserves-anchor', anchorId: imageAnchor.id, before: imageAnchor.offset, after: imageOffset, tolerancePixels: 2 })
     const downloads = restored.getByTestId('seat-attachment-download')
     await expect(downloads).toHaveCount(2, { timeout: 25000 })
-    const expected = [Buffer.from('synthetic visitor attachment\n'), Buffer.from('synthetic seat attachment\n')]
+    const expected = [Buffer.from('synthetic visitor attachment\n'), seatImage]
     for (let index = 0; index < expected.length; index += 1) {
       const received = restored.waitForEvent('download')
       await downloads.nth(index).click()
@@ -460,6 +488,18 @@ try {
     await expect.poll(bottomGap).toBeLessThanOrEqual(16)
     await expect(restored.getByTestId('seat-new-messages')).toHaveCount(0)
     responses.push({ action: 'reading-anchor-and-follow-latest', messages: 202, anchorId: readingAnchor.id, tolerancePixels: 2, bottomGapPixels: await bottomGap() })
+    const beforeRefreshIds = await historyMessages.evaluateAll((rows) => rows.map((row) => row.dataset.messageId))
+    await openSeat(statuses[0] === 200 ? fixture.seat_b : fixture.seat_a, restored)
+    await openSession(restored, session.id)
+    await expect(historyMessages).toHaveCount(50)
+    for (const count of [100, 150, 200, 202]) {
+      await restored.getByTestId('seat-load-older').click()
+      await expect(historyMessages).toHaveCount(count)
+    }
+    assert.deepEqual(await historyMessages.evaluateAll((rows) => rows.map((row) => row.dataset.messageId)), beforeRefreshIds)
+    await expect(restored.getByTestId('seat-attachment-download')).toHaveCount(2)
+    await expect.poll(() => restored.getByTestId('seat-attachment-image').evaluate((image) => image.complete && image.naturalWidth > 0)).toBe(true)
+    responses.push({ action: 'seat-refresh-restores-history', messages: beforeRefreshIds.length, attachments: 2, reauthenticated: true })
   }
   let closeRequests = 0
   restored.on('request', (request) => {
@@ -510,6 +550,7 @@ try {
   await writeFile(path.join(dir, 'browser-result.json'), JSON.stringify({ status: 'PASS', oracle: 'built Widget + real HTTP + isolated PG; seat controls use actual built workbench pages after real QR confirm with synthetic mobile credentials', responses }, null, 2))
   console.log('PASS: real visitor and two Seat workbench pages: QR, concurrent claim, offline recovery, revocation, fresh login, close, rating')
 } finally {
+  releaseImage?.()
   await writeFile(path.join(dir, 'browser-responses.json'), JSON.stringify(responses, null, 2))
   if (browser) await browser.close()
   await new Promise((resolve) => host.close(resolve))

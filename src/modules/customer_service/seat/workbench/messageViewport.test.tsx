@@ -88,6 +88,8 @@ it('does not jump while reading history, offers new-message navigation, and foll
   updateObservers()
   v.rerender(<Harness messages={ids(151, 201)} visible={visible} />)
   expect(box.scrollTop).toBe(100)
+  fireEvent.scroll(box)
+  expect(v.queryByText('新消息')).not.toBeNull()
   fireEvent.click(v.getByText('新消息'))
   updateObservers()
   expect(box.scrollTop).toBe(920)
