@@ -127,6 +127,37 @@ try {
   }, { timeout: 10000 }).toBe(true)
   const seatA = await openSeat(fixture.seat_a)
   const seatB = await openSeat(fixture.seat_b)
+  await seatA.getByTestId('seat-tab-closed').click()
+  const historyRows = seatA.getByTestId('seat-session-list').locator('[data-testid^="seat-session-item-"]')
+  await expect(historyRows).toHaveCount(20)
+  const initialIds = await historyRows.evaluateAll((rows) => rows.map((row) => row.dataset.testid.replace('seat-session-item-', '')))
+  const unloadedId = fixture.history_session_ids.find((id) => !initialIds.includes(id))
+  assert.ok(unloadedId, 'search target must not be loaded on the first page')
+  const searchResponse = seatA.waitForResponse((response) => new URL(response.url()).searchParams.get('search') === unloadedId)
+  await seatA.getByTestId('seat-queue-search').fill(unloadedId)
+  const searched = await searchResponse
+  assert.equal(searched.status(), 200)
+  const searchResult = await searched.json()
+  assert.equal(searchResult.code, 0, JSON.stringify(searchResult))
+  await expect(historyRows).toHaveCount(1)
+  await expect(seatA.getByTestId(`seat-session-item-${unloadedId}`)).toBeVisible()
+  await seatA.getByTestId('seat-queue-search').fill('')
+  await expect(historyRows).toHaveCount(initialIds.length)
+  let historyPages = 1
+  while (await seatA.getByTestId('seat-queue-load-more').count()) {
+    assert.ok(historyPages < 10, 'history cursor must terminate')
+    const previousCount = await historyRows.count()
+    await seatA.getByTestId('seat-queue-load-more').click()
+    await expect.poll(() => historyRows.count()).toBeGreaterThan(previousCount)
+    historyPages += 1
+  }
+  const historyIds = await historyRows.evaluateAll((rows) => rows.map((row) => row.dataset.testid.replace('seat-session-item-', '')))
+  assert.ok(historyPages >= 3)
+  assert.equal(new Set(historyIds).size, historyIds.length)
+  assert.deepEqual([...historyIds].sort(), [...fixture.history_session_ids].sort())
+  assert.deepEqual(historyIds, [...historyIds].sort((left, right) => BigInt(left) > BigInt(right) ? -1 : 1))
+  responses.push({ action: 'history-server-search-and-pagination', sessions: historyIds.length, pages: historyPages, unloadedId })
+  await seatA.getByTestId('seat-tab-queued').click()
   const claimButton = `seat-claim-${session.id}`
   await expect(seatA.getByTestId(claimButton)).toBeVisible({ timeout: 20000 })
   await expect(seatB.getByTestId(claimButton)).toBeVisible({ timeout: 20000 })
