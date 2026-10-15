@@ -360,9 +360,35 @@ try {
   responses.push({ action: 'seat-revoked', oldBrowserWriteStatus: denied.status, composerEnabled: false })
   await second.screenshot({ path: path.join(dir, 'seat-revoked.png') })
   await controlSeat('resume', secondIdentity)
+  const historySeedIds = []
+  if (fixture.attachments) {
+    const receivingSeat = statuses[0] === 200 ? fixture.seat_b : fixture.seat_a
+    for (let index = 0; index < 194; index += 1) {
+      const sent = await api(receivingSeat, `/api/v1/enterprise/organizations/${org}/conversations/${session.conversation_id}/messages`, {
+        workspace_id: ws, identity_id: secondIdentity, sender_type: 'business_identity',
+        client_msg_id: `synthetic-long-history-${index}`, body: `synthetic history message ${index}`,
+      })
+      assert.ok(sent.message?.id)
+      historySeedIds.push(String(sent.message.id))
+    }
+  }
   const restored = await openSeat(statuses[0] === 200 ? fixture.seat_b : fixture.seat_a)
   await openSession(restored, session.id)
   if (fixture.attachments) {
+    const historyMessages = restored.getByTestId('seat-message-list').locator('[data-message-id]')
+    await expect(historyMessages).toHaveCount(50)
+    await expect(restored.getByTestId('seat-attachment-download')).toHaveCount(0)
+    for (const expectedCount of [100, 150, 200]) {
+      await restored.getByTestId('seat-load-older').click()
+      await expect(historyMessages).toHaveCount(expectedCount)
+    }
+    const historyIds = await historyMessages.evaluateAll((rows) => rows.map((row) => row.dataset.messageId))
+    assert.equal(new Set(historyIds).size, 200)
+    assert.deepEqual(historyIds, [...historyIds].sort((left, right) => BigInt(left) < BigInt(right) ? -1 : 1))
+    assert.deepEqual(historyIds.slice(6), historySeedIds)
+    await expect(historyMessages.first()).toContainText('synthetic browser visitor question')
+    await expect(historyMessages.last()).toContainText('synthetic history message 193')
+    responses.push({ action: 'long-message-history', messages: 200, pages: 4, unique: 200, seedMessages: historySeedIds.length })
     const downloads = restored.getByTestId('seat-attachment-download')
     await expect(downloads).toHaveCount(2, { timeout: 25000 })
     const expected = [Buffer.from('synthetic visitor attachment\n'), Buffer.from('synthetic seat attachment\n')]
