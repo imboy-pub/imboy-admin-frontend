@@ -1,3 +1,11 @@
+# Paused by maintainer authorization on 2026-10-17 while Sonar authorization is unresolved.
+# 经维护者授权于 2026-10-17 暂停；Sonar 授权问题尚未解决。
+# Restore: verify SONAR_TOKEN/project permissions, then move this file back to
+# .github/workflows/sonar.yml. Keep sonar-project.properties; other CI gates stay active.
+# 恢复：核验 SONAR_TOKEN/项目权限后移回 .github/workflows/sonar.yml；其他 CI 门保持启用。
+# Required-check rules, if any, must be reviewed separately by a maintainer.
+# 若分支保护要求 Sonar 检查，需维护者另行审查规则；此变更不修改远程保护设置。
+
 # imboy-admin-frontend SonarCloud scan workflow
 #
 # 关联：.claude/plans/quality-loop.md v1.3 T4.3（v1.1 §302 + §332）
