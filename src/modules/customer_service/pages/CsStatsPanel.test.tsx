@@ -49,6 +49,9 @@ function fixture(overrides: Partial<CsSessionStats> = {}): CsSessionStats {
     windowEnd: 1790371199,
     newSessions: 7,
     firstResponse: { count: 6, avgSeconds: 42.4 },
+    firstHumanResponse: { count: 2, avgSeconds: 15 },
+    firstAiResponse: { count: 3, avgSeconds: 2 },
+    responseUnknownCount: 1,
     closedSessions: 5,
     rating: { count: 4, avg: 4.5 },
     current: { queued: 4, active: 2 },
@@ -114,8 +117,8 @@ describe('CsStatsPanel — CS-GOV-03B', () => {
     // 只在本用例自己的 container 内查询：裸 bun test 全量连跑时前序文件
     // 的 DOM 残留会占据 document 级查询结果（rbac404 同场组合复现过）。
     const facts = Array.from(container.querySelectorAll('[data-testid="cs-stats-fact"]'))
-    expect(facts.length).toBe(5)
-    // 逐项：新会话 7、首响 6 次平均 42 秒、关闭 5、评分 4.5（4 条）、当前 4 排队 / 2 接待
+    expect(facts.length).toBe(8)
+    // 逐项：新会话 7、接单等待 6 次平均 42 秒、关闭 5、评分 4.5（4 条）、当前 4 排队 / 2 接待
     expect(facts[0]?.textContent).toContain('7')
     expect(facts[1]?.textContent).toContain('6 次')
     expect(facts[1]?.textContent).toContain('42 秒')
@@ -168,6 +171,9 @@ describe('CsStatsPanel — CS-GOV-03B', () => {
       firstResponse: { count: 0, avgSeconds: null },
       closedSessions: 0,
       rating: { count: 0, avg: null },
+      firstHumanResponse: { count: 0, avgSeconds: null },
+      firstAiResponse: { count: 0, avgSeconds: null },
+      responseUnknownCount: 0,
       current: { queued: 0, active: 0 },
     })
     const { getByText } = render(host(<CsStatsPanel orgId={ORG} canRead={true} />))
@@ -208,4 +214,39 @@ describe('CsStatsPanel — CS-GOV-03B', () => {
     expect(calls.some((c) => c.tzOffset === 480)).toBe(true)
     expect(calls.every((c) => c.organizationId === ORG)).toBe(true)
   })
+})
+
+
+it('人工、AI 首响与接单等待分别展示，并保留未知资格数量', async () => {
+  statsResult = fixture()
+  const view = render(host(<CsStatsPanel orgId={ORG} canRead={true} />))
+  await settleUntil(() => view.container.textContent?.includes('人工首响') === true, '首响指标')
+  const cards = Array.from(view.container.querySelectorAll('[data-testid="cs-stats-fact"]'))
+  expect(cards[1]?.textContent).toContain('接单等待6 次平均 42 秒')
+  expect(cards[5]?.textContent).toContain('人工首响2 次平均 15 秒')
+  expect(cards[6]?.textContent).toContain('AI 首响3 次平均 2 秒')
+  expect(cards[7]?.textContent).toContain('首响资格未知1 个会话')
+  expect(view.container.textContent).toContain('访客首条消息到首条人工回复')
+})
+
+it('缺少新指标的旧响应显示未知，已知零样本显示无样本', async () => {
+  statsResult = fixture({ firstHumanResponse: null,
+    firstAiResponse: { count: 0, avgSeconds: null }, responseUnknownCount: null })
+  const view = render(host(<CsStatsPanel orgId={ORG} canRead={true} />))
+  await settleUntil(() => view.container.textContent?.includes('人工首响') === true, '未知首响指标')
+  const cards = Array.from(view.container.querySelectorAll('[data-testid="cs-stats-fact"]'))
+  expect(cards[5]?.textContent).toContain('未知')
+  expect(cards[5]?.textContent).not.toContain('0 次')
+  expect(cards[6]?.textContent).toContain('0 次平均 无样本')
+  expect(cards[7]?.textContent).toContain('未知')
+})
+
+it('旧指标全零时不能隐藏未知首响资格', async () => {
+  statsResult = fixture({ newSessions: 0, closedSessions: 0,
+    firstResponse: { count: 0, avgSeconds: null }, rating: { count: 0, avg: null },
+    current: { queued: 0, active: 0 }, firstHumanResponse: null,
+    firstAiResponse: null, responseUnknownCount: null })
+  const view = render(host(<CsStatsPanel orgId={ORG} canRead={true} />))
+  await settleUntil(() => view.container.textContent?.includes('首响资格未知') === true, '未知资格不能为空态')
+  expect(view.container.textContent).not.toContain('该时间窗内无客服会话事实')
 })
