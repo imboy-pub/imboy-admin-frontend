@@ -1,20 +1,9 @@
-# imboy-admin-frontend Playwright E2E workflow
-#
-# 关联：.claude/plans/golden-gates-plan-2026-08.md §2.3 P3-C5
-# 仓内 e2e：28 个 spec（tests/e2e/，110 tests），playwright.config.ts 自带
-# webServer（bun run dev → vite dev :8082，无构建产物依赖，CI 无需手动起服务/无需 build）。
-#
-# CI 边界（重要）：
-# 1. 28 个 spec 中 26 个经 support/adminAuth.ts 真实登录（需 imboy 后端 :9800 +
-#    IMBOY_ADMIN_E2E_ACCOUNT/PASSWORD 凭据）。GitHub-hosted runner 无后端、无凭据，
-#    这些 spec 按 requireAdminCredentials 的 test.skip 优雅跳过（不红）。
-#    setup-flow.spec.ts（6 tests）纯 page.route mock，无后端依赖，CI 可真实执行。
-# 2. prod-health-check.spec.ts（16 tests，标题 "01 "–"16 " 前缀）默认访问真实生产
-#    环境 https://prodadm.imboy.pub，且无 skip 开关 —— 禁止在 CI 触发外向生产流量，
-#    通过 --grep-invert 按标题前缀排除（lookbehind 防止误伤如 "403 降级" 类标题）。
-#    全量真实链路 e2e 仍由本地/自托管环境执行（.env.e2e 已 gitignore）。
-# 3. 未来若要在 CI 全量执行：自托管 runner 起 imboy 后端 + 注入
-#    IMBOY_ADMIN_E2E_* 环境变量，并移除 --grep-invert。
+# Browser smoke scope / 浏览器冒烟范围：
+# Only setup-flow.spec.ts runs here, using mocked API responses without a backend.
+# 此门仅运行 setup-flow.spec.ts 的 API mock 用例，不代表后端真实链路或全部 E2E 通过。
+# Keep the explicit file selection: other suites require backend credentials,
+# dedicated integration stacks, or production access and must not run implicitly.
+# 其他套件需要后端凭据、专用集成栈或生产访问，禁止在此隐式扩大执行范围。
 
 name: admin Playwright E2E
 
@@ -52,7 +41,19 @@ jobs:
       - name: Install Playwright browsers
         run: bunx playwright install --with-deps chromium
 
-      - name: Run Playwright e2e
+      - name: Report E2E scope / 报告 E2E 范围
+        run: |
+          total=$(find tests/e2e -type f -name '*.spec.ts' | wc -l)
+          {
+            echo '### Playwright scope / Playwright 执行范围'
+            echo '- Selected / 已选择：tests/e2e/setup-flow.spec.ts (mocked API / API mock)'
+            echo "- Repository spec files / 仓库 spec 文件：${total}"
+            echo "- Outside this invocation / 本次未选择：$((total - 1)) spec files"
+            echo '- A passing result covers only the selected mock suite, not backend integration or production health.'
+            echo '- 绿色结果仅覆盖所选 mock 套件，不代表后端集成或生产健康检查通过。'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Run setup-flow browser smoke / 运行 setup-flow 浏览器冒烟
         run: bunx playwright test tests/e2e/setup-flow.spec.ts
 
       - name: Upload Playwright HTML report
