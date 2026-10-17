@@ -64,6 +64,9 @@ export function CsStatsPanel({ orgId, canRead }: Props) {
       stats.newSessions === 0 &&
       stats.closedSessions === 0 &&
       stats.firstResponse.count === 0 &&
+      stats.firstHumanResponse?.count === 0 &&
+      stats.firstAiResponse?.count === 0 &&
+      stats.responseUnknownCount === 0 &&
       stats.rating.count === 0 &&
       stats.current.queued === 0 &&
       stats.current.active === 0,
@@ -144,7 +147,7 @@ export function CsStatsPanel({ orgId, canRead }: Props) {
   )
 }
 
-/** 五指标事实卡：每个数值逐字来自响应投影字段（CS-GOV-03B 逐项相等）。 */
+/** 统计事实卡：每个数值逐字来自响应投影字段（CS-GOV-03B 逐项相等）。 */
 function StatsFacts({ stats, retrievedAt }: { stats: CsSessionStats; retrievedAt: number }) {
   return (
     <div className="space-y-3">
@@ -173,9 +176,19 @@ function StatsFacts({ stats, retrievedAt }: { stats: CsSessionStats; retrievedAt
           value={`${stats.current.queued} 排队 / ${stats.current.active} 接待`}
           sub="实时计数（不看窗口）"
         />
+        <ReplyFact label="人工首响" metric={stats.firstHumanResponse} />
+        <ReplyFact label="AI 首响" metric={stats.firstAiResponse} />
+        <FactCard label="首响资格未知"
+          value={stats.responseUnknownCount === null ? '未知' : `${stats.responseUnknownCount} 个会话`}
+          sub="同一排队时间窗内，历史或来源未分类的会话" />
       </div>
     </div>
   )
+}
+
+function ReplyFact({ label, metric }: { label: string; metric: CsSessionStats['firstHumanResponse'] }) {
+  return <FactCard label={label} value={metric === null ? '未知' : `${metric.count} 次`}
+    sub={metric === null ? '服务端未提供有效事实' : `平均 ${formatAvgSeconds(metric.avgSeconds)}`} />
 }
 
 function StatsMetadata({ stats, retrievedAt }: { stats: CsSessionStats; retrievedAt: number }) {
@@ -183,6 +196,8 @@ function StatsMetadata({ stats, retrievedAt }: { stats: CsSessionStats; retrieve
     <p className="text-xs text-muted-foreground" data-testid="cs-stats-definitions">
       新会话按开始排队时间统计；接单等待为排队到接单的时长；关闭与评价按各自发生时间统计。
       当前排队和接待为查询时的数量。未接单、未评价不计入对应均值。
+      人工首响为访客首条消息到首条人工回复；AI 首响单列，不能替代人工。
+      首响按同一排队时间窗统计，仅已回复样本计入各自均值；未知资格不等于未回复。
     </p>
     <p className="text-xs text-muted-foreground" data-testid="cs-stats-retrieved-at">
       数据获取时间（本地）：{new Date(retrievedAt).toLocaleString('zh-CN')}；

@@ -74,3 +74,46 @@ it('window timestamps still reject coercion, fractional values and unsafe intege
     expect(toCsSessionStats({ ...facts, window_start: windowStart })).toBeNull()
   }
 })
+
+
+it('human and AI first replies preserve independent server facts and unknown eligibility', () => {
+  const result = toCsSessionStats({ ...facts,
+    first_human_response: { count: 2, avg_seconds: 12.5 },
+    first_ai_response: { count: 3, avg_seconds: 0 }, response_unknown_count: 4,
+  })
+  expect(result?.firstHumanResponse).toEqual({ count: 2, avgSeconds: 12.5 })
+  expect(result?.firstAiResponse).toEqual({ count: 3, avgSeconds: 0 })
+  expect(result?.responseUnknownCount).toBe(4)
+  expect(result?.firstResponse).toEqual({ count: 0, avgSeconds: null })
+})
+
+it('old responses remain usable with explicitly unknown new metrics', () => {
+  const result = toCsSessionStats(facts)
+  expect(result).not.toBeNull()
+  expect(result?.firstHumanResponse).toBeNull()
+  expect(result?.firstAiResponse).toBeNull()
+  expect(result?.responseUnknownCount).toBeNull()
+})
+
+it('known zero replies preserve null averages and a known zero unknown count', () => {
+  const result = toCsSessionStats({ ...facts,
+    first_human_response: { count: 0, avg_seconds: null },
+    first_ai_response: { count: 0, avg_seconds: null }, response_unknown_count: 0,
+  })
+  expect(result?.firstHumanResponse).toEqual({ count: 0, avgSeconds: null })
+  expect(result?.firstAiResponse).toEqual({ count: 0, avgSeconds: null })
+  expect(result?.responseUnknownCount).toBe(0)
+})
+
+it('invalid new fields remain unknown without discarding valid existing statistics', () => {
+  for (const invalid of [undefined, null, [], false, {}, { count: 0, avg_seconds: 0 },
+    { count: 1, avg_seconds: null }, { count: -1, avg_seconds: 1 }, { count: 1, avg_seconds: Infinity }]) {
+    const result = toCsSessionStats({ ...facts, first_human_response: invalid, first_ai_response: invalid })
+    expect(result).not.toBeNull()
+    expect(result?.firstHumanResponse).toBeNull()
+    expect(result?.firstAiResponse).toBeNull()
+  }
+  for (const invalid of [undefined, null, false, '', -1, 0.5, Infinity]) {
+    expect(toCsSessionStats({ ...facts, response_unknown_count: invalid })?.responseUnknownCount).toBeNull()
+  }
+})

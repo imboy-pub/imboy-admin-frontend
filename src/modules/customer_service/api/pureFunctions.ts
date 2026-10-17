@@ -511,6 +511,10 @@ export type CsSessionStats = {
   windowEnd: number
   newSessions: number
   firstResponse: CsStatsMetricPair
+  /** null 表示旧响应缺失或新事实非法，不代表零样本。 */
+  firstHumanResponse: CsStatsMetricPair | null
+  firstAiResponse: CsStatsMetricPair | null
+  responseUnknownCount: number | null
   closedSessions: number
   rating: CsStatsRatingPair
   current: CsStatsCurrent
@@ -554,12 +558,14 @@ function validStatsDate(value: unknown): value is string {
   return Number.isFinite(epoch) && new Date(epoch).toISOString().slice(0, 10) === value
 }
 
-/** 缺失或非法事实拒绝整包；只有服务端明确 null 才表示无样本。 */
+/** 旧必需事实非法时拒绝整包；新增首响事实缺失或非法时明确未知。 */
 export function toCsSessionStats(raw: unknown): CsSessionStats | null {
   const payload = statsRecord(raw)
   if (payload === null) return null
   const orgId = toIdOrNull(payload.organization_id)
   const fr = statsMetric(payload.first_response, 'avg_seconds')
+  const human = statsMetric(payload.first_human_response, 'avg_seconds')
+  const ai = statsMetric(payload.first_ai_response, 'avg_seconds')
   const rating = statsMetric(payload.rating, 'avg', true)
   const current = statsRecord(payload.current)
   const windowStart = statsTimestamp(payload.window_start), windowEnd = statsTimestamp(payload.window_end)
@@ -576,6 +582,9 @@ export function toCsSessionStats(raw: unknown): CsSessionStats | null {
   return {
     organizationId: orgId, date: payload.date, tzOffset, windowStart, windowEnd, newSessions, closedSessions,
     firstResponse: { count: fr.count, avgSeconds: fr.average },
+    firstHumanResponse: human === null ? null : { count: human.count, avgSeconds: human.average },
+    firstAiResponse: ai === null ? null : { count: ai.count, avgSeconds: ai.average },
+    responseUnknownCount: statsCount(payload.response_unknown_count),
     rating: { count: rating.count, avg: rating.average }, current: { queued, active },
   }
 }
