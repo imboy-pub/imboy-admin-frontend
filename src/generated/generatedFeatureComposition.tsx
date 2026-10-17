@@ -12,19 +12,15 @@ const ChannelDetailPage = lazy(() => import('@/pages/channels/ChannelDetailPage'
 const ChannelMessagePage = lazy(() => import('@/pages/channels/ChannelMessagePage').then((m) => ({ default: m.ChannelMessagePage })))
 const ChannelSubscriberPage = lazy(() => import('@/pages/channels/ChannelSubscriberPage').then((m) => ({ default: m.ChannelSubscriberPage })))
 const ChannelAdminPage = lazy(() => import('@/pages/channels/ChannelAdminPage').then((m) => ({ default: m.ChannelAdminPage })))
-const ChannelInvitationPage = lazy(() => import('@/pages/channels/ChannelInvitationPage').then((m) => ({ default: m.ChannelInvitationPage })))
-const ChannelOrderPage = lazy(() => import('@/pages/channels/ChannelOrderPage').then((m) => ({ default: m.ChannelOrderPage })))
-const PaidChannelOpsPage = lazy(() => import('@/pages/channels/PaidChannelOpsPage').then((m) => ({ default: m.PaidChannelOpsPage })))
 const GroupVoteManagePage = lazy(() => import('@/pages/groups/GroupVoteManagePage').then((m) => ({ default: m.GroupVoteManagePage })))
 const GroupScheduleManagePage = lazy(() => import('@/pages/groups/GroupScheduleManagePage').then((m) => ({ default: m.GroupScheduleManagePage })))
 const GroupTaskListPage = lazy(() => import('@/pages/groups/GroupTaskListPage').then((m) => ({ default: m.GroupTaskListPage })))
 const GroupTaskManagePage = lazy(() => import('@/pages/groups/GroupTaskManagePage').then((m) => ({ default: m.GroupTaskManagePage })))
-const ComplianceKeyPage = lazy(() => import('@/pages/settings/ComplianceKeyPage').then((m) => ({ default: m.ComplianceKeyPage })))
 
 // Composition provenance; runtime feature metadata lives in productFeatures.ts.
-// manifest_hash: "sha256:ecf552c01018513a34e445b49cedbb985962758542c9b64a93951185dc8f0ca8"
+// manifest_hash: "sha256:022090cbdac05698250905a34bad19b5be2b4c397b54cd5604ec880e6f8a9ebf"
 // schema_version: 1
-// compiled_features: ["bot_webhook", "channel", "channel_discover", "channel_invitation", "channel_order", "core", "customer_service", "e2ee", "enterprise_business", "group_schedule", "group_task", "group_vote", "location", "moment", "project"]
+// compiled_features: ["channel", "core", "customer_service", "enterprise_business", "group_schedule", "group_task", "group_vote", "location", "moment"]
 
 export function compiledAdminFeatureRoutes() {
   return <>
@@ -68,21 +64,6 @@ export function compiledAdminFeatureRoutes() {
         <FeatureRoute feature="channel"><ChannelAdminPage /></FeatureRoute>
       </PermissionRoute>
     )} />
-    <Route path="/channels/:id/invitations" element={(
-      <PermissionRoute permission="channels:read" roles={['1', '2']}>
-        <FeatureRoute feature="channel_invitation"><ChannelInvitationPage /></FeatureRoute>
-      </PermissionRoute>
-    )} />
-    <Route path="/channels/paid" element={(
-      <PermissionRoute permission="channels:read" roles={['1', '2']}>
-        <FeatureRoute feature="channel_order"><PaidChannelOpsPage /></FeatureRoute>
-      </PermissionRoute>
-    )} />
-    <Route path="/channels/:id/orders" element={(
-      <PermissionRoute permission="channels:read" roles={['1', '2']}>
-        <FeatureRoute feature="channel_order"><ChannelOrderPage /></FeatureRoute>
-      </PermissionRoute>
-    )} />
     <Route path="/groups/:id/votes" element={(
       <PermissionRoute permission="groups:vote:read" roles={['1', '2']}>
         <FeatureRoute feature="group_vote"><GroupVoteManagePage /></FeatureRoute>
@@ -101,11 +82,6 @@ export function compiledAdminFeatureRoutes() {
     <Route path="/groups/:id/tasks" element={(
       <PermissionRoute permission="groups:task:read" roles={['1', '2']}>
         <FeatureRoute feature="group_task"><GroupTaskManagePage /></FeatureRoute>
-      </PermissionRoute>
-    )} />
-    <Route path="/settings/compliance-keys" element={(
-      <PermissionRoute permission="settings:view" roles={['1']}>
-        <FeatureRoute feature="e2ee"><ComplianceKeyPage /></FeatureRoute>
       </PermissionRoute>
     )} />
   </>
