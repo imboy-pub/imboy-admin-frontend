@@ -42,7 +42,7 @@
     "qrcode.react": "./vendor/qrcode.react-4.2.0.tgz",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "react-hook-form": "^7.71.1",
+    "react-hook-form": "^7.90.0",
     "react-router-dom": "^7.13.0",
     "recharts": "^3.10.1",
     "sonner": "^2.0.8",
