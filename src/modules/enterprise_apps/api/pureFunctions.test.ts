@@ -407,7 +407,7 @@ describe('C. 语义判定（生命周期 / scope / CAS / 审计 diff）', () => 
     expect(validateScopeSelection(['files:write', 'files:write'])).toEqual(['files:write'])
   })
 
-  it('高危 scope 提交提示只对三个高危 scope 触发', () => {
+  it('高危 scope 提交提示覆盖独立权限', () => {
     expect(requiresExplicitConfirmation(['messages:send_as_human'])).toBe(true)
     expect(requiresExplicitConfirmation(['friend_requests:create'])).toBe(true)
     expect(requiresExplicitConfirmation(['webhooks:manage'])).toBe(true)
@@ -643,5 +643,18 @@ describe('G. 应用创建 / 身份映射（A-15..A-18 纯函数）', () => {
       expect(summary?.name).toBe('OA 联调测试')
       expect(summary?.status).toBe('active')
     })
+  })
+})
+
+
+describe('OA 显式授权', () => {
+  it('目录写入和 SSO 交换不隐含成员停用或登录签票权限', () => {
+    expect(impliedScopes('identities:write')).toEqual(['identities:write'])
+    expect(impliedScopes('sso:exchange')).toEqual(['sso:exchange'])
+    expect(validateScopeSelection(['members:write', 'oa:login:issue'])).toEqual([
+      'oa:login:issue', 'members:write',
+    ])
+    expect(requiresExplicitConfirmation(['members:write'])).toBe(true)
+    expect(requiresExplicitConfirmation(['oa:login:issue'])).toBe(true)
   })
 })

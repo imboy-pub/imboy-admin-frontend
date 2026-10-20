@@ -601,7 +601,7 @@ export function assertStatusTransition(
 
 /**
  * INV-4：scope **无隐含包含**。
- * `impliedScopes(s)` 恒为 `[s]`——三个高危 scope 不被 `messages:send` 隐含。
+ * `impliedScopes(s)` 恒为 `[s]`——高危 scope 不被 `messages:send` 隐含。
  */
 export function impliedScopes(scope: EnterpriseScope): readonly EnterpriseScope[] {
   return [scope]
@@ -622,7 +622,7 @@ export function validateScopeSelection(scopes: readonly string[]): EnterpriseSco
   return SCOPE_CATALOG.filter((scope) => accepted.includes(scope))
 }
 
-/** 三个高危 scope 是否被显式勾选（UI 用它在提交前加一道强提示）。 */
+/** 高危 scope 是否被显式勾选（UI 用它在提交前加一道强提示）。 */
 export function requiresExplicitConfirmation(scopes: readonly EnterpriseScope[]): boolean {
   return NEVER_IMPLIED_SCOPES.some((scope) => scopes.includes(scope))
 }

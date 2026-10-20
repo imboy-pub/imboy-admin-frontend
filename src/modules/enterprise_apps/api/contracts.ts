@@ -39,9 +39,9 @@ export const WRITE_PERMISSION = 'enterprise_business:write'
 export const GOVERNANCE_BACKEND_WIRED = true
 
 /**
- * 固定 scope 全集（16 值，读写分别授权）。
+ * 固定 scope 全集（20 值，读写分别授权）。
  * 真源：`src/api/enterprise_internal_scope.erl:?SCOPES` +
- * `priv/migrations/00000160_workspace_internal_write.up.sql` 的 DB CHECK。
+ * `priv/migrations/00000208_directory_member_suspension.up.sql` 的 DB CHECK。
  * 无 wildcard（INV-4）。
  */
 export const SCOPE_CATALOG = [
@@ -63,18 +63,22 @@ export const SCOPE_CATALOG = [
   'customer_service:write',
   'workspaces:write',
   'channels:write',
+  'oa:login:issue',
+  'members:write',
 ] as const
 
 export type EnterpriseScope = (typeof SCOPE_CATALOG)[number]
 
 /**
- * INV-4：这三个 scope **必须显式授予**，不被 `messages:send` 隐含。
+ * INV-4：这些 scope **必须显式授予**，不被 `messages:send` 隐含。
  * 单测钉死 `impliedScopes('messages:send') === ['messages:send']`。
  */
 export const NEVER_IMPLIED_SCOPES: readonly EnterpriseScope[] = [
   'messages:send_as_human',
   'friend_requests:create',
   'webhooks:manage',
+  'oa:login:issue',
+  'members:write',
 ]
 
 /** scope 中文说明（Admin 展示用；不改变 scope 语义）。 */
@@ -97,6 +101,8 @@ export const SCOPE_LABELS: Record<EnterpriseScope, string> = {
   'customer_service:write': '管理企业客服坐席（企业全域授权）',
   'workspaces:write': '创建、修改和归档企业工作空间',
   'channels:write': '创建、修改和归档企业频道',
+  'oa:login:issue': '签发 OA 登录票据（独立授权）',
+  'members:write': '停用和恢复来源托管成员（企业全域授权）',
 }
 
 /** Application 生命周期（plan-full §3.1）。 */

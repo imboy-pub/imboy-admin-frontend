@@ -29,8 +29,8 @@ function toggle(list: readonly EnterpriseScope[], scope: EnterpriseScope): Enter
 /**
  * scope 授予 / 降级编辑器。
  *
- * 目录来源 = 后端冻结 10 值枚举（contracts.SCOPE_CATALOG），**不含 wildcard**；
- * 三个高危 scope 带显式提示（INV-4：不被 messages:send 隐含）。
+ * 目录来源 = 后端固定权限枚举（contracts.SCOPE_CATALOG），**不含 wildcard**；
+ * 高危 scope 带显式提示（INV-4：不被 messages:send 隐含）。
  * 变更 diff（新增/降级）实时可见，提交前由父组件做二次确认。
  */
 export function ScopeEditor({
@@ -68,7 +68,7 @@ export function ScopeEditor({
                 <p className="text-xs text-muted-foreground">{SCOPE_LABELS[scope]}</p>
                 {risky && (
                   <Badge variant="destructive" data-testid={`scope-risky-${scope}`}>
-                    需显式授予（不被 messages:send 隐含）
+                    需显式授予（不由其他权限隐含）
                   </Badge>
                 )}
               </div>
