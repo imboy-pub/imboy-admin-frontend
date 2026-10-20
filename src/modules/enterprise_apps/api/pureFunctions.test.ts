@@ -11,52 +11,8 @@
  *  C. 审计 before/after：只对白名单字段产出 diff，且空变更不产出噪声。
  */
 import { describe, expect, it } from 'bun:test'
-import {
-  APPLICATION_STATUS_LABELS,
-  AUDIT_ACTION_LABELS,
-  READ_PERMISSION,
-  SCOPE_CATALOG,
-  WRITE_PERMISSION,
-  auditActionLabel,
-} from './contracts'
-import {
-  applicationStatusLabel,
-  assertStatusTransition,
-  assertWriteAllowed,
-  buildAuditDiff,
-  canReadGovernance,
-  canWriteGovernance,
-  classifyGovernanceFailure,
-  credentialExpiryLabel,
-  credentialExpiryState,
-  diffScopes,
-  formatRate,
-  governanceFailureMessage,
-  hasPermission,
-  impliedScopes,
-  isScopeDowngrade,
-  lastUsedLabel,
-  nextAllowedStatuses,
-  requiresExplicitConfirmation,
-  parseRedirectUris,
-  toApplicationDetailFromPayload,
-  toApplicationPage,
-  toApplicationStatus,
-  toApplicationSummary,
-  toAuditEntry,
-  toAuditList,
-  toCredentialMeta,
-  toCredentialMetaList,
-  toDeliveryList,
-  toDeliveryRow,
-  toDeliveryStats,
-  toGrantList,
-  toGrantView,
-  toIdentityList,
-  toIssuedCredentialOnce,
-  toScopeList,
-  validateScopeSelection,
-} from './pureFunctions'
+import { APPLICATION_STATUS_LABELS, AUDIT_ACTION_LABELS, READ_PERMISSION, WRITE_PERMISSION, auditActionLabel } from './contracts'
+import { applicationStatusLabel, assertStatusTransition, assertWriteAllowed, buildAuditDiff, canReadGovernance, canWriteGovernance, classifyGovernanceFailure, credentialExpiryLabel, credentialExpiryState, formatRate, governanceFailureMessage, hasPermission, lastUsedLabel, nextAllowedStatuses, parseRedirectUris, toApplicationDetailFromPayload, toApplicationPage, toApplicationStatus, toApplicationSummary, toAuditEntry, toAuditList, toCredentialMeta, toCredentialMetaList, toDeliveryList, toDeliveryRow, toDeliveryStats, toIdentityList, toIssuedCredentialOnce } from './pureFunctions'
 import { assertNoPayloadFields, assertNoSecretFields, collectForbiddenKeys, collectStringValues } from './guards'
 
 const ORG = '1234567890123456789'
@@ -172,13 +128,12 @@ describe('B. 白名单投影（视图键集合被钉死，无隐式 hydration）
       'id',
       'name',
       'organizationId',
-      'scopes',
       'status',
       'updatedAt',
       'version',
     ])
     // '*' 与未登记 scope 被丢弃（不猜测、不透传）
-    expect(item.scopes).toEqual(['application:read'])
+    expect('scopes' in item).toBe(false)
     expect(page.total).toBe(1)
   })
 
@@ -228,30 +183,6 @@ describe('B. 白名单投影（视图键集合被钉死，无隐式 hydration）
   it('last-used 空值不伪造成「刚刚」', () => {
     expect(lastUsedLabel('')).toBe('从未使用')
     expect(lastUsedLabel('2026-09-22 10:00:00')).toBe('2026-09-22 10:00:00')
-  })
-
-  it('Grant 视图：scope 白名单外丢弃，workspace 范围未知 fail-safe', () => {
-    const grant = toGrantView({
-      id: '9',
-      workspace_scope_kind: 'weird',
-      workspace_ids: ['11', 12, ''],
-      scopes: ['groups:write', '*'],
-      status: 'weird',
-      version: 4,
-      valid_from: 'A',
-      valid_to: 'B',
-      secret: 'x',
-    })
-    expect(grant!.workspaceScopeKind).toBe('unknown')
-    expect(grant!.status).toBe('unknown')
-    expect(grant!.scopes).toEqual(['groups:write'])
-    expect(grant!.workspaceIds).toEqual(['11', '12'])
-    expect(JSON.stringify(grant)).not.toContain('"secret"')
-  })
-
-  it('Grant 列表丢弃无 id 行；workspace_scope_kind=none 的 org 全域 Grant 正常解析', () => {
-    expect(toGrantList([{ id: '1', workspace_scope_kind: 'none', status: 'active' }]).length).toBe(1)
-    expect(toGrantList([{ nope: 1 }]).length).toBe(0)
   })
 
   it('投递行视图键集合恰为元数据白名单（**无** payload 字段）', () => {
@@ -317,29 +248,24 @@ describe('B. 白名单投影（视图键集合被钉死，无隐式 hydration）
   it('审计条目：只保留白名单字段，before/after 变化才产出 diff', () => {
     const entry = toAuditEntry({
       id: '1',
-      action: 'application_scopes_changed',
+      action: 'application_status_changed',
       actor_account: 'super',
       target_kind: 'application',
       target_id: APP,
       created_at: 'T1',
-      before: { scopes: ['a', 'b'], status: 'active', payload: 'x' },
-      after: { scopes: ['a'], status: 'active' },
+      before: { status: 'active', payload: 'x' },
+      after: { status: 'disabled' },
     })
     expect(entry!.changed.length).toBe(1)
-    expect(entry!.changed[0]!.field).toBe('scopes')
-    expect(entry!.changed[0]!.before).toBe('a, b')
-    expect(entry!.changed[0]!.after).toBe('a')
-    expect(auditActionLabel('application_scopes_changed')).toBe(AUDIT_ACTION_LABELS.application_scopes_changed)
+    expect(entry!.changed[0]!.field).toBe('status')
+    expect(entry!.changed[0]!.before).toBe('active')
+    expect(entry!.changed[0]!.after).toBe('disabled')
+    expect(auditActionLabel('application_status_changed')).toBe(AUDIT_ACTION_LABELS.application_status_changed)
     expect(auditActionLabel('unknown_action')).toBe('unknown_action')
   })
 
   it('审计条目：无 action 无时间的行被丢弃', () => {
     expect(toAuditList([{ before: {}, after: {} }]).length).toBe(0)
-  })
-
-  it('toScopeList：未登记 / 通配一律丢弃（不猜测、不透传）', () => {
-    expect(toScopeList(['application:read', '*', 'nope:write', 7, null])).toEqual(['application:read'])
-    expect(toScopeList('application:read')).toEqual([])
   })
 
   it('toApplicationStatus：四态逐字，其它一律 unknown', () => {
@@ -387,42 +313,6 @@ describe('C. 语义判定（生命周期 / scope / CAS / 审计 diff）', () => 
     expect(nextAllowedStatuses('archived')).toEqual([])
   })
 
-  it('INV-4：三个高危 scope 不被 messages:send 隐含（无任何隐含闭包）', () => {
-    expect(impliedScopes('messages:send')).toEqual(['messages:send'])
-    for (const scope of SCOPE_CATALOG) {
-      expect(impliedScopes(scope)).toEqual([scope])
-    }
-  })
-
-  it('scope 校验：目录外拒绝、空集拒绝、通配拒绝、结果按目录顺序归一', () => {
-    expect(validateScopeSelection(['groups:write', 'application:read'])).toEqual([
-      'application:read',
-      'groups:write',
-    ])
-    expect(() => validateScopeSelection(['*'])).toThrow(/未登记的 scope/)
-    expect(() => validateScopeSelection(['nope:write'])).toThrow(/未登记的 scope/)
-    expect(() => validateScopeSelection([])).toThrow(/至少需要一个 scope/)
-    expect(() => validateScopeSelection(['   '])).toThrow(/至少需要一个 scope/)
-    // 去重
-    expect(validateScopeSelection(['files:write', 'files:write'])).toEqual(['files:write'])
-  })
-
-  it('高危 scope 提交提示覆盖独立权限', () => {
-    expect(requiresExplicitConfirmation(['messages:send_as_human'])).toBe(true)
-    expect(requiresExplicitConfirmation(['friend_requests:create'])).toBe(true)
-    expect(requiresExplicitConfirmation(['webhooks:manage'])).toBe(true)
-    expect(requiresExplicitConfirmation(['messages:send'])).toBe(false)
-    expect(requiresExplicitConfirmation(['application:read', 'files:write'])).toBe(false)
-  })
-
-  it('scope diff / 降级判定', () => {
-    expect(diffScopes(['a:1', 'b:2'], ['b:2', 'c:3'])).toEqual({ added: ['c:3'], removed: ['a:1'] })
-    expect(diffScopes(['b:2'], ['b:2'])).toEqual({ added: [], removed: [] })
-    expect(isScopeDowngrade(['a', 'b'], ['b'])).toBe(true)
-    expect(isScopeDowngrade(['a', 'b'], ['b', 'c'])).toBe(false)
-    expect(isScopeDowngrade(['a'], ['a'])).toBe(false)
-  })
-
   it('审计 diff 只对白名单字段、数组按集合比较（顺序无关）', () => {
     const diff = buildAuditDiff(
       { scopes: ['b', 'a'], status: 'active', secret: 'x', unrelated: 1 },
@@ -434,8 +324,8 @@ describe('C. 语义判定（生命周期 / scope / CAS / 审计 diff）', () => 
     // 顺序变化不算变化
     expect(buildAuditDiff({ scopes: ['a', 'b'] }, { scopes: ['b', 'a'] }).length).toBe(0)
     // 缺失值 / 空值统一渲染为 —（因此「空 → 空」不产生噪声行）
-    expect(buildAuditDiff({ valid_to: 'A' }, { valid_to: '' })[0]!.after).toBe('—')
-    expect(buildAuditDiff({}, { valid_to: '' }).length).toBe(0)
+    expect(buildAuditDiff({ expires_at: 'A' }, { expires_at: '' })[0]!.after).toBe('—')
+    expect(buildAuditDiff({}, { expires_at: '' }).length).toBe(0)
   })
 })
 
@@ -648,13 +538,4 @@ describe('G. 应用创建 / 身份映射（A-15..A-18 纯函数）', () => {
 
 
 describe('OA 显式授权', () => {
-  it('目录写入和 SSO 交换不隐含成员停用或登录签票权限', () => {
-    expect(impliedScopes('identities:write')).toEqual(['identities:write'])
-    expect(impliedScopes('sso:exchange')).toEqual(['sso:exchange'])
-    expect(validateScopeSelection(['members:write', 'oa:login:issue'])).toEqual([
-      'oa:login:issue', 'members:write',
-    ])
-    expect(requiresExplicitConfirmation(['members:write'])).toBe(true)
-    expect(requiresExplicitConfirmation(['oa:login:issue'])).toBe(true)
-  })
 })

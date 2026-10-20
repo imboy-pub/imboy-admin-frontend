@@ -41,7 +41,6 @@ const DETAIL: ApplicationDetail = {
   organizationId: ORG,
   name: 'OA 集成应用',
   status: 'active',
-  scopes: ['application:read', 'identities:read'],
   version: 4,
   createdAt: '2026-09-01 10:00:00',
   updatedAt: '2026-09-20 10:00:00',
@@ -107,8 +106,7 @@ describe('RBAC 越权负例 · 渲染层（锁 1）', () => {
     })
     const transition = view.getByTestId('lifecycle-to-disabled') as HTMLButtonElement
     expect(transition.disabled).toBe(true)
-    const save = view.getByTestId('application-scope-save') as HTMLButtonElement
-    expect(save.disabled).toBe(true)
+    expect(view.queryByTestId('application-scope-save')).toBeNull()
   })
 
   it('可写角色（role 1 语义：read+write）：写入口可用且无只读提示', async () => {

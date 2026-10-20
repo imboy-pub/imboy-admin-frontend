@@ -4,7 +4,7 @@
  * 三类职责：
  *   1. **白名单投影** —— 每个视图的键集合被逐键钉死（无 secret hydration、
  *      投递面无 payload）；未登记取值一律 fail-safe 到 `unknown`/丢弃，不猜测。
- *   2. **语义判定** —— 生命周期迁移、scope 目录（INV-4 无隐含）、Grant CAS、
+ *   2. **语义判定** —— 生命周期迁移、凭证治理、
  *      审计 before/after diff。
  *   3. **失败分类 / RBAC 纯闸门** —— 把后端/传输/前端守卫错误映射成稳定 UI 状态；
  *      写权限的最终 fail-closed 判定。
@@ -14,25 +14,7 @@
 import { coerceEntityId } from '@/lib/entityId'
 import { assertNoSecretFields } from './guards'
 import type { EntityId } from '@/types/common'
-import {
-  APPLICATION_STATUSES,
-  APPLICATION_STATUS_LABELS,
-  AUDIT_DIFF_FIELDS,
-  CREDENTIAL_SAFE_KEYS,
-  CREDENTIAL_STATUSES,
-  DELIVERY_SAFE_KEYS,
-  NEVER_IMPLIED_SCOPES,
-  READ_PERMISSION,
-  SCOPE_CATALOG,
-  SENSITIVE_KEY_PATTERN,
-  STATUS_TRANSITIONS,
-  WRITE_PERMISSION,
-  type ApplicationStatus,
-  type CredentialStatus,
-  type EnterpriseScope,
-  type GrantStatus,
-  type GrantWorkspaceScopeKind,
-} from './contracts'
+import { APPLICATION_STATUSES, APPLICATION_STATUS_LABELS, AUDIT_DIFF_FIELDS, CREDENTIAL_SAFE_KEYS, CREDENTIAL_STATUSES, DELIVERY_SAFE_KEYS, READ_PERMISSION, SENSITIVE_KEY_PATTERN, STATUS_TRANSITIONS, WRITE_PERMISSION, type ApplicationStatus, type CredentialStatus } from './contracts'
 
 /** 未知取值的安全侧标记：不猜测、不误标。 */
 type Unknownable<T extends string> = T | 'unknown'
@@ -83,11 +65,6 @@ function toRatioOrNull(value: unknown): number | null {
   return parsed
 }
 
-function toStrArray(value: unknown): string[] {
-  if (!Array.isArray(value)) return []
-  return value.map((item) => toStr(item)).filter((item) => item.length > 0)
-}
-
 /** 白名单投影：只保留 allowKeys（且不含敏感键）。 */
 function pickAllowed(raw: Record<string, unknown>, allowKeys: readonly string[]): Record<string, unknown> {
   const out: Record<string, unknown> = {}
@@ -116,19 +93,12 @@ function toCredentialStatus(value: unknown): Unknownable<CredentialStatus> {
   return (CREDENTIAL_STATUSES as readonly string[]).includes(raw) ? (raw as CredentialStatus) : 'unknown'
 }
 
-/** 只接受固定枚举内的 scope；未登记/通配一律丢弃（不猜测、不透传）。 */
-export function toScopeList(value: unknown): EnterpriseScope[] {
-  const catalog = new Set<string>(SCOPE_CATALOG)
-  const raw = toStrArray(value)
-  return raw.filter((item): item is EnterpriseScope => catalog.has(item))
-}
-
 export type ApplicationSummary = {
   id: EntityId
   organizationId: EntityId
   name: string
   status: Unknownable<ApplicationStatus>
-  scopes: EnterpriseScope[]
+
   version: number
   createdAt: string
   updatedAt: string
@@ -139,7 +109,7 @@ const APPLICATION_SAFE_KEYS = [
   'organization_id',
   'name',
   'status',
-  'scopes',
+
   'version',
   'created_at',
   'updated_at',
@@ -156,7 +126,7 @@ export function toApplicationSummary(raw: unknown): ApplicationSummary | null {
     organizationId: toId(safe.organization_id) ?? '',
     name: toStr(safe.name),
     status: toApplicationStatus(safe.status),
-    scopes: toScopeList(safe.scopes),
+
     version: toInt(safe.version, 1),
     createdAt: toStr(safe.created_at),
     updatedAt: toStr(safe.updated_at),
@@ -254,7 +224,7 @@ const APPLICATION_DETAIL_SAFE_KEYS = [
   'organization_id',
   'name',
   'status',
-  'scopes',
+
   'version',
   'created_at',
   'updated_at',
@@ -380,54 +350,6 @@ export function toIssuedCredentialOnce(raw: unknown, context: string): IssuedCre
     throw new Error(`签发响应缺少一次性 secret (${context})`)
   }
   return { credential, secret }
-}
-
-export type GrantView = {
-  id: EntityId
-  workspaceScopeKind: Unknownable<GrantWorkspaceScopeKind>
-  workspaceIds: EntityId[]
-  scopes: EnterpriseScope[]
-  status: Unknownable<GrantStatus>
-  version: number
-  validFrom: string
-  validTo: string
-}
-
-const GRANT_SAFE_KEYS = [
-  'id',
-  'workspace_scope_kind',
-  'workspace_ids',
-  'scopes',
-  'status',
-  'version',
-  'valid_from',
-  'valid_to',
-] as const
-
-export function toGrantView(raw: unknown): GrantView | null {
-  if (!isPlainRecord(raw)) return null
-  const id = toId(raw.id)
-  if (id === null) return null
-  const safe = pickAllowed(raw, GRANT_SAFE_KEYS)
-  const kind = toStr(safe.workspace_scope_kind)
-  const status = toStr(safe.status)
-  return {
-    id,
-    workspaceScopeKind: kind === 'none' || kind === 'explicit' ? kind : 'unknown',
-    workspaceIds: toStrArray(safe.workspace_ids)
-      .map((item) => toId(item))
-      .filter((item): item is EntityId => item !== null),
-    scopes: toScopeList(safe.scopes),
-    status: status === 'active' || status === 'revoked' ? status : 'unknown',
-    version: toInt(safe.version, 1),
-    validFrom: toStr(safe.valid_from),
-    validTo: toStr(safe.valid_to),
-  }
-}
-
-export function toGrantList(raw: unknown): GrantView[] {
-  const rawItems = Array.isArray(raw) ? raw : []
-  return rawItems.map((item) => toGrantView(item)).filter((item): item is GrantView => item !== null)
 }
 
 /** 投递元数据视图：**没有** payload / request_body 字段。 */
@@ -597,49 +519,6 @@ export function assertStatusTransition(
   if (!STATUS_TRANSITIONS[current].includes(target)) {
     throw new Error(`非法生命周期迁移：${current} → ${target}`)
   }
-}
-
-/**
- * INV-4：scope **无隐含包含**。
- * `impliedScopes(s)` 恒为 `[s]`——高危 scope 不被 `messages:send` 隐含。
- */
-export function impliedScopes(scope: EnterpriseScope): readonly EnterpriseScope[] {
-  return [scope]
-}
-
-/** 校验一组待授予 scope：只接受目录内成员；空集拒绝；无 wildcard。 */
-export function validateScopeSelection(scopes: readonly string[]): EnterpriseScope[] {
-  const catalog = new Set<string>(SCOPE_CATALOG)
-  const unique = Array.from(new Set(scopes.map((item) => (typeof item === 'string' ? item.trim() : ''))))
-  const unknown = unique.filter((item) => item.length > 0 && !catalog.has(item))
-  if (unknown.length > 0) {
-    throw new Error(`未登记的 scope：${unknown.join(', ')}`)
-  }
-  const accepted = unique.filter((item): item is EnterpriseScope => catalog.has(item))
-  if (accepted.length === 0) {
-    throw new Error('至少需要一个 scope')
-  }
-  return SCOPE_CATALOG.filter((scope) => accepted.includes(scope))
-}
-
-/** 高危 scope 是否被显式勾选（UI 用它在提交前加一道强提示）。 */
-export function requiresExplicitConfirmation(scopes: readonly EnterpriseScope[]): boolean {
-  return NEVER_IMPLIED_SCOPES.some((scope) => scopes.includes(scope))
-}
-
-export function diffScopes(before: readonly EnterpriseScope[], after: readonly EnterpriseScope[]) {
-  const beforeSet = new Set(before)
-  const afterSet = new Set(after)
-  return {
-    added: after.filter((scope) => !beforeSet.has(scope)),
-    removed: before.filter((scope) => !afterSet.has(scope)),
-  }
-}
-
-/** scope 降级判定：after ⊆ before 且确有移除。 */
-export function isScopeDowngrade(before: readonly EnterpriseScope[], after: readonly EnterpriseScope[]): boolean {
-  const diff = diffScopes(before, after)
-  return diff.removed.length > 0 && diff.added.length === 0
 }
 
 /** 审计 before/after diff（只对白名单字段；数组按集合比较，顺序无关）。 */

@@ -22,8 +22,6 @@ import {
   clampPage,
   clampPageSize,
   type ApplicationStatus,
-  type EnterpriseScope,
-  type GrantWorkspaceScopeKind,
 } from './contracts'
 import { assertNoPayloadFields, assertNoSecretFields, collectStringValues } from './guards'
 import {
@@ -36,11 +34,8 @@ import {
   toCredentialMetaList,
   toDeliveryList,
   toDeliveryStats,
-  toGrantList,
   toIdentityList,
   toIssuedCredentialOnce,
-  toScopeList,
-  validateScopeSelection,
   type ApplicationDetail,
   type ApplicationPage,
   type ApplicationSummary,
@@ -48,7 +43,6 @@ import {
   type CredentialMeta,
   type DeliveryRow,
   type DeliveryStats,
-  type GrantView,
   type IdentityView,
 } from './pureFunctions'
 import { armOnce } from './secretOnetime'
@@ -118,7 +112,7 @@ export async function listApplications(
   return toApplicationPage(payload, size)
 }
 
-/** A-02 Application 详情（含 lifecycle + scopes + version）。 */
+/** A-02 Application 详情（含 lifecycle + version）。 */
 export async function getApplicationDetail(scope: GovernanceScope): Promise<ApplicationDetail> {
   const { organizationId, applicationId } = requireScope(scope)
   const response = await client.get<ApiResponse<unknown>>(
@@ -138,15 +132,6 @@ export async function listCredentials(scope: GovernanceScope): Promise<Credentia
   const payload = requireApiPayload(response.data, 'GET admin credentials')
   guardRead(payload, 'GET admin credentials')
   return toCredentialMetaList(payload)
-}
-
-/** A-09 Grant 列表。 */
-export async function listGrants(scope: GovernanceScope): Promise<GrantView[]> {
-  const { organizationId, applicationId } = requireScope(scope)
-  const response = await client.get<ApiResponse<unknown>>(ENDPOINTS.grants(organizationId, applicationId))
-  const payload = requireApiPayload(response.data, 'GET admin grants')
-  guardRead(payload, 'GET admin grants')
-  return toGrantList(payload)
 }
 
 /** A-12 投递健康度摘要（无 payload）。 */
@@ -240,25 +225,6 @@ export async function changeApplicationStatus(
   requireApiPayload(response.data, 'POST admin application status')
 }
 
-/** A-04 scope 授予 / 降级（CAS）。 */
-export async function updateApplicationScopes(
-  scope: GovernanceScope,
-  input: { scopes: readonly string[]; expectedVersion: number },
-  options: MutateOptions
-): Promise<EnterpriseScope[]> {
-  assertWriteAllowed(options.permissions, 'update_application_scopes')
-  const scopes = validateScopeSelection(input.scopes)
-  const { organizationId, applicationId } = requireScope(scope)
-  const response = await client.put<ApiResponse<unknown>>(
-    ENDPOINTS.applicationScopes(organizationId, applicationId),
-    { scopes, expected_version: input.expectedVersion },
-    { headers: writeHeaders(options) }
-  )
-  const payload = requireApiPayload(response.data, 'PUT admin application scopes')
-  guardRead(payload, 'PUT admin application scopes')
-  return toScopeList((payload as { scopes?: unknown })?.scopes ?? payload)
-}
-
 export type IssueCredentialResult = {
   credential: CredentialMeta
   /** 一次性展示窗口号（**不含 secret 本体**）。 */
@@ -334,86 +300,6 @@ export async function revokeCredential(
   )
   const payload = requireApiPayload(response.data, 'DELETE admin credential')
   guardRead(payload, 'DELETE admin credential')
-}
-
-export type GrantInput = {
-  scopes: readonly string[]
-  workspaceScopeKind: GrantWorkspaceScopeKind
-  workspaceIds: EntityId[]
-  validFrom?: string
-  validTo?: string
-}
-
-function normalizeGrantInput(input: GrantInput) {
-  const scopes = validateScopeSelection(input.scopes)
-  const workspaceIds = Array.from(new Set(input.workspaceIds.map((item) => item.trim()).filter(Boolean)))
-  if (input.workspaceScopeKind === 'explicit' && workspaceIds.length === 0) {
-    throw new Error('Workspace Grant 必须至少指定一个 workspace_id')
-  }
-  if (input.workspaceScopeKind === 'none' && workspaceIds.length > 0) {
-    throw new Error('Organization Grant 不接受 workspace_ids')
-  }
-  return { scopes, workspaceIds, workspaceScopeKind: input.workspaceScopeKind }
-}
-
-/** A-10 新增 Grant。 */
-export async function issueGrant(
-  scope: GovernanceScope,
-  input: GrantInput & { expectedVersion: number },
-  options: MutateOptions
-): Promise<GrantView | null> {
-  assertWriteAllowed(options.permissions, 'issue_grant')
-  const normalized = normalizeGrantInput(input)
-  const { organizationId, applicationId } = requireScope(scope)
-  const response = await client.post<ApiResponse<unknown>>(
-    ENDPOINTS.issueGrant(organizationId, applicationId),
-    {
-      scopes: normalized.scopes,
-      workspace_scope_kind: normalized.workspaceScopeKind,
-      workspace_ids: normalized.workspaceIds,
-      expected_version: input.expectedVersion,
-      valid_from: input.validFrom,
-      valid_to: input.validTo,
-    },
-    { headers: writeHeaders(options) }
-  )
-  const payload = requireApiPayload(response.data, 'POST admin issue grant')
-  guardRead(payload, 'POST admin issue grant')
-  const list = toGrantList(Array.isArray(payload) ? payload : [payload])
-  return list[0] ?? null
-}
-
-export type GrantPatch = {
-  expectedVersion: number
-  scopes?: readonly string[]
-  workspaceScopeKind?: GrantWorkspaceScopeKind
-  workspaceIds?: EntityId[]
-  revoke?: boolean
-}
-
-/** A-11 Grant CAS 增删（scopes / workspaces / 撤销）。 */
-export async function patchGrant(
-  scope: GovernanceScope,
-  grantId: EntityId,
-  patch: GrantPatch,
-  options: MutateOptions
-): Promise<void> {
-  assertWriteAllowed(options.permissions, 'patch_grant')
-  const { organizationId, applicationId } = requireScope(scope)
-  const body: Record<string, unknown> = { expected_version: patch.expectedVersion }
-  if (patch.revoke === true) body.revoke = true
-  if (patch.scopes !== undefined) body.scopes = validateScopeSelection(patch.scopes)
-  if (patch.workspaceScopeKind !== undefined) body.workspace_scope_kind = patch.workspaceScopeKind
-  if (patch.workspaceIds !== undefined) {
-    body.workspace_ids = Array.from(new Set(patch.workspaceIds.map((item) => item.trim()).filter(Boolean)))
-  }
-  const response = await client.patch<ApiResponse<unknown>>(
-    ENDPOINTS.grant(organizationId, applicationId, grantId),
-    body,
-    { headers: writeHeaders(options) }
-  )
-  const payload = requireApiPayload(response.data, 'PATCH admin grant')
-  guardRead(payload, 'PATCH admin grant')
 }
 
 // ---------------------------------------------------------------------------

@@ -1,5 +1,5 @@
 /**
- * Admin 企业应用治理面 — 冻结合同（路径 / 权限 / scope 目录 / 生命周期）。
+ * Admin 企业应用治理面 — 冻结合同（路径 / 管理员权限 / 生命周期）。
  *
  * 硬边界（FULL-04 brief + manifest INV-2/INV-3）：
  * Admin 是 **Human/Admin 会话**（adm cookie），**不得**调用 `/api/internal/v1/*`。
@@ -38,73 +38,6 @@ export const WRITE_PERMISSION = 'enterprise_business:write'
  */
 export const GOVERNANCE_BACKEND_WIRED = true
 
-/**
- * 固定 scope 全集（20 值，读写分别授权）。
- * 真源：`src/api/enterprise_internal_scope.erl:?SCOPES` +
- * `priv/migrations/00000208_directory_member_suspension.up.sql` 的 DB CHECK。
- * 无 wildcard（INV-4）。
- */
-export const SCOPE_CATALOG = [
-  'application:read',
-  'identities:read',
-  'identities:write',
-  'groups:read',
-  'groups:write',
-  'workspaces:read',
-  'projects:read',
-  'channels:read',
-  'files:write',
-  'messages:send',
-  'messages:send_as_human',
-  'friend_requests:create',
-  'webhooks:manage',
-  'sso:exchange',
-  'customer_service:read',
-  'customer_service:write',
-  'workspaces:write',
-  'channels:write',
-  'oa:login:issue',
-  'members:write',
-] as const
-
-export type EnterpriseScope = (typeof SCOPE_CATALOG)[number]
-
-/**
- * INV-4：这些 scope **必须显式授予**，不被 `messages:send` 隐含。
- * 单测钉死 `impliedScopes('messages:send') === ['messages:send']`。
- */
-export const NEVER_IMPLIED_SCOPES: readonly EnterpriseScope[] = [
-  'messages:send_as_human',
-  'friend_requests:create',
-  'webhooks:manage',
-  'oa:login:issue',
-  'members:write',
-]
-
-/** scope 中文说明（Admin 展示用；不改变 scope 语义）。 */
-export const SCOPE_LABELS: Record<EnterpriseScope, string> = {
-  'application:read': '读取自身应用上下文',
-  'identities:read': '读取身份映射',
-  'identities:write': '写入身份映射',
-  'groups:read': '读取企业群与成员',
-  'groups:write': '企业群写',
-  'workspaces:read': '读取已授权工作空间',
-  'projects:read': '读取已授权企业项目',
-  'channels:read': '读取已授权企业频道',
-  'files:write': '企业附件写',
-  'messages:send': '以应用身份发消息',
-  'messages:send_as_human': '代同组织已映射 Human 发消息',
-  'friend_requests:create': '代已映射 Human 发起好友申请（不可自动接受）',
-  'webhooks:manage': 'Webhook 管理',
-  'sso:exchange': '一次性 SSO 交换',
-  'customer_service:read': '读取企业客服坐席（企业全域授权）',
-  'customer_service:write': '管理企业客服坐席（企业全域授权）',
-  'workspaces:write': '创建、修改和归档企业工作空间',
-  'channels:write': '创建、修改和归档企业频道',
-  'oa:login:issue': '签发 OA 登录票据（独立授权）',
-  'members:write': '停用和恢复来源托管成员（企业全域授权）',
-}
-
 /** Application 生命周期（plan-full §3.1）。 */
 export const APPLICATION_STATUSES = ['draft', 'active', 'disabled', 'archived'] as const
 export type ApplicationStatus = (typeof APPLICATION_STATUSES)[number]
@@ -127,17 +60,6 @@ export const STATUS_TRANSITIONS: Record<ApplicationStatus, readonly ApplicationS
 /** credential 状态（含到期呈现）。 */
 export const CREDENTIAL_STATUSES = ['active', 'revoked', 'expired'] as const
 export type CredentialStatus = (typeof CREDENTIAL_STATUSES)[number]
-
-/** Grant workspace 范围语义（migration 139：一表一 Grant）。 */
-export type GrantWorkspaceScopeKind = 'none' | 'explicit'
-
-export const GRANT_WORKSPACE_SCOPE_LABELS: Record<GrantWorkspaceScopeKind, string> = {
-  none: 'Organization Grant（组织全域）',
-  explicit: 'Workspace Grant（显式工作区）',
-}
-
-/** Grant 状态（后端 status 枚举镜像）。 */
-export type GrantStatus = 'active' | 'revoked'
 
 /**
  * 投递列表允许出现的**元数据**字段白名单。
@@ -176,11 +98,7 @@ export const CREDENTIAL_SAFE_KEYS = [
 /** 审计条目白名单（before/after 只允许这些业务字段进 diff）。 */
 export const AUDIT_DIFF_FIELDS = [
   'status',
-  'scopes',
-  'workspace_scope_kind',
-  'workspace_ids',
-  'valid_from',
-  'valid_to',
+  'expires_at',
   'credential_status',
   'credential_prefix',
 ] as const
@@ -189,14 +107,9 @@ export const AUDIT_DIFF_FIELDS = [
 export const AUDIT_ACTION_LABELS: Record<string, string> = {
   application_created: '创建应用',
   application_status_changed: '生命周期变更',
-  application_scopes_changed: 'scope 变更',
   credential_issued: '签发凭证',
   credential_rotated: '轮换凭证',
   credential_revoked: '撤销凭证',
-  grant_issued: '新增授权',
-  grant_scopes_changed: '授权 scope 变更',
-  grant_workspaces_changed: '授权工作区变更',
-  grant_revoked: '撤销授权',
 }
 
 export function auditActionLabel(action: string): string {
@@ -264,12 +177,6 @@ function credentialPath(organizationId: EntityId, applicationId: EntityId, crede
   return `${base}/${requirePathId(credentialId, 'credential_id')}`
 }
 
-function grantPath(organizationId: EntityId, applicationId: EntityId, grantId?: EntityId): string {
-  const base = `${appPath(organizationId, applicationId)}/grants`
-  if (grantId === undefined) return base
-  return `${base}/${requirePathId(grantId, 'grant_id')}`
-}
-
 /**
  * 冻结合同表：A-01..A-14（checkpoint §0.5）。
  * 单测逐条断言字符串，防止路径漂移。
@@ -282,8 +189,7 @@ export const ENDPOINTS = {
   applicationDetail: (orgId: EntityId, appId: EntityId) => appPath(orgId, appId),
   /** A-03 生命周期迁移 */
   applicationStatus: (orgId: EntityId, appId: EntityId) => `${appPath(orgId, appId)}/status`,
-  /** A-04 scope 授予/降级 */
-  applicationScopes: (orgId: EntityId, appId: EntityId) => `${appPath(orgId, appId)}/scopes`,
+
   /** A-05 credential 元数据列表 */
   credentials: (orgId: EntityId, appId: EntityId) => credentialPath(orgId, appId),
   /** A-06 签发（唯一携带 secret 的响应） */
@@ -294,12 +200,9 @@ export const ENDPOINTS = {
   /** A-08 撤销 */
   revokeCredential: (orgId: EntityId, appId: EntityId, credentialId: EntityId) =>
     credentialPath(orgId, appId, credentialId),
-  /** A-09 Grant 列表 */
-  grants: (orgId: EntityId, appId: EntityId) => grantPath(orgId, appId),
-  /** A-10 新增 Grant */
-  issueGrant: (orgId: EntityId, appId: EntityId) => grantPath(orgId, appId),
-  /** A-11 Grant CAS 增删 */
-  grant: (orgId: EntityId, appId: EntityId, grantId: EntityId) => grantPath(orgId, appId, grantId),
+
+
+
   /** A-12 投递统计（无 payload） */
   deliveryStats: (orgId: EntityId, appId: EntityId) => `${appPath(orgId, appId)}/delivery-stats`,
   /** A-13 投递列表（无 payload / 无 secret） */

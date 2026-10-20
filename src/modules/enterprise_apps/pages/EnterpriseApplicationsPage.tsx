@@ -172,7 +172,6 @@ export function EnterpriseApplicationsPage() {
           </Badge>
         ),
       },
-      { header: 'scope 数', cell: ({ row }) => row.original.scopes.length },
       { header: 'version', cell: ({ row }) => row.original.version },
       { header: '更新时间', cell: ({ row }) => <span className="font-mono text-xs">{row.original.updatedAt || '-'}</span> },
       {
@@ -235,7 +234,7 @@ export function EnterpriseApplicationsPage() {
     <div className="space-y-4" data-page="enterprise-applications">
       <PageHeader
         title="企业应用治理"
-        description={`Application 列表 / 生命周期 / scope / 凭证 / 授权（${READ_PERMISSION} 读；${'enterprise_business:write'} 可写）。`}
+        description={`Application 列表 / 生命周期 / 凭证（${READ_PERMISSION} 读；${'enterprise_business:write'} 可写）。`}
       />
 
       <Card>

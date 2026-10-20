@@ -12,7 +12,6 @@ import { getApplicationDetail, type GovernanceScope } from '../api/public'
 import { ApplicationGovernanceCard } from '../components/ApplicationGovernanceCard'
 import { AuditTrailPanel } from '../components/AuditTrailPanel'
 import { CredentialPanel } from '../components/CredentialPanel'
-import { GrantPanel } from '../components/GrantPanel'
 import { IdentityPanel } from '../components/IdentityPanel'
 
 function toApiError(err: unknown): ApiErrorLike | null {
@@ -23,7 +22,7 @@ function toApiError(err: unknown): ApiErrorLike | null {
  * Admin 企业应用治理 — Application 详情（`/enterprise/applications/:id`）。
  *
  * 组织作用域从 URL 查询串取（`?org_id=`），避免把一个应用的治理页跨组织复用。
- * 组合：生命周期/scope → credential（secret 一次性）→ Grant（CAS）→ 审计（before/after）。
+ * 组合：生命周期 → credential（secret 一次性）→ 审计（before/after）。
  */
 export function EnterpriseApplicationDetailPage() {
   const params = useParams<{ id: string }>()
@@ -102,12 +101,6 @@ export function EnterpriseApplicationDetailPage() {
           <ApplicationGovernanceCard scope={scope} detail={detail} onRefresh={refetch} />
           <IdentityPanel scope={scope} applicationArchived={detail.status === 'archived'} />
           <CredentialPanel scope={scope} applicationArchived={detail.status === 'archived'} />
-          <GrantPanel
-            scope={scope}
-            applicationVersion={detail.version}
-            applicationArchived={detail.status === 'archived'}
-            applicationScopes={detail.scopes}
-          />
           <AuditTrailPanel scope={scope} />
         </>
       )}
