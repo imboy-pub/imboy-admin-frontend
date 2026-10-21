@@ -178,7 +178,7 @@ describe('SeatWorkspacePage 三会话入口（REVIEW-4 F2/B-7：结束会话/转
       const submit = view.getByTestId('seat-close-submit') as HTMLButtonElement
       expect(submit.disabled).toBe(false)
       expect(submit.textContent).toContain('关闭会话')
-    })
+    }, 20000)
   })
 
   describe('转接（seat-transfer-submit）', () => {

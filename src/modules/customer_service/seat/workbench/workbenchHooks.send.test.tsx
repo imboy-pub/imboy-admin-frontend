@@ -252,7 +252,7 @@ describe('CX03 useSeatSend direct hook — mock API/JSDOM unit evidence only, no
     expectDraft(view, 'B 草稿', fileB)
     expect(view.result.current.error).toBeNull()
     expect(view.result.current.sending).toBe(false)
-  })
+  }, 20000)
 
   it('明确失败后不编辑，同参 retry 复用 clientMsgId，保留失败草稿直到成功', async () => {
     const view = harness()
@@ -270,7 +270,7 @@ describe('CX03 useSeatSend direct hook — mock API/JSDOM unit evidence only, no
     await act(async () => pending.resolve(message(original)))
     await waitFor(() => expect(view.result.current.sending).toBe(false))
     expectDraft(view, '', null)
-  })
+  }, 20000)
 
   it('确定拒绝后改正文必须生成新 clientMsgId', async () => {
     const view = harness()

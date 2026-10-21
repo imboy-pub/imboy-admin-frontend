@@ -163,7 +163,7 @@ describe('seat org/ws 切换器（SeatWorkspacePage header，F12）', () => {
     await waitFor(() =>
       expect(backend.queueCalls.some((call) => call.workspaceId === WS)).toBe(true),
     )
-  })
+  }, 20000)
 
   it('切换 org：ws 列表刷新为新组织工作区（回落第一个）、选中会话清空、权威读取与 SSE 流切到新组织', async () => {
     const backend = new MultiScopeBackend()

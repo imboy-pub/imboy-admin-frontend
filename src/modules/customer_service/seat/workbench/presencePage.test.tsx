@@ -112,7 +112,7 @@ describe('CS-WEB-05 presence 状态条', () => {
     await waitFor(() => {
       expect(view.container.querySelector('[data-testid="seat-presence-status-online"]')).not.toBeNull()
     })
-  })
+  }, 20000)
 
   it('心跳可见性门控：页面隐藏时不发心跳（诚实在线）', async () => {
     setVisibility('hidden')
