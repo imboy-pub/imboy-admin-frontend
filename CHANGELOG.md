@@ -11,6 +11,10 @@
 
 ## [Unreleased]
 
+---
+
+## [1.0.0-alpha.17] - 2026-10-22
+
 ### Added
 
 **企业组织治理 / Organization**
