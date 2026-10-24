@@ -25,8 +25,9 @@ export function embedFrame(page: Page): FrameLocator {
 export async function openSeatEmbed(
   browser: Browser,
   hostOrigin: string = SHOP,
+  timezoneId?: string,
 ): Promise<{ page: Page; frame: FrameLocator }> {
-  const page = await browser.newPage()
+  const page = await browser.newPage(timezoneId ? { timezoneId } : {})
   await page.goto(`${hostOrigin}/`, { waitUntil: 'domcontentloaded' })
   const iframe = page.locator('iframe[title="IMBoy 客服工作台"]')
   await expect(iframe).toBeAttached({ timeout: 15_000 })
@@ -56,7 +57,7 @@ async function scanAndConfirm(seatJwt: string, qrToken: string): Promise<void> {
  * 在宿主页嵌入的 iframe 内完成坐席 QR 登录，收敛到已挂载的工作台。
  * page 必须已开在嵌入了 seat console iframe 的宿主页（openSeatEmbed）。
  */
-export async function qrLoginSeatInFrame(page: Page, account: string = SEAT.account): Promise<void> {
+export async function qrLoginSeatInFrame(page: Page, account: string = SEAT.account, attemptLimit: 1 | 4 = 4): Promise<void> {
   const seatJwt = await seatPassportLogin(account)
   const frame = embedFrame(page)
   const qrCode = frame.getByTestId('seat-qr-code')
@@ -79,7 +80,7 @@ export async function qrLoginSeatInFrame(page: Page, account: string = SEAT.acco
 
   let lastError: Error | null = null
   let confirmed = false
-  for (let attempt = 0; attempt < 4 && !confirmed; attempt += 1) {
+  for (let attempt = 0; attempt < attemptLimit && !confirmed; attempt += 1) {
     try {
       await waitQuiet()
       const content = (await qrCode.getAttribute('data-qr-content')) ?? ''
@@ -98,7 +99,7 @@ export async function qrLoginSeatInFrame(page: Page, account: string = SEAT.acco
       if (reacted) confirmed = true
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err))
-      await page.waitForTimeout(1_500)
+      if (attempt + 1 < attemptLimit) await page.waitForTimeout(1_500)
     }
   }
   page.off('request', createListener)

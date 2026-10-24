@@ -13,7 +13,8 @@
  * seat 网关）/ evil.test:18443（负例宿主）/ shop2.test:18443（A06 轮换目标）/
  * admin.test:18443（Admin SPA）。前置与一键拉起见 README.md。
  */
-import { expect, test, type Browser, type FrameLocator, type Page } from '@playwright/test'
+import { safeParseBigIntJson } from '../../../src/lib/safeParseBigIntJson'
+import { expect, test, type Browser, type BrowserContext, type FrameLocator, type Page } from '@playwright/test'
 import {
   ADMIN_ORIGIN,
   closeStaleActiveSessions,
@@ -57,8 +58,8 @@ function seatFrameOf(page: Page) {
 }
 
 /** 打开合法宿主嵌入页并完成 QR 登录（收敛到已挂载工作台）。 */
-async function openLoggedWorkspace(browser: Browser): Promise<Page> {
-  const { page } = await openSeatEmbed(browser, SHOP)
+async function openLoggedWorkspace(browser: Browser, timezoneId?: string): Promise<Page> {
+  const { page } = await openSeatEmbed(browser, SHOP, timezoneId)
   await qrLoginSeatInFrame(page, SEAT.account)
   return page
 }
@@ -129,6 +130,154 @@ async function assertFrameBlockedByBrowser(page: Page, consoleErrors: string[]):
   if (inner !== null) {
     expect(inner.url()).not.toContain(`/seat/${CONSOLE_PUBLIC_ID}`)
   }
+}
+
+
+type WireTime = { id: string; createdAt: unknown; marker?: string; clientMsgId?: string }
+type StreamTime = { id: string; createdAt: unknown; kind: string; resourceId: string }
+function epochSeconds(value: unknown): number {
+  if (typeof value === 'number' || (typeof value === 'string' && /^\d+$/.test(value))) return Number(value)
+  if (typeof value === 'string' && /(?:Z|[+-]\d\d:\d\d)$/.test(value)) return Date.parse(value) / 1000
+  throw new Error('Timestamp missing explicit wire units/timezone')
+}
+function wireRows(value: unknown): WireTime[] {
+  if (!value || typeof value !== 'object') return []
+  if (Array.isArray(value)) return value.flatMap(wireRows)
+  const row = value as Record<string, unknown>
+  if (row.id != null && row.created_at != null) return [{ id: String(row.id), createdAt: row.created_at }]
+  return ['payload', 'message', 'messages'].flatMap(key => wireRows(row[key]))
+}
+/** Observe real HTTP replies/history; no request bodies, tokens or URLs are retained. */
+function watchMessageTimes(page: Page) {
+  const sent: WireTime[] = [], history: WireTime[] = []
+  const tasks: Promise<void>[] = []
+  let errorCount = 0
+  const listener = (response: import('@playwright/test').Response) => {
+    const pathname = new URL(response.url()).pathname
+    if (!pathname.endsWith('/messages') || response.status() !== 200) return
+    const dest = response.request().method() === 'POST' ? sent : history
+    tasks.push(response.text().then(text => {
+      const rows = wireRows(safeParseBigIntJson(text))
+      if (dest === sent) {
+        const request = response.request().postDataJSON() as Record<string, unknown> | null
+        rows.forEach(row => { row.marker = typeof request?.body === 'string' ? request.body : ''; row.clientMsgId = typeof request?.client_msg_id === 'string' ? request.client_msg_id : '' })
+      }
+      dest.push(...rows)
+    }).catch(() => { errorCount += 1 }))
+  }
+  page.on('response', listener)
+  return { sent, history, errors: () => errorCount, async flush() { await Promise.all(tasks) }, stop() { page.off('response', listener) } }
+}
+/** Passive clone of real fetch SSE stream, installed before any frame starts.
+ * Never substitutes the response or changes production callbacks. Only selected
+ * nonsecret timestamp/ID fields cross the binding; context close cancels streams.
+ */
+async function observeStream(context: BrowserContext, times: StreamTime[]) {
+  const status = { errors: 0, locales: [] as string[] }
+  await context.exposeBinding('__v08Observation', (_source, row: { kind: string; locale?: string }) => {
+    if (row.kind === 'error') status.errors += 1
+    if (row.kind === 'locale' && typeof row.locale === 'string') status.locales.push(row.locale)
+  })
+  await context.exposeBinding('__v08StreamTime', (_source, row: StreamTime) => { if (times.length >= 256) throw new Error('SSE observation limit'); times.push(row) })
+  await context.addInitScript(() => {
+    const pendingReports = new Set<Promise<void>>()
+    let localObservationErrors = 0
+    const track = (promise: Promise<void>): Promise<void> => {
+      const tracked = promise.catch(() => { localObservationErrors += 1 }).finally(() => { pendingReports.delete(tracked) })
+      pendingReports.add(tracked)
+      return tracked
+    }
+    ;(window as unknown as { __v08Flush: () => Promise<number> }).__v08Flush = async () => {
+      while (pendingReports.size > 0) await Promise.all([...pendingReports])
+      return localObservationErrors
+    }
+    const report = (value: { kind: string; locale?: string }) => {
+      const emit = (window as unknown as { __v08Observation: (value: unknown) => Promise<void> }).__v08Observation
+      void track(emit(value))
+    }
+    window.addEventListener('message', event => {
+      if (event.source !== window.parent || window.parent === window) return
+      const row = event.data
+      if (row && row.source === 'imboy-cs-widget' && row.type === 'host-context' && typeof row.locale === 'string') {
+        report({ kind: 'locale', locale: row.locale })
+      }
+    })
+    // PARSER_PROBE_BEGIN — passive SSE frame parser used only by the read-only
+    // stream observer below; nothing here drives the app under test.
+    function frames(state: { pending: string }, chunk: string): string[] {
+      // Normalize only AFTER concatenation so a CR/LF split across reads survives.
+      state.pending = (state.pending + chunk).replace(/\r\n/g, '\n')
+      const result: string[] = []
+      let end: number
+      while ((end = state.pending.indexOf('\n\n')) >= 0) {
+        result.push(state.pending.slice(0, end))
+        state.pending = state.pending.slice(end + 2)
+      }
+      if (state.pending.length > 65536) throw new Error('SSE observer frame limit')
+      return result
+    }
+    // PARSER_PROBE_END
+    const original = window.fetch.bind(window)
+    window.fetch = async (...args) => {
+      const response = await original(...args)
+      if (response.headers.get('content-type')?.includes('text/event-stream')) {
+        const reader = response.clone().body?.getReader()
+        if (reader) void (async () => {
+          const decoder = new TextDecoder(); const state = { pending: '' }; let closing = false
+          window.addEventListener('pagehide', () => { closing = true; void reader.cancel().catch(() => {}) }, { once: true })
+          try {
+            while (true) {
+              const chunk = await reader.read(); if (chunk.done) break
+              for (const frame of frames(state, decoder.decode(chunk.value, { stream: true }))) {
+                const text = frame.split('\n').filter(line => line.startsWith('data:')).map(line => line.slice(5).trimStart()).join('\n')
+                if (!text) continue
+                try {
+                  const row = JSON.parse(text.replace(/("(?:id|resource_id|event_id|conversation_id|organization_id|workspace_id)"\s*:\s*)(\d+)(?=\s*[,}])/g, '$1"$2"')) as Record<string, unknown>
+                  if (row.created_at != null || row.type === 'message.appended') {
+                    const emit = (window as unknown as { __v08StreamTime: (value: unknown) => Promise<void> }).__v08StreamTime
+                    await track(emit({ id: String(row.id ?? ''), createdAt: row.created_at ?? null, kind: String(row.type ?? 'widget-message'), resourceId: String(row.resource_id ?? '') }))
+                  }
+                } catch { report({ kind: 'error' }) }
+              }
+            }
+          } catch { if (!closing) report({ kind: 'error' }) }
+          finally { reader.releaseLock() }
+        })()
+      }
+      return response
+    }
+  })
+  return {
+    ...status,
+    // Keep errors live rather than copying the numeric snapshot via spread.
+    get errors() { return status.errors },
+    async flush() {
+      for (const page of context.pages()) {
+        for (const frame of page.frames()) {
+          const localErrors = await frame.evaluate(async () => {
+            const flush = (window as unknown as { __v08Flush?: () => Promise<number> }).__v08Flush
+            return flush ? await flush() : 0
+          })
+          expect(localErrors, 'all observation bindings completed without failure').toBe(0)
+        }
+      }
+    },
+  }
+}
+async function assertDomInstant(page: Page, selector: string, id: string, instant: number, widget: boolean) {
+  const frame = widget ? page.frameLocator('iframe[data-testid="cs-widget-iframe"]') : embedFrame(page)
+  const time = frame.locator(selector).locator('time')
+  await expect(time, `message ${id} has one authoritative time`).toHaveCount(1)
+  const iso = new Date(instant * 1000).toISOString()
+  await expect(time).toHaveAttribute('datetime', iso)
+  const expected = await time.evaluate((_el, isWidget) => {
+    const date = new Date(_el.getAttribute('datetime')!)
+    return isWidget
+      ? date.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })
+      : new Intl.DateTimeFormat('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }).format(date)
+  }, widget)
+  await expect(time).toHaveText(expected)
+  expect(await time.textContent()).not.toMatch(/Invalid Date|NaN|1970/)
 }
 
 test.describe('SC-E2E A01..A10（EXECUTE-GATED）', () => {
@@ -252,12 +401,28 @@ test.describe('SC-E2E A01..A10（EXECUTE-GATED）', () => {
   test('A04 嵌入工作台主链：contexts/queue 加载 → claim → 发文本 → SSE 收敛到访客', async ({ browser }) => {
     test.setTimeout(300_000)
     closeStaleActiveSessions(RUN_SINCE)
-    const visitorCtx = await browser.newContext()
+    const visitorCtx = await browser.newContext({ timezoneId: 'America/Los_Angeles' })
+    const visitorStreams: StreamTime[] = []
+    const visitorObservation = await observeStream(visitorCtx, visitorStreams)
     const visitorPage = await visitorCtx.newPage()
+    const visitorWire = watchMessageTimes(visitorPage)
+    let seatWire: ReturnType<typeof watchMessageTimes> | undefined
+    const seatStreams: StreamTime[] = []
+    let seatObservation: Awaited<ReturnType<typeof observeStream>> | undefined
     let page: Page | null = null
     try {
-      const { sessionId } = await newVisitorSession(visitorPage)
-      page = await openLoggedWorkspace(browser)
+      const { sessionId, conversationId } = await newVisitorSession(visitorPage)
+      expect(conversationId).toMatch(/^[1-9]\d*$/)
+      expect(sessionId).toMatch(/^[1-9]\d*$/)
+      await expect.poll(() => visitorObservation.locales.length).toBeGreaterThan(0)
+      expect(visitorObservation.locales.every(locale => locale === 'zh-CN')).toBe(true)
+      const seatCtx = await browser.newContext({ timezoneId: 'Asia/Shanghai' })
+      seatObservation = await observeStream(seatCtx, seatStreams)
+      page = await seatCtx.newPage()
+      seatWire = watchMessageTimes(page)
+      await page.goto(`${SHOP}/`, { waitUntil: 'domcontentloaded' })
+      await expect(page.locator('iframe[title="IMBoy 客服工作台"]')).toBeAttached()
+      await qrLoginSeatInFrame(page, SEAT.account, 1)
       const frame = embedFrame(page)
       // contexts/queue：队列 tab（queued）出现该会话 → claim → 打开会话。
       await claimAndOpenSession(frame, sessionId)
@@ -284,7 +449,64 @@ test.describe('SC-E2E A01..A10（EXECUTE-GATED）', () => {
       })
       // DB 直证：坐席回复落库（eb 真源，DEF-SC153-13 密文口径）。
       expect(countBusinessIdentityMessages(sessionId)).toBeGreaterThanOrEqual(1)
+      // ID is resolved from this owned conversation and exact synthetic body marker.
+      // DB oracle never updates timestamps to make a test pass.
+      const rendered: Array<{ id: string; instant: number; widgetSelector: string }> = []
+      for (const [body, sender] of [[reply, 'business_identity'], [followup, 'contact']] as const) {
+        const sendingWire = sender === 'business_identity' ? seatWire! : visitorWire
+        await expect.poll(async () => { await sendingWire.flush(); return sendingWire.sent.filter(row => row.marker === body).length }).toBe(1)
+        const sent = sendingWire.sent.find(row => row.marker === body)!
+        const id = sent.id
+        expect(id).toMatch(/^\d+$/)
+        expect(sent.clientMsgId).toMatch(/^[A-Za-z0-9_-]+$/)
+        const raw = psql(`SELECT floor(extract(epoch from created_at))::bigint FROM enterprise_message WHERE id=${id} AND conversation_id=${conversationId} AND sender_type='${sender}' AND client_msg_id='${sent.clientMsgId}'`)
+        expect(raw).toMatch(/^\d+$/)
+        const instant = Number(raw)
+        expect(Number.isFinite(instant)).toBe(true)
+        expect(epochSeconds(sent.createdAt)).toBe(instant)
+        await expect.poll(() => visitorStreams.some(row => row.id === id && row.createdAt != null)).toBe(true)
+        expect(epochSeconds(visitorStreams.find(row => row.id === id && row.createdAt != null)!.createdAt)).toBe(instant)
+        // Seat SSE is an event envelope, not a message row. Its occurred_at is an
+        // event timestamp and must NOT be falsely equated to message.created_at.
+        await expect.poll(() => seatStreams.some(row => row.kind === 'message.appended' && row.resourceId === id)).toBe(true)
+        await Promise.all([seatWire!.flush(), visitorWire.flush()])
+        for (const wire of [seatWire!, visitorWire]) {
+          await expect.poll(async () => { await wire.flush(); return wire.history.some(row => row.id === id) }).toBe(true)
+          expect(epochSeconds(wire.history.find(row => row.id === id)!.createdAt)).toBe(instant)
+        }
+        const seatSelector = `[data-testid="seat-message-${id}"]`
+        // Widget local visitor bubbles do not expose message-id; exact body scopes
+        // a unique bubble, whose server-confirmed HTTP timestamp is asserted above.
+        const widgetSelector = sender === 'business_identity'
+          ? `[data-message-id="${id}"]` : `.cs-msg[data-role="visitor"]:has-text("${body}")`
+        rendered.push({ id, instant, widgetSelector })
+        await assertDomInstant(page!, seatSelector, id, instant, false)
+        await assertDomInstant(visitorPage, widgetSelector, id, instant, true)
+      }
+      await Promise.all([visitorObservation.flush(), seatObservation!.flush(), seatWire!.flush(), visitorWire.flush()])
+      expect(visitorObservation.errors).toBe(0); expect(seatObservation!.errors).toBe(0)
+      seatWire!.history.length = 0; visitorWire.history.length = 0
+      await Promise.all([page.reload({ waitUntil: 'domcontentloaded' }), visitorPage.reload({ waitUntil: 'domcontentloaded' })])
+      // QR authentication is driven again only if the actual reloaded UI requires it.
+      const reloadedSeat = embedFrame(page)
+      await expect(reloadedSeat.getByTestId('seat-workspace').or(reloadedSeat.getByTestId('seat-qr-code'))).toBeVisible()
+      if (await reloadedSeat.getByTestId('seat-qr-code').isVisible()) await qrLoginSeatInFrame(page, SEAT.account, 1)
+      await reloadedSeat.getByTestId('seat-tab-active').click()
+      await reloadedSeat.getByTestId(`seat-session-item-${sessionId}`).click()
+      for (const row of rendered) {
+        for (const wire of [seatWire!, visitorWire]) {
+          await expect.poll(async () => { await wire.flush(); return wire.history.some(item => item.id === row.id) }).toBe(true)
+          expect(epochSeconds(wire.history.find(item => item.id === row.id)!.createdAt)).toBe(row.instant)
+        }
+        await assertDomInstant(page, `[data-testid="seat-message-${row.id}"]`, row.id, row.instant, false)
+        await assertDomInstant(visitorPage, row.widgetSelector, row.id, row.instant, true)
+      }
+      await Promise.all([visitorObservation.flush(), seatObservation!.flush(), seatWire!.flush(), visitorWire.flush()])
+      expect(visitorWire.errors()).toBe(0); expect(seatWire!.errors()).toBe(0)
+      expect(visitorObservation.errors).toBe(0); expect(seatObservation!.errors).toBe(0)
+      expect(visitorObservation.locales.every(locale => locale === 'zh-CN')).toBe(true)
     } finally {
+      visitorWire.stop(); seatWire?.stop()
       await visitorCtx.close().catch(() => {})
       await page?.context().close().catch(() => {})
     }
