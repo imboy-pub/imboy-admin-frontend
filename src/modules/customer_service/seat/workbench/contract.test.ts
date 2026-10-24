@@ -144,6 +144,12 @@ describe('消息投影（含 ACK 与附件）', () => {
     ],
   }
 
+  it('preserves the actual backend epoch-second timestamp as an instant', () => {
+    expect(toSeatMessage({ ...MESSAGE_ROW, created_at: 1789600000 })?.createdAt)
+      .toBe('2026-09-16T23:06:40.000Z')
+    expect(toSeatMessage({ ...MESSAGE_ROW, created_at: null })?.createdAt).toBeNull()
+  })
+
   it('裸数组载荷（eb list_messages_after 合同）逐行投影；read_at 是 ACK 事实', () => {
     const list = toSeatMessageList([MESSAGE_ROW])
     expect(list).toHaveLength(1)
