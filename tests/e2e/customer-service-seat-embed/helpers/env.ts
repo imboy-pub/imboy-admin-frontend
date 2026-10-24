@@ -147,9 +147,9 @@ export async function seatPassportLogin(account: string): Promise<string> {
     }),
   })
   if (res.status !== 200) throw new Error(`seat login failed: HTTP ${res.status}`)
-  const body = (await res.json()) as { code: number; payload?: { token?: string } }
+  const body = (await res.json()) as { code: number; msg?: string; payload?: { token?: string } }
   if (body.code !== 0 || typeof body.payload?.token !== 'string' || body.payload.token === '') {
-    throw new Error('seat login envelope invalid')
+    throw new Error(`seat login envelope invalid: ${JSON.stringify(body)}`)
   }
   return body.payload.token
 }

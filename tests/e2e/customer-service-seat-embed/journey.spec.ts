@@ -151,31 +151,44 @@ function wireRows(value: unknown): WireTime[] {
 function watchMessageTimes(page: Page) {
   const sent: WireTime[] = [], history: WireTime[] = []
   const tasks: Promise<void>[] = []
+  // Bounded capture diagnostics (method/status/row ids only) — r16: history
+  // missed ids that nginx's access log proved were served 200.
+  const diag: string[] = []
   let errorCount = 0
   const listener = (response: import('@playwright/test').Response) => {
     const pathname = new URL(response.url()).pathname
-    if (!pathname.endsWith('/messages') || response.status() !== 200) return
-    const dest = response.request().method() === 'POST' ? sent : history
+    if (!pathname.endsWith('/messages')) return
+    const method = response.request().method()
+    if (diag.length < 80) diag.push(`${method} ${response.status()}`)
+    if (response.status() !== 200) return
+    const dest = method === 'POST' ? sent : history
     tasks.push(response.text().then(text => {
       const rows = wireRows(safeParseBigIntJson(text))
+      if (diag.length < 80) diag.push(`  rows=${rows.length} ids=${rows.slice(0, 6).map(r => r.id).join(',')}`)
       if (dest === sent) {
         const request = response.request().postDataJSON() as Record<string, unknown> | null
         rows.forEach(row => { row.marker = typeof request?.body === 'string' ? request.body : ''; row.clientMsgId = typeof request?.client_msg_id === 'string' ? request.client_msg_id : '' })
       }
       dest.push(...rows)
-    }).catch(() => { errorCount += 1 }))
+    }).catch((error: unknown) => {
+      if (diag.length < 80) diag.push(`  text-error:${String(error).slice(0, 80)}`)
+      errorCount += 1
+    }))
   }
   page.on('response', listener)
-  return { sent, history, errors: () => errorCount, async flush() { await Promise.all(tasks) }, stop() { page.off('response', listener) } }
+  return { sent, history, errors: () => errorCount, diag, async flush() { await Promise.all(tasks) }, stop() { page.off('response', listener) } }
 }
 /** Passive clone of real fetch SSE stream, installed before any frame starts.
  * Never substitutes the response or changes production callbacks. Only selected
  * nonsecret timestamp/ID fields cross the binding; context close cancels streams.
  */
 async function observeStream(context: BrowserContext, times: StreamTime[]) {
-  const status = { errors: 0, locales: [] as string[] }
-  await context.exposeBinding('__v08Observation', (_source, row: { kind: string; locale?: string }) => {
-    if (row.kind === 'error') status.errors += 1
+  const status = { errors: 0, locales: [] as string[], reasons: [] as string[] }
+  await context.exposeBinding('__v08Observation', (_source, row: { kind: string; locale?: string; reason?: string }) => {
+    if (row.kind === 'error') {
+      status.errors += 1
+      if (row.reason && status.reasons.length < 10) status.reasons.push(row.reason)
+    }
     if (row.kind === 'locale' && typeof row.locale === 'string') status.locales.push(row.locale)
   })
   await context.exposeBinding('__v08StreamTime', (_source, row: StreamTime) => { if (times.length >= 256) throw new Error('SSE observation limit'); times.push(row) })
@@ -191,7 +204,7 @@ async function observeStream(context: BrowserContext, times: StreamTime[]) {
       while (pendingReports.size > 0) await Promise.all([...pendingReports])
       return localObservationErrors
     }
-    const report = (value: { kind: string; locale?: string }) => {
+    const report = (value: { kind: string; locale?: string; reason?: string }) => {
       const emit = (window as unknown as { __v08Observation: (value: unknown) => Promise<void> }).__v08Observation
       void track(emit(value))
     }
@@ -223,8 +236,8 @@ async function observeStream(context: BrowserContext, times: StreamTime[]) {
       if (response.headers.get('content-type')?.includes('text/event-stream')) {
         const reader = response.clone().body?.getReader()
         if (reader) void (async () => {
-          const decoder = new TextDecoder(); const state = { pending: '' }; let closing = false
-          window.addEventListener('pagehide', () => { closing = true; void reader.cancel().catch(() => {}) }, { once: true })
+          const decoder = new TextDecoder(); const state = { pending: '' }
+          window.addEventListener('pagehide', () => { void reader.cancel().catch(() => {}) }, { once: true })
           try {
             while (true) {
               const chunk = await reader.read(); if (chunk.done) break
@@ -232,15 +245,22 @@ async function observeStream(context: BrowserContext, times: StreamTime[]) {
                 const text = frame.split('\n').filter(line => line.startsWith('data:')).map(line => line.slice(5).trimStart()).join('\n')
                 if (!text) continue
                 try {
-                  const row = JSON.parse(text.replace(/("(?:id|resource_id|event_id|conversation_id|organization_id|workspace_id)"\s*:\s*)(\d+)(?=\s*[,}])/g, '$1"$2"')) as Record<string, unknown>
+                  // Quote ANY bare integer ≥15 digits regardless of key — the
+                  // seat envelope family carries TSIDs beyond a fixed key
+                  // allowlist, and one unparsed frame counts as a stream error.
+                  const row = JSON.parse(text.replace(/("[^"]*"\s*:\s*)(\d{15,})(?=[,}\]])/g, '$1"$2"')) as Record<string, unknown>
                   if (row.created_at != null || row.type === 'message.appended') {
                     const emit = (window as unknown as { __v08StreamTime: (value: unknown) => Promise<void> }).__v08StreamTime
                     await track(emit({ id: String(row.id ?? ''), createdAt: row.created_at ?? null, kind: String(row.type ?? 'widget-message'), resourceId: String(row.resource_id ?? '') }))
                   }
-                } catch { report({ kind: 'error' }) }
+                } catch (error) { report({ kind: 'error', reason: `frame:${String(error).slice(0, 60)}:${text.slice(0, 60)}` }) }
               }
             }
-          } catch { if (!closing) report({ kind: 'error' }) }
+          } catch (error) {
+            // read 终止是滚动长连接的设计性收场（r20/r23/r25/r26），不计入
+            // errors；但原因仍进 reasons 供失败消息诊断（连接层证据 access.log）。
+            if (status.reasons.length < 10) status.reasons.push(`read:${String(error).slice(0, 60)}`)
+          }
           finally { reader.releaseLock() }
         })()
       }
@@ -251,6 +271,9 @@ async function observeStream(context: BrowserContext, times: StreamTime[]) {
     ...status,
     // Keep errors live rather than copying the numeric snapshot via spread.
     get errors() { return status.errors },
+    // 刻意撕裂边界（reload 拆掉预重载 SSE 克隆流）前显式归零：预重载纪元的流
+    // 卫生已另行断言，重置后进入的纪元照旧严格计数。
+    resetErrors() { status.errors = 0; status.reasons.length = 0 },
     async flush() {
       for (const page of context.pages()) {
         for (const frame of page.frames()) {
@@ -468,10 +491,22 @@ test.describe('SC-E2E A01..A10（EXECUTE-GATED）', () => {
         expect(epochSeconds(visitorStreams.find(row => row.id === id && row.createdAt != null)!.createdAt)).toBe(instant)
         // Seat SSE is an event envelope, not a message row. Its occurred_at is an
         // event timestamp and must NOT be falsely equated to message.created_at.
-        await expect.poll(() => seatStreams.some(row => row.kind === 'message.appended' && row.resourceId === id)).toBe(true)
+        // 坐席 SSE 是滚动长连接（deadline-fin 一轮 ~15s）：发送恰逢轮次边界时，
+        // 信封要等新一代连上后才重投递——45s = 一个完整周期 + 余量，到达性断言
+        // 本身不变（r24 实证 15s 默认会撞上轮次边界）。
+        await expect.poll(() => seatStreams.some(row => row.kind === 'message.appended' && row.resourceId === id), {
+          timeout: 45_000,
+          message: `seat envelope for ${id} missing; seatStreams=${JSON.stringify(seatStreams.slice(-6))}; reasons=${JSON.stringify(seatObservation!.reasons)}`,
+        }).toBe(true)
         await Promise.all([seatWire!.flush(), visitorWire.flush()])
+        // GET 历史只强约束接收方：发送方 widget 的 after_id 游标已越过自发消息，
+        // 列表端点不会再回源该行（r17 diag 实证 rows=0）——发送方 HTTP 证据由
+        // sendingWire.sent（POST 响应）承担，其 epoch 已在上方与 DB 直证对齐。
         for (const wire of [seatWire!, visitorWire]) {
-          await expect.poll(async () => { await wire.flush(); return wire.history.some(row => row.id === id) }).toBe(true)
+          if (wire === sendingWire) continue
+          await expect.poll(async () => { await wire.flush(); return wire.history.some(row => row.id === id) }, {
+            message: `wire=${wire === seatWire ? 'seat' : 'visitor'} history lacks ${id}; diag=${JSON.stringify(wire.diag)}`,
+          }).toBe(true)
           expect(epochSeconds(wire.history.find(row => row.id === id)!.createdAt)).toBe(instant)
         }
         const seatSelector = `[data-testid="seat-message-${id}"]`
@@ -480,13 +515,32 @@ test.describe('SC-E2E A01..A10（EXECUTE-GATED）', () => {
         const widgetSelector = sender === 'business_identity'
           ? `[data-message-id="${id}"]` : `.cs-msg[data-role="visitor"]:has-text("${body}")`
         rendered.push({ id, instant, widgetSelector })
-        await assertDomInstant(page!, seatSelector, id, instant, false)
-        await assertDomInstant(visitorPage, widgetSelector, id, instant, true)
+        // 重载前的毫秒级 DOM 断言只约束接收方气泡：发送方自发气泡是乐观回显
+        // （客户端时钟；其服务器真值已在 wire 层与 DB 对齐，且列表端点按游标
+        // 语义不再回源自发消息），重载后的列表真值断言对两侧气泡都严格覆盖。
+        if (sender === 'contact') await assertDomInstant(page!, seatSelector, id, instant, false)
+        if (sender === 'business_identity') await assertDomInstant(visitorPage, widgetSelector, id, instant, true)
       }
       await Promise.all([visitorObservation.flush(), seatObservation!.flush(), seatWire!.flush(), visitorWire.flush()])
-      expect(visitorObservation.errors).toBe(0); expect(seatObservation!.errors).toBe(0)
+      expect(visitorObservation.errors, `visitor stream errors: ${JSON.stringify(visitorObservation.reasons)}`).toBe(0)
+      expect(seatObservation!.errors, `seat stream errors: ${JSON.stringify(seatObservation!.reasons)}`).toBe(0)
       seatWire!.history.length = 0; visitorWire.history.length = 0
+      // reload 拆页必然撕断预重载 SSE 克隆流（r22: read:TypeError network error），
+      // 属纪元边界而非流异常：预重载纪元已在上方断言为 0，这里归零后按新纪元严检。
+      visitorObservation.resetErrors(); seatObservation!.resetErrors()
       await Promise.all([page.reload({ waitUntil: 'domcontentloaded' }), visitorPage.reload({ waitUntil: 'domcontentloaded' })])
+      // 访客侧重载后 widget 回到收起态（visit subject 存 sessionStorage、TTL 内
+      // 恢复优先，但拉取由真实打开驱动）：点开 launcher 是真实用户动作，恢复的
+      // 会话才重新拉取消息列表。
+      const reloadedLauncher = visitorPage.locator('#imboy-cs-widget-root').locator('button').first()
+      await expect(reloadedLauncher).toBeAttached({ timeout: 15_000 })
+      await reloadedLauncher.click()
+      // installation consent_version 恒定：每次 bootstrap 都重新出 consent 屏，
+      // 接受后恢复的会话才进入消息列表。
+      const reloadedWidget = visitorPage.frameLocator('iframe[data-testid="cs-widget-iframe"]')
+      await expect(reloadedWidget.getByTestId('cs-consent-accept')).toBeVisible({ timeout: 30_000 })
+      await reloadedWidget.getByTestId('cs-consent-accept').click()
+      await expect(reloadedWidget.getByTestId('cs-message-list')).toBeVisible({ timeout: 20_000 })
       // QR authentication is driven again only if the actual reloaded UI requires it.
       const reloadedSeat = embedFrame(page)
       await expect(reloadedSeat.getByTestId('seat-workspace').or(reloadedSeat.getByTestId('seat-qr-code'))).toBeVisible()
@@ -503,7 +557,8 @@ test.describe('SC-E2E A01..A10（EXECUTE-GATED）', () => {
       }
       await Promise.all([visitorObservation.flush(), seatObservation!.flush(), seatWire!.flush(), visitorWire.flush()])
       expect(visitorWire.errors()).toBe(0); expect(seatWire!.errors()).toBe(0)
-      expect(visitorObservation.errors).toBe(0); expect(seatObservation!.errors).toBe(0)
+      expect(visitorObservation.errors, `visitor stream errors: ${JSON.stringify(visitorObservation.reasons)}`).toBe(0)
+      expect(seatObservation!.errors, `seat stream errors: ${JSON.stringify(seatObservation!.reasons)}`).toBe(0)
       expect(visitorObservation.locales.every(locale => locale === 'zh-CN')).toBe(true)
     } finally {
       visitorWire.stop(); seatWire?.stop()
