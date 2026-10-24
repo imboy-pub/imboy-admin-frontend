@@ -29,8 +29,15 @@ import {
   toBootstrapResult,
   toBrand,
   toMessageList,
+  toWidgetMessage,
   toSessionList,
 } from './contract'
+
+it('preserves backend epoch seconds in both history and nested send results', () => {
+  const row = { id: '1', sender_type: 'contact', created_at: 1789600000 }
+  expect(toWidgetMessage(row)?.createdAt).toBe('2026-09-16T23:06:40.000Z')
+  expect(toWidgetMessage({ message: row })?.createdAt).toBe('2026-09-16T23:06:40.000Z')
+})
 
 const SCOPE = { installationId: '72057594037928001' }
 const HASH = 'a'.repeat(64)
