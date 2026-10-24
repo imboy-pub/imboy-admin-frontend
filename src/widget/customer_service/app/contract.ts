@@ -12,10 +12,13 @@
  *   `eb_pg_store_sql:message_fields/0`：响应投影。
  *
  * 出站编码（cs_http:encode_entity）：`id`/`*_id` 整数一律转 string；version/rating/
- * expires_at 保持 number；时间戳为 RFC3339 字符串。
+ * expires_at 保持 number；消息 created_at 为 Unix 秒整数，兼容旧 RFC3339，
+ * 在投影边界统一为可供展示层解析的带时区字符串。
  *
  * 桩=E2E 替身声明：真实后端联调由 CSX-01/CSD-E2E-01 复验。
  */
+
+import { customerServiceTimestamp } from '@/lib/customerServiceTimestamp'
 
 export const WIDGET_API_BASE = '/api/v1/cs/widget'
 
@@ -203,7 +206,7 @@ export function toWidgetMessage(raw: unknown): WidgetMessage | null {
     senderContactId: optStr(row.sender_contact_id),
     clientMsgId: optStr(row.client_msg_id),
     body: optStr(row.body),
-    createdAt: optStr(row.created_at),
+    createdAt: customerServiceTimestamp(row.created_at),
     assets: toWidgetAssets(row.assets),
   }
 }

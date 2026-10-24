@@ -29,6 +29,7 @@
  *   object key / upload URL / JWT。
  */
 import { isRecord, nonEmptyString, toEntityId } from '../tsid'
+import { customerServiceTimestamp } from '@/lib/customerServiceTimestamp'
 import type { EntityId } from '../types'
 
 /** G15：仅本文件 type 派生与值使用，撤 export。 */
@@ -311,7 +312,7 @@ export function toSeatMessage(raw: unknown): SeatMessage | null {
     senderIdentityId: optTsid('sender_business_identity_id' in raw ? raw.sender_business_identity_id : raw.sender_identity_id),
     clientMsgId: optStr(raw.client_msg_id),
     body: optStr(raw.body),
-    createdAt: optStr(raw.created_at),
+    createdAt: customerServiceTimestamp(raw.created_at),
     readAt: optStr(raw.read_at),
     attachments: toAttachments(raw.assets ?? raw.attachments),
   }
