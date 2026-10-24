@@ -29,6 +29,8 @@ import { getMessageDetailPayload, getMessageListPayload } from '@/modules/messag
 import { getLogoutApplicationListPayload } from '@/services/api/logoutApplications'
 import { getAdminOperationLogs, type AdminOperationLog } from '@/services/api/adminOperations'
 import { formatDate, truncate } from '@/lib/utils'
+import { auditDateRange, auditDateQuery } from '@/lib/auditDateRange'
+import { customerServiceTimestamp } from '@/lib/customerServiceTimestamp'
 import { cn } from '@/lib/utils'
 import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 import { MessageScope } from '@/types/message'
@@ -82,6 +84,8 @@ function toTimestamp(value: unknown): number {
 
   if (typeof value === 'number') {
     if (!Number.isFinite(value)) return 0
+    // Deliberate fork from src/lib/customerServiceTimestamp.ts: audit rows may
+    // already be ms, so >1e12 is kept as-is; that helper is strictly seconds.
     if (value > 1e12) return value
     if (value > 1e9) return value * 1000
     return value
@@ -106,6 +110,20 @@ function toTimestamp(value: unknown): number {
   const normalized = raw.includes('T') ? raw : raw.replace(' ', 'T')
   const ts = new Date(normalized).getTime()
   return Number.isNaN(ts) ? 0 : ts
+}
+
+/** Preserve qualified wire submilliseconds when Date instants have the same millisecond. */
+function compareAuditTimeDescending(left: unknown, right: unknown): number {
+  const byMillis = toTimestamp(right) - toTimestamp(left)
+  if (byMillis !== 0) return byMillis
+  const fraction = (value: unknown) => customerServiceTimestamp(value)
+    ?.match(/\.(\d+)(?:Z|[+-]\d{2}:\d{2})$/i)?.[1]?.slice(3) ?? ''
+  const leftFraction = fraction(left)
+  const rightFraction = fraction(right)
+  const width = Math.max(leftFraction.length, rightFraction.length)
+  const a = leftFraction.padEnd(width, '0')
+  const b = rightFraction.padEnd(width, '0')
+  return a < b ? 1 : a > b ? -1 : 0
 }
 
 function prettyJson(value: unknown): string {
@@ -171,12 +189,13 @@ function UserEventsTab() {
     refetch: refetchMessage,
     dataUpdatedAt: messageDataUpdatedAt,
   } = useQuery({
-    queryKey: ['audit-log', 'messages'],
+    queryKey: ['audit-log', 'messages', params.dateStart, params.dateEnd],
     queryFn: () =>
       getMessageListPayload({
         page: 1,
         size: 100,
         msg_scope: 'all',
+        ...auditDateQuery(params.dateStart, params.dateEnd),
       }),
   })
 
@@ -187,11 +206,12 @@ function UserEventsTab() {
     refetch: refetchLogout,
     dataUpdatedAt: logoutDataUpdatedAt,
   } = useQuery({
-    queryKey: ['audit-log', 'logout-applications'],
+    queryKey: ['audit-log', 'logout-applications', params.dateStart, params.dateEnd],
     queryFn: () =>
       getLogoutApplicationListPayload({
         page: 1,
         size: 100,
+        ...auditDateQuery(params.dateStart, params.dateEnd),
       }),
   })
 
@@ -278,22 +298,21 @@ function UserEventsTab() {
     }))
 
     return [...messageEvents, ...logoutEvents].sort(
-      (a, b) => toTimestamp(b.time) - toTimestamp(a.time)
+      (a, b) => compareAuditTimeDescending(a.time, b.time)
     )
   }, [logoutData?.items, messageData?.items])
 
   const filteredEvents = useMemo(() => {
     const normalizedKeyword = params.keyword.trim().toLowerCase()
-    const startMs = params.dateStart ? new Date(params.dateStart).getTime() : 0
-    const endMs = params.dateEnd ? new Date(params.dateEnd + 'T23:59:59').getTime() : Infinity
+    const { startMs, endExclusiveMs } = auditDateRange(params.dateStart, params.dateEnd)
     return events.filter((event) => {
       const typeMatch =
         params.eventTypeFilter === 'all' || event.eventType === params.eventTypeFilter
       if (!typeMatch) return false
 
-      if (startMs > 0 || endMs < Infinity) {
+      if (startMs > -Infinity || endExclusiveMs < Infinity) {
         const eventMs = toTimestamp(event.time)
-        if (eventMs < startMs || eventMs > endMs) return false
+        if (eventMs < startMs || eventMs >= endExclusiveMs) return false
       }
 
       if (!normalizedKeyword) return true
