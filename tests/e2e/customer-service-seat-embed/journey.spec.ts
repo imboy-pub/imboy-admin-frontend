@@ -194,25 +194,33 @@ async function observeStream(context: BrowserContext, times: StreamTime[]) {
   await context.exposeBinding('__v08StreamTime', (_source, row: StreamTime) => { if (times.length >= 256) throw new Error('SSE observation limit'); times.push(row) })
   await context.addInitScript(() => {
     const pendingReports = new Set<Promise<void>>()
+    const streamTasks = new Set<Promise<void>>()
+    const stopReaders = new Set<() => void>()
+    let stopping = false
     let localObservationErrors = 0
     const track = (promise: Promise<void>): Promise<void> => {
       const tracked = promise.catch(() => { localObservationErrors += 1 }).finally(() => { pendingReports.delete(tracked) })
       pendingReports.add(tracked)
       return tracked
     }
-    ;(window as unknown as { __v08Flush: () => Promise<number> }).__v08Flush = async () => {
+    ;(window as unknown as { __v08Flush: (_stopStreams?: boolean) => Promise<number> }).__v08Flush = async (stopStreams = false) => {
+      if (stopStreams) {
+        stopping = true
+        for (const stop of stopReaders) stop()
+        await Promise.all([...streamTasks])
+      }
       while (pendingReports.size > 0) await Promise.all([...pendingReports])
       return localObservationErrors
     }
     const report = (value: { kind: string; locale?: string; reason?: string }) => {
-      const emit = (window as unknown as { __v08Observation: (value: unknown) => Promise<void> }).__v08Observation
-      void track(emit(value))
+      const emit = (window as unknown as { __v08Observation: (_value: unknown) => Promise<void> }).__v08Observation
+      return track(emit(value))
     }
     window.addEventListener('message', event => {
       if (event.source !== window.parent || window.parent === window) return
       const row = event.data
       if (row && row.source === 'imboy-cs-widget' && row.type === 'host-context' && typeof row.locale === 'string') {
-        report({ kind: 'locale', locale: row.locale })
+        void report({ kind: 'locale', locale: row.locale })
       }
     })
     // PARSER_PROBE_BEGIN — passive SSE frame parser used only by the read-only
@@ -233,36 +241,52 @@ async function observeStream(context: BrowserContext, times: StreamTime[]) {
     const original = window.fetch.bind(window)
     window.fetch = async (...args) => {
       const response = await original(...args)
-      if (response.headers.get('content-type')?.includes('text/event-stream')) {
+      if (!stopping && response.headers.get('content-type')?.includes('text/event-stream')) {
         const reader = response.clone().body?.getReader()
-        if (reader) void (async () => {
-          const decoder = new TextDecoder(); const state = { pending: '' }
-          window.addEventListener('pagehide', () => { void reader.cancel().catch(() => {}) }, { once: true })
-          try {
-            while (true) {
-              const chunk = await reader.read(); if (chunk.done) break
-              for (const frame of frames(state, decoder.decode(chunk.value, { stream: true }))) {
-                const text = frame.split('\n').filter(line => line.startsWith('data:')).map(line => line.slice(5).trimStart()).join('\n')
-                if (!text) continue
-                try {
-                  // Quote ANY bare integer ≥15 digits regardless of key — the
-                  // seat envelope family carries TSIDs beyond a fixed key
-                  // allowlist, and one unparsed frame counts as a stream error.
-                  const row = JSON.parse(text.replace(/("[^"]*"\s*:\s*)(\d{15,})(?=[,}\]])/g, '$1"$2"')) as Record<string, unknown>
-                  if (row.created_at != null || row.type === 'message.appended') {
-                    const emit = (window as unknown as { __v08StreamTime: (value: unknown) => Promise<void> }).__v08StreamTime
-                    await track(emit({ id: String(row.id ?? ''), createdAt: row.created_at ?? null, kind: String(row.type ?? 'widget-message'), resourceId: String(row.resource_id ?? '') }))
-                  }
-                } catch (error) { report({ kind: 'error', reason: `frame:${String(error).slice(0, 60)}:${text.slice(0, 60)}` }) }
-              }
-            }
-          } catch (error) {
-            // read 终止是滚动长连接的设计性收场（r20/r23/r25/r26），不计入
-            // errors；但原因仍进 reasons 供失败消息诊断（连接层证据 access.log）。
-            if (status.reasons.length < 10) status.reasons.push(`read:${String(error).slice(0, 60)}`)
+        if (reader) {
+          let closing = false
+          let stopReading!: () => void
+          const stopped = new Promise<{ done: true; value: undefined }>(resolve => {
+            stopReading = () => resolve({ done: true, value: undefined })
+          })
+          const stop = () => {
+            closing = true
+            stopReading()
           }
-          finally { reader.releaseLock() }
-        })()
+          const onPageHide = () => { stop() }
+          stopReaders.add(stop)
+          window.addEventListener('pagehide', onPageHide, { once: true })
+          const task = (async () => {
+            const decoder = new TextDecoder(); const state = { pending: '' }
+            try {
+              while (!closing) {
+                const chunk = await Promise.race([reader.read(), stopped]); if (chunk.done) break
+                for (const frame of frames(state, decoder.decode(chunk.value, { stream: true }))) {
+                  const text = frame.split('\n').filter(line => line.startsWith('data:')).map(line => line.slice(5).trimStart()).join('\n')
+                  if (!text) continue
+                  try {
+                    // Quote ANY bare integer ≥15 digits regardless of key — the
+                    // seat envelope family carries TSIDs beyond a fixed key
+                    // allowlist, and one unparsed frame counts as a stream error.
+                    const row = JSON.parse(text.replace(/("[^"]*"\s*:\s*)(\d{15,})(?=[,}\]])/g, '$1"$2"')) as Record<string, unknown>
+                    if (row.created_at != null || row.type === 'message.appended') {
+                      const emit = (window as unknown as { __v08StreamTime: (_value: unknown) => Promise<void> }).__v08StreamTime
+                      await track(emit({ id: String(row.id ?? ''), createdAt: row.created_at ?? null, kind: String(row.type ?? 'widget-message'), resourceId: String(row.resource_id ?? '') }))
+                    }
+                  } catch (error) { await report({ kind: 'error', reason: `frame:${String(error).slice(0, 60)}:${text.slice(0, 60)}` }) }
+                }
+              }
+            } catch (error) {
+              await report({ kind: 'error', reason: `read:${String(error).slice(0, 60)}` })
+            }
+            finally { reader.releaseLock() }
+          })().catch(error => report({ kind: 'error', reason: `observer:${String(error).slice(0, 60)}` })).finally(() => {
+            streamTasks.delete(task)
+            stopReaders.delete(stop)
+            window.removeEventListener('pagehide', onPageHide)
+          })
+          streamTasks.add(task)
+        }
       }
       return response
     }
@@ -274,16 +298,23 @@ async function observeStream(context: BrowserContext, times: StreamTime[]) {
     // 刻意撕裂边界（reload 拆掉预重载 SSE 克隆流）前显式归零：预重载纪元的流
     // 卫生已另行断言，重置后进入的纪元照旧严格计数。
     resetErrors() { status.errors = 0; status.reasons.length = 0 },
-    async flush() {
+    async flush(stopStreams = false) {
       for (const page of context.pages()) {
         for (const frame of page.frames()) {
-          const localErrors = await frame.evaluate(async () => {
-            const flush = (window as unknown as { __v08Flush?: () => Promise<number> }).__v08Flush
-            return flush ? await flush() : 0
-          })
-          expect(localErrors, 'all observation bindings completed without failure').toBe(0)
+          let timer: ReturnType<typeof setTimeout> | undefined
+          try {
+            const localErrors = await Promise.race([
+              frame.evaluate(async stop => {
+                const flush = (window as unknown as { __v08Flush?: (_stopStreams?: boolean) => Promise<number> }).__v08Flush
+                return flush ? await flush(stop) : 0
+              }, stopStreams),
+              new Promise<never>((_resolve, reject) => { timer = setTimeout(() => reject(new Error('SSE observation flush timed out after 45s')), 45_000) }),
+            ])
+            expect(localErrors, 'all observation bindings completed without failure').toBe(0)
+          } finally { clearTimeout(timer) }
         }
       }
+      expect(status.errors, `stream observation errors: ${JSON.stringify(status.reasons)}`).toBe(0)
     },
   }
 }
@@ -432,20 +463,25 @@ test.describe('SC-E2E A01..A10（EXECUTE-GATED）', () => {
     let seatWire: ReturnType<typeof watchMessageTimes> | undefined
     const seatStreams: StreamTime[] = []
     let seatObservation: Awaited<ReturnType<typeof observeStream>> | undefined
-    let page: Page | null = null
+    let seatCtx: BrowserContext | undefined
+    let page: Page
+    const qrBudget = { scan: 0, confirm: 0 }
+    let primaryErrors: unknown[] = []
+    let cleanupErrors: unknown[]
     try {
       const { sessionId, conversationId } = await newVisitorSession(visitorPage)
       expect(conversationId).toMatch(/^[1-9]\d*$/)
       expect(sessionId).toMatch(/^[1-9]\d*$/)
       await expect.poll(() => visitorObservation.locales.length).toBeGreaterThan(0)
       expect(visitorObservation.locales.every(locale => locale === 'zh-CN')).toBe(true)
-      const seatCtx = await browser.newContext({ timezoneId: 'Asia/Shanghai' })
+      seatCtx = await browser.newContext({ timezoneId: 'Asia/Shanghai' })
       seatObservation = await observeStream(seatCtx, seatStreams)
       page = await seatCtx.newPage()
       seatWire = watchMessageTimes(page)
       await page.goto(`${SHOP}/`, { waitUntil: 'domcontentloaded' })
       await expect(page.locator('iframe[title="IMBoy 客服工作台"]')).toBeAttached()
-      await qrLoginSeatInFrame(page, SEAT.account, 1)
+      await qrLoginSeatInFrame(page, SEAT.account, 1, qrBudget)
+      expect(qrBudget).toEqual({ scan: 1, confirm: 1 })
       const frame = embedFrame(page)
       // contexts/queue：队列 tab（queued）出现该会话 → claim → 打开会话。
       await claimAndOpenSession(frame, sessionId)
@@ -521,12 +557,10 @@ test.describe('SC-E2E A01..A10（EXECUTE-GATED）', () => {
         if (sender === 'contact') await assertDomInstant(page!, seatSelector, id, instant, false)
         if (sender === 'business_identity') await assertDomInstant(visitorPage, widgetSelector, id, instant, true)
       }
-      await Promise.all([visitorObservation.flush(), seatObservation!.flush(), seatWire!.flush(), visitorWire.flush()])
+      await Promise.all([visitorObservation.flush(true), seatObservation!.flush(true), seatWire!.flush(), visitorWire.flush()])
       expect(visitorObservation.errors, `visitor stream errors: ${JSON.stringify(visitorObservation.reasons)}`).toBe(0)
       expect(seatObservation!.errors, `seat stream errors: ${JSON.stringify(seatObservation!.reasons)}`).toBe(0)
       seatWire!.history.length = 0; visitorWire.history.length = 0
-      // reload 拆页必然撕断预重载 SSE 克隆流（r22: read:TypeError network error），
-      // 属纪元边界而非流异常：预重载纪元已在上方断言为 0，这里归零后按新纪元严检。
       visitorObservation.resetErrors(); seatObservation!.resetErrors()
       await Promise.all([page.reload({ waitUntil: 'domcontentloaded' }), visitorPage.reload({ waitUntil: 'domcontentloaded' })])
       // 访客侧重载后 widget 回到收起态（visit subject 存 sessionStorage、TTL 内
@@ -541,10 +575,9 @@ test.describe('SC-E2E A01..A10（EXECUTE-GATED）', () => {
       await expect(reloadedWidget.getByTestId('cs-consent-accept')).toBeVisible({ timeout: 30_000 })
       await reloadedWidget.getByTestId('cs-consent-accept').click()
       await expect(reloadedWidget.getByTestId('cs-message-list')).toBeVisible({ timeout: 20_000 })
-      // QR authentication is driven again only if the actual reloaded UI requires it.
       const reloadedSeat = embedFrame(page)
       await expect(reloadedSeat.getByTestId('seat-workspace').or(reloadedSeat.getByTestId('seat-qr-code'))).toBeVisible()
-      if (await reloadedSeat.getByTestId('seat-qr-code').isVisible()) await qrLoginSeatInFrame(page, SEAT.account, 1)
+      if (await reloadedSeat.getByTestId('seat-qr-code').isVisible()) await qrLoginSeatInFrame(page, SEAT.account, 1, qrBudget)
       await reloadedSeat.getByTestId('seat-tab-active').click()
       await reloadedSeat.getByTestId(`seat-session-item-${sessionId}`).click()
       for (const row of rendered) {
@@ -555,16 +588,22 @@ test.describe('SC-E2E A01..A10（EXECUTE-GATED）', () => {
         await assertDomInstant(page, `[data-testid="seat-message-${row.id}"]`, row.id, row.instant, false)
         await assertDomInstant(visitorPage, row.widgetSelector, row.id, row.instant, true)
       }
-      await Promise.all([visitorObservation.flush(), seatObservation!.flush(), seatWire!.flush(), visitorWire.flush()])
+      await Promise.all([visitorObservation.flush(true), seatObservation!.flush(true), seatWire!.flush(), visitorWire.flush()])
       expect(visitorWire.errors()).toBe(0); expect(seatWire!.errors()).toBe(0)
       expect(visitorObservation.errors, `visitor stream errors: ${JSON.stringify(visitorObservation.reasons)}`).toBe(0)
       expect(seatObservation!.errors, `seat stream errors: ${JSON.stringify(seatObservation!.reasons)}`).toBe(0)
       expect(visitorObservation.locales.every(locale => locale === 'zh-CN')).toBe(true)
+      expect(qrBudget).toEqual({ scan: 1, confirm: 1 })
+    } catch (error) {
+      primaryErrors = [error]
     } finally {
       visitorWire.stop(); seatWire?.stop()
-      await visitorCtx.close().catch(() => {})
-      await page?.context().close().catch(() => {})
+      const drained = await Promise.allSettled([visitorObservation.flush(true), seatObservation?.flush(true)])
+      const closed = await Promise.allSettled([visitorCtx.close(), seatCtx?.close()])
+      cleanupErrors = [...drained, ...closed].flatMap(result => result.status === 'rejected' ? [result.reason] : [])
     }
+    if (cleanupErrors.length > 0) throw new AggregateError([...primaryErrors, ...cleanupErrors], 'A04 cleanup failed')
+    if (primaryErrors.length > 0) throw primaryErrors[0]
   })
 
   // ---------------------------------------------------------------- A05
