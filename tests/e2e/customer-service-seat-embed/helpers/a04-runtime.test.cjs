@@ -26,13 +26,15 @@ function deferred() {
   return { promise, resolve, reject }
 }
 
-async function observerHarness(readerOrResponse, onReport = async () => {}) {
+async function observerHarness(readerOrResponse, onReport = async () => {}, url = 'https://synthetic.test/api/v1/cs/widget/sessions/synthetic/events') {
   const window = new EventTarget()
+  if (readerOrResponse instanceof Response) Object.defineProperty(readerOrResponse, 'url', { value: url })
   window.fetch = async () => readerOrResponse instanceof Response ? readerOrResponse : ({
+    url,
     headers: { get: () => 'text/event-stream' },
     clone: () => ({ body: { getReader: () => readerOrResponse } }),
   })
-  const sandbox = vm.createContext({ window, TextDecoder, DOMException })
+  const sandbox = vm.createContext({ window, TextDecoder, DOMException, URL })
   const frame = { evaluate: (callback, arg) => vm.runInContext(`(${callback.toString()})(${JSON.stringify(arg)})`, sandbox) }
   const context = {
     exposeBinding: async (name, callback) => {
@@ -44,6 +46,32 @@ async function observerHarness(readerOrResponse, onReport = async () => {}) {
   const observer = await observeStream(context, [])
   await window.fetch()
   return observer
+}
+
+test('normal QR stream disposal is outside the message observation oracle', async () => {
+  let read = false
+  const observer = await observerHarness({
+    read() { read = true; throw new DOMException('QR subscription disposed after login', 'AbortError') },
+    releaseLock() {},
+  }, async () => {}, 'https://synthetic.test/api/v1/passport/qr_login/subscribe')
+  await observer.flush(true)
+  assert.equal(read, false)
+  assert.equal(observer.errors, 0)
+})
+
+for (const prefix of ['cs', 'seat/cs']) {
+  test(`observes actual ${prefix} seat message stream paths`, async () => {
+    const pending = deferred()
+    let read = false, released = false
+    const observer = await observerHarness({
+      read() { read = true; return pending.promise },
+      releaseLock() { released = true; pending.reject(new Error('released')) },
+    }, async () => {}, `https://synthetic.test/api/v1/${prefix}/organizations/123/seats/me/events?workspace_id=456`)
+    await observer.flush(true)
+    assert.equal(read, true)
+    assert.equal(released, true)
+    assert.equal(observer.errors, 0)
+  })
 }
 
 test('native tee flush completes while the application branch stays readable', { timeout: 3000 }, async () => {
@@ -198,6 +226,7 @@ test('A04 keeps its body error and attempts close after a failed observer drain'
   await assert.rejects(runA04({ browser: { newContext: async () => context } }), error => {
     assert.equal(error.name, 'AggregateError')
     assert.deepEqual(Array.from(error.errors), [bodyError, drainError, closeError])
+    assert.equal(error.cause, bodyError)
     return true
   })
   assert.equal(stopped, true)
@@ -224,6 +253,7 @@ for (const failure of ['body', 'cleanup']) {
       } else {
         assert.equal(error.name, 'AggregateError')
         assert.deepEqual(Array.from(error.errors), [failureError])
+        assert.equal(error.cause, failureError)
       }
       return true
     })

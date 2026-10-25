@@ -241,7 +241,9 @@ async function observeStream(context: BrowserContext, times: StreamTime[]) {
     const original = window.fetch.bind(window)
     window.fetch = async (...args) => {
       const response = await original(...args)
-      if (!stopping && response.headers.get('content-type')?.includes('text/event-stream')) {
+      // QR subscription aborts normally after login; only message streams carry this oracle.
+      const messageStream = /^\/api\/v1\/(?:cs\/widget\/sessions\/[^/]+\/events|(?:seat\/)?cs\/organizations\/[^/]+\/seats\/me\/events)$/.test(new URL(response.url).pathname)
+      if (!stopping && messageStream && response.headers.get('content-type')?.includes('text/event-stream')) {
         const reader = response.clone().body?.getReader()
         if (reader) {
           let closing = false
@@ -557,12 +559,13 @@ test.describe('SC-E2E A01..A10（EXECUTE-GATED）', () => {
         if (sender === 'contact') await assertDomInstant(page!, seatSelector, id, instant, false)
         if (sender === 'business_identity') await assertDomInstant(visitorPage, widgetSelector, id, instant, true)
       }
-      await Promise.all([visitorObservation.flush(true), seatObservation!.flush(true), seatWire!.flush(), visitorWire.flush()])
+      await Promise.all([visitorObservation.flush(true), seatObservation!.flush(), seatWire!.flush(), visitorWire.flush()])
       expect(visitorObservation.errors, `visitor stream errors: ${JSON.stringify(visitorObservation.reasons)}`).toBe(0)
       expect(seatObservation!.errors, `seat stream errors: ${JSON.stringify(seatObservation!.reasons)}`).toBe(0)
       seatWire!.history.length = 0; visitorWire.history.length = 0
       visitorObservation.resetErrors(); seatObservation!.resetErrors()
-      await Promise.all([page.reload({ waitUntil: 'domcontentloaded' }), visitorPage.reload({ waitUntil: 'domcontentloaded' })])
+      // Seat JWT is memory-only: keep its authorized window within the single QR budget.
+      await visitorPage.reload({ waitUntil: 'domcontentloaded' })
       // 访客侧重载后 widget 回到收起态（visit subject 存 sessionStorage、TTL 内
       // 恢复优先，但拉取由真实打开驱动）：点开 launcher 是真实用户动作，恢复的
       // 会话才重新拉取消息列表。
@@ -576,10 +579,15 @@ test.describe('SC-E2E A01..A10（EXECUTE-GATED）', () => {
       await reloadedWidget.getByTestId('cs-consent-accept').click()
       await expect(reloadedWidget.getByTestId('cs-message-list')).toBeVisible({ timeout: 20_000 })
       const reloadedSeat = embedFrame(page)
-      await expect(reloadedSeat.getByTestId('seat-workspace').or(reloadedSeat.getByTestId('seat-qr-code'))).toBeVisible()
-      if (await reloadedSeat.getByTestId('seat-qr-code').isVisible()) await qrLoginSeatInFrame(page, SEAT.account, 1, qrBudget)
-      await reloadedSeat.getByTestId('seat-tab-active').click()
-      await reloadedSeat.getByTestId(`seat-session-item-${sessionId}`).click()
+      await expect(reloadedSeat.getByTestId('seat-workspace')).toBeVisible()
+      // A real post-reload message makes Seat SSE refetch authoritative history, including its own prior send.
+      const historyRefresh = `sc153 重载后消息 ${RUN_UNIQ}`
+      await reloadedWidget.getByTestId('cs-input').fill(historyRefresh)
+      await reloadedWidget.getByTestId('cs-send').click()
+      await expect(reloadedSeat.getByTestId('seat-message-list').getByText(historyRefresh)).toBeVisible({ timeout: 20_000 })
+      await expect.poll(async () => { await visitorWire.flush(); return visitorWire.sent.some(row => row.marker === historyRefresh) }).toBe(true)
+      const historyRefreshId = visitorWire.sent.find(row => row.marker === historyRefresh)!.id
+      await expect.poll(() => seatStreams.some(row => row.kind === 'message.appended' && row.resourceId === historyRefreshId), { timeout: 45_000 }).toBe(true)
       for (const row of rendered) {
         for (const wire of [seatWire!, visitorWire]) {
           await expect.poll(async () => { await wire.flush(); return wire.history.some(item => item.id === row.id) }).toBe(true)
@@ -602,7 +610,7 @@ test.describe('SC-E2E A01..A10（EXECUTE-GATED）', () => {
       const closed = await Promise.allSettled([visitorCtx.close(), seatCtx?.close()])
       cleanupErrors = [...drained, ...closed].flatMap(result => result.status === 'rejected' ? [result.reason] : [])
     }
-    if (cleanupErrors.length > 0) throw new AggregateError([...primaryErrors, ...cleanupErrors], 'A04 cleanup failed')
+    if (cleanupErrors.length > 0) throw new AggregateError([...primaryErrors, ...cleanupErrors], 'A04 cleanup failed', { cause: primaryErrors[0] ?? cleanupErrors[0] })
     if (primaryErrors.length > 0) throw primaryErrors[0]
   })
 
