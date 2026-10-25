@@ -16,6 +16,8 @@
 import { expect, type Browser, type FrameLocator, type Page } from '@playwright/test'
 import { BE_MAIN, CONSOLE_PUBLIC_ID, CS_ORIGIN, SEAT, SHOP, seatPassportLogin } from './env'
 
+export type QrLoginBudget = { scan: number; confirm: number }
+
 /** 宿主 iframe 定位器（snippet 冻结合同：title 固定为「IMBoy 客服工作台」）。 */
 export function embedFrame(page: Page): FrameLocator {
   return page.frameLocator('iframe[title="IMBoy 客服工作台"]')
@@ -35,8 +37,10 @@ export async function openSeatEmbed(
 }
 
 /** 预认证 API context：扫码 + 确认（手机端同款合同面；Bearer=坐席护照 JWT）。 */
-async function scanAndConfirm(seatJwt: string, qrToken: string): Promise<void> {
+async function scanAndConfirm(seatJwt: string, qrToken: string, budget?: QrLoginBudget): Promise<void> {
+  if (budget && (budget.scan !== 0 || budget.confirm !== 0)) throw new Error('A04 journey QR scan/confirm budget exhausted')
   const headers = { 'content-type': 'application/json', authorization: `Bearer ${seatJwt}` }
+  if (budget) budget.scan += 1
   const scan = await fetch(`${BE_MAIN}/api/v1/passport/qr_login/scan`, {
     method: 'POST',
     headers,
@@ -44,6 +48,7 @@ async function scanAndConfirm(seatJwt: string, qrToken: string): Promise<void> {
   })
   const scanBody = (await scan.json()) as { code: number; msg?: string }
   if (scanBody.code !== 0) throw new Error(`qr scan failed: ${JSON.stringify(scanBody)}`)
+  if (budget) budget.confirm += 1
   const confirm = await fetch(`${BE_MAIN}/api/v1/passport/qr_login/confirm`, {
     method: 'POST',
     headers,
@@ -57,7 +62,7 @@ async function scanAndConfirm(seatJwt: string, qrToken: string): Promise<void> {
  * 在宿主页嵌入的 iframe 内完成坐席 QR 登录，收敛到已挂载的工作台。
  * page 必须已开在嵌入了 seat console iframe 的宿主页（openSeatEmbed）。
  */
-export async function qrLoginSeatInFrame(page: Page, account: string = SEAT.account, attemptLimit: 1 | 4 = 4): Promise<void> {
+export async function qrLoginSeatInFrame(page: Page, account: string = SEAT.account, attemptLimit: 1 | 4 = 4, budget?: QrLoginBudget): Promise<void> {
   const seatJwt = await seatPassportLogin(account)
   const frame = embedFrame(page)
   const qrCode = frame.getByTestId('seat-qr-code')
@@ -86,7 +91,7 @@ export async function qrLoginSeatInFrame(page: Page, account: string = SEAT.acco
       const content = (await qrCode.getAttribute('data-qr-content')) ?? ''
       const encoded = /imboy:\/\/qr_login\?qr_token=([^&\s]+)/.exec(content)?.[1]
       if (encoded === undefined || encoded === '') break // 面板已不在（可能已确认成功）
-      await scanAndConfirm(seatJwt, decodeURIComponent(encoded))
+      await scanAndConfirm(seatJwt, decodeURIComponent(encoded), budget)
       lastError = null
       const reacted = await frame
         .getByText('已扫码，请在手机上确认')
