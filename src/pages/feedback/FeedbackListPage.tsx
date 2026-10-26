@@ -15,7 +15,8 @@ import {
 } from '@/modules/ops_governance/api'
 import { PaginatedResponse } from '@/types/api'
 import type { EntityId } from '@/types/common'
-import { formatDate } from '@/lib/utils'
+import { formatOptionalDate } from '@/lib/utils'
+import { parseApiInstantMs } from '@/lib/apiInstant'
 import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 import { LegacyColumnDef, useLegacyTable, getCoreRowModel } from '@tanstack/react-table/legacy'
 import { Textarea } from '@/components/ui/textarea'
@@ -48,48 +49,11 @@ type FeedbackListPageQuery = {
 const DEFAULT_WORKFLOW_CONFIG = getDefaultFeedbackWorkflowEditableConfig()
 const WORKFLOW_CONFIG_QUERY_KEY = ['feedback', 'workflow-config']
 
-function parseDateTime(raw: unknown): Date | null {
-  if (raw === null || raw === undefined) return null
-
-  if (raw instanceof Date) {
-    if (Number.isNaN(raw.getTime())) return null
-    return raw
-  }
-
-  if (typeof raw === 'number') {
-    if (!Number.isFinite(raw)) return null
-    // Support both second-level and millisecond-level timestamps.
-    const normalizedTs = raw > 1_000_000_000_000 ? raw : raw * 1000
-    const parsed = new Date(normalizedTs)
-    if (Number.isNaN(parsed.getTime())) return null
-    return parsed
-  }
-
-  if (typeof raw === 'string') {
-    const trimmed = raw.trim()
-    if (!trimmed) return null
-    const normalized = trimmed.includes('T') ? trimmed : trimmed.replace(' ', 'T')
-    const parsed = new Date(normalized)
-    if (Number.isNaN(parsed.getTime())) return null
-    return parsed
-  }
-
-  if (typeof raw === 'object') {
-    const record = raw as Record<string, unknown>
-    const candidate = record.datetime ??
-      record.dateTime ??
-      record.time ??
-      record.timestamp ??
-      record.value ??
-      record.created_at ??
-      record.createdAt
-    if (candidate !== undefined) {
-      return parseDateTime(candidate)
-    }
-  }
-
-  return null
-}
+// R21-B：此前的 parseDateTime（位数猜秒/毫秒 >1e12 分支 + 空格串按查看者
+// 本地解析的缺 offset 风险）已删除——/feedback/index wire 时间经取证为 epoch
+// 毫秒（adm_feedback_handler → elib_response:success → convert_at_timestamps），
+// 投影在 ops_governance/api/feedback.ts normalizeFeedback 用 apiInstant 显式
+// 毫秒 adapter 归一为规范 ISO；本页 SLA 比较与展示只消费规范值。
 
 function formatDuration(ms: number): string {
   const totalMinutes = Math.max(0, Math.floor(ms / 60000))
@@ -114,15 +78,16 @@ function getSlaInfo(feedback: Feedback | null, slaHours: number): { label: strin
     }
   }
 
-  const createdAt = parseDateTime(feedback.created_at)
-  if (!createdAt) {
+  // 规范 ISO（或兼容毫秒数字）→ 瞬间毫秒；非法/缺失 → null（不回填 now）
+  const createdAtMs = parseApiInstantMs(feedback.created_at, 'milliseconds')
+  if (createdAtMs === null) {
     return {
       label: '无法计算 SLA（时间格式异常）',
       className: 'bg-muted text-muted-foreground',
     }
   }
 
-  const deadlineTs = createdAt.getTime() + slaHours * 60 * 60 * 1000
+  const deadlineTs = createdAtMs + slaHours * 60 * 60 * 1000
   const remainingMs = deadlineTs - Date.now()
 
   if (remainingMs <= 0) {
@@ -415,7 +380,7 @@ export function FeedbackListPage() {
       header: '提交时间',
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
-          {formatDate(row.original.created_at)}
+          {formatOptionalDate(row.original.created_at)}
         </span>
       ),
     },
@@ -481,7 +446,7 @@ export function FeedbackListPage() {
       { header: '反馈内容', accessor: 'content' },
       { header: '状态', accessor: (row) => ({ 1: '待处理', 2: '已回复', 3: '已完结', 0: '禁用', '-1': '已删除' }[String(row.status)] || String(row.status)) },
       { header: '回复内容', accessor: (row) => row.reply || '-' },
-      { header: '提交时间', accessor: (row) => formatDate(row.created_at) },
+      { header: '提交时间', accessor: (row) => formatOptionalDate(row.created_at) },
     ]
     exportCsv(csvColumns, feedbacks, 'feedback_export')
     toast.success(`已导出 ${feedbacks.length} 条反馈数据`)
@@ -616,7 +581,7 @@ export function FeedbackListPage() {
               </span>
             </div>
             <p className="text-xs text-muted-foreground">
-              提交时间：{activeFeedback?.created_at ? formatDate(activeFeedback.created_at) : '-'}
+              提交时间：{formatOptionalDate(activeFeedback?.created_at)}
             </p>
             <div className="mt-2 rounded-md border bg-background p-3 text-sm text-muted-foreground">
               {activeFeedback?.content || '-'}

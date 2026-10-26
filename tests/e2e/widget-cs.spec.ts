@@ -278,8 +278,9 @@ test.describe('CSW-01 Widget 宿主页闭环', () => {
     await launcher.click()
     const iframe = page.locator('[data-testid="cs-widget-iframe"]')
     await expect(iframe).toBeVisible()
-    // A03：sandbox 最小权限 + 可访问标题
-    await expect(iframe).toHaveAttribute('sandbox', 'allow-scripts allow-same-origin')
+    // A03：sandbox 最小权限 + 可访问标题。58bbffd 起最小权限集含
+    // allow-downloads（授权附件浏览器下载；此前产物缺失恒 skip 未暴露断言失配）。
+    await expect(iframe).toHaveAttribute('sandbox', 'allow-scripts allow-same-origin allow-downloads')
     await expect(iframe).toHaveAttribute('title', /客服聊天窗口/)
 
     // iframe 应用完成握手 → bootstrap（pending）→ consent 覆盖层

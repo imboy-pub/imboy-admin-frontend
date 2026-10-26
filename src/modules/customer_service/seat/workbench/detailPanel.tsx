@@ -1,4 +1,5 @@
 /** 会话详情以权威 detail 为准；会话动作先确认，再以该事实版本执行 CAS。 */
+import { formatDisplayInstant } from '@/lib/displayTime'
 import type { SeatSessionDetail } from './contract'
 import { SeatLoadingState, seatFailureMessage } from './states'
 import { seatFailureKind } from './workbenchHooks'
@@ -38,12 +39,22 @@ function EmptyDetail(props: SeatDetailPanelProps) {
 
 function BasicDetails(props: SeatDetailPanelProps & { detail: SeatSessionDetail }) {
   const statusText = props.detail.status === 'queued' ? '排队中' : props.detail.status === 'active' ? '进行中' : '已结束'
+  // R14-1：详情发起时间与队列行同一 zone 来源（displayTime 缓存 formatter，
+  // 查看者本地）；queuedAt 缺失（旧投影）诚实占位「未知」。
+  const queuedAtText = props.detail.queuedAt !== null
+    && Number.isSafeInteger(props.detail.queuedAt)
+    ? formatDisplayInstant(props.detail.queuedAt * 1000, 'zh-CN', undefined, 'full')
+    : null
   return <section aria-label="基本信息" className="text-sm">
     <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">详情</h3>
     <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
       <dt className="text-muted-foreground">状态</dt><dd data-testid="seat-detail-status">{statusText}</dd>
       <dt className="text-muted-foreground">访客</dt><dd data-testid="seat-detail-visitor">{props.detail.visitorMaskedName ?? '访客'}</dd>
       <dt className="text-muted-foreground">来源</dt><dd>{props.detail.visitorSource}</dd>
+      <dt className="text-muted-foreground">发起时间</dt>
+      <dd className="tabular-nums" data-testid="seat-detail-queued-at" data-queued-at={props.detail.queuedAt ?? undefined}>
+        {queuedAtText ?? '未知'}
+      </dd>
       <dt className="text-muted-foreground">版本</dt><dd className="tabular-nums" data-testid="seat-detail-version">{props.detail.version}</dd>
     </dl>
     <DetailError error={props.detailError} onRetry={props.onRetryDetail} />

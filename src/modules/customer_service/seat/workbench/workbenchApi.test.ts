@@ -73,7 +73,8 @@ describe('列表合同（queue / active / closed）', () => {
     expect(page.counts).toEqual({ queued: 1, active: 0, closed: 0 })
     // CS-WEB-03：队列页消费 CS-BE-02 投影——服务端 preview 摘要与等待时长。
     expect(page.sessions[0]?.lastMessage.preview).toBe('你好，请问订单 8891 什么时候发货')
-    expect(page.sessions[0]?.lastMessage.createdAt).toBe(1759000000)
+    // R08-AD.1：created_at epoch 秒 wire 经秒 adapter 归一为规范 ISO。
+    expect(page.sessions[0]?.lastMessage.createdAt).toBe('2025-09-27T19:06:40.000Z')
     expect(page.sessions[0]?.waitingSeconds).toBe(125)
   })
 

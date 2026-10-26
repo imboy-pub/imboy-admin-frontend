@@ -12,6 +12,7 @@
  * 熔断守卫在 `guards.ts`（单一职责拆分，便于独立取证）。
  */
 import { coerceEntityId } from '@/lib/entityId'
+import { toApiInstantIso } from '@/lib/apiInstant'
 import { assertNoSecretFields } from './guards'
 import type { EntityId } from '@/types/common'
 import { APPLICATION_STATUSES, APPLICATION_STATUS_LABELS, AUDIT_DIFF_FIELDS, CREDENTIAL_SAFE_KEYS, CREDENTIAL_STATUSES, DELIVERY_SAFE_KEYS, READ_PERMISSION, SENSITIVE_KEY_PATTERN, STATUS_TRANSITIONS, WRITE_PERMISSION, type ApplicationStatus, type CredentialStatus } from './contracts'
@@ -260,16 +261,33 @@ export function toApplicationDetailFromPayload(payload: unknown): ApplicationDet
   throw new Error('Application 详情响应形状非法（缺少 id / application 包裹）')
 }
 
-/** credential 元数据视图：**没有** secret / digest 字段（类型层面即不可表达）。 */
+/** credential 元数据视图：**没有** secret / digest 字段（类型层面即不可表达）。
+ * R09：四个时刻字段为 R08-AD.0 毫秒 adapter 的规范 ISO 产物（与到期状态、
+ * 按钮判定、展示同源）；空值 → null；存在但非法 → 保留原样字符串（驱动
+ * credentialExpiryState 的 fail-safe unknown，绝不放宽为无到期）。 */
 export type CredentialMeta = {
   id: EntityId
   prefix: string
   status: Unknownable<CredentialStatus>
-  createdAt: string
-  expiresAt: string
-  lastUsedAt: string
-  revokedAt: string
+  createdAt: string | null
+  expiresAt: string | null
+  lastUsedAt: string | null
+  revokedAt: string | null
   version: number
+}
+
+/**
+ * credential 端点 `_at` 键合同 = epoch 毫秒（BE adm_enterprise_application_handler
+ * credentials_action → elib_response:success → convert_at_timestamps →
+ * elib_dt:rfc3339_to(Dt, millisecond)；空值出站 null）。R09 显式毫秒 adapter：
+ * - 毫秒整数 / 兼容数字字符串 / RFC3339 → 规范 ISO（解析后瞬间）；
+ * - null / undefined / '' → null（该时刻不存在，如 last_used_at 从未使用）；
+ * - 存在但非法 → 原样保留（下游判 unknown，不猜测不回填）。
+ */
+function toCredentialInstant(value: unknown): string | null {
+  if (value === null || value === undefined || value === '') return null
+  return toApiInstantIso(value, 'milliseconds')
+    ?? (typeof value === 'string' ? value : String(value))
 }
 
 export function toCredentialMeta(raw: unknown): CredentialMeta | null {
@@ -281,10 +299,10 @@ export function toCredentialMeta(raw: unknown): CredentialMeta | null {
     id,
     prefix: toStr(safe.credential_prefix),
     status: toCredentialStatus(safe.status),
-    createdAt: toStr(safe.created_at),
-    expiresAt: toStr(safe.expires_at),
-    lastUsedAt: toStr(safe.last_used_at),
-    revokedAt: toStr(safe.revoked_at),
+    createdAt: toCredentialInstant(safe.created_at),
+    expiresAt: toCredentialInstant(safe.expires_at),
+    lastUsedAt: toCredentialInstant(safe.last_used_at),
+    revokedAt: toCredentialInstant(safe.revoked_at),
     version: toInt(safe.version, 1),
   }
 }
@@ -296,15 +314,19 @@ export function toCredentialMetaList(raw: unknown): CredentialMeta[] {
     .filter((item): item is CredentialMeta => item !== null)
 }
 
-/** credential 到期呈现（客户端派生，不改后端 status）：plan-full §3.2「过期状态」。 */
+/** credential 到期呈现（客户端派生，不改后端 status）：plan-full §3.2「过期状态」。
+ * R09：比较基于 adapter 已解析瞬间（ISO）；已撤销态优先于期限判定（revoked
+ * 不被 expiry 重判 active）；无到期（null/''）≠ 坏值（unknown，不放宽）；
+ * 到期时刻等于当前时间视为已过期。 */
 export function credentialExpiryState(
   meta: Pick<CredentialMeta, 'status' | 'expiresAt'>,
   now: number = Date.now()
 ): 'revoked' | 'expired' | 'active' | 'noExpiry' | 'unknown' {
   if (meta.status === 'unknown') return 'unknown'
   if (meta.status === 'revoked') return 'revoked'
+  if (meta.expiresAt === null || meta.expiresAt === '') return 'noExpiry'
   const expiresAt = Date.parse(meta.expiresAt)
-  if (Number.isNaN(expiresAt)) return meta.expiresAt.length > 0 ? 'unknown' : 'noExpiry'
+  if (Number.isNaN(expiresAt)) return 'unknown'
   return expiresAt <= now ? 'expired' : 'active'
 }
 
@@ -323,9 +345,9 @@ export function credentialExpiryLabel(state: ReturnType<typeof credentialExpiryS
   }
 }
 
-/** last-used 呈现：空值不伪造成“刚刚”。 */
-export function lastUsedLabel(value: string): string {
-  const text = toStr(value)
+/** last-used 呈现：空值不伪造成“刚刚”。R09：adapter 产物 null = 从未使用。 */
+export function lastUsedLabel(value: string | null): string {
+  const text = value ?? ''
   return text.length > 0 ? text : '从未使用'
 }
 

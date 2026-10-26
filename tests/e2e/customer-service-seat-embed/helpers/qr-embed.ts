@@ -16,7 +16,7 @@
 import { expect, type Browser, type FrameLocator, type Page } from '@playwright/test'
 import { BE_MAIN, CONSOLE_PUBLIC_ID, CS_ORIGIN, SEAT, SHOP, seatPassportLogin } from './env'
 
-export type QrLoginBudget = { scan: number; confirm: number }
+type QrLoginBudget = { scan: number; confirm: number }
 
 /** 宿主 iframe 定位器（snippet 冻结合同：title 固定为「IMBoy 客服工作台」）。 */
 export function embedFrame(page: Page): FrameLocator {

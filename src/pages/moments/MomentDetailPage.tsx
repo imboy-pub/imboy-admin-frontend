@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { ConfirmDialog, ErrorState, LoadingState, PageHeader, StatusBadge } from '@/components/shared'
 import { deleteMoment, getMomentDetailPayload, MomentReport } from '@/modules/moments/api'
-import { formatDate } from '@/lib/utils'
+import { formatOptionalDate } from '@/lib/utils'
 import { getErrorMessage } from '@/lib/errorUtils'
 
 const visibilityLabels: Record<number, string> = {
@@ -114,11 +114,11 @@ export function MomentDetailPage() {
             </div>
             <div>
               <div className="text-xs text-muted-foreground">发布时间</div>
-              <div className="font-medium">{formatDate(data.created_at)}</div>
+              <div className="font-medium">{formatOptionalDate(data.created_at)}</div>
             </div>
             <div>
               <div className="text-xs text-muted-foreground">更新时间</div>
-              <div className="font-medium">{formatDate(data.updated_at)}</div>
+              <div className="font-medium">{formatOptionalDate(data.updated_at)}</div>
             </div>
           </div>
 
@@ -193,7 +193,7 @@ export function MomentDetailPage() {
                   <div className="text-sm">举报人 UID: {report.reporter_uid}</div>
                   <div className="text-sm">原因: {report.reason || '-'}</div>
                   <div className="text-sm text-muted-foreground">描述: {report.description || '-'}</div>
-                  <div className="mt-1 text-xs text-muted-foreground">时间: {formatDate(report.created_at)}</div>
+                  <div className="mt-1 text-xs text-muted-foreground">时间: {formatOptionalDate(report.created_at)}</div>
                 </div>
               ))}
             </div>
