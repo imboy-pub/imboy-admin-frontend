@@ -3,6 +3,7 @@ import { requireApiPayload } from '@/services/api/responseAdapter'
 import { ApiResponse, PaginatedResponse } from '@/types/api'
 import type { EntityId } from '@/types/common'
 import { coerceEntityId } from '@/lib/entityId'
+import { toApiInstantIso } from '@/lib/apiInstant'
 
 type ApiErrorLike = {
   code?: number | string
@@ -28,9 +29,10 @@ export interface MomentReport {
   description: string
   status: number
   handled_by: EntityId | ''
+  /** 规范 ISO（毫秒 adapter 产物，R08-AD：/moment/report/* 出站 _at 键 = epoch 毫秒）；缺失/非法 → null。 */
   handled_at: string | null
-  created_at: string
-  updated_at: string
+  created_at: string | null
+  updated_at: string | null
 }
 
 export interface MomentItem {
@@ -42,8 +44,9 @@ export interface MomentItem {
   allow_comment: boolean
   stats: MomentStats
   status: number
-  created_at: string
-  updated_at: string
+  /** 规范 ISO（毫秒 adapter 产物）；缺失 / 非法 → null（展示「-」）。 */
+  created_at: string | null
+  updated_at: string | null
   acl?: MomentAcl
   reports?: MomentReport[]
 }
@@ -194,10 +197,38 @@ function normalizeMoment(raw: unknown): MomentItem {
     allow_comment: Boolean(item.allow_comment),
     stats: asMomentStats(item.stats),
     status: Number(item.status ?? 1),
-    created_at: String(item.created_at ?? ''),
-    updated_at: String(item.updated_at ?? ''),
+    // /moment/* 出站 _at 键经 elib_response convert_at_timestamps = epoch 毫秒
+    // （BE moment_handler.erl 全端点走 elib_response:success）。R08-AD.1：
+    // 显式毫秒 adapter → 规范 ISO；非法 / 缺失 → null（展示侧「-」），不裸透传。
+    created_at: toApiInstantIso(item.created_at, 'milliseconds'),
+    updated_at: toApiInstantIso(item.updated_at, 'milliseconds'),
     acl: (item.acl as MomentAcl | undefined) ?? undefined,
-    reports: Array.isArray(item.reports) ? (item.reports as MomentReport[]) : undefined,
+    reports: Array.isArray(item.reports)
+      ? (item.reports as Array<unknown>).map((report) => normalizeMomentReport(report))
+      : undefined,
+  }
+}
+
+/**
+ * R08-AD：动态举报行同走毫秒 adapter（adm_moment_handler report_list → elib_response:success 链）。
+ * 仅投影时间字段；标识符字段保持 wire 形状透传（不引入 coerce 改变既有请求体形状）。
+ */
+function normalizeMomentReport(raw: unknown): MomentReport {
+  const item = (typeof raw === 'object' && raw !== null
+    ? raw
+    : {}) as Record<string, unknown>
+
+  return {
+    id: item.id as EntityId,
+    post_id: (item.post_id ?? item.moment_id) as EntityId,
+    reporter_uid: item.reporter_uid as EntityId,
+    reason: String(item.reason ?? ''),
+    description: String(item.description ?? ''),
+    status: Number(item.status ?? 0),
+    handled_by: (item.handled_by ?? '') as MomentReport['handled_by'],
+    handled_at: toApiInstantIso(item.handled_at, 'milliseconds'),
+    created_at: toApiInstantIso(item.created_at, 'milliseconds'),
+    updated_at: toApiInstantIso(item.updated_at, 'milliseconds'),
   }
 }
 
@@ -251,7 +282,13 @@ export async function getMomentReportList(
 export async function getMomentReportListPayload(
   params: MomentReportListParams = { page: 1, size: 10, status: -1 }
 ): Promise<PaginatedResponse<MomentReport>> {
-  return requireApiPayload(await getMomentReportList(params), '/moment/report/list')
+  const payload = await requireApiPayload(await getMomentReportList(params), '/moment/report/list')
+  return {
+    ...payload,
+    items: Array.isArray(payload.items)
+      ? payload.items.map((item) => normalizeMomentReport(item))
+      : [],
+  }
 }
 
 export async function resolveMomentReport(

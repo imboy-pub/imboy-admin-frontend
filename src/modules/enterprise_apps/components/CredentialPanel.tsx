@@ -51,6 +51,8 @@ type CredentialPanelProps = {
   scope: GovernanceScope
   /** Application 当前生命周期（archived 时禁写）。 */
   applicationArchived: boolean
+  /** R09：到期判定的当前时间注入点（默认墙钟；测试固定后可复现）。 */
+  now?: number
 }
 
 /**
@@ -60,12 +62,19 @@ type CredentialPanelProps = {
  * - 全部写动作要求 `enterprise_business:write` + 二次确认 + 幂等键；
  * - 列表面永不出现明文 secret / digest（服务层熔断 + 白名单投影）。
  */
-export function CredentialPanel({ scope, applicationArchived }: CredentialPanelProps) {
+export function CredentialPanel({ scope, applicationArchived, now }: CredentialPanelProps) {
   const queryClient = useQueryClient()
   const { allowed: canWrite } = useAdminPermission({ permission: WRITE_PERMISSION })
   const [pending, setPending] = useState<PendingAction | null>(null)
   const [activeWindow, setActiveWindow] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+  // R09：到期判定需要一个「未注入 now 时的当前时刻」。Date.now() 是渲染
+  // 不纯来源（react-hooks/purity），移入 useState 惰性初始化这一官方豁免
+  // 位置；now prop（测试注入固定时间）语义不变。生产下面板无定时刷新订阅，
+  // 挂载期取一次与原「每渲染取当前」在可见行为上等价（重渲染均由
+  // query/refetch 驱动，到期状态本就不随时钟自动翻转）。
+  const [fallbackNowMs] = useState(() => Date.now())
+  const nowMs = now ?? fallbackNowMs
 
   const queryKey = useMemo(
     () => ['enterprise_apps', 'credentials', scope.organizationId, scope.applicationId],
@@ -160,7 +169,7 @@ export function CredentialPanel({ scope, applicationArchived }: CredentialPanelP
         </TableHeader>
         <TableBody>
           {rows.map((row) => {
-            const expiry = credentialExpiryState(row)
+            const expiry = credentialExpiryState(row, nowMs)
             const revokedOrExpired = expiry === 'revoked' || expiry === 'expired' || expiry === 'unknown'
             return (
               <TableRow key={row.id} data-credential-id={row.id}>

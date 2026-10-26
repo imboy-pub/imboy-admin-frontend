@@ -14,6 +14,7 @@ import {
   type Announcement,
 } from '@/services/api/announcements'
 import { exportCsv } from '@/lib/csvExport'
+import { formatDisplayInstantIso } from '@/lib/displayTime'
 import { AnnouncementFormDialog } from './AnnouncementFormDialog'
 import { getErrorMessage } from '@/lib/errorUtils'
 import { useListQueryState } from '@/hooks/useListQueryState'
@@ -109,7 +110,8 @@ export function AnnouncementListPage() {
       { header: '类型', accessor: (row: Announcement) => TYPE_MAP[row.type]?.label || row.type },
       { header: '状态', accessor: (row: Announcement) => STATUS_MAP[row.status]?.label || String(row.status) },
       { header: '置顶', accessor: (row: Announcement) => row.pinned === 1 ? '是' : '否' },
-      { header: '创建时间', accessor: (row: Announcement) => row.created_at || '-' },
+      // R14：CSV 消费 R08 adapter 规范 ISO（稳定数据导出，不烘焙查看者时区）。
+      { header: '创建时间', accessor: (row: Announcement) => row.created_at ?? '-' },
     ]
     exportCsv(columns, currentItems, 'announcements_export')
     toast.success(`已导出 ${currentItems.length} 条公告数据`)
@@ -179,9 +181,10 @@ export function AnnouncementListPage() {
                       <span className={`text-xs px-1.5 py-0.5 rounded shrink-0 ${typeInfo.color}`}>{typeInfo.label}</span>
                     </div>
                     <p className="mt-1 text-sm text-muted-foreground line-clamp-2">{item.body}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      创建于 {item.created_at}
-                      {item.published_at && ` | 发布于 ${item.published_at}`}
+                    <p className="mt-1 text-xs text-muted-foreground" data-created-at={item.created_at ?? undefined}>
+                      {/* R14：展示走查看者本地（公共缓存 formatter）；adapter 产物已落 data 属性。 */}
+                      创建于 {formatDisplayInstantIso(item.created_at, 'zh-CN', undefined, 'full') ?? '时间未知'}
+                      {item.published_at && ` | 发布于 ${formatDisplayInstantIso(item.published_at, 'zh-CN', undefined, 'full') ?? '时间未知'}`}
                     </p>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">

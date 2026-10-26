@@ -3,16 +3,18 @@ import { requireApiPayload } from '@/services/api/responseAdapter'
 import { ApiResponse, PaginatedResponse } from '@/types/api'
 import type { EntityId } from '@/types/common'
 import { coerceEntityId } from '@/lib/entityId'
+import { toApiInstantIso } from '@/lib/apiInstant'
 
 export interface Feedback {
   id: EntityId
   user_id: EntityId
   content: string
   status: number
-  created_at: string
-  updated_at: string
+  /** 规范 ISO（毫秒 adapter 产物，R21-B：/feedback/index 走 elib_response:success 毫秒链）；缺失/非法 → null。 */
+  created_at: string | null
+  updated_at: string | null
   reply?: string
-  reply_at?: string
+  reply_at?: string | null
   // 扩展字段
   nickname?: string
   avatar?: string
@@ -44,6 +46,10 @@ function normalizeFeedback(item: RawFeedback): Feedback {
     status: Number.isFinite(status) ? status : 1,
     content: item.content ?? item.body ?? '',
     reply: item.reply ?? item.reply_body,
+    // R21-B：wire 毫秒 → 规范 ISO（此前页面按位数猜秒/毫秒 + 无 offset 串本地解析）
+    created_at: toApiInstantIso(item.created_at, 'milliseconds'),
+    updated_at: toApiInstantIso(item.updated_at, 'milliseconds'),
+    reply_at: item.reply_at === undefined ? undefined : toApiInstantIso(item.reply_at, 'milliseconds'),
   }
 }
 

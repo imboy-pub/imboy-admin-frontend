@@ -83,6 +83,63 @@ describe('getMomentReportListPayload', () => {
     expect(result.items).toHaveLength(1)
     expect(result.items[0].reason).toBe('违规内容')
   })
+
+  it('projects epoch-millisecond wire instants to canonical ISO (R08-AD)', async () => {
+    // /moment/report/* 出站 _at 键 = epoch 毫秒（adm_moment_handler → elib_response:success 链）
+    mutableClient.get = async () => ({
+      data: {
+        code: 0, msg: 'ok',
+        payload: {
+          items: [
+            {
+              id: 601,
+              moment_id: 701,
+              post_id: 701,
+              reporter_uid: 7002,
+              reason: '违规内容',
+              status: 2,
+              handled_by: 42,
+              handled_at: 1789600060000,
+              created_at: 1789600000000,
+              updated_at: 1789600060000,
+            },
+          ],
+          page: 1, size: 10, total: 1, total_pages: 1,
+        },
+      },
+    })
+
+    const result = await getMomentReportListPayload()
+    expect(result.items[0].created_at).toBe('2026-09-16T23:06:40.000Z')
+    expect(result.items[0].handled_at).toBe('2026-09-16T23:07:40.000Z')
+    expect(result.items[0].updated_at).toBe('2026-09-16T23:07:40.000Z')
+  })
+
+  it('fails closed on missing or invalid moment report instants', async () => {
+    mutableClient.get = async () => ({
+      data: {
+        code: 0, msg: 'ok',
+        payload: {
+          items: [
+            {
+              id: 602,
+              moment_id: 702,
+              reporter_uid: 7002,
+              reason: 'x',
+              status: 0,
+              created_at: '2026-03-01 10:00:00',
+            },
+          ],
+          page: 1, size: 10, total: 1, total_pages: 1,
+        },
+      },
+    })
+
+    const result = await getMomentReportListPayload()
+    expect(result.items[0].created_at).toBeNull()
+    expect(result.items[0].updated_at).toBeNull()
+    expect(result.items[0].handled_at).toBeNull()
+  })
 })
 
 describe('deleteMoment', () => {

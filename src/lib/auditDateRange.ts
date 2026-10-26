@@ -1,33 +1,27 @@
-/** Audit page dates always arrive as YYYY-MM-DD or not at all (UI type=date,
- *  but URL deep links are user-editable): malformed strings filter nothing
- *  instead of throwing RangeError on Invalid Date arithmetic. */
-const WHOLE_DAY = /^\d{4}-\d{2}-\d{2}$/
+import { calendarDayRange } from './calendarRange'
 
-const unbounded = (ms: number, fallback: number) => (Number.isFinite(ms) ? ms : fallback)
-
-/** Parse YYYY-MM-DD as local midnight; reject JS rollover (Feb 30 → Mar 2)
- *  so a typo filters nothing instead of the wrong day. */
-function wholeDayMs(date: string): number {
-  if (!WHOLE_DAY.test(date)) return NaN
-  const parsed = new Date(`${date}T00:00:00`)
-  const ms = parsed.getTime()
-  if (!Number.isFinite(ms)) return NaN
-  const same = parsed.getFullYear() === Number(date.slice(0, 4))
-    && parsed.getMonth() === Number(date.slice(5, 7)) - 1
-    && parsed.getDate() === Number(date.slice(8, 10))
-  return same ? ms : NaN
+/**
+ * Audit page dates always arrive as YYYY-MM-DD or not at all (UI type=date,
+ * but URL deep links are user-editable): malformed strings filter nothing
+ * instead of throwing RangeError on Invalid Date arithmetic.
+ *
+ * R12-AD：本地时区整日半开区间的午夜算术收敛到 calendarRange（同一套
+ * 日历语义；DST 23/25 小时日由两次真实午夜相减得出）。本模块语义不变：
+ * 畸形日期 → unbounded，边界独立。
+ */
+function localTimeZone(): string {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone
 }
 
 /** Local calendar bounds for the audit page's already-loaded events. */
 export function auditDateRange(dateStart: string, dateEnd: string) {
-  const startMs = unbounded(wholeDayMs(dateStart), -Infinity)
-  let endExclusiveMs = Infinity
-  if (Number.isFinite(wholeDayMs(dateEnd))) {
-    const nextDay = new Date(`${dateEnd}T00:00:00`)
-    nextDay.setDate(nextDay.getDate() + 1)
-    endExclusiveMs = unbounded(nextDay.getTime(), Infinity)
+  const zone = localTimeZone()
+  const start = calendarDayRange(dateStart, zone)
+  const end = calendarDayRange(dateEnd, zone)
+  return {
+    startMs: start === null ? -Infinity : start.startMs,
+    endExclusiveMs: end === null ? Infinity : end.endExclusiveMs,
   }
-  return { startMs, endExclusiveMs }
 }
 
 /** Existing admin endpoints use inclusive timestamptz bounds at microsecond precision. */

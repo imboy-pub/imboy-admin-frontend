@@ -29,7 +29,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { formatDate } from '@/lib/utils'
+import { formatOptionalDate } from '@/lib/utils'
 import type {
   ReportProcessStep,
 } from '@/modules/reports/contracts/reportPanelExtension'
@@ -122,7 +122,9 @@ function evidenceRows(report: ReportTicket): Array<{ label: string; value: strin
       rows.push({ label: '客户端消息 ID', value: evidence.client_msg_id })
     }
     if (typeof evidence.sent_at === 'number' && evidence.sent_at > 0) {
-      rows.push({ label: '发送时间', value: formatDate(new Date(evidence.sent_at).toISOString()) })
+      // evidence jsonb 内嵌 sent_at = 客户端上报 epoch 毫秒（整数直通
+      // convert_at_timestamps）；new Date(ms) 直接正确，toISOString 交统一 formatter。
+      rows.push({ label: '发送时间', value: formatOptionalDate(new Date(evidence.sent_at).toISOString()) })
     }
     if (typeof evidence.content_excerpt === 'string' && evidence.content_excerpt) {
       rows.push({
@@ -426,7 +428,7 @@ export function TargetReportPanel({
       accessorKey: 'created_at',
       header: '举报时间',
       cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground">{formatDate(row.original.created_at)}</span>
+        <span className="text-sm text-muted-foreground">{formatOptionalDate(row.original.created_at)}</span>
       ),
     },
     {

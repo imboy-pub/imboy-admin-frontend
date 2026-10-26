@@ -10,6 +10,7 @@
 import type { AssetPreview, ChatMessage, ChatState, MessageAsset } from './chatMachine'
 import { showLeaveMessageNotice } from './chatMachine'
 import { isValidRatingScore } from './contract'
+import { formatDisplayInstant } from '@/lib/displayTime'
 
 type ChatUiHandlers = {
   onConsentAccept: () => void
@@ -557,10 +558,9 @@ export function createChatUi(root: HTMLElement, locale: string, handlers: ChatUi
       if (timestamp !== null && Number.isFinite(timestamp.getTime())) {
         const time = doc.createElement('time')
         time.dateTime = timestamp.toISOString()
-        time.textContent = timestamp.toLocaleString(locale, {
-          month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
-          hour12: false,
-        })
+        // R14：访客本地时区 + 公共缓存 formatter（lib/displayTime，随
+        // main.ts 的 visibilitychange 核对失效重建）；不再逐消息新建 Intl。
+        time.textContent = formatDisplayInstant(timestamp.getTime(), locale, undefined, 'full')
         meta.append(doc.createTextNode(' · '), time)
       }
       if (message.role === 'visitor') {

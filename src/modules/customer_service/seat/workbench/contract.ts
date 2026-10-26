@@ -64,10 +64,12 @@ type SeatLastMessage = {
   id: EntityId | null
   /** CS-WEB-03 键名对齐（CSX-01 修正）：wire 键是 sender_type / created_at /
    *  preview（cs_session_app:last_message_with 冻结键集）——旧 parser 读
-   *  `at` 属键名错位，恒 null。created_at 是 epoch 秒（PG bigint wire）。 */
+   *  `at` 属键名错位，恒 null。created_at 是 epoch 秒（PG bigint wire）；
+   *  R08-AD.1：经 customerServiceTimestamp 秒 adapter 归一为规范 ISO
+   *  （与 toSeatMessage.createdAt 同合同，消除同 contract 同名字段双单位）。 */
   senderType: string | null
   preview: string | null
-  createdAt: number | null
+  createdAt: string | null
 }
 
 export type SeatSessionSummary = {
@@ -330,7 +332,7 @@ function toLastMessage(raw: unknown): SeatLastMessage {
     id: optTsid(raw.id),
     senderType: optStr(raw.sender_type),
     preview: optStr(raw.preview),
-    createdAt: optInt(raw.created_at),
+    createdAt: customerServiceTimestamp(raw.created_at),
   }
 }
 

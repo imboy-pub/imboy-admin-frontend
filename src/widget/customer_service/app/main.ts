@@ -16,6 +16,7 @@ import { observeReadVisibility } from './readVisibility'
 import { createChatUi } from './ui'
 import { createWidgetController } from './controller'
 import { WidgetApiClient } from './widgetApi'
+import { recheckDisplayZone } from '@/lib/displayTime'
 import { WIDGET_MESSAGE_SOURCE } from '../protocol'
 import type { StorageLike } from './visitStorage'
 
@@ -121,6 +122,14 @@ function boot(): void {
   })
 
   refreshReadObservation()
+
+  // R14 查看者（访客）zone 生命周期——widget 侧轻量取舍：加载时解析一次 +
+  // visibilitychange 核对；zone 变化 → 失效 formatter 缓存并整帧重渲染。
+  // iframe 生命周期短（宿主导航即销毁重建），不做 focus/pageshow 常驻监听。
+  recheckDisplayZone()
+  document.addEventListener('visibilitychange', () => {
+    if (recheckDisplayZone()) ui.render(controller.currentState())
+  })
 
   window.addEventListener(
     'message',

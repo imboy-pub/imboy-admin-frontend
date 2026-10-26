@@ -24,6 +24,7 @@ afterEach(() => {
   mutableClient.put = originalPut
 })
 
+/** wire 形状：elib_response:success 链路出站的 `_at` 字段是毫秒整数（R14 勘察）。 */
 const announcementFixture = {
   id: '1',
   adm_user_id: '10',
@@ -32,9 +33,9 @@ const announcementFixture = {
   type: 'warning' as const,
   status: 1 as const,
   pinned: 1,
-  published_at: '2026-04-10 10:00:00',
+  published_at: 1775815200000,
   expired_at: null,
-  created_at: '2026-04-10 09:00:00',
+  created_at: 1775811600000,
   updated_at: null,
 }
 
@@ -59,6 +60,34 @@ describe('getAnnouncementList', () => {
     expect(result.page).toBe(1)
     expect(result.total).toBe(1)
     expect(result.total_pages).toBe(1)
+    // R08/R14：毫秒 wire → 规范 ISO（同一瞬间，不依赖查看者时区）。
+    expect(result.items[0].created_at).toBe('2026-04-10T09:00:00.000Z')
+    expect(result.items[0].published_at).toBe('2026-04-10T10:00:00.000Z')
+  })
+
+  it('normalizes _at fields fail-closed: invalid shapes become null, not fabricated instants', async () => {
+    mutableClient.get = async () => ({
+      data: {
+        code: 0, msg: 'ok',
+        payload: {
+          list: [{
+            ...announcementFixture,
+            id: '2',
+            // 无偏移的裸串不是规范瞬间（R08 合同）→ null，不猜时区。
+            created_at: '2026-04-10 09:00:00',
+            published_at: NaN,
+            updated_at: '2026-04-10T10:00:00+00:00',
+          }],
+          page: 1, size: 10, total: 1,
+        },
+      },
+    })
+
+    const result = await getAnnouncementList()
+    expect(result.items[0].created_at).toBeNull()
+    expect(result.items[0].published_at).toBeNull()
+    // 带 offset 的 RFC3339 按瞬间归一毫秒精度 ISO。
+    expect(result.items[0].updated_at).toBe('2026-04-10T10:00:00.000Z')
   })
 
   it('forwards filter params to API', async () => {
