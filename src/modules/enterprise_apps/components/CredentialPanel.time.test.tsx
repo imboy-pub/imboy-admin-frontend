@@ -12,7 +12,7 @@
 import '../../../test/setupDom'
 import { afterEach, describe, expect, it } from 'bun:test'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, waitFor } from '@testing-library/react'
+import { act, cleanup, render, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import React from 'react'
 import client from '@/services/api/client'
@@ -69,13 +69,16 @@ function mockCredentials(permissions: string[], rows: Array<Record<string, unkno
   mutableClient.delete = async () => payload({})
 }
 
-function wrap(element: React.ReactElement) {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: 0, gcTime: 0 } } })
-  return render(
-    <QueryClientProvider client={qc}>
+function wrap(element: React.ReactElement, injectedClient?: QueryClient) {
+  const queryClient = injectedClient
+    ?? new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: 0, gcTime: 0 } } })
+  const view = render(
+    <QueryClientProvider client={queryClient}>
       <MemoryRouter>{element}</MemoryRouter>
     </QueryClientProvider>
   )
+  // 展开保持 render 结果兼容，并附带 queryClient 供 refetch 场景驱动。
+  return { ...view, queryClient }
 }
 
 const REVOKE_ROWS = [
@@ -203,5 +206,42 @@ describe('R09-3 撤销按钮可用性', () => {
     })
     expect((view.getByTestId(`credential-revoke-${ROW_ACTIVE}`) as HTMLButtonElement).disabled).toBe(true)
     expect((view.getByTestId('credential-issue') as HTMLButtonElement).disabled).toBe(true)
+  })
+})
+
+describe('R09 fallback now 语义（未注入 now prop）', () => {
+  it('refetch 成功后 fallback now 重置：挂载后才过期的凭证翻转为已过期（不冻结在挂载时刻）', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: 0, gcTime: 0 } },
+    })
+    // 第一跳：到期时刻在挂载 now 之后 1 分钟 → 相对挂载时刻为有效。
+    mockCredentials([READ_PERMISSION, WRITE_PERMISSION], [
+      { ...REVOKE_ROWS[0]!, expires_at: Date.now() + 60_000 },
+    ])
+    const view = wrap(
+      <CredentialPanel
+        scope={{ organizationId: ORG, applicationId: APP }}
+        applicationArchived={false}
+      />,
+      queryClient,
+    )
+    await waitFor(() => {
+      expect(view.getByTestId(`credential-expiry-${ROW_ACTIVE}`).textContent).toBe('有效（未过期）')
+    })
+
+    // 第二跳：同一凭证的到期时刻改为「本次 fetch 当下」。refetch 成功后
+    // fallback now 被重置为 ≥ fetch 时刻（半开边界归属到期侧）→ 已过期；
+    // 若 now 仍冻结在挂载时刻，该行将停留「有效」，断言失败。
+    mockCredentials([READ_PERMISSION, WRITE_PERMISSION], [
+      { ...REVOKE_ROWS[0]!, expires_at: Date.now() },
+    ])
+    await act(async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ['enterprise_apps', 'credentials', ORG, APP],
+      })
+    })
+    await waitFor(() => {
+      expect(view.getByTestId(`credential-expiry-${ROW_ACTIVE}`).textContent).toBe('已过期')
+    })
   })
 })

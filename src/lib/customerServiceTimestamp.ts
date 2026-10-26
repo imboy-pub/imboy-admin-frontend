@@ -9,9 +9,10 @@ import { isNumericInstantShape, parseApiInstantMs } from './apiInstant'
 export function customerServiceTimestamp(value: unknown): string | null {
   if (!isNumericInstantShape(value)) {
     // RFC3339 形状：底层已做严格校验，通过即原样保留（含 offset 与小数秒）。
-    return parseApiInstantMs(value, 'seconds') === null
-      ? null
-      : (value as string)
+    // 到达此分支且解析成功的 value 必为 RFC3339 字符串；非字符串防御性返回
+    // null（不再 `as string` 断言）。
+    if (parseApiInstantMs(value, 'seconds') === null) return null
+    return typeof value === 'string' ? value : null
   }
   const ms = parseApiInstantMs(value, 'seconds')
   return ms === null ? null : new Date(ms).toISOString()

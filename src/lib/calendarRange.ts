@@ -80,6 +80,9 @@ function zoneOffsetMs(utcMs: number, timeZone: string): number {
 /**
  * 目标时区某日历日当地 00:00 的 UTC 毫秒。两次迭代吸收 DST 边界的
  * offset 抖动；`Date.UTC` 的越界参数自动进位处理月末/年末加法。
+ * 边界说明：历史上个别辖区曾在 00:00 整点拨动时区规则（如 DST 切换落在
+ * 午夜），两次迭代法对该类日期可能有 ≤1h 偏差；当前证据链（W0 实测
+ * NY/Shanghai/Kathmandu 等 zone 集）无受影响时区，如需覆盖需引入 tzdata 历史表。
  */
 function zoneMidnightMs(year: number, month: number, day: number, timeZone: string): number {
   let guess = Date.UTC(year, month - 1, day)

@@ -41,6 +41,8 @@ function rfc3339ToMs(value: string): number | null {
   const day = Number(dayText)
   const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0)
   const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+  // 秒位 >59（:60 闰秒形状）有意拒绝——这是收紧而非疏漏：PG timestamptz
+  // 不产出闰秒，接收 :60 只会引入各引擎 Date.parse 的分歧处理。
   if (month < 1 || month > 12 || day < 1 || day > days[month - 1]
     || Number(hourText) > 23 || Number(minuteText) > 59 || Number(secondText) > 59
     || Number(offsetHourText ?? 0) > 23 || Number(offsetMinuteText ?? 0) > 59) {
