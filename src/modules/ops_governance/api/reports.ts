@@ -610,23 +610,41 @@ export interface ReportActionRequest {
   target_id?: EntityId
 }
 
-const REPORT_ACTION_TIME_KEYS = [
-  'start_at',
-  'end_at',
-  'reversed_at',
-  'created_at',
-  'updated_at',
-] as const
-
-/** R08-AD：处置动作行时间字段经同一毫秒 adapter（wire 同举报域毫秒链）。 */
+/**
+ * R08-AD：处置动作行时间字段经同一毫秒 adapter（wire 同举报域毫秒链）。
+ * W9：字段级投影替代 `{...item} as unknown as ReportActionRow` 双重断言，
+ * 与 normalizeReport 同口径——标识符字段 coerceEntityId（数字 TSID 不经
+ * Number() 精度通道），对象字段收紧形状，其余按声明类型显式收敛。
+ */
 function normalizeReportAction(raw: unknown): ReportActionRow {
   const item = typeof raw === 'object' && raw !== null
     ? raw as Record<string, unknown> : {}
-  const row = { ...item } as Record<string, unknown>
-  for (const key of REPORT_ACTION_TIME_KEYS) {
-    row[key] = toReportInstantIso(row[key])
+  const scope = typeof item.scope === 'object' && item.scope !== null && !Array.isArray(item.scope)
+    ? item.scope as Record<string, unknown> : {}
+  const result = typeof item.result === 'object' && item.result !== null && !Array.isArray(item.result)
+    ? item.result as Record<string, unknown> : {}
+
+  return {
+    id: coerceEntityId(item.id),
+    case_id: coerceEntityId(item.case_id),
+    action: (typeof item.action === 'string' ? item.action : '') as ReportActionType,
+    target_type: typeof item.target_type === 'string' ? item.target_type : '',
+    target_id: coerceEntityId(item.target_id),
+    target_uid: coerceEntityId(item.target_uid),
+    scope,
+    reason: typeof item.reason === 'string' ? item.reason : '',
+    actor_id: coerceEntityId(item.actor_id),
+    status: (typeof item.status === 'string' ? item.status : '') as ReportActionRow['status'],
+    result,
+    fail_reason: typeof item.fail_reason === 'string' ? item.fail_reason : '',
+    start_at: toReportInstantIso(item.start_at),
+    end_at: toReportInstantIso(item.end_at),
+    reversed_at: toReportInstantIso(item.reversed_at),
+    reversed_by: coerceEntityId(item.reversed_by),
+    reverse_reason: typeof item.reverse_reason === 'string' ? item.reverse_reason : '',
+    created_at: toReportInstantIso(item.created_at),
+    updated_at: toReportInstantIso(item.updated_at),
   }
-  return row as unknown as ReportActionRow
 }
 
 /** 执行处置动作；HTTP 200 且 code!=0（业务拒绝，如重复/unsupported）时由调用方读取 msg。 */

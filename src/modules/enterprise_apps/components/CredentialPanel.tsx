@@ -69,12 +69,13 @@ export function CredentialPanel({ scope, applicationArchived, now }: CredentialP
   const [activeWindow, setActiveWindow] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   // R09：到期判定需要一个「未注入 now 时的当前时刻」。Date.now() 是渲染
-  // 不纯来源（react-hooks/purity），移入 useState 惰性初始化这一官方豁免
-  // 位置；now prop（测试注入固定时间）语义不变。生产下面板无定时刷新订阅，
-  // 挂载期取一次与原「每渲染取当前」在可见行为上等价（重渲染均由
-  // query/refetch 驱动，到期状态本就不随时钟自动翻转）。
-  const [fallbackNowMs] = useState(() => Date.now())
-  const nowMs = now ?? fallbackNowMs
+  // 不纯来源（react-hooks/purity），挂载时刻移入 useState 惰性初始化这一
+  // 官方豁免位置；now prop（测试注入固定时间）语义不变。fallback now 的
+  // 语义是「最近一次数据 refetch 成功的时刻」而非「每渲染新鲜」：直接取
+  // react-query 的 dataUpdatedAt（成功 fetch 的墙钟），首帧数据未到时退回
+  // 挂载时刻——长挂载面板中「挂载后才到期」的凭证在下一次 refetch 后不再
+  // 误报有效（两次 refetch 之间仍无时钟订阅，到期翻转等待下次数据刷新）。
+  const [mountNowMs] = useState(() => Date.now())
 
   const queryKey = useMemo(
     () => ['enterprise_apps', 'credentials', scope.organizationId, scope.applicationId],
@@ -84,6 +85,9 @@ export function CredentialPanel({ scope, applicationArchived, now }: CredentialP
     queryKey,
     queryFn: () => listCredentials(scope),
   })
+
+  // R09：fallback now = 最近一次成功 refetch 时刻（语义见上方注释）。
+  const nowMs = now ?? (query.dataUpdatedAt > 0 ? query.dataUpdatedAt : mountNowMs)
 
   const refresh = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey })

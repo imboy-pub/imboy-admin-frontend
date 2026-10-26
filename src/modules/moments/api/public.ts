@@ -211,7 +211,9 @@ function normalizeMoment(raw: unknown): MomentItem {
 
 /**
  * R08-AD：动态举报行同走毫秒 adapter（adm_moment_handler report_list → elib_response:success 链）。
- * 仅投影时间字段；标识符字段保持 wire 形状透传（不引入 coerce 改变既有请求体形状）。
+ * W9：id / post_id(?? moment_id) / handled_by 与 ops_governance reports.ts 统一为
+ * coerceEntityId 口径（数字 TSID 收敛为字符串，缺失/非法 → ''，不做精度通道转换）；
+ * 时间字段仍走毫秒 adapter。
  */
 function normalizeMomentReport(raw: unknown): MomentReport {
   const item = (typeof raw === 'object' && raw !== null
@@ -219,13 +221,13 @@ function normalizeMomentReport(raw: unknown): MomentReport {
     : {}) as Record<string, unknown>
 
   return {
-    id: item.id as EntityId,
-    post_id: (item.post_id ?? item.moment_id) as EntityId,
+    id: coerceEntityId(item.id),
+    post_id: coerceEntityId(item.post_id ?? item.moment_id),
     reporter_uid: item.reporter_uid as EntityId,
     reason: String(item.reason ?? ''),
     description: String(item.description ?? ''),
     status: Number(item.status ?? 0),
-    handled_by: (item.handled_by ?? '') as MomentReport['handled_by'],
+    handled_by: coerceEntityId(item.handled_by),
     handled_at: toApiInstantIso(item.handled_at, 'milliseconds'),
     created_at: toApiInstantIso(item.created_at, 'milliseconds'),
     updated_at: toApiInstantIso(item.updated_at, 'milliseconds'),
