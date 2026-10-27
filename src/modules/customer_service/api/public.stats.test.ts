@@ -49,8 +49,9 @@ it('new reply facts preserve existing organization, date and timezone guards', a
 const naturalDayFacts = {
   ...facts, date: '2026-03-08', tz_offset: null,
   window_mode: 'natural_day', zone: 'America/New_York',
-  // NY 2026-03-08 春季拨快：当地两午夜 = 05:00Z → 次日 04:00Z（23h）
-  window_start: 1772965200, window_end: 1772965200 + 23 * 3600,
+  // NY 2026-03-08 春季拨快：当地两午夜 = 05:00Z → 次日 04:00Z（恰 23h，
+  // 与 BE 真库套件 cs_stats_zone_pg_tests 的 ny_spring 期望同一对 epoch）
+  window_start: 1772946000, window_end: 1772946000 + 23 * 3600,
 }
 
 it('zone with tzOffset is rejected client-side before any request (D03)', async () => {
