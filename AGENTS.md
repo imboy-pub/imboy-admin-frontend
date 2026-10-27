@@ -119,7 +119,7 @@ interface User {
 **规则**:
 - 所有 TSID 字段必须使用 `EntityId`，不直接写 `string`
 - 不要用 `Number(id)` 或 `parseInt(id)` 处理 TSID
-- 详见：`imboy/docs/api/tsid-field-convention.md`
+- 详见：`../imboy/docs/reference/tsid-field-convention.md`
 
 ### 命令参考
 
