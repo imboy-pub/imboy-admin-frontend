@@ -1,4 +1,4 @@
-import { resumeUpload, uploadJournal } from '@/lib/attachmentUploadJournal'
+import { attachmentDispatchUnknown, resumeUpload, uploadJournal } from '@/lib/attachmentUploadJournal'
 /**
  * FE-W01：附件上传流水线（§3.7：hash → presign → 裸 PUT → confirm → 消息 asset_ids）。
  *
@@ -18,7 +18,7 @@ import {
   type AttachmentEvent,
   type AttachmentItem,
 } from './attachmentMachine'
-import { WidgetApiClient } from './widgetApi'
+import { isDefiniteMessageRefusal, WidgetApiClient } from './widgetApi'
 
 type FetchLike = (_input: string, _init?: RequestInit) => Promise<Response>
 
@@ -99,7 +99,6 @@ export async function runAttachmentPipeline(input: {
       const current = () => input.deps.isCurrent?.() ?? true
       const journal = uploadJournal(['widget', input.principalId ?? '', input.scope.installationId, input.sessionId], current)
       return await journal.run(input.clientMsgId, async () => {
-      const previous = journal.load(input.clientMsgId)
       const row = await resumeUpload({ journal, file: input.file, hash: item.objectHash!, clientMsgId: input.clientMsgId,
         isCurrent: current,
         onCheckpoint: async (checkpoint) => {
@@ -120,7 +119,7 @@ export async function runAttachmentPipeline(input: {
       requireCurrent(input.deps)
       item = { ...item, clientMsgId: row.clientMsgId, assetId: row.assetId, state: 'sending' }
       input.deps.onItem(item)
-      if (previous?.phase === 'confirmed') {
+      if (attachmentDispatchUnknown(row)) {
         let afterId: string | null = null
         for (let page = 0; page < 20; page += 1) {
           requireCurrent(input.deps)
@@ -145,7 +144,10 @@ export async function runAttachmentPipeline(input: {
         }
         throw new PipelineFailure('消息结果仍未知，请继续查询原任务')
       }
-      item = await ensureLinked(item, input.sessionId, input.scope, input.deps)
+      await journal.save({ ...row, dispatchState: 'dispatch_intent' })
+      requireCurrent(input.deps)
+      item = await ensureLinked(item, input.sessionId, input.scope, input.deps,
+        () => journal.acknowledgeRefusal(row.clientMsgId, row.clientUploadId))
       if (item.state === 'linked') await journal.remove(row.clientMsgId, row.clientUploadId)
       return item
       })
@@ -257,7 +259,8 @@ async function ensureLinked(
   item: AttachmentItem,
   sessionId: string,
   scope: RequestScope,
-  deps: UploaderDeps
+  deps: UploaderDeps,
+  acknowledgeRefusal?: () => Promise<void>
 ): Promise<AttachmentItem> {
   if (item.state !== 'sending' || item.assetId === null) return item
   try {
@@ -267,6 +270,7 @@ async function ensureLinked(
     return dispatch(item, { type: 'append_succeeded', key: item.key, messageId: message.id }, deps)
   } catch (error) {
     reportCredentialRefusal(error, deps)
+    if (isDefiniteMessageRefusal(error)) await acknowledgeRefusal?.()
     throw new PipelineFailure(error instanceof Error ? error.message : '附件消息发送失败')
   }
 }
