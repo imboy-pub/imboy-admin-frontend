@@ -227,6 +227,9 @@ export type CsSessionStatsParams = {
   date?: string
   /** ISO 8601 分钟口径时区偏移（-840..840）；缺失 = 0（UTC）。 */
   tzOffset?: number
+  /** IANA 时区名（D03 natural_day 模式）：窗口=该 zone 该日两自然午夜
+   *（23/24/25h）。与 tzOffset 互斥（同传服务端 400；客户端先行拒绝）。 */
+  zone?: string
 }
 
 /**
@@ -242,7 +245,13 @@ export async function getCsSessionStats(params: CsSessionStatsParams): Promise<C
   const query: Record<string, string | number> = {}
   const date = typeof params.date === 'string' ? params.date.trim() : ''
   if (date.length > 0) query.date = date
-  if (typeof params.tzOffset === 'number' && Number.isFinite(params.tzOffset)) {
+  const zone = typeof params.zone === 'string' ? params.zone.trim() : ''
+  // D03：两个窗口语义不可同真——客户端先行拒绝（服务端合同亦 400）。
+  if (zone.length > 0 && typeof params.tzOffset === 'number' && Number.isFinite(params.tzOffset)) {
+    throw new Error('zone 与 tz_offset 互斥，不能同时指定统计窗口语义')
+  }
+  if (zone.length > 0) query.zone = zone
+  else if (typeof params.tzOffset === 'number' && Number.isFinite(params.tzOffset)) {
     query.tz_offset = Math.trunc(params.tzOffset)
   }
   const response = await client.get<ApiResponse<unknown>>(
@@ -252,7 +261,9 @@ export async function getCsSessionStats(params: CsSessionStatsParams): Promise<C
   const stats = toCsSessionStats(requireApiPayload(response.data, 'GET cs session stats'))
   if (stats === null || stats.organizationId !== organizationId
     || (date.length > 0 && stats.date !== date)
-    || stats.tzOffset !== (query.tz_offset ?? 0)) {
+    || (zone.length > 0
+      ? (stats.windowMode !== 'natural_day' || stats.zone !== zone)
+      : (stats.windowMode !== 'fixed_offset' || stats.tzOffset !== (query.tz_offset ?? 0)))) {
     throw new Error('统计响应的事实、组织或时间范围不一致，无法展示')
   }
   return stats

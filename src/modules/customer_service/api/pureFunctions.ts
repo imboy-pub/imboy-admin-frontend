@@ -502,10 +502,18 @@ type CsStatsCurrent = {
   active: number
 }
 
+/** D03：窗口模式。fixed_offset=旧合同（date+tz_offset 固定 24h）；
+ * natural_day=zone 两自然午夜（23/24/25h，DST 边界日由服务端 tzdata 保证）。 */
+export type CsSessionStatsWindowMode = 'fixed_offset' | 'natural_day'
+
 export type CsSessionStats = {
   organizationId: EntityId
   date: string | null
-  tzOffset: number
+  /** 固定偏移分钟；natural_day 模式为 null。 */
+  tzOffset: number | null
+  /** IANA 时区名（natural_day 回显）；fixed_offset 模式为 null。 */
+  zone: string | null
+  windowMode: CsSessionStatsWindowMode
   /** 服务端回显的显式窗口（epoch 秒）——UI 只展示，不重算。 */
   windowStart: number
   windowEnd: number
@@ -571,16 +579,33 @@ export function toCsSessionStats(raw: unknown): CsSessionStats | null {
   const windowStart = statsTimestamp(payload.window_start), windowEnd = statsTimestamp(payload.window_end)
   const newSessions = statsCount(payload.new_sessions), closedSessions = statsCount(payload.closed_sessions)
   const queued = statsCount(current?.queued), active = statsCount(current?.active)
-  const tzOffset = payload.tz_offset
   if (orgId === null || fr === null || rating === null || windowStart === null || windowEnd === null
     || windowEnd <= windowStart || newSessions === null || closedSessions === null || queued === null || active === null
-    || typeof tzOffset !== 'number' || !Number.isInteger(tzOffset) || Math.abs(tzOffset) > 840
     || !Number.isFinite(new Date(windowStart * 1000).getTime())
     || !Number.isFinite(new Date(windowEnd * 1000).getTime()) || !validStatsDate(payload.date)) return null
-  const expectedStart = Date.parse(`${payload.date}T00:00:00Z`) / 1000 - tzOffset * 60
-  if (windowStart !== expectedStart || windowEnd !== windowStart + 86400) return null
+  // D03：模式分支。旧响应无 window_mode 键 → fixed_offset（旧合同逐字节不变）。
+  const rawMode = payload.window_mode === undefined ? 'fixed_offset' : payload.window_mode
+  if (rawMode !== 'fixed_offset' && rawMode !== 'natural_day') return null
+  const windowMode: CsSessionStatsWindowMode = rawMode
+  let tzOffset: number | null = null
+  let zone: string | null = null
+  if (windowMode === 'fixed_offset') {
+    const rawOffset = payload.tz_offset
+    if (typeof rawOffset !== 'number' || !Number.isInteger(rawOffset) || Math.abs(rawOffset) > 840) return null
+    const expectedStart = Date.parse(`${payload.date}T00:00:00Z`) / 1000 - rawOffset * 60
+    if (windowStart !== expectedStart || windowEnd !== windowStart + 86400) return null
+    tzOffset = rawOffset
+  } else {
+    // natural_day：zone 必备非空字符串；tz_offset 必为 null/缺失；
+    // 窗口长度 ∈ {23h, 24h, 25h}（DST 边界日）——窗口本身锚服务端回显。
+    if (typeof payload.zone !== 'string' || payload.zone.length === 0) return null
+    if (payload.tz_offset !== null && payload.tz_offset !== undefined) return null
+    const lengthSeconds = windowEnd - windowStart
+    if (lengthSeconds !== 23 * 3600 && lengthSeconds !== 24 * 3600 && lengthSeconds !== 25 * 3600) return null
+    zone = payload.zone
+  }
   return {
-    organizationId: orgId, date: payload.date, tzOffset, windowStart, windowEnd, newSessions, closedSessions,
+    organizationId: orgId, date: payload.date, tzOffset, zone, windowMode, windowStart, windowEnd, newSessions, closedSessions,
     firstResponse: { count: fr.count, avgSeconds: fr.average },
     firstHumanResponse: human === null ? null : { count: human.count, avgSeconds: human.average },
     firstAiResponse: ai === null ? null : { count: ai.count, avgSeconds: ai.average },

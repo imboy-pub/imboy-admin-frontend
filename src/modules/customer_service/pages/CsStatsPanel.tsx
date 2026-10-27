@@ -47,13 +47,29 @@ function formatAvgSeconds(avgSeconds: number | null): string {
   return `${Math.round(avgSeconds)} 秒`
 }
 
+/** D03：运营显式选择的常用 IANA zone 清单（固定可靠来源，不取查看者
+ * 设备值——组织报表事实不随查看者换时区漂移）。'' 空串 = 固定偏移旧模式。 */
+const ZONE_CHOICES = [
+  '', 'Asia/Shanghai', 'Asia/Tokyo', 'Asia/Kathmandu', 'Europe/London',
+  'Europe/Berlin', 'America/New_York', 'America/Los_Angeles', 'Australia/Sydney', 'UTC',
+] as const
+
 export function CsStatsPanel({ orgId, canRead }: Props) {
   const [date, setDate] = useState<string>(todayLocalIsoDate)
   const [tzOffset, setTzOffset] = useState<number>(() => -new Date().getTimezoneOffset())
+  const [zone, setZone] = useState<string>('')
+  const naturalDay = zone.length > 0
 
   const query = useQuery({
-    queryKey: ['customer_service', 'stats', orgId ?? '', date, tzOffset],
-    queryFn: () => getCsSessionStats({ organizationId: orgId ?? '', date, tzOffset }),
+    // D03：queryKey 含 zone 与模式——natural_day 与 fixed_offset 的同日期
+    // 窗口是不同事实，缓存必须隔离（查看者无关性：key 不含查看者时区）。
+    queryKey: [
+      'customer_service', 'stats', orgId ?? '', date,
+      naturalDay ? zone : tzOffset, naturalDay ? 'natural_day' : 'fixed_offset',
+    ],
+    queryFn: () => getCsSessionStats(
+      naturalDay ? { organizationId: orgId ?? '', date, zone } : { organizationId: orgId ?? '', date, tzOffset }
+    ),
     enabled: orgId !== null && canRead,
   })
 
@@ -123,6 +139,24 @@ export function CsStatsPanel({ orgId, canRead }: Props) {
             />
           </div>
           <div className="space-y-1">
+            <Label htmlFor="cs-stats-zone" className="text-xs text-muted-foreground">
+              统计时区（自然日）
+            </Label>
+            <select
+              id="cs-stats-zone"
+              data-testid="cs-stats-zone"
+              className="h-9 w-[170px] rounded-md border border-input bg-background px-3 text-sm"
+              value={zone}
+              onChange={(event) => setZone(event.target.value)}
+            >
+              {ZONE_CHOICES.map((choice) => (
+                <option key={choice || 'fixed'} value={choice}>
+                  {choice === '' ? '固定偏移（默认）' : choice}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-1">
             <Label htmlFor="cs-stats-tz" className="text-xs text-muted-foreground">
               时区偏移（分钟，ISO 8601）
             </Label>
@@ -134,6 +168,7 @@ export function CsStatsPanel({ orgId, canRead }: Props) {
               max={840}
               step={15}
               value={tzOffset}
+              disabled={naturalDay}
               onChange={(event) => {
                 const next = Number(event.target.value)
                 setTzOffset(Number.isFinite(next) ? Math.max(-840, Math.min(840, next)) : 0)
@@ -201,7 +236,10 @@ function StatsMetadata({ stats, retrievedAt }: { stats: CsSessionStats; retrieve
     </p>
     <p className="text-xs text-muted-foreground" data-testid="cs-stats-retrieved-at">
       数据获取时间（本地）：{new Date(retrievedAt).toLocaleString('zh-CN')}；
-      统计日：{stats.date}，时区偏移：{stats.tzOffset} 分钟。
+      统计日：{stats.date}；
+      {stats.windowMode === 'natural_day'
+        ? `时区：${stats.zone ?? ''}（自然日，窗口 ${Math.round((stats.windowEnd - stats.windowStart) / 3600)} 小时）`
+        : `时区偏移：${stats.tzOffset ?? 0} 分钟（固定偏移日）`}。
     </p>
   </>
 }

@@ -117,3 +117,57 @@ it('invalid new fields remain unknown without discarding valid existing statisti
     expect(toCsSessionStats({ ...facts, response_unknown_count: invalid })?.responseUnknownCount).toBeNull()
   }
 })
+
+// ---------------------------------------------------------------------------
+// D03（IMBoy_Timezone_Decisions-V1，2026-10-27 冻结）：zone 自然日模式校验
+// ---------------------------------------------------------------------------
+
+// NY 2026-03-08 = 05:00Z..次日04:00Z（23h）；1772965200 = 2026-03-08T05:00:00Z
+const naturalFacts = (start: number, lengthSeconds: number) => ({
+  organization_id: '7266418340025468901', date: '2026-03-08', tz_offset: null,
+  zone: 'America/New_York', window_mode: 'natural_day',
+  window_start: start, window_end: start + lengthSeconds,
+  new_sessions: 0, closed_sessions: 0,
+  first_response: { count: 0, avg_seconds: null }, rating: { count: 0, avg: null },
+  current: { queued: 0, active: 0 },
+})
+
+it('natural_day accepts 23/24/25 hour DST windows and echoes zone facts', () => {
+  const spring23 = toCsSessionStats(naturalFacts(1772965200, 23 * 3600))
+  expect(spring23?.windowMode).toBe('natural_day')
+  expect(spring23?.zone).toBe('America/New_York')
+  expect(spring23?.tzOffset).toBeNull()
+  expect(spring23?.windowStart).toBe(1772965200)
+  expect(spring23?.windowEnd).toBe(1772965200 + 23 * 3600)
+  // 24h（无 DST 日）与 25h（秋季回拨日）同样接受
+  expect(toCsSessionStats(naturalFacts(0, 24 * 3600))?.windowMode).toBe('natural_day')
+  expect(toCsSessionStats(naturalFacts(0, 25 * 3600))?.windowMode).toBe('natural_day')
+})
+
+it('natural_day rejects wrong window lengths, missing zone, or smuggled tz_offset', () => {
+  // 22.5h / 26h 非法；zone 缺失/非串非法；natural_day 携带 tz_offset 非法
+  expect(toCsSessionStats(naturalFacts(0, 22 * 3600 + 1800))).toBeNull()
+  expect(toCsSessionStats(naturalFacts(0, 26 * 3600))).toBeNull()
+  const noZone = naturalFacts(0, 24 * 3600) as Record<string, unknown>
+  delete noZone.zone
+  expect(toCsSessionStats(noZone)).toBeNull()
+  expect(toCsSessionStats({ ...naturalFacts(0, 24 * 3600), zone: 123 })).toBeNull()
+  expect(toCsSessionStats({ ...naturalFacts(0, 24 * 3600), tz_offset: 0 })).toBeNull()
+  expect(toCsSessionStats({ ...naturalFacts(0, 24 * 3600), window_mode: 'fixed_offset' })).toBeNull()
+})
+
+it('fixed_offset keeps legacy checks and defaults when window_mode key is absent', () => {
+  // 旧响应（无 window_mode/zone 键）：按旧合同校验，模式回填 fixed_offset
+  const legacy = toCsSessionStats(facts)
+  expect(legacy?.windowMode).toBe('fixed_offset')
+  expect(legacy?.zone).toBeNull()
+  expect(legacy?.tzOffset).toBe(480)
+  // 新 fixed_offset 响应：zone 必须为 null（缺失容忍，服务端恒回 null）
+  const modernFixed = toCsSessionStats({ ...facts, window_mode: 'fixed_offset', zone: null })
+  expect(modernFixed?.windowMode).toBe('fixed_offset')
+  expect(modernFixed?.tzOffset).toBe(480)
+  // fixed 模式下窗口仍必须是 expectedStart + 86400（原校验不变）
+  expect(toCsSessionStats({ ...facts, window_mode: 'fixed_offset', window_end: facts.window_start + 23 * 3600 })).toBeNull()
+  // 未知模式字符串整包拒绝
+  expect(toCsSessionStats({ ...facts, window_mode: 'sidereal' })).toBeNull()
+})

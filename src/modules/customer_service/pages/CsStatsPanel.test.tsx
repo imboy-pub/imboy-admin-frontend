@@ -20,7 +20,7 @@ const ORG = '7266418340025468901'
 
 const realPublicExports = { ...realPublicModule }
 
-type Call = { organizationId: string; date?: string; tzOffset?: number }
+type Call = { organizationId: string; date?: string; tzOffset?: number; zone?: string }
 let calls: Call[] = []
 let statsResult: CsSessionStats | null = null
 let statsError: Error | null = null
@@ -45,6 +45,8 @@ function fixture(overrides: Partial<CsSessionStats> = {}): CsSessionStats {
     organizationId: ORG,
     date: '2026-09-25',
     tzOffset: 480,
+    zone: null,
+    windowMode: 'fixed_offset',
     windowStart: 1790284800,
     windowEnd: 1790371199,
     newSessions: 7,
@@ -249,4 +251,39 @@ it('旧指标全零时不能隐藏未知首响资格', async () => {
   const view = render(host(<CsStatsPanel orgId={ORG} canRead={true} />))
   await settleUntil(() => view.container.textContent?.includes('首响资格未知') === true, '未知资格不能为空态')
   expect(view.container.textContent).not.toContain('该时间窗内无客服会话事实')
+})
+
+describe('CsStatsPanel — D03 zone 自然日模式', () => {
+  it('默认仍是查看者设备偏移的固定模式（旧默认不动），不发 zone', async () => {
+    statsResult = fixture()
+    render(host(<CsStatsPanel orgId={ORG} canRead={true} />))
+    await settleUntil(() => calls.length > 0, 'default query')
+    expect(calls[0]?.zone).toBeUndefined()
+    expect(typeof calls[0]?.tzOffset).toBe('number')
+  })
+
+  it('显式选择 zone 后改发 natural_day 请求并显示 zone 窗口事实', async () => {
+    // NY 2026-03-08：05:00Z → 次日 04:00Z（23h）
+    statsResult = fixture({
+      date: '2026-03-08', tzOffset: null, zone: 'America/New_York',
+      windowMode: 'natural_day',
+      windowStart: 1772965200, windowEnd: 1772965200 + 23 * 3600,
+      newSessions: 0, closedSessions: 0, responseUnknownCount: 0,
+      rating: { count: 0, avg: null }, current: { queued: 0, active: 0 },
+    })
+    const { getByLabelText } = render(host(<CsStatsPanel orgId={ORG} canRead={true} />))
+    await settleUntil(() => calls.length > 0, 'initial query')
+    // React 19.2 受控输入必须 user-event 驱动（本文件既有结论同款）
+    const user = userEvent.setup()
+    await user.selectOptions(getByLabelText(/统计时区/), 'America/New_York')
+    await settleUntil(() => calls.some((call) => call.zone === 'America/New_York'), 'zone query')
+    const zoneCall = calls.find((call) => call.zone === 'America/New_York')
+    expect(zoneCall?.tzOffset).toBeUndefined()
+    // 自然日窗口事实（23 小时）展示为服务端回显
+    await settleUntil(
+      () => document.body.textContent?.includes('America/New_York') === true
+        && document.body.textContent?.includes('23 小时') === true,
+      'zone metadata shown',
+    )
+  })
 })
