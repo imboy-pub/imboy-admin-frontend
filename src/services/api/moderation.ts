@@ -79,6 +79,7 @@ interface ReviewQueueParams {
   keyword?: string
   start?: string
   end?: string
+  zone?: string
 }
 
 async function getReviewQueue(
