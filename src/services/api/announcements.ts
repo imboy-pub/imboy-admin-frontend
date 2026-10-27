@@ -1,5 +1,6 @@
 import client from './client'
 import { requireApiPayload } from './responseAdapter'
+import { toApiInstantIso } from '@/lib/apiInstant'
 import type { PaginatedResponse } from '@/types/api'
 import type { EntityId } from '@/types/common'
 
@@ -14,9 +15,12 @@ export type Announcement = {
   type: AnnouncementType
   status: AnnouncementStatus
   pinned: number
+  /** R08/R14：时间字段经 adapter 归一为规范 ISO（或 null）；wire 单位毫秒
+   * （BE adm_announcement_handler index → elib_response:success →
+   * convert_at_timestamps → rfc3339_to/1：datetime 元组→ms 整数、整数直通）。 */
   published_at: string | null
   expired_at: string | null
-  created_at: string
+  created_at: string | null
   updated_at: string | null
 }
 
@@ -41,7 +45,19 @@ export async function getAnnouncementList(
 ): Promise<PaginatedResponse<Announcement>> {
   const response = await client.get('/announcement/index', { params })
   const payload = requireApiPayload<Record<string, unknown>>(response.data, '/announcement/index')
-  const list = (payload.items ?? payload.list ?? []) as Announcement[]
+  const rawList = (payload.items ?? payload.list ?? []) as unknown[]
+  // R08/R14：列表项时间字段在 API 边界归一为规范 ISO（毫秒 wire），
+  // 消费方（列表展示/CSV）不再接触裸 wire 值（毫秒整数/带偏移串）。
+  const list: Announcement[] = rawList.map((raw) => {
+    const row = raw as Record<string, unknown>
+    return {
+      ...(row as object),
+      published_at: toApiInstantIso(row.published_at, 'milliseconds'),
+      expired_at: toApiInstantIso(row.expired_at, 'milliseconds'),
+      created_at: toApiInstantIso(row.created_at, 'milliseconds'),
+      updated_at: toApiInstantIso(row.updated_at, 'milliseconds'),
+    } as Announcement
+  })
   const page = (payload.page ?? 1) as number
   const size = (payload.size ?? 10) as number
   const total = (payload.total ?? 0) as number

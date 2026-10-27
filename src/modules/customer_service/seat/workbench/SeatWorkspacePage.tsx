@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { EntityDrawer } from "@/components/shared/EntityDrawer";
 import { SeatQrLoginPanel } from "./seatQrLoginPanel";
 import { SeatQueuePanel } from "./queuePanel";
+import { useDisplayZoneEpoch } from "./useDisplayZone";
 import { SeatSessionView } from "./sessionView";
 import { SeatDetailPanel } from "./detailPanel";
 import { SeatCustomerContextPanel } from "./customerContextPanel";
@@ -108,6 +109,9 @@ function SeatWorkspaceInner() {
   const endReason = useSeatAuthStore((state) => state.endReason);
   const clearSession = useSeatAuthStore((state) => state.clearSession);
   const { api, fetchImpl, authSessionId } = useSeatWorkbenchGateway();
+  // R14：查看者 zone 生命周期——epoch 变化即整树重渲染（消息时间/日期分组/
+  // 队列时钟在渲染期经 resolver 重新取 zone）。epoch 落 data 属性供测试断言。
+  const displayZoneEpoch = useDisplayZoneEpoch();
 
   const contextsQuery = useSeatContexts();
   const sendContexts = useMemo(() => seatFailureKind(contextsQuery.error) === "forbidden" ? [] : contextsQuery.data,
@@ -498,7 +502,10 @@ function SeatWorkspaceInner() {
 
         {/* CS-WEB-03 响应式：1280+（xl）三栏（列表宽度不变）；768-1279（md-xl）
             两栏 + 详情抽屉；<768 沿用 list/conversation 分层导航。 */}
-        <main className="grid min-h-0 flex-1 md:grid-cols-[17rem_minmax(0,1fr)] xl:grid-cols-[17rem_minmax(0,1fr)_17rem]">
+        <main
+          className="grid min-h-0 flex-1 md:grid-cols-[17rem_minmax(0,1fr)] xl:grid-cols-[17rem_minmax(0,1fr)_17rem]"
+          data-display-zone-epoch={displayZoneEpoch}
+        >
           <div
             className={`${pane === "list" ? "flex" : "hidden"} min-h-0 flex-col md:flex`}
             data-testid="seat-pane-list"

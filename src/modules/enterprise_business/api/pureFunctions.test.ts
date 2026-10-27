@@ -151,6 +151,13 @@ describe('enterprise_business TSID handling (A03)', () => {
     expect(message?.conversation_id).toBe('444444444444444444')
     expect(message?.policy_id).toBe('666666666666666666')
     expect(message?.retention_days).toBe(1095)
+    // R08-AD.1：BE ts 投影为 epoch 秒（HTTP success_rfc3339 直通不转 ms），
+    // 秒数与 RFC3339 归一到同一规范 ISO（R08-1）；非法 → null 不裸透传。
+    expect(message?.created_at).toBe('2026-01-01T00:00:00.000Z')
+    const baseMessage = { id: '333333333333333333', conversation_id: '444444444444444444', sender_type: 'contact' }
+    expect(toEbMessage({ ...baseMessage, created_at: 1789600000 })?.created_at).toBe('2026-09-16T23:06:40.000Z')
+    expect(toEbMessage({ ...baseMessage, created_at: '2026-09-17T07:06:40+08:00' })?.created_at).toBe('2026-09-16T23:06:40.000Z')
+    expect(toEbMessage({ ...baseMessage, created_at: 'garbage' })?.created_at).toBeNull()
   })
 
   it('形状不合法 → null / 空列表', () => {

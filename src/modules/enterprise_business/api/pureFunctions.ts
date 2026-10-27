@@ -7,6 +7,7 @@
  * `content_hash` / `object_key` 等绝不进入展示视图。
  */
 import { coerceEntityId } from '@/lib/entityId'
+import { toApiInstantIso } from '@/lib/apiInstant'
 import type { EntityId } from '@/types/common'
 
 /** 与 customer_service 模块同一熔断口径（单一事实：本文件为 EB 侧镜像）。 */
@@ -164,7 +165,9 @@ export function toEbMessage(raw: unknown): EbMessage | null {
     retention_days: toOptionalInt(row.retention_days),
     retain_until: typeof row.retain_until === 'string' ? row.retain_until : null,
     version: toOptionalInt(row.version) ?? 0,
-    created_at: typeof row.created_at === 'string' ? row.created_at : null,
+    // BE eb_pg_store_sql normalize 的 ts 列 → rfc3339_to(second)：epoch 秒
+    // （HTTP 走 success_rfc3339 直通不转 ms）。R08-AD.1：秒 adapter → 规范 ISO。
+    created_at: toApiInstantIso(row.created_at, 'seconds'),
   }
 }
 
@@ -330,8 +333,11 @@ export function toEbOffboardingCase(raw: unknown): EbOffboardingCase | null {
     item_success: toOptionalInt(row.item_success) ?? 0,
     item_failed: toOptionalInt(row.item_failed) ?? 0,
     version: toOptionalInt(row.version) ?? 0,
-    created_at: typeof row.created_at === 'string' ? row.created_at : null,
-    updated_at: typeof row.updated_at === 'string' ? row.updated_at : null,
+    // BE eb_pg_offboarding_ext ts 投影 → rfc3339_to(second)：epoch 秒。
+    // R08-AD.1：秒 adapter → 规范 ISO；缺失（BE 旧版 case_fields 无
+    // updated_at，R08-BE 待补）/ 非法 → null（展示「-」，不裸透传不回填）。
+    created_at: toApiInstantIso(row.created_at, 'seconds'),
+    updated_at: toApiInstantIso(row.updated_at, 'seconds'),
   }
 }
 

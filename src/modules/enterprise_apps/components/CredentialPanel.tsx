@@ -51,6 +51,8 @@ type CredentialPanelProps = {
   scope: GovernanceScope
   /** Application 当前生命周期（archived 时禁写）。 */
   applicationArchived: boolean
+  /** R09：到期判定的当前时间注入点（默认墙钟；测试固定后可复现）。 */
+  now?: number
 }
 
 /**
@@ -60,12 +62,20 @@ type CredentialPanelProps = {
  * - 全部写动作要求 `enterprise_business:write` + 二次确认 + 幂等键；
  * - 列表面永不出现明文 secret / digest（服务层熔断 + 白名单投影）。
  */
-export function CredentialPanel({ scope, applicationArchived }: CredentialPanelProps) {
+export function CredentialPanel({ scope, applicationArchived, now }: CredentialPanelProps) {
   const queryClient = useQueryClient()
   const { allowed: canWrite } = useAdminPermission({ permission: WRITE_PERMISSION })
   const [pending, setPending] = useState<PendingAction | null>(null)
   const [activeWindow, setActiveWindow] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+  // R09：到期判定需要一个「未注入 now 时的当前时刻」。Date.now() 是渲染
+  // 不纯来源（react-hooks/purity），挂载时刻移入 useState 惰性初始化这一
+  // 官方豁免位置；now prop（测试注入固定时间）语义不变。fallback now 的
+  // 语义是「最近一次数据 refetch 成功的时刻」而非「每渲染新鲜」：直接取
+  // react-query 的 dataUpdatedAt（成功 fetch 的墙钟），首帧数据未到时退回
+  // 挂载时刻——长挂载面板中「挂载后才到期」的凭证在下一次 refetch 后不再
+  // 误报有效（两次 refetch 之间仍无时钟订阅，到期翻转等待下次数据刷新）。
+  const [mountNowMs] = useState(() => Date.now())
 
   const queryKey = useMemo(
     () => ['enterprise_apps', 'credentials', scope.organizationId, scope.applicationId],
@@ -75,6 +85,9 @@ export function CredentialPanel({ scope, applicationArchived }: CredentialPanelP
     queryKey,
     queryFn: () => listCredentials(scope),
   })
+
+  // R09：fallback now = 最近一次成功 refetch 时刻（语义见上方注释）。
+  const nowMs = now ?? (query.dataUpdatedAt > 0 ? query.dataUpdatedAt : mountNowMs)
 
   const refresh = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey })
@@ -160,7 +173,7 @@ export function CredentialPanel({ scope, applicationArchived }: CredentialPanelP
         </TableHeader>
         <TableBody>
           {rows.map((row) => {
-            const expiry = credentialExpiryState(row)
+            const expiry = credentialExpiryState(row, nowMs)
             const revokedOrExpired = expiry === 'revoked' || expiry === 'expired' || expiry === 'unknown'
             return (
               <TableRow key={row.id} data-credential-id={row.id}>

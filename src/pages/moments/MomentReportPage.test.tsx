@@ -219,7 +219,7 @@ describe('MomentReportPage flow', () => {
 
     expect(postCalls[0]).toEqual({
       url: '/moment/report/resolve',
-      body: { report_id: 701, result: 1, note: '' },
+      body: { report_id: '701', result: 1, note: '' }, // W9：id 经 coerceEntityId 收敛为字符串 EntityId
     })
 
     await act(async () => {
@@ -245,7 +245,7 @@ describe('MomentReportPage flow', () => {
 
     expect(postCalls[1]).toEqual({
       url: '/moment/report/resolve',
-      body: { report_id: 701, result: 2, note: '' },
+      body: { report_id: '701', result: 2, note: '' },
     })
 
     await act(async () => {
@@ -452,7 +452,7 @@ describe('MomentReportPage flow', () => {
 
     expect(postCalls[0]).toEqual({
       url: '/moment/report/resolve',
-      body: { report_id: 701, result: 1, note: '' },
+      body: { report_id: '701', result: 1, note: '' }, // W9：id 经 coerceEntityId 收敛为字符串 EntityId
     })
 
     await act(async () => {
@@ -477,7 +477,7 @@ describe('MomentReportPage flow', () => {
 
     expect(postCalls[1]).toEqual({
       url: '/moment/report/resolve',
-      body: { report_id: 702, result: 2, note: '' },
+      body: { report_id: '702', result: 2, note: '' },
     })
   })
 })

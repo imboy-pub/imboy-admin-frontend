@@ -26,7 +26,7 @@ import {
   MomentListParams,
 } from '@/modules/moments/api'
 import type { EntityId } from '@/types/common'
-import { formatDate } from '@/lib/utils'
+import { formatOptionalDate } from '@/lib/utils'
 import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 import { trackUxEvent } from '@/lib/uxTelemetry'
 import { getErrorMessage } from '@/lib/errorUtils'
@@ -207,7 +207,7 @@ export function MomentListPage() {
       accessorKey: 'created_at',
       header: '发布时间',
       cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground">{formatDate(row.original.created_at)}</span>
+        <span className="text-sm text-muted-foreground">{formatOptionalDate(row.original.created_at)}</span>
       ),
     },
     {
@@ -320,7 +320,7 @@ export function MomentListPage() {
                   { header: '赞数', accessor: (row) => row.stats?.like_count ?? 0 },
                   { header: '评论数', accessor: (row) => row.stats?.comment_count ?? 0 },
                   { header: '状态', accessor: (row) => ({ 1: '正常', 0: '禁用', '-1': '已删除' }[String(row.status)] || String(row.status)) },
-                  { header: '发布时间', accessor: (row) => formatDate(row.created_at) },
+                  { header: '发布时间', accessor: (row) => formatOptionalDate(row.created_at) },
                 ]
                 exportCsv(csvColumns, moments, 'moments_export')
                 toast.success(`已导出 ${moments.length} 条动态数据`)

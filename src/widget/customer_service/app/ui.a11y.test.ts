@@ -21,6 +21,7 @@ import { afterEach, describe, expect, it } from 'bun:test'
 import { fireEvent, getByLabelText, getByRole, getByTestId, getByText, queryByTestId } from '@testing-library/dom'
 import { createChatUi, type ChatUi } from './ui'
 import { initialChatState, reduceChat, type ChatMessage, type ChatState, type MessageAsset } from './chatMachine'
+import { resetDisplayZoneResolver, setDisplayZoneResolver } from '@/lib/displayTime'
 
 function chatState(): ChatState {
   let state = initialChatState()
@@ -294,6 +295,9 @@ describe('消息时间与发送状态', () => {
     role: 'visitor', body: '请查询订单', status: 'sent',
     createdAt: '2026-10-08T03:32:00Z', attachment: null, attachments: [],
   }
+  afterEach(() => {
+    resetDisplayZoneResolver()
+  })
   it('显示时间、发送方式和服务器确认状态，不伪造已读', () => {
     const { root } = mountUi({ ...chatState(), messages: [message] })
     expect(root.querySelector('time')?.getAttribute('datetime')).toBe('2026-10-08T03:32:00.000Z')
@@ -301,6 +305,12 @@ describe('消息时间与发送状态', () => {
     expect(root.querySelector('.cs-msg-meta')?.textContent).toContain('已发送')
     expect(root.textContent).not.toContain('已读')
     expect(root.textContent).not.toContain('已送达')
+  })
+  it('R14：消息时间走公共缓存 formatter（访客本地 zone；注入固定 zone 断言确定性）', () => {
+    setDisplayZoneResolver(() => 'Asia/Shanghai')
+    const { root } = mountUi({ ...chatState(), messages: [message] })
+    // 2026-10-08T03:32:00Z = 上海 2026-10-08 11:32（full：年/月/日 时:分）。
+    expect(root.querySelector('time')?.textContent).toBe('2026/10/08 11:32')
   })
   it('无效时间不显示假时间，失败仍可重发', () => {
     const { root } = mountUi({ ...chatState(), messages: [{ ...message, createdAt: 'invalid', status: 'failed' }] })

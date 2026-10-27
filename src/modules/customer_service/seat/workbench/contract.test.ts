@@ -225,7 +225,15 @@ describe('CS-WEB-03 队列 triage 投影（last_message 键名对齐 + waiting_s
     expect(view?.lastMessage.id).toBe('7000000000000000007')
     expect(view?.lastMessage.senderType).toBe('contact')
     expect(view?.lastMessage.preview).toBe('你好，请问订单 8891 什么时候发货')
-    expect(view?.lastMessage.createdAt).toBe(1759000000)
+    // R08-AD.1：epoch 秒 wire 经秒 adapter 归一为规范 ISO（与 toSeatMessage
+    // 同合同：秒数 → .000Z；RFC3339 合法形状原样保留、瞬间等价）。
+    expect(view?.lastMessage.createdAt).toBe('2025-09-27T19:06:40.000Z')
+    const isoShape = toSeatSessionSummary({
+      ...QUEUE_ROW,
+      last_message: { id: '7000000000000000007', sender_type: 'contact', created_at: '2025-09-28T03:06:40+08:00', preview: '你好' },
+    })
+    expect(Date.parse(isoShape?.lastMessage.createdAt ?? ''))
+      .toBe(Date.parse('2025-09-27T19:06:40.000Z'))
   })
 
   it('旧错位键 at 不再被读（fail-closed）：只发 at 的行 createdAt 为 null', () => {

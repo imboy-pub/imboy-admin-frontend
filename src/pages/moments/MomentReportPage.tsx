@@ -39,7 +39,7 @@ import {
 import type { EntityId } from '@/types/common'
 import { useAdminPermission } from '@/hooks/useAdminPermission'
 import { useListQueryState } from '@/hooks/useListQueryState'
-import { formatDate } from '@/lib/utils'
+import { formatOptionalDate } from '@/lib/utils'
 import { trackUxEvent } from '@/lib/uxTelemetry'
 import { getErrorMessage } from '@/lib/errorUtils'
 import { Select } from '@/components/ui/select'
@@ -352,7 +352,7 @@ export function MomentReportPage({ permissionOverride, showPageHeader = true }: 
       accessorKey: 'created_at',
       header: '举报时间',
       cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground">{formatDate(row.original.created_at)}</span>
+        <span className="text-sm text-muted-foreground">{formatOptionalDate(row.original.created_at)}</span>
       ),
     },
     {

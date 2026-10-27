@@ -207,8 +207,28 @@ describe('offboarding case/item projection (A03/A05)', () => {
     expect(row?.item_success).toBe(2)
     expect(row?.item_failed).toBe(1)
     expect(row?.version).toBe(7)
-    expect(row?.created_at).toBe('2026-09-16T02:03:29Z')
-    expect(row?.updated_at).toBe('2026-09-16T02:10:00Z')
+    // R08-AD.1：秒 adapter → 规范 ISO（RFC3339 旧形状归一为 .000Z，瞬间不变）
+    expect(row?.created_at).toBe('2026-09-16T02:03:29.000Z')
+    expect(row?.updated_at).toBe('2026-09-16T02:10:00.000Z')
+  })
+
+  it('R08-AD.1：真实 wire 的 epoch 秒（整数/字符串）经秒 adapter → 同一规范 ISO；缺失/非法 → null', () => {
+    const wireSeconds = toEbOffboardingCase({ ...RAW_CASE, created_at: 1789600000, updated_at: '1789600021' })
+    expect(wireSeconds?.created_at).toBe('2026-09-16T23:06:40.000Z')
+    expect(wireSeconds?.updated_at).toBe('2026-09-16T23:07:01.000Z')
+    // 同一瞬间：秒数 / UTC RFC3339 / +08:00 RFC3339 输出一致（R08-1）
+    const wireIso = toEbOffboardingCase({
+      ...RAW_CASE,
+      created_at: '2026-09-17T07:06:40+08:00',
+      updated_at: '2026-09-16T23:07:01Z',
+    })
+    expect(wireIso?.created_at).toBe('2026-09-16T23:06:40.000Z')
+    expect(wireIso?.updated_at).toBe('2026-09-16T23:07:01.000Z')
+    // BE 旧版 case_fields 无 updated_at（R08-BE 待补）：null 不伪造（R08-5）
+    const missing = toEbOffboardingCase({ ...RAW_CASE, updated_at: undefined })
+    expect(missing?.updated_at).toBeNull()
+    const invalid = toEbOffboardingCase({ ...RAW_CASE, created_at: 'not-a-date' })
+    expect(invalid?.created_at).toBeNull()
   })
 
   it('item 投影只含 id/kind/status/failure_reason/attempt/idempotency_key', () => {

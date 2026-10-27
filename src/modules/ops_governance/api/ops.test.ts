@@ -169,8 +169,10 @@ describe('getFeedbackListPayload', () => {
           code: 0, msg: 'ok',
           payload: {
             items: [
-              { id: '9', content: '功能体验很好', status: 0, uid: '7001', created_at: '2026-03-01' },
-              { id: '10', content: '登录有时候慢', status: 1, uid: '7002', created_at: '2026-03-02' },
+              // 真实 wire 形状：epoch 毫秒整数（R21-B 取证 adm_feedback_handler →
+              // elib_response:success → convert_at_timestamps）
+              { id: '9', content: '功能体验很好', status: 0, uid: '7001', created_at: 1789600000000 },
+              { id: '10', content: '登录有时候慢', status: 1, uid: '7002', created_at: 1789600060000 },
             ],
             page: 1, size: 20, total: 2, total_pages: 1,
           },
@@ -182,6 +184,26 @@ describe('getFeedbackListPayload', () => {
     expect(result.items).toHaveLength(2)
     expect(result.items[0].content).toBe('功能体验很好')
     expect(result.total).toBe(2)
+    // R21-B：毫秒 → 规范 ISO 投影
+    expect(result.items[0].created_at).toBe('2026-09-16T23:06:40.000Z')
+    expect(result.items[1].created_at).toBe('2026-09-16T23:07:40.000Z')
+  })
+
+  it('fails closed on offset-less string instants (feedback)', async () => {
+    mutableClient.get = async () => ({
+      data: {
+        code: 0, msg: 'ok',
+        payload: {
+          items: [
+            { id: '11', content: 'x', status: 1, uid: '7003', created_at: '2026-03-01 10:00:00' },
+          ],
+          page: 1, size: 20, total: 1, total_pages: 1,
+        },
+      },
+    })
+    const result = await getFeedbackListPayload({ page: 1, size: 20 })
+    expect(result.items[0].created_at).toBeNull()
+    expect(result.items[0].updated_at).toBeNull()
   })
 })
 

@@ -24,25 +24,20 @@ import {
   restoreGroupSchedule,
 } from '@/modules/groups/api'
 import { formatDate } from '@/lib/utils'
+import { parseApiInstantMs } from '@/lib/apiInstant'
 import { exportCsv, type CsvColumn } from '@/lib/csvExport'
 import { useAdminPermission } from '@/hooks/useAdminPermission'
 import { getErrorMessage } from '@/lib/errorUtils'
 import { useListQueryState } from '@/hooks/useListQueryState'
 
+// R21-B：/group/schedule/list 的 start_at/end_at wire = epoch 毫秒（BE
+// group_schedule.start_at timestamptz 列经 elib_response:success →
+// convert_at_timestamps 归一）。显式毫秒 adapter（apiInstant），不再按位数
+// 猜秒/毫秒；RFC3339 串按瞬间归一；非法/缺失 → '-' 或原样展示，不伪造时间。
 function normalizeTimestamp(value?: string | number): string {
   if (value === undefined || value === null || value === '') return '-'
-  if (typeof value === 'number') {
-    const ms = value > 1000000000000 ? value : value * 1000
-    return formatDate(ms)
-  }
-  const numeric = Number(value)
-  if (Number.isFinite(numeric) && numeric > 0) {
-    const ms = numeric > 1000000000000 ? numeric : numeric * 1000
-    return formatDate(ms)
-  }
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return String(value)
-  return formatDate(parsed)
+  const ms = parseApiInstantMs(value, 'milliseconds')
+  return ms === null ? String(value) : formatDate(ms)
 }
 
 type GroupScheduleManageQuery = {

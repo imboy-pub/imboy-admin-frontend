@@ -10,6 +10,7 @@ import {
 import { ApiResponse, PaginatedResponse } from '@/types/api'
 import type { EntityId } from '@/types/common'
 import { coerceEntityId } from '@/lib/entityId'
+import { toApiInstantIso } from '@/lib/apiInstant'
 
 type ApiErrorLike = {
   code?: number | string
@@ -47,9 +48,10 @@ export interface ReportTicket {
   evidence: ReportEvidence | null
   status: number
   handled_by: EntityId | ''
+  /** 规范 ISO（毫秒 adapter 产物，R08-AD：举报域出站 _at 键 = epoch 毫秒）；缺失/非法 → null。 */
   handled_at: string | null
-  created_at: string
-  updated_at: string
+  created_at: string | null
+  updated_at: string | null
 }
 
 export interface ReportListParams {
@@ -218,6 +220,15 @@ function pickFirst(record: Record<string, unknown>, keys: string[]): unknown {
   return ''
 }
 
+/**
+ * R08-AD：举报域 wire 时间 = epoch 毫秒（BE @3106e6c：adm_report_handler 全端点
+ * elib_response:success → convert_at_timestamps → rfc3339_to/1 把 timestamptz
+ * 归一为毫秒整数）。显式毫秒 adapter → 规范 ISO；缺失/非法 → null（不回填 now）。
+ */
+function toReportInstantIso(raw: unknown): string | null {
+  return toApiInstantIso(raw, 'milliseconds')
+}
+
 function normalizeReport(raw: unknown, fallbackType: ReportTargetType): ReportTicket {
   const item = typeof raw === 'object' && raw !== null
     ? raw as Record<string, unknown>
@@ -255,9 +266,9 @@ function normalizeReport(raw: unknown, fallbackType: ReportTargetType): ReportTi
     evidence,
     status: Number.isFinite(status) ? status : 0,
     handled_by: coerceEntityId(handledBy),
-    handled_at: typeof handledAt === 'string' && handledAt.length > 0 ? handledAt : null,
-    created_at: String(createdAt ?? ''),
-    updated_at: String(updatedAt ?? ''),
+    handled_at: toReportInstantIso(handledAt),
+    created_at: toReportInstantIso(createdAt),
+    updated_at: toReportInstantIso(updatedAt),
   }
 }
 
@@ -578,13 +589,14 @@ export interface ReportActionRow {
   status: 'executed' | 'failed' | 'reversed' | 'expired'
   result: Record<string, unknown>
   fail_reason: string
-  start_at: string
+  /** 规范 ISO（毫秒 adapter 产物，R08-AD：/report_action/* 同 elib_response:success 毫秒链）；缺失/非法 → null。 */
+  start_at: string | null
   end_at: string | null
   reversed_at: string | null
   reversed_by: EntityId
   reverse_reason: string
-  created_at: string
-  updated_at: string
+  created_at: string | null
+  updated_at: string | null
 }
 
 export interface ReportActionRequest {
@@ -598,12 +610,53 @@ export interface ReportActionRequest {
   target_id?: EntityId
 }
 
+/**
+ * R08-AD：处置动作行时间字段经同一毫秒 adapter（wire 同举报域毫秒链）。
+ * W9：字段级投影替代 `{...item} as unknown as ReportActionRow` 双重断言，
+ * 与 normalizeReport 同口径——标识符字段 coerceEntityId（数字 TSID 不经
+ * Number() 精度通道），对象字段收紧形状，其余按声明类型显式收敛。
+ */
+function normalizeReportAction(raw: unknown): ReportActionRow {
+  const item = typeof raw === 'object' && raw !== null
+    ? raw as Record<string, unknown> : {}
+  const scope = typeof item.scope === 'object' && item.scope !== null && !Array.isArray(item.scope)
+    ? item.scope as Record<string, unknown> : {}
+  const result = typeof item.result === 'object' && item.result !== null && !Array.isArray(item.result)
+    ? item.result as Record<string, unknown> : {}
+
+  return {
+    id: coerceEntityId(item.id),
+    case_id: coerceEntityId(item.case_id),
+    action: (typeof item.action === 'string' ? item.action : '') as ReportActionType,
+    target_type: typeof item.target_type === 'string' ? item.target_type : '',
+    target_id: coerceEntityId(item.target_id),
+    target_uid: coerceEntityId(item.target_uid),
+    scope,
+    reason: typeof item.reason === 'string' ? item.reason : '',
+    actor_id: coerceEntityId(item.actor_id),
+    status: (typeof item.status === 'string' ? item.status : '') as ReportActionRow['status'],
+    result,
+    fail_reason: typeof item.fail_reason === 'string' ? item.fail_reason : '',
+    start_at: toReportInstantIso(item.start_at),
+    end_at: toReportInstantIso(item.end_at),
+    reversed_at: toReportInstantIso(item.reversed_at),
+    reversed_by: coerceEntityId(item.reversed_by),
+    reverse_reason: typeof item.reverse_reason === 'string' ? item.reverse_reason : '',
+    created_at: toReportInstantIso(item.created_at),
+    updated_at: toReportInstantIso(item.updated_at),
+  }
+}
+
 /** 执行处置动作；HTTP 200 且 code!=0（业务拒绝，如重复/unsupported）时由调用方读取 msg。 */
 export async function executeReportAction(
   request: ReportActionRequest
 ): Promise<ApiResponse<ReportActionRow>> {
   const response = await client.post('/report_action/execute', request)
-  return response.data as ApiResponse<ReportActionRow>
+  const data = response.data as ApiResponse<ReportActionRow>
+  if (data && data.payload !== undefined && data.payload !== null) {
+    data.payload = normalizeReportAction(data.payload)
+  }
+  return data
 }
 
 /** 撤销动作：仅 executed 态可撤销；group_mute 撤销同步解除禁言。 */
@@ -615,7 +668,11 @@ export async function reverseReportAction(
     action_id: actionId,
     reason,
   })
-  return response.data as ApiResponse<ReportActionRow>
+  const data = response.data as ApiResponse<ReportActionRow>
+  if (data && data.payload !== undefined && data.payload !== null) {
+    data.payload = normalizeReportAction(data.payload)
+  }
+  return data
 }
 
 /** 某 case 的动作历史（按 id 升序）。 */
@@ -630,5 +687,5 @@ export async function getReportActions(
     '/report_action/list'
   )
   const rows = (payload as { data?: unknown }).data
-  return Array.isArray(rows) ? (rows as ReportActionRow[]) : []
+  return Array.isArray(rows) ? rows.map((row) => normalizeReportAction(row)) : []
 }

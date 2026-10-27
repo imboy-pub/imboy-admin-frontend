@@ -9,6 +9,7 @@
  * - 面板是纯只读视图：无写动作、无本地推断事实（来源/时间全部服务端投影）。
  */
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { formatDisplayInstant } from '@/lib/displayTime'
 import type { SeatCustomerContext } from './contract'
 import {
   SeatErrorState,
@@ -28,10 +29,13 @@ function sourceLabel(source: string): string {
   return SOURCE_LABELS[source] ?? source
 }
 
-/** epoch 秒 → 本地时间文案（原始值同步落 data-* 属性，测试断言不依赖时区）。 */
+/**
+ * epoch 秒 → 本地时间文案（R14：经 displayTime 缓存 formatter，查看者 zone
+ * 与队列/详情/消息同源；原始值同步落 data-* 属性，测试断言不依赖时区）。
+ */
 function epochText(seconds: number | null): string {
   if (seconds === null || !Number.isSafeInteger(seconds)) return '—'
-  return new Date(seconds * 1000).toLocaleString('zh-CN', { hour12: false })
+  return formatDisplayInstant(seconds * 1000, 'zh-CN', undefined, 'full')
 }
 
 const STATUS_LABELS: Record<string, string> = {

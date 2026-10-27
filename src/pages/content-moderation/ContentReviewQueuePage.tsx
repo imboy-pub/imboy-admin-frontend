@@ -22,6 +22,7 @@ import {
   type ReviewStatus,
 } from '@/services/api/moderation'
 import { formatDate, truncate } from '@/lib/utils'
+import { isValidCalendarDay } from '@/lib/calendarRange'
 import { useListQueryState } from '@/hooks/useListQueryState'
 import { getErrorMessage } from '@/lib/errorUtils'
 import type { EntityId } from '@/types/common'
@@ -50,6 +51,7 @@ const STATUS_VARIANTS: Record<string, 'warning' | 'success' | 'error'> = {
 
 export function ContentReviewQueuePage() {
   const queryClient = useQueryClient()
+  const zone = Intl.DateTimeFormat().resolvedOptions().timeZone
 
   const { state: params, setState: setParams } = useListQueryState<PageQuery>({
     page: 1,
@@ -64,15 +66,16 @@ export function ContentReviewQueuePage() {
   const [rejectReason, setRejectReason] = useState('')
 
   const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
-    queryKey: ['content-review-queue', params],
+    queryKey: ['content-review-queue', params, zone],
     queryFn: () =>
       getReviewQueuePayload({
         page: params.page,
         size: params.size,
         status: params.status === 'all' ? undefined : (params.status as ReviewStatus),
         keyword: params.keyword || undefined,
-        start: params.start || undefined,
-        end: params.end || undefined,
+        start: isValidCalendarDay(params.start) ? params.start : undefined,
+        end: isValidCalendarDay(params.end) ? params.end : undefined,
+        zone,
       }),
   })
 

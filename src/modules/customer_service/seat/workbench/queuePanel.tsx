@@ -16,6 +16,7 @@
 import { Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { formatDisplayInstant } from '@/lib/displayTime'
 import type { SeatSessionSummary } from './contract'
 import type { SeatSessionsView, SeatViewStatus } from './workbenchHooks'
 import { SeatEmptyState, SeatErrorState, SeatLoadingState, seatFailureMessage } from './states'
@@ -45,12 +46,16 @@ const TABS: Array<{ status: SeatViewStatus; label: string }> = [
 /** preview null 的诚实占位（附件-only/空正文/撤回/keyring 未装配不可区分，统一占位）。 */
 const PREVIEW_PLACEHOLDER = '暂无摘要'
 
-/** epoch 秒 → HH:MM（24h，UTC——面板只作相对时点提示，不承诺本地时区）。 */
+/**
+ * epoch 秒 → HH:MM（24h，查看者本地时区）。
+ *
+ * R14 决策：旧实现的刻意 UTC（getUTCHours）改为查看者本地 + 公共缓存
+ * formatter（displayTime），与详情面板/消息时间/客户上下文同一 zone 来源
+ * （R14-1 同一 queuedAt 队列=详情）；查看者 zone 变化经工作台生命周期
+ * 监听（useDisplayZoneEpoch）失效缓存并整树重渲染，不再需要 UTC 兜底。
+ */
 function formatClock(seconds: number): string {
-  const date = new Date(seconds * 1000)
-  const hh = String(date.getUTCHours()).padStart(2, '0')
-  const mm = String(date.getUTCMinutes()).padStart(2, '0')
-  return `${hh}:${mm}`
+  return formatDisplayInstant(seconds * 1000, 'zh-CN', undefined, 'time')
 }
 
 /**
