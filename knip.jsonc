@@ -6,7 +6,7 @@
   // 注：knip 不解析 HTML <script src>，故 seat/widget 的 HTML 入口以
   // 其引用的 TS 模块直接声明（引用链见各条注释）。
   //
-  "$schema": "https://unpkg.com/knip@6.7.0/schema.json",
+  "$schema": "https://unpkg.com/knip@6.42.1/schema.json",
   "entry": [
     // Optional product entry: full-selected composition imports this page when
     // group_task is compiled. Other profiles retain its source for that build.
@@ -82,7 +82,8 @@
     "^/src/modules/customer_service/seat/seatAuthStore\\.ts$"
   ],
   "ignoreBinaries": [
-    // e2e 编排/取证脚本 execa/spawn 调用的宿主机系统二进制（非 npm 依赖，
+    // e2e 编排/取证脚本经 node:child_process（execFileSync/spawn）调用的
+    // 宿主机系统二进制（非 npm 依赖，
     // 由手动 QA 环境提供）：e2e-backend.mts 拉起本地 PG 与 Erlang 节点
     // （psql/epmd/erl），hosted/seat-embed 套件编排 nginx TLS 静态托管面。
     // knip ≥6.42 开始报告 Unlisted binaries，按官方 ignoreBinaries 豁免
