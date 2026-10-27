@@ -44,3 +44,47 @@ it('new reply facts preserve existing organization, date and timezone guards', a
     await expect(getCsSessionStats({ organizationId: '11', date: facts.date, tzOffset: 480 })).rejects.toThrow('无法展示')
   }
 })
+
+// —— D03 zone 模式守卫（自然日窗口）：互斥先行拒绝 + 回显按模式核对 ——
+const naturalDayFacts = {
+  ...facts, date: '2026-03-08', tz_offset: null,
+  window_mode: 'natural_day', zone: 'America/New_York',
+  // NY 2026-03-08 春季拨快：当地两午夜 = 05:00Z → 次日 04:00Z（23h）
+  window_start: 1772965200, window_end: 1772965200 + 23 * 3600,
+}
+
+it('zone with tzOffset is rejected client-side before any request (D03)', async () => {
+  const get = spyOn(client, 'get')
+  await expect(getCsSessionStats({
+    organizationId: '11', date: '2026-03-08', zone: 'America/New_York', tzOffset: 480,
+  })).rejects.toThrow('互斥')
+  expect(get).not.toHaveBeenCalled()
+})
+
+it('zone request with legacy fixed-only response fails closed (D03)', async () => {
+  // facts 是合法的旧 fixed 形态（无 window_mode 键）：窄化回退 fixed_offset
+  // 后与 zone 请求的模式不符 → 拒绝展示
+  spyOn(client, 'get').mockResolvedValue({ data: { code: 0, payload: facts } })
+  await expect(getCsSessionStats({ organizationId: '11', date: '2026-03-08', zone: 'America/New_York' }))
+    .rejects.toThrow('无法展示')
+})
+
+for (const change of [
+  { zone: 'Asia/Shanghai' }, // 回显 zone 与请求不一致
+  { window_mode: 'fixed_offset' }, // 模式回退
+]) {
+  it('zone request with inconsistent echo ' + JSON.stringify(change) + ' fails closed (D03)', async () => {
+    spyOn(client, 'get').mockResolvedValue({ data: { code: 0, payload: { ...naturalDayFacts, ...change } } })
+    await expect(getCsSessionStats({ organizationId: '11', date: '2026-03-08', zone: 'America/New_York' }))
+      .rejects.toThrow('无法展示')
+  })
+}
+
+it('natural_day echo round-trip passes and preserves the 23h zone window (D03)', async () => {
+  spyOn(client, 'get').mockResolvedValue({ data: { code: 0, payload: naturalDayFacts } })
+  const value = await getCsSessionStats({ organizationId: '11', date: '2026-03-08', zone: 'America/New_York' })
+  expect(value.windowMode).toBe('natural_day')
+  expect(value.zone).toBe('America/New_York')
+  expect(value.tzOffset).toBeNull()
+  expect(value.windowEnd - value.windowStart).toBe(23 * 3600)
+})
