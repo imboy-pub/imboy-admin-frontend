@@ -51,6 +51,7 @@ const STATUS_VARIANTS: Record<string, 'warning' | 'success' | 'error'> = {
 
 export function ContentReviewQueuePage() {
   const queryClient = useQueryClient()
+  const zone = Intl.DateTimeFormat().resolvedOptions().timeZone
 
   const { state: params, setState: setParams } = useListQueryState<PageQuery>({
     page: 1,
@@ -65,21 +66,16 @@ export function ContentReviewQueuePage() {
   const [rejectReason, setRejectReason] = useState('')
 
   const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
-    queryKey: ['content-review-queue', params],
+    queryKey: ['content-review-queue', params, zone],
     queryFn: () =>
       getReviewQueuePayload({
         page: params.page,
         size: params.size,
         status: params.status === 'all' ? undefined : (params.status as ReviewStatus),
         keyword: params.keyword || undefined,
-        // R12-AD：日期语义 = 用户本地时区整日半开区间 [start 00:00, end 次日 00:00)
-        // （本地午夜算术统一在 calendarRange；畸形日期（URL 可编辑）过滤 nothing，
-        // 不上送——与 auditDateRange 同一 fail-safe 语义）。
-        // wire 向后兼容：仍发 YYYY-MM-DD（BE review_queue_repo `$N::date` +
-        // `+1 day` cast，区间归属由 PG session TimeZone 决定——正是 R12-BE 要
-        // 改成明确瞬间边界的地方；BE 定义新参数前不单方面改 wire）。
         start: isValidCalendarDay(params.start) ? params.start : undefined,
         end: isValidCalendarDay(params.end) ? params.end : undefined,
+        zone,
       }),
   })
 
