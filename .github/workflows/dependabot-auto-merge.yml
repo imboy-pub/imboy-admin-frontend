@@ -61,18 +61,22 @@ jobs:
       - name: Label minor PR
         if: steps.meta.outputs.update-type == 'version-update:semver-minor'
         run: |
-          gh label create "auto-approved" --color "0e8a16" --description "minor 升级已自动 approve，待人工合并" --force
+          # 无 checkout 步骤时 gh label create 无法从 git 上下文推断仓库，
+          # 必须显式 -R 指定（gh pr review/merge/edit 带 PR URL 不受影响）
+          gh label create "auto-approved" --color "0e8a16" --description "minor 升级已自动 approve，待人工合并" --force -R "$REPO"
           gh pr edit "$PR_URL" --add-label "auto-approved"
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
+          REPO: ${{ github.repository }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # ── major：打 needs-review label，不自动操作 ──────────────────
       - name: Label major PR for review
         if: steps.meta.outputs.update-type == 'version-update:semver-major'
         run: |
-          gh label create "needs-review" --color "fbca04" --description "major 升级需人工评审" --force
+          gh label create "needs-review" --color "fbca04" --description "major 升级需人工评审" --force -R "$REPO"
           gh pr edit "$PR_URL" --add-label "needs-review"
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
+          REPO: ${{ github.repository }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

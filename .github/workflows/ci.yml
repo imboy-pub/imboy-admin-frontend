@@ -79,11 +79,12 @@ jobs:
 
   # ----------------------------------------------------------------
   # DCO — 仅 PR 检查，验证所有 commits 带有 Signed-off-by
+  # （dependabot[bot] 豁免：其提交无法带 signoff，DCO 语义针对人类贡献者）
   # ----------------------------------------------------------------
   dco-check:
     name: DCO check
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'
 
     steps:
       - name: Checkout
