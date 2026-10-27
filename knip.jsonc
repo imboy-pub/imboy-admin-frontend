@@ -80,5 +80,15 @@
     // 是真实动态引用而非解析错误；按 knip 官方 ignoreUnresolved
     // （specifier 匹配，支持正则）豁免
     "^/src/modules/customer_service/seat/seatAuthStore\\.ts$"
+  ],
+  "ignoreBinaries": [
+    // e2e 编排/取证脚本 execa/spawn 调用的宿主机系统二进制（非 npm 依赖，
+    // 由手动 QA 环境提供）：e2e-backend.mts 拉起本地 PG 与 Erlang 节点
+    // （psql/epmd/erl），hosted/seat-embed 套件编排 nginx TLS 静态托管面。
+    // knip ≥6.42 开始报告 Unlisted binaries，按官方 ignoreBinaries 豁免
+    "psql",
+    "epmd",
+    "erl",
+    "nginx"
   ]
 }

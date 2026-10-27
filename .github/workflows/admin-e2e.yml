@@ -23,7 +23,10 @@ env:
 jobs:
   e2e:
     name: Playwright e2e (chromium)
-    runs-on: ubuntu-latest
+    # ubuntu-latest 自 2026-10-19 迁移到 Ubuntu 26，Playwright 1.59 的
+    # `playwright install --with-deps` 尚不支持 ubuntu26.04，故固定 24.04；
+    # 升级 @playwright/test 支持后可恢复 ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
 
     steps:

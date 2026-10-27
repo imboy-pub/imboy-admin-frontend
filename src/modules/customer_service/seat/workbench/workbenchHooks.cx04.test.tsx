@@ -95,7 +95,7 @@ it('ACK requires visible focused online page, auto advances visible target, and 
   const { api, wrapper } = harness()
   let visible = false, focused = true, online = true
   getter(document, 'visibilityState', () => visible ? 'visible' : 'hidden')
-  spyOn(document, 'hasFocus').mockImplementation(() => focused)
+  getter(document, 'hasFocus', () => () => focused)
   getter(navigator, 'onLine', () => online)
   const ack = spyOn(api, 'ackRead').mockResolvedValue(undefined)
   const view = renderHook(({ target }) => useSeatFocusAck(id(901), id(903), id(907), {
@@ -126,7 +126,7 @@ it('ACK requires visible focused online page, auto advances visible target, and 
 it('late ACK A cannot advance or fail B; lower visible IDs in B and new auth generation remain eligible', async () => {
   const { api, wrapper } = harness()
   getter(document, 'visibilityState', () => 'visible')
-  spyOn(document, 'hasFocus').mockReturnValue(true)
+  getter(document, 'hasFocus', () => () => true)
   getter(navigator, 'onLine', () => true)
   const old = deferred()
   const ack = spyOn(api, 'ackRead').mockImplementationOnce(() => old.promise).mockResolvedValue(undefined)
@@ -184,7 +184,7 @@ for (const kind of ['forbidden', 'unauthorized'] as const) {
   it(kind + ' revokes only this message scope, erases body caches and prevents refetch/ACK until reauthentication', async () => {
     const { api, wrapper, qc } = harness()
     getter(document, 'visibilityState', () => 'visible')
-    spyOn(document, 'hasFocus').mockReturnValue(true)
+    getter(document, 'hasFocus', () => () => true)
     getter(navigator, 'onLine', () => true)
     let denied = false
     const fetch = spyOn(api, 'fetchMessages').mockImplementation(async () => {
