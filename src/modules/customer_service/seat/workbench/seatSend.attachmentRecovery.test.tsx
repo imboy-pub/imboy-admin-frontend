@@ -1,5 +1,6 @@
 import '@/test/attachmentJournalFixture'
 import { uploadJournal } from '@/lib/attachmentUploadJournal'
+import { blobSha256Hex } from './attachmentUpload'
 import '../../../../test/setupDom'
 
 import { afterEach, describe, expect, it, mock, spyOn } from 'bun:test'
@@ -28,10 +29,22 @@ function harness() {
   useSeatAuthStore.getState().setSession('1000000000000000001')
   const backend = new SeatFakeBackend()
   const handle = backend.handle
+  const dispatchCheckpoints: ({ clientMsgId: string; dispatchState?: string; clientUploadId: string } | null)[] = []
   const postOutcomes: (Response | Error)[] = []
   const getOutcomes: (Response | Error)[] = []
   const transport = spyOn(backend, 'handle').mockImplementation(async (url, init) => {
     if (url.split('?')[0]!.endsWith('/messages')) {
+      if (init?.method === 'POST') {
+        const body = JSON.parse(String(init.body)) as { client_msg_id: string }
+        let checkpoint = null
+        for (let i = 0; i < localStorage.length; i += 1) {
+          const key = localStorage.key(i)
+          if (!key?.startsWith('imboy:attachment:v5:')) continue
+          const row = JSON.parse(localStorage.getItem(key)!)
+          if (row.clientMsgId === body.client_msg_id) checkpoint = row
+        }
+        dispatchCheckpoints.push(checkpoint)
+      }
       const outcome = (init?.method === 'POST' ? postOutcomes : getOutcomes).shift()
       if (outcome instanceof Error) throw outcome
       if (outcome !== undefined) return outcome
@@ -55,7 +68,7 @@ function harness() {
   const view = renderHook((scope: typeof SCOPE) => useSeatSend(
     scope.orgId, scope.conversationId, scope.workspaceId, scope.identityId,
   ), { wrapper, initialProps: SCOPE })
-  return { ...view, transport, postOutcomes, getOutcomes, presign, upload, confirm, sendMessage }
+  return { ...view, api: gateway.api, transport, dispatchCheckpoints, postOutcomes, getOutcomes, presign, upload, confirm, sendMessage }
 }
 
 type Harness = ReturnType<typeof harness>
@@ -150,6 +163,8 @@ describe('CX03 attachment recovery — unit/mock transport/JSDOM only, not Requi
     expect(edited).toEqual({ ...original, body: editedBody, clientMsgId: expect.any(String) })
     expect(edited.clientMsgId).toMatch(/^seat-web-/)
     expect(edited.clientMsgId).not.toBe(original.clientMsgId)
+    expect(view.dispatchCheckpoints[1]).toMatchObject({ clientMsgId: edited.clientMsgId, dispatchState: 'dispatch_intent' })
+    expect(view.dispatchCheckpoints[1]?.clientUploadId).toBe(view.dispatchCheckpoints[0]?.clientUploadId)
     expect(JSON.parse(String(messageRequests(view, 'POST')[1]![1]!.body))).toMatchObject({
       body: editedBody, client_msg_id: edited.clientMsgId, asset_ids: original.assetIds,
     })
@@ -197,6 +212,31 @@ describe('CX03 attachment recovery — unit/mock transport/JSDOM only, not Requi
       expect(request.searchParams.get('organization_id')).toBe(ORG)
       expect(request.searchParams.get('workspace_id')).toBe(WS)
     }
+  })
+
+  it('edited message response loss queries only the new identity on retry', async () => {
+    const view = harness()
+    setDraft(view, BODY, new File(['abc'], 'proof.txt', { type: 'text/plain' }))
+    const original = await rejectSend(view, 422, 'validation')
+    setDraft(view, `${BODY} edited`)
+    view.postOutcomes.push(new Error('lost edited response'))
+    act(() => view.result.current.retry())
+    await waitFor(() => {
+      expect(view.sendMessage).toHaveBeenCalledTimes(2)
+      expect(view.result.current.sending).toBe(false)
+    })
+    const edited = view.sendMessage.mock.calls[1]![2]
+    expect(edited.clientMsgId).not.toBe(original.clientMsgId)
+    expect(view.result.current.outcomeUnknown).toBe(true)
+    view.getOutcomes.push(response({ messages: [] }))
+    act(() => view.result.current.retry())
+    await waitFor(() => {
+      expect(messageRequests(view, 'GET')).toHaveLength(1)
+      expect(view.result.current.sending).toBe(false)
+    })
+    expect(view.sendMessage).toHaveBeenCalledTimes(2)
+    expect(view.result.current.outcomeUnknown).toBe(true)
+    expectUploads(view, 1)
   })
 
   it.each([
@@ -283,4 +323,167 @@ it('confirmed seat recovery rejects the original message identity with a differe
   expect(view.result.current.outcomeUnknown).toBe(true)
   expect(view.result.current.error).toBeInstanceOf(Error)
   expect(journal.load('restored-wrong-asset')).not.toBeNull()
+})
+
+ it('confirmed before dispatch survives restart and first-sends the original identity once', async () => {
+  const journal = uploadJournal(['seat', '1000000000000000001', ORG, WS, IDENTITY, CONV], () => true)
+  await journal.save({ clientUploadId: crypto.randomUUID(), clientMsgId: 'ready-seat', assetId: '8100000000000000001',
+    phase: 'confirmed', dispatchState: 'ready', objectHash: 'a'.repeat(64), sizeBytes: 3, mime: 'text/plain', updatedAt: Date.now() })
+  const view = harness()
+  await waitFor(() => expect(view.result.current.recoverableAttachments).toHaveLength(1))
+  act(() => view.result.current.selectRecovery(view.result.current.recoverableAttachments[0]!))
+  act(() => view.result.current.send())
+  await waitFor(() => expect(view.sendMessage).toHaveBeenCalledTimes(1))
+  expect(view.sendMessage.mock.calls[0]![2]).toMatchObject({ clientMsgId: 'ready-seat', assetIds: ['8100000000000000001'] })
+  await waitFor(() => expect(journal.load('ready-seat')).toBeNull())
+})
+
+it('seat dispatch checkpoint denial stops before business send', async () => {
+  const journal = uploadJournal(['seat', '1000000000000000001', ORG, WS, IDENTITY, CONV], () => true)
+  await journal.save({ clientUploadId: crypto.randomUUID(), clientMsgId: 'quota-seat', assetId: '8100000000000000001',
+    phase: 'confirmed', dispatchState: 'ready', objectHash: 'a'.repeat(64), sizeBytes: 3, mime: 'text/plain', updatedAt: Date.now() })
+  const view = harness()
+  await waitFor(() => expect(view.result.current.recoverableAttachments).toHaveLength(1))
+  act(() => view.result.current.selectRecovery(view.result.current.recoverableAttachments[0]!))
+  const storage = localStorage
+  Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: {
+    getItem: storage.getItem.bind(storage), setItem: () => { throw new Error('quota') },
+    removeItem: storage.removeItem.bind(storage), key: storage.key.bind(storage), get length() { return storage.length },
+  } })
+  try {
+    act(() => view.result.current.send())
+    await waitFor(() => expect(view.result.current.error).toBeInstanceOf(Error))
+    expect(view.sendMessage).toHaveBeenCalledTimes(0)
+    expect(journal.load('quota-seat')?.dispatchState).toBe('ready')
+  } finally { Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: storage }) }
+})
+
+it('seat lost send response persists intent across restart and only queries original task', async () => {
+  const journal = uploadJournal(['seat', '1000000000000000001', ORG, WS, IDENTITY, CONV], () => true)
+  await journal.save({ clientUploadId: crypto.randomUUID(), clientMsgId: 'lost-seat', assetId: '8100000000000000001',
+    phase: 'confirmed', dispatchState: 'ready', objectHash: 'a'.repeat(64), sizeBytes: 3, mime: 'text/plain', updatedAt: Date.now() })
+  const first = harness()
+  first.postOutcomes.push(new Error('response lost'))
+  await waitFor(() => expect(first.result.current.recoverableAttachments).toHaveLength(1))
+  act(() => first.result.current.selectRecovery(first.result.current.recoverableAttachments[0]!))
+  act(() => first.result.current.send())
+  await waitFor(() => expect(first.result.current.outcomeUnknown).toBe(true))
+  expect(journal.load('lost-seat')?.dispatchState).toBe('dispatch_intent')
+  first.unmount()
+  const restarted = harness()
+  await waitFor(() => expect(restarted.result.current.recoverableAttachments).toHaveLength(1))
+  act(() => restarted.result.current.selectRecovery(restarted.result.current.recoverableAttachments[0]!))
+  act(() => restarted.result.current.send())
+  await waitFor(() => expect(restarted.result.current.error).toBeInstanceOf(Error))
+  expect(restarted.sendMessage).toHaveBeenCalledTimes(0)
+})
+
+for (const phase of ['intent', 'registered', 'uploaded'] as const) {
+  it(`reselect original file after editing ${phase} recovery keeps the upload and message identities`, async () => {
+    const clientMsgId = `resume-${phase}`, clientUploadId = crypto.randomUUID()
+    const file = new File(['abc'], 'original.txt', { type: 'text/plain' })
+    const assetId = '8100000000000000001'
+    const journal = uploadJournal(['seat', '1000000000000000001', ORG, WS, IDENTITY, CONV], () => true)
+    await journal.save({ clientUploadId, clientMsgId, assetId: phase === 'intent' ? null : assetId,
+      phase, dispatchState: 'ready', objectHash: await blobSha256Hex(file), sizeBytes: file.size, mime: file.type, updatedAt: Date.now() })
+    const view = harness()
+    const recover = spyOn(view.api, 'recoverAssetUpload').mockResolvedValue({ assetId, state: 'registered', uploadRef: 'same-ref', uploadUrl: 'https://upload.invalid/owned' })
+    view.upload.mockResolvedValue(undefined)
+    view.confirm.mockResolvedValue(undefined)
+    view.postOutcomes.push(response({ message: { id: '9000000000000000011', sender_type: 'business_identity' } }))
+    await waitFor(() => expect(view.result.current.recoverableAttachments).toHaveLength(1))
+    act(() => view.result.current.selectRecovery(view.result.current.recoverableAttachments[0]!))
+    setDraft(view, 'edited before upload completes', file)
+    act(() => view.result.current.send())
+    await waitFor(() => {
+      expect(view.result.current.sending).toBe(false)
+      expect(view.sendMessage).toHaveBeenCalledTimes(1)
+    })
+    expect(view.sendMessage.mock.calls[0]![2].clientMsgId).toBe(clientMsgId)
+    expect(view.dispatchCheckpoints[0]?.clientUploadId).toBe(clientUploadId)
+    expect(view.presign).toHaveBeenCalledTimes(0)
+    expect(view.upload).toHaveBeenCalledTimes(phase === 'uploaded' ? 0 : 1)
+    expect(view.confirm).toHaveBeenCalledTimes(1)
+    expect(recover.mock.calls.every((call) => call[2] === clientUploadId)).toBe(true)
+  })
+}
+
+it('reselected different bytes cannot replace a registered recovery task', async () => {
+  const journal = uploadJournal(['seat', '1000000000000000001', ORG, WS, IDENTITY, CONV], () => true)
+  const clientUploadId = crypto.randomUUID(), clientMsgId = 'mismatched-reselection'
+  const original = new File(['abc'], 'original.txt', { type: 'text/plain' })
+  await journal.save({ clientUploadId, clientMsgId, assetId: '8100000000000000001', phase: 'registered',
+    dispatchState: 'ready', objectHash: await blobSha256Hex(original), sizeBytes: 3, mime: original.type, updatedAt: Date.now() })
+  const view = harness()
+  const recover = spyOn(view.api, 'recoverAssetUpload')
+  await waitFor(() => expect(view.result.current.recoverableAttachments).toHaveLength(1))
+  act(() => view.result.current.selectRecovery(view.result.current.recoverableAttachments[0]!))
+  setDraft(view, 'edited body', new File(['xyz'], original.name, { type: original.type }))
+  act(() => view.result.current.send())
+  await waitFor(() => {
+    expect(view.result.current.error).not.toBeNull()
+    expect(view.result.current.sending).toBe(false)
+  })
+  expect(view.sendMessage).toHaveBeenCalledTimes(0)
+  expect(view.presign).toHaveBeenCalledTimes(0)
+  expect(view.upload).toHaveBeenCalledTimes(0)
+  expect(view.confirm).toHaveBeenCalledTimes(0)
+  expect(recover).toHaveBeenCalledTimes(0)
+  expect(journal.load(clientMsgId)?.clientUploadId).toBe(clientUploadId)
+  expect(journal.list()).toHaveLength(1)
+})
+
+it('selected durable UNKNOWN keeps original query identity when edited before first query', async () => {
+  const clientMsgId = 'selected-unknown-original', assetId = '8100000000000000001'
+  const journal = uploadJournal(['seat', '1000000000000000001', ORG, WS, IDENTITY, CONV], () => true)
+  await journal.save({ clientUploadId: crypto.randomUUID(), clientMsgId, assetId, phase: 'confirmed',
+    dispatchState: 'dispatch_intent', objectHash: 'a'.repeat(64), sizeBytes: 3, mime: 'text/plain', updatedAt: Date.now() })
+  const view = harness()
+  view.getOutcomes.push(response({ messages: [{ id: '100', sender_type: 'business_identity', sender_identity_id: IDENTITY,
+    client_msg_id: clientMsgId, body: null, created_at: null,
+    assets: [{ id: assetId, mime: 'text/plain', size_bytes: 3, file_name: 'old.txt', status: 'active' }] }] }))
+  await waitFor(() => expect(view.result.current.recoverableAttachments).toHaveLength(1))
+  act(() => view.result.current.selectRecovery(view.result.current.recoverableAttachments[0]!))
+  const fresh = new File(['new bytes'], 'new.txt', { type: 'text/plain' })
+  setDraft(view, 'new body', fresh)
+  act(() => view.result.current.send())
+  await waitFor(() => {
+    expect(view.result.current.outcomeUnknown).toBe(false)
+    expect(view.result.current.sending).toBe(false)
+  })
+  expect(view.sendMessage).toHaveBeenCalledTimes(0)
+  expectDraft(view, 'new body', fresh)
+  expect(journal.load(clientMsgId)).toBeNull()
+  view.postOutcomes.push(response({ message: { id: '9000000000000000011', sender_type: 'business_identity' } }))
+  act(() => view.result.current.send())
+  await waitFor(() => expect(view.sendMessage).toHaveBeenCalledTimes(1))
+  expect(view.sendMessage.mock.calls[0]![2].clientMsgId).not.toBe(clientMsgId)
+  expect(view.sendMessage.mock.calls[0]![2].body).toBe('new body')
+})
+
+it('body-only edit of selected UNKNOWN reuses the confirmed asset through a new durable message task', async () => {
+  const clientMsgId = 'selected-body-only', assetId = '8100000000000000001', clientUploadId = crypto.randomUUID()
+  const journal = uploadJournal(['seat', '1000000000000000001', ORG, WS, IDENTITY, CONV], () => true)
+  await journal.save({ clientUploadId, clientMsgId, assetId, phase: 'confirmed', dispatchState: 'dispatch_intent',
+    objectHash: 'a'.repeat(64), sizeBytes: 3, mime: 'text/plain', updatedAt: Date.now() })
+  const view = harness()
+  view.getOutcomes.push(response({ messages: [{ id: '100', sender_type: 'business_identity', sender_identity_id: IDENTITY,
+    client_msg_id: clientMsgId, body: null, created_at: null,
+    assets: [{ id: assetId, mime: 'text/plain', size_bytes: 3, file_name: 'old.txt', status: 'active' }] }] }))
+  await waitFor(() => expect(view.result.current.recoverableAttachments).toHaveLength(1))
+  act(() => view.result.current.selectRecovery(view.result.current.recoverableAttachments[0]!))
+  setDraft(view, 'new body keeps original attachment')
+  act(() => view.result.current.send())
+  await waitFor(() => expect(view.result.current.outcomeUnknown).toBe(false))
+  expect(view.result.current.draft.body).toBe('new body keeps original attachment')
+  expect(view.sendMessage).toHaveBeenCalledTimes(0)
+  view.postOutcomes.push(response({ message: { id: '9000000000000000011', sender_type: 'business_identity' } }))
+  act(() => view.result.current.send())
+  await waitFor(() => expect(view.sendMessage).toHaveBeenCalledTimes(1))
+  expect(view.sendMessage.mock.calls[0]![2]).toMatchObject({ assetIds: [assetId], body: 'new body keeps original attachment' })
+  expect(view.sendMessage.mock.calls[0]![2].clientMsgId).not.toBe(clientMsgId)
+  expect(view.dispatchCheckpoints[0]).toMatchObject({ clientUploadId, dispatchState: 'dispatch_intent' })
+  expect(view.presign).toHaveBeenCalledTimes(0)
+  expect(view.upload).toHaveBeenCalledTimes(0)
+  expect(view.confirm).toHaveBeenCalledTimes(0)
 })

@@ -2,9 +2,11 @@ import type { EntityId } from '@/types/common'
 
 type UploadPhase = 'intent' | 'registered' | 'uploaded' | 'confirmed'
 export type UploadCheckpoint = {
+  journalId?: string
   clientUploadId: string
   clientMsgId: string
   assetId: EntityId | null
+  dispatchState?: 'ready' | 'dispatch_intent'
   phase: UploadPhase
   objectHash: string
   sizeBytes: number
@@ -36,56 +38,98 @@ export function uploadJournal(scope: readonly string[], isCurrent: () => boolean
   const key = `imboy:attachment:v5:${JSON.stringify([(globalThis.location?.origin ?? globalThis.window?.location.origin), ...scope])}`
   const guard = () => { if (!isCurrent()) throw new Error('上传身份或会话已变化') }
   const taskKey = (id: string) => `${key}:${encodeURIComponent(id)}`
+  const read = (id: string): UploadCheckpoint | null => {
+    guard()
+    const raw = storage.getItem(taskKey(id))
+    if (raw === null) return null
+    const value: unknown = JSON.parse(raw)
+    if (typeof value !== 'object' || value === null) throw new Error('上传恢复记录损坏')
+    const row = value as UploadCheckpoint
+    if (!/^[0-9a-f-]{36}$/i.test(row.clientUploadId) || !/^[0-9a-f]{64}$/.test(row.objectHash)
+      || !['intent', 'registered', 'uploaded', 'confirmed'].includes(row.phase)
+      || (row.dispatchState !== undefined && !['ready', 'dispatch_intent'].includes(row.dispatchState))
+      || typeof row.clientMsgId !== 'string' || row.clientMsgId.length === 0 || (row.journalId !== undefined && row.journalId !== id) || typeof row.mime !== 'string'
+      || !Number.isSafeInteger(row.sizeBytes) || row.sizeBytes < 0
+      || (row.assetId !== null && !/^\d+$/.test(row.assetId))) throw new Error('上传恢复记录损坏')
+    return { ...row, journalId: id,
+      dispatchState: row.dispatchState === undefined && row.phase !== 'confirmed' ? 'ready' : row.dispatchState }
+  }
+  const all = (): UploadCheckpoint[] => {
+    guard()
+    const rows: UploadCheckpoint[] = []
+    for (let i = 0; i < storage.length; i += 1) {
+      const name = storage.key(i)
+      if (name?.startsWith(`${key}:`)) {
+        const row = read(decodeURIComponent(name.slice(key.length + 1)))
+        if (row) rows.push(row)
+      }
+    }
+    if (new Set(rows.map((row) => row.clientMsgId)).size !== rows.length) throw new Error('消息恢复身份重复')
+    return rows
+  }
+  const find = (id: string) => all().find((row) => row.clientMsgId === id) ?? null
+  const write = (row: UploadCheckpoint) => {
+    const { journalId, clientUploadId, clientMsgId, assetId, phase, dispatchState, objectHash, sizeBytes, mime } = row
+    storage.setItem(taskKey(journalId ?? clientMsgId), JSON.stringify({ journalId: journalId ?? clientMsgId,
+      clientUploadId, clientMsgId, assetId, phase, dispatchState, objectHash, sizeBytes, mime, updatedAt: Date.now() }))
+    guard()
+  }
   const journal = {
     async run<T>(id: string, operation: () => Promise<T>): Promise<T> {
-      return browserTaskLock(`${taskKey(id)}:operation`, async () => { guard(); return operation() })
+      const original = find(id)
+      const stableId = original?.journalId ?? id
+      return browserTaskLock(`${taskKey(stableId)}:operation`, async () => {
+        guard()
+        const current = read(stableId)
+        if (current && current.clientMsgId !== id) throw new Error('消息任务已切换，旧页面已停止')
+        return operation()
+      })
     },
-    load(id: string): UploadCheckpoint | null {
-      guard()
-      const raw = storage.getItem(taskKey(id))
-      if (raw === null) return null
-      const value: unknown = JSON.parse(raw)
-      if (typeof value !== 'object' || value === null) throw new Error('上传恢复记录损坏')
-      const row = value as UploadCheckpoint
-      if (!/^[0-9a-f-]{36}$/i.test(row.clientUploadId) || !/^[0-9a-f]{64}$/.test(row.objectHash)
-        || !['intent', 'registered', 'uploaded', 'confirmed'].includes(row.phase)
-        || row.clientMsgId !== id || typeof row.mime !== 'string'
-        || !Number.isSafeInteger(row.sizeBytes) || row.sizeBytes < 0
-        || (row.assetId !== null && !/^\d+$/.test(row.assetId))) throw new Error('上传恢复记录损坏')
-      return row
-    },
-    list(): UploadCheckpoint[] {
-      guard()
-      const rows: UploadCheckpoint[] = []
-      for (let i = 0; i < storage.length; i += 1) {
-        const name = storage.key(i)
-        if (name?.startsWith(`${key}:`)) {
-          const row = journal.load(decodeURIComponent(name.slice(key.length + 1)))
-          if (row !== null) rows.push(row)
-        }
-      }
-      return rows
-    },
+    load: find,
+    list: all,
     async save(row: UploadCheckpoint): Promise<void> {
-      await lock(taskKey(row.clientMsgId), () => {
-      guard()
-      const previous = journal.load(row.clientMsgId)
-      if (previous && (previous.clientUploadId !== row.clientUploadId || previous.objectHash !== row.objectHash
-        || previous.sizeBytes !== row.sizeBytes || previous.mime !== row.mime
-        || (previous.assetId !== null && previous.assetId !== row.assetId))) throw new Error('上传任务身份冲突')
-      const phases: UploadPhase[] = ['intent', 'registered', 'uploaded', 'confirmed']
-      if (previous && phases.indexOf(previous.phase) > phases.indexOf(row.phase)) throw new Error('上传任务已由其他页面推进')
-      const { clientUploadId, clientMsgId, assetId, phase, objectHash, sizeBytes, mime } = row
-      storage.setItem(taskKey(row.clientMsgId), JSON.stringify({ clientUploadId, clientMsgId, assetId, phase, objectHash, sizeBytes, mime, updatedAt: Date.now() }))
-      guard()
+      await lock(`${key}:storage`, () => {
+        guard()
+        const id = row.journalId ?? row.clientMsgId
+        const previous = read(id)
+        const owner = find(row.clientMsgId)
+        if ((previous && previous.clientMsgId !== row.clientMsgId) || (owner && owner.journalId !== id)) throw new Error('消息任务已切换')
+        if (previous && (previous.clientUploadId !== row.clientUploadId || previous.objectHash !== row.objectHash
+          || previous.sizeBytes !== row.sizeBytes || previous.mime !== row.mime
+          || (previous.assetId !== null && previous.assetId !== row.assetId))) throw new Error('上传任务身份冲突')
+        const phases: UploadPhase[] = ['intent', 'registered', 'uploaded', 'confirmed']
+        if (previous && phases.indexOf(previous.phase) > phases.indexOf(row.phase)) throw new Error('上传任务已由其他页面推进')
+        if (previous?.dispatchState === 'dispatch_intent' && row.dispatchState !== 'dispatch_intent') throw new Error('消息发送意图不可回退')
+        write({ ...row, journalId: id })
+      })
+    },
+    async retarget(journalId: string, expectedMsgId: string, clientUploadId: string, nextMsgId: string): Promise<UploadCheckpoint> {
+      let result: UploadCheckpoint | undefined
+      await lock(`${key}:storage`, () => {
+        guard()
+        const row = read(journalId)
+        if (!row || row.clientMsgId !== expectedMsgId || row.clientUploadId !== clientUploadId
+          || row.phase !== 'confirmed' || row.dispatchState !== 'ready' || !nextMsgId || find(nextMsgId)) throw new Error('消息任务切换冲突')
+        result = { ...row, clientMsgId: nextMsgId }
+        write(result)
+      })
+      return result!
+    },
+    /** Only a definitive server refusal proves no message was committed. */
+    async acknowledgeRefusal(clientMsgId: string, clientUploadId: string): Promise<void> {
+      await lock(`${key}:storage`, () => {
+        guard()
+        const row = find(clientMsgId)
+        if (!row || row.clientUploadId !== clientUploadId || row.dispatchState !== 'dispatch_intent') throw new Error('消息拒绝检查点冲突')
+        write({ ...row, dispatchState: 'ready' })
       })
     },
     async remove(clientMsgId: string, clientUploadId: string): Promise<void> {
-      await lock(taskKey(clientMsgId), () => {
+      await lock(`${key}:storage`, () => {
         guard()
-        const previous = journal.load(clientMsgId)
-        if (previous !== null && previous.clientUploadId !== clientUploadId) throw new Error('上传任务身份冲突，未删除')
-        storage.removeItem(taskKey(clientMsgId))
+        const previous = find(clientMsgId)
+        if (previous && previous.clientUploadId !== clientUploadId) throw new Error('上传任务身份冲突，未删除')
+        if (previous) storage.removeItem(taskKey(previous.journalId!))
       })
     },
   }
@@ -132,7 +176,7 @@ export async function resumeUpload(input: {
     throw new Error('重新选择的文件与原上传不同，请恢复原文件或明确取消旧任务')
   }
   row ??= { clientUploadId: crypto.randomUUID(), clientMsgId: input.clientMsgId, assetId: null,
-    phase: 'intent', objectHash: input.hash, sizeBytes: input.file.size,
+    phase: 'intent', dispatchState: 'ready', objectHash: input.hash, sizeBytes: input.file.size,
     mime: input.file.type || 'application/octet-stream', updatedAt: Date.now() }
   const checkpoint = async (patch: Partial<UploadCheckpoint>) => {
     guard()
@@ -172,4 +216,9 @@ export async function resumeUpload(input: {
   await input.confirm(session.assetId, session.uploadRef)
   await checkpoint({ phase: 'confirmed' })
   return row
+}
+
+/** Legacy confirmed rows may already have sent; only an explicit ready checkpoint permits first dispatch. */
+export function attachmentDispatchUnknown(row: UploadCheckpoint): boolean {
+  return row.dispatchState === 'dispatch_intent' || (row.phase === 'confirmed' && row.dispatchState !== 'ready')
 }

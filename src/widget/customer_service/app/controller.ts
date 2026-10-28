@@ -1,4 +1,4 @@
-import { uploadJournal } from '@/lib/attachmentUploadJournal'
+import { attachmentDispatchUnknown, uploadJournal } from '@/lib/attachmentUploadJournal'
 import type { EntityId } from '../../../types/common'
 import { createVisitorReads } from './visitorRead'
 /**
@@ -32,7 +32,7 @@ import {
 } from './sseProtocol'
 import { runAttachmentPipeline } from './uploader'
 import { parseHostToWidget } from '../protocol'
-import { WidgetApiClient, WidgetApiError } from './widgetApi'
+import { isDefiniteMessageRefusal, WidgetApiClient, WidgetApiError } from './widgetApi'
 import {
   clearVisitSubject,
   loadVisitSubject,
@@ -645,10 +645,26 @@ export function createWidgetController(deps: ControllerDeps) {
     const current = currentWriteOperation(sessionId)
     try {
       const journal = uploadJournal(['widget', selfContact, operationScope.installationId, sessionId], current)
+      await journal.run(clientMsgId, async () => {
       const row = journal.load(clientMsgId)
       if (row === null) return
       const result = await deps.api.recoverAttachment(sessionId, operationScope, row.clientUploadId, 'status')
       if (!current() || result.state !== 'confirmed' || result.assetId !== row.assetId) return
+      if (!attachmentDispatchUnknown(row)) {
+        await journal.save({ ...row, phase: 'confirmed', dispatchState: 'dispatch_intent' })
+        if (!current()) return
+        let sent: WidgetMessage
+        try {
+          sent = await deps.api.sendMessage(sessionId, operationScope, row.clientMsgId, '', [result.assetId])
+        } catch (error) {
+          if (current() && isDefiniteMessageRefusal(error)) await journal.acknowledgeRefusal(row.clientMsgId, row.clientUploadId)
+          throw error
+        }
+        if (!current()) return
+        await journal.remove(row.clientMsgId, row.clientUploadId)
+        if (current()) dispatch({ type: 'message_confirmed', key, id: sent.id })
+        return
+      }
       let after: string | null = null
       for (let page = 0; page < 20; page += 1) {
         const messages = await deps.api.listMessages(sessionId, operationScope, after)
@@ -665,6 +681,7 @@ export function createWidgetController(deps: ControllerDeps) {
         if (after !== null && BigInt(next) <= BigInt(after)) return
         after = next
       }
+      })
     } catch (error) { if (current() && isRevoke(error)) onRevoke() }
   }
 

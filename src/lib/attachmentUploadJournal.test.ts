@@ -151,3 +151,49 @@ describe('durable attachment journal', () => {
   })
 
 })
+
+it('dispatch intent survives restart and stale ready checkpoint cannot roll it back', async () => {
+  const f = fixture()
+  const row = await resumeUpload(f.input)
+  expect(row.dispatchState).toBe('ready')
+  await f.journal.save({ ...row, dispatchState: 'dispatch_intent' })
+  await expect(f.journal.save(row)).rejects.toThrow('不可回退')
+  expect(f.journal.load(row.clientMsgId)?.dispatchState).toBe('dispatch_intent')
+  expect([...f.data.values()].join('')).not.toContain('secret')
+})
+
+describe('atomic confirmed message retarget', () => {
+  async function ready() {
+    const f = fixture()
+    const row = await resumeUpload(f.input)
+    return { ...f, row: { ...row, journalId: row.clientMsgId } }
+  }
+  it('keeps one physical record and rejects stale writes after restart', async () => {
+    const f = await ready()
+    const keys = [...f.data.keys()]
+    const next = await f.journal.retarget(f.row.journalId, f.row.clientMsgId, f.row.clientUploadId, 'edited-message')
+    expect([...f.data.keys()]).toEqual(keys)
+    expect(f.journal.list().map((row) => row.clientMsgId)).toEqual(['edited-message'])
+    expect(f.journal.load(f.row.clientMsgId)).toBeNull()
+    expect(next.clientUploadId).toBe(f.row.clientUploadId)
+    await expect(f.journal.save(f.row)).rejects.toThrow('消息任务已切换')
+    await expect(f.journal.run(f.row.clientMsgId, async () => { throw new Error('must not run') })).rejects.toThrow('旧页面')
+    await f.journal.remove(f.row.clientMsgId, f.row.clientUploadId)
+    expect(f.journal.load('edited-message')).not.toBeNull()
+  })
+  it('failed atomic write preserves the sole original ready task', async () => {
+    const f = await ready()
+    f.storage.setItem = () => { throw new Error('quota') }
+    await expect(f.journal.retarget(f.row.journalId, f.row.clientMsgId, f.row.clientUploadId, 'edited-message')).rejects.toThrow('quota')
+    expect(f.journal.list().map((row) => row.clientMsgId)).toEqual([f.row.clientMsgId])
+    expect(f.journal.load(f.row.clientMsgId)?.dispatchState).toBe('ready')
+  })
+  it('unknown, conflicting target and wrong upload UUID cannot retarget', async () => {
+    const f = await ready()
+    await expect(f.journal.retarget(f.row.journalId, f.row.clientMsgId, crypto.randomUUID(), 'next')).rejects.toThrow()
+    await f.journal.save({ ...f.row, clientMsgId: 'other', journalId: 'other', clientUploadId: crypto.randomUUID() })
+    await expect(f.journal.retarget(f.row.journalId, f.row.clientMsgId, f.row.clientUploadId, 'other')).rejects.toThrow()
+    await f.journal.save({ ...f.row, dispatchState: 'dispatch_intent' })
+    await expect(f.journal.retarget(f.row.journalId, f.row.clientMsgId, f.row.clientUploadId, 'next')).rejects.toThrow()
+  })
+})

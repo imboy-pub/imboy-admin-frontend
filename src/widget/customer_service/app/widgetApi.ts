@@ -58,6 +58,11 @@ export function assertNoTokenInUrl(url: string): void {
   }
 }
 
+// Current server maps validation failures to 422 before commit; other failures remain unknown.
+export function isDefiniteMessageRefusal(error: unknown): boolean {
+  return error instanceof WidgetApiError && error.status === 422
+}
+
 function buildHeaders(visitToken: string | null, json: boolean): Record<string, string> {
   const headers: Record<string, string> = { Accept: 'application/json' }
   if (json) headers['Content-Type'] = 'application/json'
