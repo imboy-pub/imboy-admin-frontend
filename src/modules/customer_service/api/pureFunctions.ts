@@ -504,7 +504,7 @@ type CsStatsCurrent = {
 
 /** D03：窗口模式。fixed_offset=旧合同（date+tz_offset 固定 24h）；
  * natural_day=zone 两自然午夜（23/24/25h，DST 边界日由服务端 tzdata 保证）。 */
-export type CsSessionStatsWindowMode = 'fixed_offset' | 'natural_day'
+type CsSessionStatsWindowMode = 'fixed_offset' | 'natural_day'
 
 export type CsSessionStats = {
   organizationId: EntityId
