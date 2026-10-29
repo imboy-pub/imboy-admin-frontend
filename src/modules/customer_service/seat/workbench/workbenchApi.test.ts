@@ -509,6 +509,46 @@ describe('CS-WEB-04 客户上下文合同（CS-BE-03 端点）', () => {
   })
 })
 
+it('seat_timeout: hung presign/result-query transports classify as network and abort with a single request, no retry storm', async () => {
+  const calls: RecordedCall[] = []
+  const fetchImpl = async (url: string, init?: RequestInit): Promise<Response> => {
+    calls.push({ url, init })
+    // 模拟传输挂起后超时（socket/query timeout 语义：fetch 以超时异常拒绝，
+    // 而非 4xx 显式拒绝）；仅 mock 传输层，模块行为全部走真实实现。
+    await new Promise((resolve) => setTimeout(resolve, 1))
+    throw new DOMException('The operation timed out.', 'TimeoutError')
+  }
+  const api = new SeatWorkbenchApi({ client: new SeatApiClient({ fetchImpl, getToken: () => 'tok' }) })
+  let uploadError: unknown = null
+  try {
+    await runSeatAttachmentUpload({
+      api, orgId: ORG, conversationId: CONV, workspaceId: WS,
+      file: new Blob([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], { type: 'image/png' }), fileName: 'timeout.png',
+    })
+  } catch (error) {
+    uploadError = error
+  }
+  // presign 超时 → network 分类（fail-closed）；编排中止：恰好 1 次请求，
+  // 无自动重试风暴、无 PUT/confirm 后续动作。
+  expect(isSeatApiError(uploadError)).toBe(true)
+  expect((uploadError as { kind: string }).kind).toBe('network')
+  expect(calls).toHaveLength(1)
+  expect(calls[0]!.url.endsWith('/assets/presign')).toBe(true)
+  expect(calls[0]!.init?.method).toBe('POST')
+
+  // 发送结果查询 GET 超时同样只发一次（client 内部不重试）。
+  let queryError: unknown = null
+  try {
+    await api.fetchMessages(ORG, CONV, WS, { limit: 50 })
+  } catch (error) {
+    queryError = error
+  }
+  expect(isSeatApiError(queryError)).toBe(true)
+  expect((queryError as { kind: string }).kind).toBe('network')
+  expect(calls).toHaveLength(2)
+  expect(calls[1]!.url).toContain(`/api/v1/seat/enterprise/conversations/${CONV}/messages`)
+})
+
 it('V5 recovery uses existing authenticated presign route and stable UUID, no declaration or URL invention', async () => {
   const { api, calls } = makeFetch(() => envelope('{"asset_id":8100000000000000001,"session_state":"registered","upload_ref":"memory-only","upload":{"url":"https://store.example/put"}}'))
   const id = '12345678-1234-4234-8234-123456789abc'

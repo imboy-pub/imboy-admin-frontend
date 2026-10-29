@@ -1,4 +1,5 @@
 import '@/test/attachmentJournalFixture'
+import { uploadJournal } from '@/lib/attachmentUploadJournal'
 import '../../../../test/setupDom'
 
 import { afterEach, describe, expect, it, mock, spyOn } from 'bun:test'
@@ -448,4 +449,74 @@ describe('CX03 forbidden retry UI', () => {
     fireEvent.click(view.getByTestId('seat-send-retry'))
     expect(view.retry).toHaveBeenCalledTimes(1)
   })
+})
+
+it('seat_account_switch_late_callback: late send callback after account switch is refused by journal account isolation', async () => {
+  const view = harness()
+  const pending = deferred<Awaited<ReturnType<typeof view.send>>>()
+  view.send.mockImplementationOnce(() => pending.promise)
+  act(() => view.result.current.send())
+  await waitFor(() => expect(view.send).toHaveBeenCalledTimes(1))
+  const oldAccount = uploadJournal(['seat', '1000000000000000001', ORG, WS, IDENTITY, CONV], () => true)
+  await waitFor(() => expect(oldAccount.list()).toHaveLength(1))
+  const intent = oldAccount.list()[0]!
+  expect(intent.dispatchState).toBe('dispatch_intent')
+  // 账号切换（重新认证，同 revocation 套件既有模式）。
+  act(() => {
+    useSeatAuthStore.getState().clearSession('logout')
+    seatTokenVault.setToken('eyJu.eyJl.c2ln')
+    useSeatAuthStore.getState().setSession('1000000000000000002')
+  })
+  // journal 账号隔离：新账号作用域看不到旧账号的发送意图。
+  const newAccount = uploadJournal(['seat', '1000000000000000002', ORG, WS, IDENTITY, CONV], () => true)
+  expect(newAccount.list()).toEqual([])
+  expect(view.result.current.draft).toEqual({ body: '', fileName: null, fileSize: null })
+  // 迟到回调：切换后才 resolve 的发送成功响应。
+  await act(async () => pending.resolve({
+    id: '9000000000000000011', senderType: 'business_identity', senderIdentityId: IDENTITY,
+    senderContactId: null, clientMsgId: intent.clientMsgId, body: 'reply', readAt: null, createdAt: null, attachments: [],
+  }))
+  // 迟到回调被拒：旧账号任务不被推进/清除，新账号作用域零写入，不再发送。
+  expect(view.send).toHaveBeenCalledTimes(1)
+  const after = oldAccount.load(intent.clientMsgId)
+  expect(after).not.toBeNull()
+  expect(after?.dispatchState).toBe('dispatch_intent')
+  expect(after?.clientUploadId).toBe(intent.clientUploadId)
+  expect(newAccount.list()).toEqual([])
+  expect(useSeatAuthStore.getState().status).toBe('authenticated')
+  expect(view.result.current.error).toBeNull()
+  expect(view.result.current.outcomeUnknown).toBe(false)
+})
+
+it('seat_workspace_switch_late_callback: late send callback after workspace switch is refused by journal scope isolation', async () => {
+  const view = harness()
+  const pending = deferred<Awaited<ReturnType<typeof view.send>>>()
+  view.send.mockImplementationOnce(() => pending.promise)
+  act(() => view.result.current.send())
+  await waitFor(() => expect(view.send).toHaveBeenCalledTimes(1))
+  const oldScope = uploadJournal(['seat', '1000000000000000001', ORG, WS, IDENTITY, CONV], () => true)
+  await waitFor(() => expect(oldScope.list()).toHaveLength(1))
+  const intent = oldScope.list()[0]!
+  expect(intent.dispatchState).toBe('dispatch_intent')
+  const newScope = uploadJournal(['seat', '1000000000000000001', ORG, '3000000000000000004', IDENTITY, CONV], () => true)
+  expect(newScope.list()).toEqual([])
+  // 工作区切换：同账号、新 workspace 作用域。
+  view.rerender({ ...SCOPE, workspaceId: '3000000000000000004' })
+  expect(view.result.current.draft).toEqual({ body: '', fileName: null, fileSize: null })
+  // 迟到回调：切换后才 resolve 的发送成功响应。
+  await act(async () => pending.resolve({
+    id: '9000000000000000011', senderType: 'business_identity', senderIdentityId: IDENTITY,
+    senderContactId: null, clientMsgId: intent.clientMsgId, body: 'reply', readAt: null, createdAt: null, attachments: [],
+  }))
+  // 作用域隔离拒绝：旧任务不推进/不删除（dispatch_intent 保留），新工作区作用域
+  // 零写入、草稿/错误不被污染，且不产生第二次发送。
+  expect(view.send).toHaveBeenCalledTimes(1)
+  const after = oldScope.load(intent.clientMsgId)
+  expect(after).not.toBeNull()
+  expect(after?.dispatchState).toBe('dispatch_intent')
+  expect(after?.clientUploadId).toBe(intent.clientUploadId)
+  expect(newScope.list()).toEqual([])
+  expect(view.result.current.error).toBeNull()
+  expect(view.result.current.outcomeUnknown).toBe(false)
+  expect(view.result.current.draft).toEqual({ body: '', fileName: null, fileSize: null })
 })
