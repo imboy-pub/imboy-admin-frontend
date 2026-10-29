@@ -68,10 +68,28 @@ function harness() {
   const view = renderHook((scope: typeof SCOPE) => useSeatSend(
     scope.orgId, scope.conversationId, scope.workspaceId, scope.identityId,
   ), { wrapper, initialProps: SCOPE })
-  return { ...view, api: gateway.api, transport, dispatchCheckpoints, postOutcomes, getOutcomes, presign, upload, confirm, sendMessage }
+  return { ...view, api: gateway.api, transport, dispatchCheckpoints, postOutcomes, getOutcomes, presign, upload, confirm, sendMessage, backendHandle: handle, gateway }
 }
 
 type Harness = ReturnType<typeof harness>
+
+/** 同一 backend（服务端状态存活）上的客户端重启：仅重挂载 hook，共享同一 gateway/传输观测。 */
+function resumedOnSameBackend(previous: Harness) {
+  const queryClient = new QueryClient({ defaultOptions: {
+    queries: { retry: false, gcTime: Infinity }, mutations: { retry: false },
+  } })
+  queryClients.push(queryClient)
+  const wrapper = ({ children }: { children: ReactNode }) => (
+    <QueryClientProvider client={queryClient}>
+      <SeatWorkbenchProvider gateway={previous.gateway}>{children}</SeatWorkbenchProvider>
+    </QueryClientProvider>
+  )
+  const view = renderHook((scope: typeof SCOPE) => useSeatSend(
+    scope.orgId, scope.conversationId, scope.workspaceId, scope.identityId,
+  ), { wrapper, initialProps: SCOPE })
+  return { ...view, transport: previous.transport, dispatchCheckpoints: previous.dispatchCheckpoints,
+    presign: previous.presign, upload: previous.upload, confirm: previous.confirm, sendMessage: previous.sendMessage }
+}
 
 function setDraft(view: Harness, body: string, file?: File) {
   act(() => {
@@ -486,4 +504,141 @@ it('body-only edit of selected UNKNOWN reuses the confirmed asset through a new 
   expect(view.presign).toHaveBeenCalledTimes(0)
   expect(view.upload).toHaveBeenCalledTimes(0)
   expect(view.confirm).toHaveBeenCalledTimes(0)
+})
+
+it('seat_presign_response_lost: lost presign response persists intent and resume only queries the original task without re-presign', async () => {
+  const journal = uploadJournal(['seat', '1000000000000000001', ORG, WS, IDENTITY, CONV], () => true)
+  const fileBytes = 'presign-lost-bytes', fileName = 'presign-lost.txt'
+  const first = harness()
+  // 传输层 mock：服务端已受理 presign（会话登记完成），响应在途丢失。
+  first.transport.mockImplementationOnce(async (url, init) => {
+    await first.backendHandle(url, init)
+    throw new Error('mock presign response lost')
+  })
+  setDraft(first, '丢失 presign 响应的答复', new File([fileBytes], fileName, { type: 'text/plain' }))
+  act(() => first.result.current.send())
+  await waitFor(() => {
+    expect(first.result.current.error).toMatchObject({ kind: 'network' })
+    expect(first.result.current.sending).toBe(false)
+  })
+  expect(first.presign).toHaveBeenCalledTimes(1)
+  // 意图已在 presign 前持久化：intent 检查点 + 稳定 UUID/消息身份。
+  const rows = journal.list()
+  expect(rows).toHaveLength(1)
+  const intent = rows[0]!
+  expect(intent.phase).toBe('intent')
+  expect(intent.clientUploadId).toMatch(/^[0-9a-f-]{36}$/i)
+  expect(intent.clientMsgId).toMatch(/^seat-web-/)
+  expect(intent.objectHash).toMatch(/^[0-9a-f]{64}$/)
+  first.unmount()
+
+  // 重启恢复（同一服务端、客户端重挂载）：只查原任务（status/renew 同一
+  // client_upload_id），不重复 presign/register。
+  const restarted = resumedOnSameBackend(first)
+  await waitFor(() => expect(restarted.result.current.recoverableAttachments).toHaveLength(1))
+  act(() => restarted.result.current.selectRecovery(restarted.result.current.recoverableAttachments[0]!))
+  setDraft(restarted, '丢失 presign 响应的答复', new File([fileBytes], fileName, { type: 'text/plain' }))
+  act(() => restarted.result.current.send())
+  await waitFor(() => {
+    expect(restarted.result.current.sending).toBe(false)
+    expect(restarted.result.current.error).toBeNull()
+    expectDraft(restarted, '', null)
+  })
+  expect(restarted.sendMessage).toHaveBeenCalledTimes(1)
+  expect(restarted.sendMessage.mock.calls[0]![2].clientMsgId).toBe(intent.clientMsgId)
+  expect(restarted.presign).toHaveBeenCalledTimes(1) // register 只有最初 1 次
+  expect(restarted.upload).toHaveBeenCalledTimes(1)
+  expect(restarted.confirm).toHaveBeenCalledTimes(1)
+  const presignBodies = restarted.transport.mock.calls
+    .filter(([url]) => url.split('?')[0]!.endsWith('/assets/presign'))
+    .map(([, init]) => JSON.parse(String(init?.body)) as Record<string, unknown>)
+  expect(presignBodies.map((body) => body.operation)).toEqual(['register', 'status', 'renew'])
+  expect(presignBodies.every((body) => body.client_upload_id === intent.clientUploadId)).toBe(true)
+  expect(restarted.dispatchCheckpoints[0]).toMatchObject({
+    clientMsgId: intent.clientMsgId, clientUploadId: intent.clientUploadId, dispatchState: 'dispatch_intent',
+  })
+  expect(journal.list()).toHaveLength(0)
+})
+
+it('seat_restart_before_put: restart between presign and PUT reuses the persisted registration without a second presign', async () => {
+  const journal = uploadJournal(['seat', '1000000000000000001', ORG, WS, IDENTITY, CONV], () => true)
+  const fileBytes = 'restart-before-put-bytes', fileName = 'restart-before-put.txt'
+  const first = harness()
+  // 传输层 mock：presign 正常受理，随后的 PUT 在发起即进程终止（重启于 PUT 前）。
+  first.transport.mockImplementationOnce(async (url, init) => first.backendHandle(url, init))
+  first.transport.mockImplementationOnce(async () => { throw new Error('mock restart before PUT') })
+  setDraft(first, '重启前 PUT 的答复', new File([fileBytes], fileName, { type: 'text/plain' }))
+  act(() => first.result.current.send())
+  await waitFor(() => {
+    expect(first.result.current.error).toMatchObject({ kind: 'network' })
+    expect(first.result.current.sending).toBe(false)
+  })
+  const rows = journal.list()
+  expect(rows).toHaveLength(1)
+  const registered = rows[0]!
+  expect(registered.phase).toBe('registered')
+  expect(registered.assetId).not.toBeNull()
+  const uploadId = registered.clientUploadId
+  expect(uploadId).toMatch(/^[0-9a-f-]{36}$/i)
+  first.unmount()
+
+  // 重启恢复（同一服务端、客户端重挂载）：持久化 registered 检查点 → 只
+  // status/renew 原 UUID，不二次 presign/register。
+  const restarted = resumedOnSameBackend(first)
+  await waitFor(() => expect(restarted.result.current.recoverableAttachments).toHaveLength(1))
+  act(() => restarted.result.current.selectRecovery(restarted.result.current.recoverableAttachments[0]!))
+  setDraft(restarted, '重启前 PUT 的答复', new File([fileBytes], fileName, { type: 'text/plain' }))
+  act(() => restarted.result.current.send())
+  await waitFor(() => {
+    expect(restarted.result.current.sending).toBe(false)
+    expect(restarted.result.current.error).toBeNull()
+    expectDraft(restarted, '', null)
+  })
+  expect(restarted.presign).toHaveBeenCalledTimes(1) // register 只有最初 1 次
+  // PUT 共 2 次调用：重启前 1 次发起即中止（服务端零落账），重启后恰好成功 1 次。
+  expect(restarted.upload).toHaveBeenCalledTimes(2)
+  expect(restarted.confirm).toHaveBeenCalledTimes(1)
+  const presignBodies = restarted.transport.mock.calls
+    .filter(([url]) => url.split('?')[0]!.endsWith('/assets/presign'))
+    .map(([, init]) => JSON.parse(String(init?.body)) as Record<string, unknown>)
+  expect(presignBodies.map((body) => body.operation)).toEqual(['register', 'status', 'renew'])
+  expect(presignBodies.every((body) => body.client_upload_id === uploadId)).toBe(true)
+  expect(restarted.sendMessage).toHaveBeenCalledTimes(1)
+  expect(restarted.sendMessage.mock.calls[0]![2].clientMsgId).toBe(registered.clientMsgId)
+  expect(journal.list()).toHaveLength(0)
+})
+
+it('seat_expired_capability_resume: expired capability resumes with a fresh presign keeping the same upload UUID and content hash', async () => {
+  const clientMsgId = 'expired-capability-seat', clientUploadId = crypto.randomUUID()
+  const file = new File(['expired-capability-bytes'], 'expired-capability.txt', { type: 'text/plain' })
+  const objectHash = await blobSha256Hex(file)
+  const journal = uploadJournal(['seat', '1000000000000000001', ORG, WS, IDENTITY, CONV], () => true)
+  // 持久化 intent（原 presign 能力已过期：服务端会话不复存在）。
+  await journal.save({ clientUploadId, clientMsgId, assetId: null, phase: 'intent', dispatchState: 'ready',
+    objectHash, sizeBytes: file.size, mime: file.type, updatedAt: Date.now() })
+  const view = harness()
+  await waitFor(() => expect(view.result.current.recoverableAttachments).toHaveLength(1))
+  act(() => view.result.current.selectRecovery(view.result.current.recoverableAttachments[0]!))
+  setDraft(view, '能力过期后恢复的答复', file)
+  act(() => view.result.current.send())
+  await waitFor(() => {
+    expect(view.result.current.sending).toBe(false)
+    expect(view.result.current.error).toBeNull()
+    expectDraft(view, '', null)
+  })
+  // 新 presign（register）复用原 client_upload_id 与原内容标识（object_hash）。
+  expect(view.presign).toHaveBeenCalledTimes(1)
+  expect(view.presign.mock.calls[0]![3]).toMatchObject({
+    clientUploadId, objectHash, sizeBytes: file.size, mime: file.type,
+  })
+  const presignBodies = view.transport.mock.calls
+    .filter(([url]) => url.split('?')[0]!.endsWith('/assets/presign'))
+    .map(([, init]) => JSON.parse(String(init?.body)) as Record<string, unknown>)
+  expect(presignBodies.map((body) => body.operation)).toEqual(['status', 'register', 'renew'])
+  expect(presignBodies.every((body) => body.client_upload_id === clientUploadId)).toBe(true)
+  expect(view.upload).toHaveBeenCalledTimes(1)
+  expect(view.confirm).toHaveBeenCalledTimes(1)
+  expect(view.sendMessage).toHaveBeenCalledTimes(1)
+  expect(view.sendMessage.mock.calls[0]![2]).toMatchObject({ clientMsgId, assetIds: ['8100000000000000001'] })
+  expect(journal.list()).toHaveLength(0)
 })

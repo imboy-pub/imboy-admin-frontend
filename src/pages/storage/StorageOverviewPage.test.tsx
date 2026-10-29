@@ -252,4 +252,79 @@ describe('StorageOverviewPage flow', () => {
       expect(view.container.textContent).toContain('12')
     })
   })
+
+  it('authorized_pagination_entityid: pagination params reach GET /storage/index and big EntityId id round-trips as string', async () => {
+    const BIG_ID = '8100000000000000001' // EntityId：64-bit 大整数必须全程字符串往返
+    const getCalls: Array<{ url: string; params: Record<string, unknown> | undefined }> = []
+    const postCalls: Array<{ url: string; body: unknown }> = []
+    mutableClient.get = async (url: string, config?: { params?: Record<string, unknown> }) => {
+      if (url === '/storage/stats') return { data: { code: 0, msg: 'ok', payload: statsFixture } }
+      if (url === '/storage/index') {
+        getCalls.push({ url, params: config?.params })
+        const params = (config?.params ?? {}) as { page: number; size: number }
+        return { data: { code: 0, msg: 'ok', payload: {
+          list: [{ ...listFixture.list[0], id: BIG_ID, path: `/uploads/2026/02/page-${params.page}-size-${params.size}.png` }],
+          total: 55, page: params.page, size: params.size,
+        } } }
+      }
+      throw new Error(`unexpected GET: ${url}`)
+    }
+    mutableClient.post = async (url: string, body?: unknown) => {
+      postCalls.push({ url, body })
+      return { data: { code: 0, msg: 'ok', payload: {} } }
+    }
+
+    let view: ReturnType<typeof renderPage>
+    await act(async () => { view = renderPage() })
+
+    // 初始请求：page=1 / size=10 真实到达 GET /storage/index（非仅 UI 假分页）
+    await waitFor(() => {
+      expect(view.container.textContent).toContain('page-1-size-10.png')
+    })
+    expect(getCalls.at(-1)?.params).toMatchObject({ page: 1, size: 10 })
+
+    // 点击「下一页」→ page=2 反映到请求参数
+    const nextButton = [...view.container.querySelectorAll('button')]
+      .find((button) => button.textContent?.includes('下一页'))
+    expect(nextButton).toBeDefined()
+    fireEvent.click(nextButton!)
+    await waitFor(() => {
+      expect(view.container.textContent).toContain('page-2-size-10.png')
+    })
+    expect(getCalls.at(-1)?.params).toMatchObject({ page: 2, size: 10 })
+
+    // 修改每页大小 10 → 50（onPageSizeChange → page 重置 1）
+    const sizeSelect = [...view.container.querySelectorAll('select')]
+      .find((select) => select.value === '10')
+    expect(sizeSelect).toBeDefined()
+    fireEvent.change(sizeSelect!, { target: { value: '50' } })
+    await waitFor(() => {
+      expect(view.container.textContent).toContain('page-1-size-50.png')
+    })
+    expect(getCalls.at(-1)?.params).toMatchObject({ page: 1, size: 50 })
+
+    // EntityId 大整数 id：列表渲染 → 行操作 → 操作请求 body 全程字符串不变形
+    const disableButton = [...view.container.querySelectorAll('button')]
+      .find((button) => button.textContent?.trim() === '禁用')
+    expect(disableButton).toBeDefined()
+    fireEvent.click(disableButton!)
+    // ConfirmDialog 经 portal 渲染在 document.body：行内按钮 + 弹窗确认按钮
+    await waitFor(() => {
+      const confirmButtons = [...document.body.querySelectorAll('button')]
+        .filter((button) => button.textContent?.trim() === '禁用')
+      expect(confirmButtons.length).toBeGreaterThan(1)
+    })
+    const confirmButton = [...document.body.querySelectorAll('button')]
+      .filter((button) => button.textContent?.trim() === '禁用')
+      .at(-1)!
+    fireEvent.click(confirmButton)
+    await waitFor(() => expect(postCalls).toHaveLength(1))
+    expect(postCalls[0]?.url).toBe('/storage/disable')
+    expect(postCalls[0]?.body).toEqual({ id: BIG_ID })
+    const sentId = (postCalls[0]?.body as { id: unknown }).id
+    expect(typeof sentId).toBe('string')
+    expect(sentId).toBe('8100000000000000001')
+    // 精度哨兵：该值若被数字化即失真（Number(BIG_ID) !== BIG_ID），字符串往返是硬约束
+    expect(String(Number(BIG_ID))).not.toBe(BIG_ID)
+  })
 })
