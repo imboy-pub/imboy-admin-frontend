@@ -40,40 +40,91 @@ const CONNECTION_LABELS: Record<ChatState['connection'], string> = {
 }
 
 /** 附件白名单的扩展名过滤（与后端 eb_asset_content ?ALLOWED_MIMES 同源演进）。
- * accept 只在文件选择器软过滤；change 时按 MIME 再硬校验一次，双保险。 */
-const ACCEPT_EXTENSIONS =
-  '.txt,.md,.csv,.png,.jpg,.jpeg,.gif,.webp,.bmp,.svg,.pdf,.zip,.7z,.gz,.doc,.docx,.xlsx,.pptx,.mp4,.webm,.mp3'
+ * accept 只在文件选择器软过滤；change 时按 MIME 再硬校验一次，双保险。
+ * 单一数组派生 accept 字符串与兜底匹配，避免三处手抄漂移。 */
+const ACCEPT_EXTENSIONS = [
+  '.txt', '.md', '.csv', '.json', '.xml',
+  '.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg',
+  '.tif', '.tiff', '.avif', '.ico', '.heic', '.heif', '.psd', '.dwg',
+  '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
+  '.odt', '.ods', '.odp', '.rtf', '.epub',
+  '.zip', '.7z', '.rar', '.gz', '.tar', '.bz2', '.xz',
+  '.mp4', '.m4v', '.mov', '.webm', '.mkv', '.avi', '.mpg', '.mpeg', '.wmv', '.flv', '.3gp',
+  '.mp3', '.m4a', '.aac', '.wav', '.ogg', '.flac',
+]
 
 const ACCEPT_MIMES = new Set([
+  // 静态图
   'image/png',
   'image/jpeg',
   'image/gif',
   'image/webp',
   'image/bmp',
   'image/svg+xml',
+  'image/tiff',
+  'image/avif',
+  'image/x-icon',
+  'image/heic',
+  'image/heif',
+  'image/vnd.adobe.photoshop',
+  'image/vnd.dwg',
+  // 视频
+  'video/mp4',
+  'video/webm',
+  'video/quicktime',
+  'video/x-matroska',
+  'video/x-msvideo',
+  'video/mpeg',
+  'video/x-ms-wmv',
+  'video/x-flv',
+  'video/3gpp',
+  'video/x-m4v',
+  // 音频
+  'audio/mpeg',
+  'audio/mp4',
+  'audio/aac',
+  'audio/wav',
+  'audio/x-wav',
+  'audio/ogg',
+  'audio/flac',
+  'audio/x-flac',
+  // 文档
   'application/pdf',
   'text/plain',
   'text/markdown',
   'text/csv',
-  'application/zip',
-  'application/x-7z-compressed',
-  'application/gzip',
+  'application/json',
+  'application/xml',
+  'text/xml',
   'application/msword',
+  'application/vnd.ms-excel',
+  'application/vnd.ms-powerpoint',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-  'video/mp4',
-  'video/webm',
-  'audio/mpeg',
+  'application/vnd.oasis.opendocument.text',
+  'application/vnd.oasis.opendocument.spreadsheet',
+  'application/vnd.oasis.opendocument.presentation',
+  'application/epub+zip',
+  'application/rtf',
+  'text/rtf',
+  // 压缩包
+  'application/zip',
+  'application/x-zip-compressed',
+  'application/x-7z-compressed',
+  'application/gzip',
+  'application/x-rar-compressed',
+  'application/vnd.rar',
+  'application/x-tar',
+  'application/x-bzip2',
+  'application/x-xz',
 ])
 
 /** 浏览器对少数扩展不给 type（空串）：按扩展名兜底判定是否放行。 */
 function mimeAccepted(file: File): boolean {
   if (file.type.length > 0) return ACCEPT_MIMES.has(file.type)
   const name = file.name.toLowerCase()
-  return ['.txt', '.md', '.csv', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg',
-    '.pdf', '.zip', '.7z', '.gz', '.doc', '.docx', '.xlsx', '.pptx', '.mp4', '.webm', '.mp3']
-    .some((ext) => name.endsWith(ext))
+  return ACCEPT_EXTENSIONS.some((ext) => name.endsWith(ext))
 }
 
 /** §3.7 UI 映射：只有 linked 显示成功；failed 才给重试入口。 */
@@ -340,7 +391,7 @@ export function createChatUi(root: HTMLElement, locale: string, handlers: ChatUi
   const fileInput = doc.createElement('input')
   fileInput.type = 'file'
   fileInput.className = 'cs-file'
-  fileInput.setAttribute('accept', ACCEPT_EXTENSIONS)
+  fileInput.setAttribute('accept', ACCEPT_EXTENSIONS.join(','))
   fileInput.setAttribute('data-testid', 'cs-file-input')
   fileInput.setAttribute('aria-label', locale === 'zh-CN' ? '选择要发送的文件' : 'Choose a file to send')
   fileInput.addEventListener('change', () => {
