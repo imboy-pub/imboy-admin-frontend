@@ -263,3 +263,83 @@ describe('getChannelStatsPayload', () => {
     expect(result.total_messages).toBe(500)
   })
 })
+
+// ---------------------------------------------------------------------------
+// J27.a（plan §9）：仅验证前端旧参数透传及 envelope 适配，不验证后端搜索。
+// /channel/list 不读取 keyword；关键词搜索由 /channel/search 处理。
+// ---------------------------------------------------------------------------
+describe('J27.a — 频道旧参数透传与分页响应适配（plan §9）', () => {
+  it('旧 page,size,status,keyword 参数原样透传、{list,...} 旧 envelope 归一零变化', async () => {
+    let capturedParams: Record<string, unknown> | undefined
+    mutableClient.get = async (url: string, config?: { params?: Record<string, unknown> }) => {
+      expect(url).toBe('/channel/list')
+      capturedParams = config?.params
+      // 旧后端 envelope：list + total_page（无 items/total_pages）
+      return {
+        data: {
+          code: 0, msg: 'ok',
+          payload: {
+            list: [
+              {
+                id: 'c-1', name: '公告频道', visibility: 1, access_type: 0, join_policy: 1,
+                owner_id: '10', custom_id: null, description: null, avatar: null,
+                subscriber_count: 3, status: 1, created_at: '', updated_at: '',
+              },
+            ],
+            page: 2, size: 10, total: 11, total_page: 2,
+          },
+        },
+      }
+    }
+
+    const result = await getChannelListPayload({ page: 2, size: 10, status: 1, keyword: '公告' })
+
+    // 旧 ADM 参数逐字段原样透传，不新增 pagination=cursor / 新合同 query
+    expect(capturedParams).toEqual({ page: 2, size: 10, status: 1, keyword: '公告' })
+    expect(capturedParams).not.toHaveProperty('cursor')
+    expect(capturedParams).not.toHaveProperty('pagination')
+    // envelope 归一零变化，行数据经 normalizeChannel 语义不变
+    expect(result.items).toHaveLength(1)
+    expect(result.items[0].id).toBe('c-1')
+    expect(result.items[0].owner_id).toBe('10')
+    expect(result.page).toBe(2)
+    expect(result.total).toBe(11)
+    expect(result.total_pages).toBe(2)
+  })
+
+  it('无参调用保持旧默认 {page:1,size:10}', async () => {
+    let capturedParams: Record<string, unknown> | undefined
+    mutableClient.get = async (_url: string, config?: { params?: Record<string, unknown> }) => {
+      capturedParams = config?.params
+      return {
+        data: {
+          code: 0, msg: 'ok',
+          payload: { list: [], page: 1, size: 10, total: 0, total_page: 0 },
+        },
+      }
+    }
+
+    await getChannelListPayload()
+    expect(capturedParams).toEqual({ page: 1, size: 10 })
+  })
+
+  it('searchChannelsPayload 仅携带 keyword 时旧 envelope 零变化', async () => {
+    let capturedParams: Record<string, unknown> | undefined
+    mutableClient.get = async (url: string, config?: { params?: Record<string, unknown> }) => {
+      expect(url).toBe('/channel/search')
+      capturedParams = config?.params
+      return {
+        data: {
+          code: 0, msg: 'ok',
+          payload: { list: [], page: 1, size: 10, total: 0, total_page: 0 },
+        },
+      }
+    }
+
+    const result = await searchChannelsPayload({ keyword: 'news' })
+    expect(capturedParams).toEqual({ keyword: 'news' })
+    expect(result.items).toEqual([])
+    expect(result.total).toBe(0)
+    expect(result.total_pages).toBe(0)
+  })
+})

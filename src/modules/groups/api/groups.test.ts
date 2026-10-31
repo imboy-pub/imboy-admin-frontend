@@ -445,3 +445,59 @@ describe('getGroupGovernanceLogsPayload', () => {
     expect(result.items[0].action).toBe('kick_member')
   })
 })
+
+// ---------------------------------------------------------------------------
+// J27.a（plan §9）：仅验证前端旧参数透传及 envelope 适配，不验证后端筛选效果。
+// ---------------------------------------------------------------------------
+describe('J27.a — 群旧参数透传与分页响应适配（plan §9）', () => {
+  it('getGroupListPayload 以旧 page,size,keyword 调用时参数原样透传、{list,...} envelope 归一零变化', async () => {
+    let capturedParams: Record<string, unknown> | undefined
+    mutableClient.get = async (url: string, config?: { params?: Record<string, unknown> }) => {
+      expect(url).toBe('/group/list')
+      capturedParams = config?.params
+      // 旧后端 envelope：list + total_page（无 items/total_pages）
+      return {
+        data: {
+          code: 0, msg: 'ok',
+          payload: {
+            list: [{ id: '1001', title: '技术交流群', status: 1, type: 1 }],
+            page: 2, size: 10, total: 11, total_page: 2,
+          },
+        },
+      }
+    }
+
+    const result = await getGroupListPayload({ page: 2, size: 10, keyword: '技术' })
+
+    // 旧 ADM 参数逐字段原样透传，不新增 pagination=cursor / 新合同 query
+    expect(capturedParams).toEqual({ page: 2, size: 10, keyword: '技术' })
+    expect(capturedParams).not.toHaveProperty('cursor')
+    expect(capturedParams).not.toHaveProperty('pagination')
+    // envelope 归一（list→items、total_pages 补算）零变化
+    expect(result.items).toHaveLength(1)
+    expect(result.items[0].title).toBe('技术交流群')
+    expect(result.page).toBe(2)
+    expect(result.total).toBe(11)
+    expect(result.total_pages).toBe(2)
+  })
+
+  it('searchGroupsPayload 未传 page/size 时保持旧默认 page=1, size=10（DEFAULT_PAGE_SIZE）', async () => {
+    let capturedParams: Record<string, unknown> | undefined
+    mutableClient.get = async (url: string, config?: { params?: Record<string, unknown> }) => {
+      expect(url).toBe('/group/search')
+      capturedParams = config?.params
+      return {
+        data: {
+          code: 0, msg: 'ok',
+          payload: { list: [], page: 1, size: 10, total: 0, total_page: 0 },
+        },
+      }
+    }
+
+    const result = await searchGroupsPayload('技术')
+    expect(capturedParams).toEqual({ keyword: '技术', page: 1, size: 10 })
+    expect(result.items).toEqual([])
+    expect(result.total).toBe(0)
+    expect(result.total_pages).toBe(0)
+  })
+})

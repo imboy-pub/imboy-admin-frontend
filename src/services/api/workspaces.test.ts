@@ -5,6 +5,7 @@ import { safeParseBigIntJson } from '@/lib/safeParseBigIntJson'
 import { requireApiPayload } from './responseAdapter'
 import {
   getWorkspaceListPayload,
+  archiveWorkspace,
   getProjectListPayload,
   getProjectMembersPayload,
   getProjectMilestonesPayload,
@@ -19,10 +20,11 @@ import {
 } from './workspaces'
 
 type AnyFn = (..._args: unknown[]) => unknown
-type MutableClient = { get: AnyFn }
+type MutableClient = { get: AnyFn; post: AnyFn }
 
 const mutableClient = client as unknown as MutableClient
 const originalGet = mutableClient.get
+const originalPost = mutableClient.post
 
 // 大 TSID：> Number.MAX_SAFE_INTEGER (2^53-1)，JSON number 解析必须经 safeParseBigIntJson 保 string。
 // 注意：测试输入不能用 JS number 字面量构造——字面量本身就会丢精度
@@ -51,7 +53,7 @@ describe('workspaces admin project governance API (W2)', () => {
     mutableClient.get = originalGet
   })
 
-  it('parses big TSID as string via safeParseBigIntJson and keeps EntityId roundtrip through requireApiPayload', () => {
+  it('locally decodes big TSID as string and preserves it through requireApiPayload', () => {
     // 后端 normalize 后 TSID integer 下发：JSON 解析层必须保 string，禁 Number 回转
     const parsed = safeParseBigIntJson(
       `{"payload":{"list":[{"user_id":${BIG_TSID_STR}}],"page":1,"size":10,"total":1,"total_page":1}}`
@@ -312,5 +314,115 @@ describe('enterprise menu organization filter passthrough (plan §13.1)', () => 
 
     await getWorkspaceListPayload({ page: 1, size: 10, status: 'all' })
     expect(capturedParams).not.toHaveProperty('organization_id')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// J27（plan §9）：旧 Admin 兼容 + 大整数 wire 边界
+// ---------------------------------------------------------------------------
+describe('J27 legacy ADM contract + bigint wire boundaries (plan §9)', () => {
+  afterEach(() => {
+    mutableClient.get = originalGet
+    mutableClient.post = originalPost
+  })
+
+  function expectDigitsCharByChar(actual: unknown, expected: string) {
+    expect(typeof actual).toBe(BigInt(expected) <= BigInt(Number.MAX_SAFE_INTEGER) ? 'number' : 'string')
+    const text = String(actual)
+    expect(text).toMatch(/^[0-9]+$/)
+    expect(text.length).toBe(expected.length)
+    for (let i = 0; i < expected.length; i += 1) {
+      expect(text[i]).toBe(expected[i])
+    }
+  }
+
+  it('J27.a: 旧 Admin 无新参数时 /workspace/list page,size,keyword 旧合同与 {list,...} envelope 零变化', async () => {
+    let capturedUrl = ''
+    let capturedParams: Record<string, unknown> | undefined
+    mutableClient.get = async (url: string, config?: { params?: Record<string, unknown> }) => {
+      capturedUrl = url
+      capturedParams = config?.params
+      // 旧后端合同：分页键为 list（非 items）、total_page（非 total_pages）
+      return makePagedEnvelope([
+        { id: BIG_TSID_STR, name: 'ws-1', owner_id: BIG_TSID_STR, status: 'active', project_count: 0, group_count: 0, channel_count: 0 },
+      ], { page: 3, total: 21, total_page: 3 })
+    }
+
+    const result = await getWorkspaceListPayload({ page: 3, size: 10, keyword: '运营' })
+
+    expect(capturedUrl).toBe('/workspace/list')
+    // 旧 ADM page,size,keyword 原样透传；不新增 pagination=cursor / 新合同 query
+    expect(capturedParams).toEqual({ page: 3, size: 10, keyword: '运营' })
+    // envelope 经 requireApiPayload 归一（list→items、total_pages 补算），行内 EntityId 保持 string
+    expect(result.items).toHaveLength(1)
+    expect(result.items[0].id).toBe(BIG_TSID_STR)
+    expect(result.page).toBe(3)
+    expect(result.total).toBe(21)
+    expect(result.total_pages).toBe(3)
+  })
+
+  it('J27.a: 旧 Admin 无新参数时 /project/list page,size,keyword 旧合同同样可用', async () => {
+    let capturedParams: Record<string, unknown> | undefined
+    mutableClient.get = async (_url: string, config?: { params?: Record<string, unknown> }) => {
+      capturedParams = config?.params
+      return makePagedEnvelope([])
+    }
+
+    const result = await getProjectListPayload({ page: 1, size: 10, keyword: '验收' })
+
+    expect(capturedParams).toEqual({ page: 1, size: 10, keyword: '验收' })
+    expect(result.items).toEqual([])
+  })
+
+  it('J27.d: raw wire 经 parser 与 payload 局部解码后十进制逐字符不变', () => {
+    // 仅验证局部解码，不代表网络或写回往返；2^53-1/2^53/2^53+1/2^63-1 原始文本，
+    // 禁止以 JS number 字面量构造 9007199254740993 / 9223372036854775807（字面量即丢精度）
+    const wire =
+      '{"code":0,"msg":"ok","payload":{"list":[' +
+      '{"workspace_id":9007199254740991,"owner_id":9007199254740992,"project_id":9007199254740993,"user_id":9223372036854775807}' +
+      '],"page":1,"size":10,"total":1,"total_page":1}}'
+    const parsed = safeParseBigIntJson(wire) as {
+      payload: { list: Array<{ workspace_id: unknown; owner_id: unknown; project_id: unknown; user_id: unknown }> }
+    }
+
+    expectDigitsCharByChar(parsed.payload.list[0].workspace_id, '9007199254740991')
+    expectDigitsCharByChar(parsed.payload.list[0].owner_id, '9007199254740992')
+    expectDigitsCharByChar(parsed.payload.list[0].project_id, '9007199254740993')
+    expectDigitsCharByChar(parsed.payload.list[0].user_id, '9223372036854775807')
+
+    const payload = requireApiPayload<{
+      list: Array<Record<string, unknown>>
+    }>(parsed as never, 'workspace/list')
+    expectDigitsCharByChar(payload.list[0].workspace_id, '9007199254740991')
+    expectDigitsCharByChar(payload.list[0].owner_id, '9007199254740992')
+    expectDigitsCharByChar(payload.list[0].project_id, '9007199254740993')
+    expectDigitsCharByChar(payload.list[0].user_id, '9223372036854775807')
+  })
+
+  it('J27.d: locally decoded workspace IDs reach the real archive API mock body without digit loss', async () => {
+    // 使用真实列表/归档 API 封装；mock 边界不覆盖 Axios transform、网络或后端入库。
+    for (const digits of ['9007199254740991', '9007199254740992', '9007199254740993', '9223372036854775807']) {
+      mutableClient.get = async (url: string) => {
+        expect(url).toBe('/workspace/list')
+        return { data: safeParseBigIntJson(
+          `{"code":0,"msg":"ok","payload":{"list":[{"id":${digits}}],"page":1,"size":10,"total":1,"total_page":1}}`
+        ) }
+      }
+      let capturedBody: unknown
+      mutableClient.post = async (url: string, body: unknown) => {
+        expect(url).toBe('/workspace/archive')
+        capturedBody = body
+        return { data: { code: 0, msg: 'ok', payload: {} } }
+      }
+
+      const rows = await getWorkspaceListPayload({ page: 1, size: 10 })
+      await archiveWorkspace(rows.items[0].id)
+
+      expect(capturedBody).toEqual({ workspace_id: rows.items[0].id })
+      expectDigitsCharByChar((capturedBody as { workspace_id: unknown }).workspace_id, digits)
+      // JSON 请求体序列化后的值仍逐字符相同；安全整数允许保持 number。
+      const serialized = JSON.stringify(capturedBody)
+      expect(serialized).toBe(`{"workspace_id":${BigInt(digits) <= BigInt(Number.MAX_SAFE_INTEGER) ? digits : `"${digits}"`}}`)
+    }
   })
 })

@@ -295,3 +295,26 @@ describe('adminFeatureQueryKey', () => {
     expect(adminFeatureQueryKey('alice')).toEqual(['admin', 'features', 'alice'])
   })
 })
+
+// ---------------------------------------------------------------------------
+// J27.b（plan §9）：仅验证真实 features manifest 缺字段时拒绝。
+// 编译能力边界由上方 isAdminFeatureEnabled 回归覆盖；Admin 未实现
+// listContracts/groupContracts/channelContracts 门，不能据此证明未知合同值不会误启。
+// ---------------------------------------------------------------------------
+describe('J27.b — 真实 features manifest 缺字段拒绝（plan §9，局部覆盖）', () => {
+  it('features manifest 缺合同键时 fail-closed：缺 manifest_hash / schema_version / compiled_features 均抛 FeatureManifestMismatchError', () => {
+    expect(() => assertAdminFeatureManifest({})).toThrow(FeatureManifestMismatchError)
+    expect(() => assertAdminFeatureManifest({
+      manifest_schema_version: productFeatureSchemaVersion,
+      compiled_features: compiledProductFeatures,
+    })).toThrow(FeatureManifestMismatchError)
+    expect(() => assertAdminFeatureManifest({
+      manifest_hash: productFeatureManifestHash,
+      compiled_features: compiledProductFeatures,
+    })).toThrow(FeatureManifestMismatchError)
+    expect(() => assertAdminFeatureManifest({
+      manifest_hash: productFeatureManifestHash,
+      manifest_schema_version: productFeatureSchemaVersion,
+    })).toThrow(FeatureManifestMismatchError)
+  })
+})
