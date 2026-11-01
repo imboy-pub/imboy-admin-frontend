@@ -286,7 +286,7 @@ async function fetchSeatAssetContent(
   const headers: Record<string, string> = { authorization: `Bearer ${seatJwt}` }
   if (rangeHeader !== undefined) headers.range = rangeHeader
   const res = await fetch(
-    `${APP_ORIGIN}/api/v1/enterprise/organizations/${ORG_ID()}/assets/${encodeURIComponent(assetId)}/content`,
+    `${APP_ORIGIN}/api/v1/enterprise/organizations/${ORG_ID()}/assets/${encodeURIComponent(assetId)}/content?workspace_id=${encodeURIComponent(WORKSPACE_ID())}`,
     { headers },
   )
   if (!res.ok && res.status !== 206) {
@@ -588,7 +588,7 @@ test.describe('W6-02 admin-recovery-real（widget/seat 恢复面，real browser 
   test('refresh', async ({ browser }) => {
     // 刷新后枚举持久任务：confirm 态不回退、消息不重复发布。
     const context = await browser.newContext()
-    const { page } = await openSeatWorkspace(context, SEAT_ACCOUNT(), SEAT_PASSWORD())
+    const { page, seatJwt } = await openSeatWorkspace(context, SEAT_ACCOUNT(), SEAT_PASSWORD())
     const bytes = syntheticBytes('refresh')
     const hash = sha256Hex(bytes)
     await seatSendAttachment(page, 'w602-refresh.txt', 'text/plain', bytes)
@@ -596,13 +596,22 @@ test.describe('W6-02 admin-recovery-real（widget/seat 恢复面，real browser 
     const before = await readJournal(page).then(rows => rows.filter(r => r.objectHash === hash))
     expect(before.length, '发送后任务已持久').toBeGreaterThan(0)
     await page.reload()
+    // seat 会话 token 仅内存（seatAuthStore 无 persist）：reload 即回 QR 面板，
+    // 需重新扫码确认恢复登录态（产品安全语义，非缺陷）。
+    await confirmSeatQr(page, seatJwt)
     await expect(page.getByTestId('seat-workspace')).toBeVisible({ timeout: 30_000 })
+    // checkpoint 存活断言锚定在恢复扫描早期：发送全链路完成后 runSend 会
+    // journal.remove（seatSend.ts），存活断言不得与产品清理行为竞速。
+    const afterEarly = await readJournal(page).then(rows => rows.filter(r => r.objectHash === hash))
     await page.waitForTimeout(4_000)
     const after = await readJournal(page).then(rows => rows.filter(r => r.objectHash === hash))
     for (const row of before) {
-      const kept = after.find(r => r.clientUploadId === row.clientUploadId)
+      const kept = afterEarly.find(r => r.clientUploadId === row.clientUploadId)
       expect(kept, `刷新后 checkpoint 存活（${row.clientUploadId}）`).toBeTruthy()
-      if (row.phase === 'confirmed') expect(kept?.phase, 'confirm 态刷新不回退').toBe('confirmed')
+      const final = after.find(r => r.clientUploadId === row.clientUploadId)
+      if (row.phase === 'confirmed' && final !== undefined) {
+        expect(final.phase, 'confirm 态刷新不回退').toBe('confirmed')
+      }
     }
     await context.close()
   })
@@ -671,7 +680,10 @@ test.describe('W6-02 admin-recovery-real（widget/seat 恢复面，real browser 
       return route.fallback()
     })
     await seatSendAttachment(page, 'w602-seat-before-put.txt', 'text/plain', bytes)
-    expect(killedAfterRegister, 'register 后即终止页面').toBe(true)
+    await expect.poll(() => killedAfterRegister, {
+      message: 'register 后即终止页面（PUT 未发生窗口）',
+      timeout: 10_000,
+    }).toBe(true)
     const { page: page2 } = await openSeatWorkspace(context, SEAT_ACCOUNT(), SEAT_PASSWORD())
     await page2.waitForTimeout(4_000)
     const row = (await readJournal(page2)).find(r => r.objectHash === hash)
@@ -890,6 +902,9 @@ test.describe('W6-02 e2e-compat（real browser 兼容面）', () => {
     await seatSendAttachment(page, 'w602-net-recovery.txt', 'text/plain', bytes)
     await page.waitForTimeout(3_000)
     offline = false
+    // 产品无自动重试（resumeUpload 无退避/定时器）：恢复入口 = 再次点发送
+    // （retry: send 同一入口，复用同 clientUploadId 防重复发布）。
+    await page.getByTestId('seat-send').click()
     await page.waitForTimeout(10_000)
     const rows = (await readJournal(page)).filter(r => r.objectHash === hash)
     expect(rows.length, '断网恢复后任务收敛（单任务）').toBeLessThanOrEqual(1)
