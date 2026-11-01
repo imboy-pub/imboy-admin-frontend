@@ -374,14 +374,27 @@ test.describe('W6-02 admin-recovery-real（widget/seat 恢复面，real browser 
 
   test('widget_presign_response_lost', async ({ browser }) => {
     // 丢失的 presign 响应持久化 intent；恢复沿用同一 clientUploadId（不换任务）。
+    // 产品无自动重试（resumeUpload 无退避/定时器）：恢复入口 = 失败气泡的
+    // cs-msg-retry（同一 client_msg_id + 原 file，复用同 clientUploadId）。
+    // 恢复观测面用 PUT abort-once（真网络故障）冻结：本地快链路若放行会在
+    // 断言前走到 linked 清账（journal.remove），任务连续性断言失去对象
+    // （源场景的 linked 清账由 uploader.test.ts 承担）。
     const context = await browser.newContext()
     const page = await openWidget(context, 'widget_presign_response_lost')
     const bytes = syntheticBytes('widget_presign_response_lost')
     const hash = sha256Hex(bytes)
     let dropFirstPresign = true
+    let killedFirstPut = false
     await page.route('**/assets/presign', async (route) => {
       if (dropFirstPresign) {
         dropFirstPresign = false
+        return route.abort('connectionreset')
+      }
+      return route.fallback()
+    })
+    await page.route('**/*', async (route) => {
+      if (route.request().method() === 'PUT' && !killedFirstPut) {
+        killedFirstPut = true
         return route.abort('connectionreset')
       }
       return route.fallback()
@@ -390,7 +403,13 @@ test.describe('W6-02 admin-recovery-real（widget/seat 恢复面，real browser 
     await page.waitForTimeout(3_000)
     const intent = (await readJournal(page)).find(r => r.objectHash === hash)
     expect(intent, 'presign 响应丢失后 intent 已持久化').toBeTruthy()
-    await page.waitForTimeout(8_000)
+    await page.getByTestId('cs-msg-retry').click()
+    await expect.poll(async () => {
+      return (await readJournal(page)).find(r => r.objectHash === hash)?.phase
+    }, {
+      message: '恢复链路把同任务推进到 registered（PUT abort 冻结观测面）',
+      timeout: 20_000,
+    }).toBe('registered')
     const after = await readJournal(page)
     const recovered = after.find(r => r.objectHash === hash)
     expect(recovered?.clientUploadId, '恢复沿用同一 clientUploadId').toBe(intent?.clientUploadId)
@@ -400,24 +419,35 @@ test.describe('W6-02 admin-recovery-real（widget/seat 恢复面，real browser 
 
   test('widget_restart_before_put', async ({ browser }) => {
     // register 与裸 PUT 之间重启：registered checkpoint 存活且同 clientUploadId 复用。
+    // PUT abort-once（真网络故障）冻结观测面：源场景在 PUT 在途时 kill 页面，
+    // journal 冻结在 registered —— 不冻结时本地快链路可能在 close 前走到
+    // confirmed 清账（journal.remove），重启断言失去对象。
     const context = await browser.newContext()
     const page = await openWidget(context, 'widget_restart_before_put')
     const bytes = syntheticBytes('widget_restart_before_put')
     const hash = sha256Hex(bytes)
     let killedAfterRegister = false
-    const registerSettled = page.waitForResponse((resp) => {
-      const body = resp.request().postDataJSON() as Record<string, unknown> | null
-      return body !== null && body.operation === 'register'
-    }, { timeout: 15_000 }).catch(() => null)
+    let killedFirstPut = false
+    await page.route('**/*', async (route) => {
+      if (route.request().method() === 'PUT' && !killedFirstPut) {
+        killedFirstPut = true
+        return route.abort('connectionreset')
+      }
+      return route.fallback()
+    })
     await page.route('**/assets/presign', async (route) => {
       const body = route.request().postDataJSON() as Record<string, unknown> | null
       if (body !== null && body.operation === 'register' && !killedAfterRegister) {
         killedAfterRegister = true
         await route.fallback()
-        // fallback 只继续传递请求，不保证响应落地；立即 close 会掐断 register
-        // 响应，registered checkpoint 写不下来（journal 停在 intent），恢复场景
-        // 失去前提。等响应真正到达客户端再终止页面。
-        await registerSettled
+        // fallback 只继续传递请求，不保证客户端处理完成；立即 close 会掐断
+        // register 响应处理，registered checkpoint 写不下来（journal 停在
+        // intent），恢复场景失去前提。等 registered checkpoint 真正落盘再
+        // 终止页面（源场景：restart_before_put 的 journal 冻结在 registered）。
+        await expect(async () => {
+          const row = (await readJournal(page)).find(r => r.objectHash === hash)
+          expect(row?.phase, 'registered checkpoint 落盘').toBe('registered')
+        }).toPass({ timeout: 15_000 })
         await page.close()
         return
       }
@@ -678,24 +708,35 @@ test.describe('W6-02 admin-recovery-real（widget/seat 恢复面，real browser 
 
   test('seat_restart_before_put', async ({ browser }) => {
     // register 与 PUT 之间重启：registered checkpoint 存活、复用同 clientUploadId。
+    // PUT abort-once（真网络故障）冻结观测面：源场景在 PUT 在途时 kill 页面，
+    // journal 冻结在 registered —— 不冻结时本地快链路可能在 close 前走到
+    // confirmed 清账（journal.remove），重启断言失去对象。
     const context = await browser.newContext()
     const { page } = await openSeatWorkspace(context, SEAT_ACCOUNT(), SEAT_PASSWORD())
     const bytes = syntheticBytes('seat_restart_before_put')
     const hash = sha256Hex(bytes)
     let killedAfterRegister = false
-    const registerSettled = page.waitForResponse((resp) => {
-      const body = resp.request().postDataJSON() as Record<string, unknown> | null
-      return body?.operation === 'register'
-    }, { timeout: 15_000 }).catch(() => null)
+    let killedFirstPut = false
+    await page.route('**/*', async (route) => {
+      if (route.request().method() === 'PUT' && !killedFirstPut) {
+        killedFirstPut = true
+        return route.abort('connectionreset')
+      }
+      return route.fallback()
+    })
     await page.route('**/assets/presign', async (route) => {
       const body = route.request().postDataJSON() as Record<string, unknown> | null
       if (body?.operation === 'register' && !killedAfterRegister) {
         killedAfterRegister = true
         await route.fallback()
-        // fallback 只继续传递请求，不保证响应落地；立即 close 会掐断 register
-        // 响应，registered checkpoint 写不下来（journal 停在 intent），恢复场景
-        // 失去前提。等响应真正到达客户端再终止页面。
-        await registerSettled
+        // fallback 只继续传递请求，不保证客户端处理完成；立即 close 会掐断
+        // register 响应处理，registered checkpoint 写不下来（journal 停在
+        // intent），恢复场景失去前提。等 registered checkpoint 真正落盘再
+        // 终止页面（源场景：restart_before_put 的 journal 冻结在 registered）。
+        await expect(async () => {
+          const row = (await readJournal(page)).find(r => r.objectHash === hash)
+          expect(row?.phase, 'registered checkpoint 落盘').toBe('registered')
+        }).toPass({ timeout: 15_000 })
         await page.close()
         return
       }
