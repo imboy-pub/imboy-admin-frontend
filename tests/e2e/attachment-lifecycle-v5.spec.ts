@@ -426,7 +426,7 @@ test.describe('W6-02 admin-recovery-real（widget/seat 恢复面，real browser 
     const page = await openWidget(context, 'widget_restart_before_put')
     const bytes = syntheticBytes('widget_restart_before_put')
     const hash = sha256Hex(bytes)
-    let killedAfterRegister = false
+    let registerHandled = false
     let killedFirstPut = false
     await page.route('**/*', async (route) => {
       if (route.request().method() === 'PUT' && !killedFirstPut) {
@@ -437,27 +437,33 @@ test.describe('W6-02 admin-recovery-real（widget/seat 恢复面，real browser 
     })
     await page.route('**/assets/presign', async (route) => {
       const body = route.request().postDataJSON() as Record<string, unknown> | null
-      if (body !== null && body.operation === 'register' && !killedAfterRegister) {
-        killedAfterRegister = true
+      if (body !== null && body.operation === 'register' && !registerHandled) {
+        registerHandled = true
         await route.fallback()
-        // fallback 只继续传递请求，不保证客户端处理完成；立即 close 会掐断
-        // register 响应处理，registered checkpoint 写不下来（journal 停在
-        // intent），恢复场景失去前提。等 registered checkpoint 真正落盘再
-        // 终止页面（源场景：restart_before_put 的 journal 冻结在 registered）。
-        await expect(async () => {
-          const row = (await readJournal(page)).find(r => r.objectHash === hash)
-          expect(row?.phase, 'registered checkpoint 落盘').toBe('registered')
-        }).toPass({ timeout: 15_000 })
-        await page.close()
+        // 处理器必须立即 settle：路由处理器挂起会推迟请求完成（响应交付
+        // 不动），页面 JS 处理不了响应，registered checkpoint 永远写不下来。
+        // 落盘观测在 body 轮询完成（readJournal）。
         return
       }
       return route.fallback()
     })
     await widgetSendAttachment(page, 'w602-before-put.txt', 'text/plain', bytes)
-    await expect.poll(() => killedAfterRegister, {
-      message: 'register 后即终止页面（PUT 未发生窗口）',
+    await expect.poll(() => registerHandled, {
+      message: 'register 已放行（真网络故障仅 PUT abort-once）',
       timeout: 10_000,
     }).toBe(true)
+    // 等 register 响应处理完成（registered checkpoint 落盘）；PUT abort-once
+    // 把 journal 冻结在 registered —— 源场景：restart_before_put 在 PUT 在途
+    // 时 kill 页面，registered checkpoint 存活。落盘前不得 close/开 page2：
+    // widget 的 isCurrent 会话守卫只认最新页面，page2 过早启动会拒绝 page1
+    // 的 checkpoint 写入（journal 永远停在 intent）。
+    await expect.poll(async () => {
+      return (await readJournal(page)).find(r => r.objectHash === hash)?.phase
+    }, {
+      message: 'register 后即终止页面（PUT 未发生窗口）：registered checkpoint 落盘',
+      timeout: 15_000,
+    }).toBe('registered')
+    await page.close()
     // 同 context 重开（localStorage 随 origin 存活 —— 浏览器侧 process_restart 等价物）。
     const page2 = await openWidget(context, 'widget_restart_before_put-resume')
     await page2.waitForTimeout(4_000)
@@ -715,7 +721,7 @@ test.describe('W6-02 admin-recovery-real（widget/seat 恢复面，real browser 
     const { page } = await openSeatWorkspace(context, SEAT_ACCOUNT(), SEAT_PASSWORD())
     const bytes = syntheticBytes('seat_restart_before_put')
     const hash = sha256Hex(bytes)
-    let killedAfterRegister = false
+    let registerHandled = false
     let killedFirstPut = false
     await page.route('**/*', async (route) => {
       if (route.request().method() === 'PUT' && !killedFirstPut) {
@@ -726,27 +732,33 @@ test.describe('W6-02 admin-recovery-real（widget/seat 恢复面，real browser 
     })
     await page.route('**/assets/presign', async (route) => {
       const body = route.request().postDataJSON() as Record<string, unknown> | null
-      if (body?.operation === 'register' && !killedAfterRegister) {
-        killedAfterRegister = true
+      if (body?.operation === 'register' && !registerHandled) {
+        registerHandled = true
         await route.fallback()
-        // fallback 只继续传递请求，不保证客户端处理完成；立即 close 会掐断
-        // register 响应处理，registered checkpoint 写不下来（journal 停在
-        // intent），恢复场景失去前提。等 registered checkpoint 真正落盘再
-        // 终止页面（源场景：restart_before_put 的 journal 冻结在 registered）。
-        await expect(async () => {
-          const row = (await readJournal(page)).find(r => r.objectHash === hash)
-          expect(row?.phase, 'registered checkpoint 落盘').toBe('registered')
-        }).toPass({ timeout: 15_000 })
-        await page.close()
+        // 处理器必须立即 settle：路由处理器挂起会推迟请求完成（响应交付
+        // 不动），页面 JS 处理不了响应，registered checkpoint 永远写不下来。
+        // 落盘观测在 body 轮询完成（readJournal）。
         return
       }
       return route.fallback()
     })
     await seatSendAttachment(page, 'w602-seat-before-put.txt', 'text/plain', bytes)
-    await expect.poll(() => killedAfterRegister, {
-      message: 'register 后即终止页面（PUT 未发生窗口）',
+    await expect.poll(() => registerHandled, {
+      message: 'register 已放行（真网络故障仅 PUT abort-once）',
       timeout: 10_000,
     }).toBe(true)
+    // 等 register 响应处理完成（registered checkpoint 落盘）；PUT abort-once
+    // 把 journal 冻结在 registered —— 源场景：restart_before_put 在 PUT 在途
+    // 时 kill 页面，registered checkpoint 存活。落盘前不得 close/开 page2：
+    // seat 的 isCurrent 会话守卫只认最新页面，page2 过早启动会拒绝 page1
+    // 的 checkpoint 写入（journal 永远停在 intent）。
+    await expect.poll(async () => {
+      return (await readJournal(page)).find(r => r.objectHash === hash)?.phase
+    }, {
+      message: 'register 后即终止页面（PUT 未发生窗口）：registered checkpoint 落盘',
+      timeout: 15_000,
+    }).toBe('registered')
+    await page.close()
     const { page: page2 } = await openSeatWorkspace(context, SEAT_ACCOUNT(), SEAT_PASSWORD())
     await page2.waitForTimeout(4_000)
     const row = (await readJournal(page2)).find(r => r.objectHash === hash)
