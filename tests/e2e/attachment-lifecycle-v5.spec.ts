@@ -229,7 +229,13 @@ async function openWidget(context: BrowserContext, installationTag: string): Pro
   // 同意门每次打开都会重现（后端不记忆 consent 接受）；有界竞速后按需点击，
   // 最终以聊天输入可用为打开完成的判据（而非根节点非空）。
   const consent = page.getByTestId('cs-consent-accept')
-  await expect(consent.or(page.getByTestId('cs-file-input'))).toBeVisible({ timeout: 30_000 })
+  // consent 与 file-input 可能同时可见（bootstrap 修复后不再互斥）：or 定位器
+  // 在两元素同现时触发 strict violation，改为分支判定 —— consent 可见即通过，
+  // 否则等 file-input 可见。
+  await expect(async () => {
+    if (await consent.isVisible()) return
+    await expect(page.getByTestId('cs-file-input')).toBeVisible({ timeout: 5_000 })
+  }).toPass({ timeout: 30_000 })
   if (await consent.isVisible().catch(() => false)) {
     await consent.click()
   }
@@ -399,11 +405,19 @@ test.describe('W6-02 admin-recovery-real（widget/seat 恢复面，real browser 
     const bytes = syntheticBytes('widget_restart_before_put')
     const hash = sha256Hex(bytes)
     let killedAfterRegister = false
+    const registerSettled = page.waitForResponse((resp) => {
+      const body = resp.request().postDataJSON() as Record<string, unknown> | null
+      return body !== null && body.operation === 'register'
+    }, { timeout: 15_000 }).catch(() => null)
     await page.route('**/assets/presign', async (route) => {
       const body = route.request().postDataJSON() as Record<string, unknown> | null
       if (body !== null && body.operation === 'register' && !killedAfterRegister) {
         killedAfterRegister = true
         await route.fallback()
+        // fallback 只继续传递请求，不保证响应落地；立即 close 会掐断 register
+        // 响应，registered checkpoint 写不下来（journal 停在 intent），恢复场景
+        // 失去前提。等响应真正到达客户端再终止页面。
+        await registerSettled
         await page.close()
         return
       }
@@ -669,11 +683,19 @@ test.describe('W6-02 admin-recovery-real（widget/seat 恢复面，real browser 
     const bytes = syntheticBytes('seat_restart_before_put')
     const hash = sha256Hex(bytes)
     let killedAfterRegister = false
+    const registerSettled = page.waitForResponse((resp) => {
+      const body = resp.request().postDataJSON() as Record<string, unknown> | null
+      return body?.operation === 'register'
+    }, { timeout: 15_000 }).catch(() => null)
     await page.route('**/assets/presign', async (route) => {
       const body = route.request().postDataJSON() as Record<string, unknown> | null
       if (body?.operation === 'register' && !killedAfterRegister) {
         killedAfterRegister = true
         await route.fallback()
+        // fallback 只继续传递请求，不保证响应落地；立即 close 会掐断 register
+        // 响应，registered checkpoint 写不下来（journal 停在 intent），恢复场景
+        // 失去前提。等响应真正到达客户端再终止页面。
+        await registerSettled
         await page.close()
         return
       }
