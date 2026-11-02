@@ -71,7 +71,7 @@ function harness(initialProps: SendScope = SCOPE) {
   const fetchMessages = spyOn(api, 'fetchMessages').mockResolvedValue([])
   const presign = spyOn(api, 'registerAssetUpload').mockResolvedValue({
     state: 'registered', assetId: '72057594037927951', uploadRef: 'mock-upload-ref',
-    uploadUrl: 'https://upload.invalid/mock',
+    uploadUrl: 'https://upload.invalid/mock', uploadDescriptor: { kind: 'api_byte', method: 'PUT' },
   })
   const upload = spyOn(api, 'uploadAssetBytes').mockResolvedValue(undefined)
   const confirm = spyOn(api, 'confirmRecoveredAsset').mockResolvedValue(undefined)
@@ -427,7 +427,7 @@ describe('CX03 UNKNOWN — 最新有限消息页未命中不是负向精确证�
     act(() => view.result.current.send())
     await waitFor(() => expect(view.presign).toHaveBeenCalledTimes(1))
     act(() => { useSeatAuthStore.getState().clearSession('logout'); useSeatAuthStore.getState().setSession(OTHER_USER) })
-    await act(async () => pending.resolve({ state: 'registered', assetId: '72057594037927951', uploadRef: 'old-ref', uploadUrl: 'https://upload.invalid/mock' }))
+    await act(async () => pending.resolve({ state: 'registered', assetId: '72057594037927951', uploadRef: 'old-ref', uploadUrl: 'https://upload.invalid/mock', uploadDescriptor: { kind: 'api_byte', method: 'PUT' } }))
     expect(view.upload).not.toHaveBeenCalled()
     expect(view.confirm).not.toHaveBeenCalled()
     expect(view.sendMessage).not.toHaveBeenCalled()

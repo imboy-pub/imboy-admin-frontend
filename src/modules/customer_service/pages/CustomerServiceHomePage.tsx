@@ -318,6 +318,9 @@ export function CustomerServiceHomePage() {
             <Link to="/customer-service/widgets" className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}>
               <Globe2 className="mr-1 h-4 w-4" />{t('cs.home.widgetsLink')}
             </Link>
+            <Link to="/customer-service/quick-replies" className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}>
+              <Headphones className="mr-1 h-4 w-4" />{t('cs.home.quickRepliesLink')}
+            </Link>
           </div>
         </CardHeader>
         <CardContent>{body}</CardContent>

@@ -113,7 +113,7 @@ export async function runAttachmentPipeline(input: {
           { clientUploadId, mime: item.mime, sizeBytes: item.sizeBytes, objectHash: item.objectHash! }),
         status: (id) => input.deps.api.recoverAttachment(input.sessionId, input.scope, id, 'status'),
         renew: (id) => input.deps.api.recoverAttachment(input.sessionId, input.scope, id, 'renew'),
-        put: (url) => barePutOrThrow({ assetId: '', uploadRef: '', uploadUrl: url }, input.file, input.deps),
+        put: (url) => barePutOrThrow({ assetId: '', uploadRef: '', uploadUrl: url, uploadDescriptor: null }, input.file, input.deps),
         confirm: (id, ref) => input.deps.api.confirmRecoveredAttachment(input.sessionId, input.scope, id, ref),
       })
       requireCurrent(input.deps)
@@ -180,7 +180,16 @@ async function ensurePresign(
 ): Promise<{ item: AttachmentItem; result: PresignResult }> {
   // 重试且 ref 仍可用：不重复 presign（同一 hash + scope 服务端幂等）。
   if (item.assetId !== null && item.uploadRef !== null) {
-    return { item, result: { assetId: item.assetId, uploadRef: item.uploadRef, uploadUrl: item.uploadUrl } }
+    return {
+      item,
+      result: {
+        assetId: item.assetId,
+        uploadRef: item.uploadRef,
+        uploadUrl: item.uploadUrl,
+        // 重试路径不重发字节（ensureConfirmed 只 confirm）；descriptor 缺省。
+        uploadDescriptor: null,
+      },
+    }
   }
   if (item.objectHash === null) throw new PipelineFailure('缺少对象哈希（内部状态非法）')
   let presign: PresignResult
@@ -242,10 +251,18 @@ async function barePutOrThrow(presign: PresignResult, file: Blob, deps: Uploader
   let response: Response
   try {
     requireCurrent(deps)
+    // V3-16：s3_put 显式 descriptor 的签名头原样发送（presign 已绑定
+    // content-type/checksum）；无 descriptor 时维持裸 PUT（无凭据面不变）。
+    const headers: Record<string, string> = { 'Content-Type': 'application/octet-stream' }
+    if (presign.uploadDescriptor?.kind === 's3_put') {
+      for (const [key, value] of Object.entries(presign.uploadDescriptor.headers ?? {})) {
+        headers[key] = value
+      }
+    }
     response = await deps.fetchImpl(presign.uploadUrl, {
       method: 'PUT',
       body: file,
-      headers: { 'Content-Type': 'application/octet-stream' },
+      headers,
       credentials: 'omit',
     })
   } catch {

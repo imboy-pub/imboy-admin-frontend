@@ -98,7 +98,7 @@ describe('合同投影（presign / 裸 PUT 目标）', () => {
   it('toPresignResult：缺 asset_id/upload_ref fail-closed；upload.url 缺省 → null', () => {
     expect(toPresignResult({ asset_id: 'a' })).toBeNull()
     const ok = toPresignResult({ asset_id: 'a', upload_ref: 'r', upload: { rule: 'opaque_token_no_url_no_object_key' } })
-    expect(ok).toEqual({ assetId: 'a', uploadRef: 'r', uploadUrl: null })
+    expect(ok).toEqual({ assetId: 'a', uploadRef: 'r', uploadUrl: null, uploadDescriptor: null })
   })
 
   it('isBareHttpsUploadUrl：拒绝 http/userinfo/查询串 token 形状', () => {
@@ -260,7 +260,13 @@ type DurableHandlers = {
 }
 
 function registeredSession(assetId: string, uploadRef: string, uploadUrl: string) {
-  return { asset_id: assetId, session_state: 'registered', upload_ref: uploadRef, upload: { url: uploadUrl } }
+  // V3-16：服务端会话响应带显式 descriptor（api_byte=API 域字节端点）。
+  return {
+    asset_id: assetId,
+    session_state: 'registered',
+    upload_ref: uploadRef,
+    upload: { url: uploadUrl, descriptor: { kind: 'api_byte', method: 'PUT' } },
+  }
 }
 
 /** durable 面传输替身：register/status/renew 按 body.operation 路由，

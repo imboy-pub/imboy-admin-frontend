@@ -427,6 +427,22 @@ export function useSeatCustomerContext(
   })
 }
 
+/**
+ * V3-27 快捷回复：当前坐席工作空间只读列表（合同
+ * v3/specs/cs-quick-reply.md §3.1；org/workspace 任一为 null 即不发请求）。
+ * 新鲜度：无 SSE 事件（合同 §6 不扩事件面），由 react-query 默认 staleTime
+ * 与面板重挂载 refetch 承担。
+ */
+export function useSeatQuickReplies(orgId: EntityId | null, workspaceId: EntityId | null) {
+  const { api } = useSeatWorkbenchGateway()
+  return useQuery({
+    queryKey: [SEAT_QUERY_ROOT_KEY, 'quick-replies', orgId, workspaceId],
+    enabled: orgId !== null && workspaceId !== null,
+    queryFn: ({ signal }) =>
+      api.fetchQuickReplies(orgId as EntityId, workspaceId as EntityId, { signal }),
+  })
+}
+
 // ---------------------------------------------------------------------------
 // §3.6 事件流收敛：信封 → 权威刷新；resync → 全量；revocation → 写入口收回
 // ---------------------------------------------------------------------------

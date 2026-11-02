@@ -92,6 +92,8 @@ const PlatformCsSessionsPage = lazy(() => import('@/modules/customer_service').t
 const CsSessionDetailPage = lazy(() => import('@/modules/customer_service').then((m) => ({ default: m.CsSessionDetailPage })))
 // CSW-01：客服 Widget 接入管理（installation 配置页）
 const CsWidgetInstallationsPage = lazy(() => import('@/modules/customer_service').then((m) => ({ default: m.CsWidgetInstallationsPage })))
+// V3-27 快捷回复：客服快捷回复管理（Admin 域 CRUD；Seat 工作台只读消费）
+const CsQuickRepliesPage = lazy(() => import('@/modules/customer_service').then((m) => ({ default: m.CsQuickRepliesPage })))
 // v4 P0-10：AI 管理面 4 页（03-G；菜单真源为后端 sidebar 配置）
 const AiConfigPage = lazy(() => import('@/modules/customer_service').then((m) => ({ default: m.AiConfigPage })))
 const AiFaqPage = lazy(() => import('@/modules/customer_service').then((m) => ({ default: m.AiFaqPage })))
@@ -768,6 +770,15 @@ function App() {
                   element={(
                     <PermissionRoute permission="customer_service:read" roles={['1', '2']}>
                       <CsWidgetInstallationsPage />
+                    </PermissionRoute>
+                  )}
+                />
+                {/* V3-27 快捷回复：客服快捷回复管理（列表/新建/编辑/软删；customer_service 门） */}
+                <Route
+                  path="/customer-service/quick-replies"
+                  element={(
+                    <PermissionRoute permission="customer_service:read" roles={['1', '2']}>
+                      <CsQuickRepliesPage />
                     </PermissionRoute>
                   )}
                 />

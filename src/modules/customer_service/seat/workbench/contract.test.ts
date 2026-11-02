@@ -320,14 +320,17 @@ describe('CS-WEB-02 presign 投影与上传路径', () => {
         expires_at: 1759000000,
         adapter: 'local_private_object_store',
         rule: 'opaque_token_no_url_no_object_key',
+        // V3-16：显式 descriptor（服务端权威下发；kind 白名单 s3_put|api_byte）。
+        descriptor: { kind: 'api_byte', method: 'PUT' },
       },
     })
     expect(result.assetId).toBe('8100000000000000001')
     expect(result.uploadRef).toBe('ur-1')
     expect(result.uploadUrl).toBe('/api/v1/seat/enterprise/organizations/2000000000000000002/assets/upload/1')
     expect(result.expiresAt).toBe(1759000000)
+    expect(result.uploadDescriptor).toEqual({ kind: 'api_byte', method: 'PUT' })
     // upload.token（= upload_ref 双投）与 adapter/rule 不进投影（A03 最小面）。
-    expect(Object.keys(result).sort()).toEqual(['assetId', 'expiresAt', 'uploadRef', 'uploadUrl'])
+    expect(Object.keys(result).sort()).toEqual(['assetId', 'expiresAt', 'uploadDescriptor', 'uploadRef', 'uploadUrl'])
   })
 
   it('upload.url 缺失（部署未开放对象 PUT）→ uploadUrl=null（fail-closed 由编排终止）', () => {

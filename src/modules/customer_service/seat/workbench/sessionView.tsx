@@ -26,6 +26,8 @@ import { isSeatApiError } from '../errors'
 import { type SeatAttachment, type SeatMessage, type SeatSessionDetail } from './contract'
 import { SeatEmptyState, SeatErrorState, SeatLoadingState, seatFailureMessage } from './states'
 import { seatFailureKind } from './workbenchHooks'
+import { SeatQuickReplyPanel } from './quickReplyPanel'
+import type { SeatQuickReply } from './quickReplies'
 import { useSeatMessageViewport } from './messageViewport'
 import type { EntityId } from '../types'
 import { messageTime } from './messageTime'
@@ -63,6 +65,11 @@ type SeatSessionViewProps = {
   onVisibleMessageChange?: (_id: EntityId | null) => void
   readError?: unknown
   onRetryRead?: () => void
+  /** V3-27 快捷回复：当前工作空间只读列表（缺省不渲染面板入口）。 */
+  quickReplies?: SeatQuickReply[]
+  quickRepliesLoading?: boolean
+  quickRepliesError?: unknown
+  onRetryQuickReplies?: () => void
 }
 
 /** 附件字节获取器（org scope 由调用方闭包；signal 供取消/卸载中断）。 */
@@ -562,6 +569,17 @@ export function SeatSessionView(props: SeatSessionViewProps) {
                 <Paperclip aria-hidden="true" className="h-3.5 w-3.5" />
                 附件
               </Button>
+              {props.quickReplies !== undefined && (
+                <SeatQuickReplyPanel
+                  replies={props.quickReplies}
+                  loading={props.quickRepliesLoading ?? false}
+                  error={props.quickRepliesError ?? null}
+                  onRetry={() => props.onRetryQuickReplies?.()}
+                  draftBody={draft.body}
+                  disabled={sending}
+                  onInsert={onUpdateDraftBody}
+                />
+              )}
               <textarea
                 aria-label="回复访客"
                 data-testid="seat-composer"

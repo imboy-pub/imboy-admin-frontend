@@ -466,7 +466,7 @@ export class SeatFakeBackend {
         if (!row || parsed.workspace_id !== WS) return new Response('{"code":404,"payload":{}}', { status: 404 })
         const confirmed = this.confirmedUploadRefs.includes(row.uploadRef)
         return ok(JSON.stringify({ asset_id: row.assetId, session_state: confirmed ? 'confirmed' : 'registered',
-          ...(parsed.operation === 'renew' && !confirmed ? { upload_ref: row.uploadRef, upload: { url: row.uploadUrl } } : {}) }))
+          ...(parsed.operation === 'renew' && !confirmed ? { upload_ref: row.uploadRef, upload: { url: row.uploadUrl, descriptor: { kind: 'api_byte', method: 'PUT' } } } : {}) }))
       }
 
       if (
@@ -494,10 +494,12 @@ export class SeatFakeBackend {
         : `/api/v1/seat/enterprise/organizations/${ORG}/assets/upload/${this.presignCount}`
       if (typeof parsed.client_upload_id === 'string') this.uploadSessions.set(parsed.client_upload_id, { assetId, uploadRef, uploadUrl })
       // 镜像 eb_asset_app:presign_view + widget BE-PATCH-01 的 upload.url 投影。
+      // V3-16：与真实 backend（eb_enterprise_http:with_seat_upload_url）同构，
+      // 权威下发显式 descriptor（api_byte=本 API 域字节端点，带 Bearer）。
       const uploadText =
         uploadUrl === null
           ? '{"method":"PUT","token":"opaque","expires_at":1759000000,"adapter":"local_private_object_store","rule":"opaque_token_no_url_no_object_key"}'
-          : `{"method":"PUT","url":"${uploadUrl}","token":"opaque","expires_at":1759000000,"adapter":"local_private_object_store","rule":"opaque_token_no_url_no_object_key"}`
+          : `{"method":"PUT","url":"${uploadUrl}","token":"opaque","expires_at":1759000000,"adapter":"local_private_object_store","rule":"opaque_token_no_url_no_object_key","descriptor":{"kind":"api_byte","method":"PUT"}}`
       return ok(
         `{"session_state":"registered","asset_id":${assetId},"upload_ref":"${uploadRef}","object_hash":"${parsed.object_hash}","mime":"${parsed.mime}",` +
           `"size_bytes":${parsed.size_bytes},"file_name":null,"retain_until":null,"expires_at":1759000000,"upload":${uploadText}}`,
@@ -511,8 +513,10 @@ export class SeatFakeBackend {
         return serverError()
       }
       this.uploadPutCount += 1
-      if (typeof headers?.Authorization === 'string') {
-        throw new Error('bare upload PUT must not carry Authorization')
+      // V3-16：api_byte 端点镜像真实 Seat 认证门（同源 Bearer 必带；
+      // 对象存储 s3_put 形态的"无凭据"断言在 seatApiClient.test 锁定）。
+      if (typeof headers?.Authorization !== 'string' || !headers.Authorization.startsWith('Bearer ')) {
+        throw new Error('api_byte upload PUT must carry Bearer')
       }
       return new Response('', { status: 200 })
     }

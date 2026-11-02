@@ -43,6 +43,7 @@ import {
   useSeatFocusAck,
   useSeatManualStatus,
   useSeatPresenceHeartbeat,
+  useSeatQuickReplies,
   useSeatReadState,
   useSeatSessionDetail,
   useSeatSessionViews,
@@ -147,6 +148,8 @@ function SeatWorkspaceInner() {
   const messagesQuery = useSeatMessages(scope.organizationId, conversationId, scope.workspaceId);
   // 可见消息来自实际滚动视口，不能以已加载消息页的最大 ID 代替阅读。
   const readStateQuery = useSeatReadState(scope.organizationId, scope.workspaceId, selectedSessionId);
+  // V3-27 快捷回复：当前工作空间只读列表（composer 面板数据源）。
+  const quickRepliesQuery = useSeatQuickReplies(scope.organizationId, scope.workspaceId);
   const messageScopeKey = JSON.stringify([authSessionId, scope.organizationId, scope.workspaceId, selectedSessionId, conversationId]);
   const [visibleMessage, setVisibleMessage] = useState<{ scope: string; id: EntityId | null } | null>(null);
   const onVisibleMessageChange = useCallback((id: EntityId | null) => {
@@ -591,6 +594,10 @@ function SeatWorkspaceInner() {
               sending={send.sending}
               sendOutcomeUnknown={send.outcomeUnknown}
               unreadCount={readStateQuery.data?.unreadCount}
+              quickReplies={quickRepliesQuery.data ?? []}
+              quickRepliesLoading={quickRepliesQuery.isLoading}
+              quickRepliesError={quickRepliesQuery.error}
+              onRetryQuickReplies={() => void quickRepliesQuery.refetch()}
             />
           </div>
           <div

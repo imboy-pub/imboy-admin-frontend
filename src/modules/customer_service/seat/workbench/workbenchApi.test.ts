@@ -248,7 +248,7 @@ describe('域隔离不回退（A01）', () => {
 describe('CS-WEB-02 附件合同（presign / 裸 PUT / confirm / asset_ids 发送）', () => {
   const OBJECT_HASH = 'ab'.repeat(32)
   const UPLOAD_PATH = `/api/v1/seat/enterprise/organizations/${ORG}/assets/upload/1`
-  const PRESIGN_PAYLOAD = `{"asset_id":8100000000000000001,"upload_ref":"ur-1","object_hash":"${OBJECT_HASH}","mime":"image/png","size_bytes":8,"expires_at":1759000000,"upload":{"method":"PUT","url":"${UPLOAD_PATH}","token":"opaque","expires_at":1759000000,"adapter":"local_private_object_store","rule":"opaque_token_no_url_no_object_key"}}`
+  const PRESIGN_PAYLOAD = `{"asset_id":8100000000000000001,"upload_ref":"ur-1","object_hash":"${OBJECT_HASH}","mime":"image/png","size_bytes":8,"expires_at":1759000000,"upload":{"method":"PUT","url":"${UPLOAD_PATH}","token":"opaque","expires_at":1759000000,"adapter":"local_private_object_store","rule":"opaque_token_no_url_no_object_key","descriptor":{"kind":"api_byte","method":"PUT"}}}`
   const FILE_BYTES = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
 
   /** 上传三动作 + 发送的按路径分派 responder（断言顺序用 calls）。 */
@@ -345,11 +345,12 @@ describe('CS-WEB-02 附件合同（presign / 裸 PUT / confirm / asset_ids 发�
       UPLOAD_PATH,
       `/api/v1/seat/enterprise/organizations/${ORG}/assets/confirm`,
     ])
-    // PUT 形状：octet-stream、无 Authorization。
+    // PUT 形状（V3-16 api_byte 权威语义）：octet-stream + 同源 Bearer
+    // （descriptor 决定；对象存储 s3_put 无凭据断言在 seatApiClient.test）。
     const putInit = calls[1]?.init as RequestInit
     expect(putInit.method).toBe('PUT')
     expect((putInit.headers as Record<string, string>)['Content-Type']).toBe('application/octet-stream')
-    expect((putInit.headers as Record<string, string>).Authorization).toBeUndefined()
+    expect((putInit.headers as Record<string, string>).Authorization).toBe('Bearer tok')
     expect(result.assetId).toBe('8100000000000000001')
     expect(result.objectHash).toBe(await blobSha256Hex(new Blob([FILE_BYTES.slice()])))
   })
@@ -550,7 +551,7 @@ it('seat_timeout: hung presign/result-query transports classify as network and a
 })
 
 it('V5 recovery uses existing authenticated presign route and stable UUID, no declaration or URL invention', async () => {
-  const { api, calls } = makeFetch(() => envelope('{"asset_id":8100000000000000001,"session_state":"registered","upload_ref":"memory-only","upload":{"url":"https://store.example/put"}}'))
+  const { api, calls } = makeFetch(() => envelope('{"asset_id":8100000000000000001,"session_state":"registered","upload_ref":"memory-only","upload":{"url":"https://store.example/put","descriptor":{"kind":"api_byte","method":"PUT"}}}'))
   const id = '12345678-1234-4234-8234-123456789abc'
   const status = await api.recoverAssetUpload(ORG, WS, id, 'status')
   expect(status.assetId).toBe('8100000000000000001')

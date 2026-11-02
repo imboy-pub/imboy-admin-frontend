@@ -164,6 +164,7 @@ export const zhCN = {
   'cs.home.orgFilterLabel': '企业过滤',
   'cs.home.allOrgs': '全部企业',
   'cs.home.widgetsLink': '网站接入',
+  'cs.home.quickRepliesLink': '快捷回复',
   'cs.home.emptyWithOrg': '该企业还没有客服坐席，点击右上角「添加客服坐席」开通',
   'cs.home.emptyAll': '平台还没有客服坐席，点击右上角「添加客服坐席」开通',
   'cs.home.loading': '正在加载在线客服…',

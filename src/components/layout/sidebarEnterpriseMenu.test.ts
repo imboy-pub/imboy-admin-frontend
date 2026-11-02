@@ -142,3 +142,23 @@ describe('EADM-03 Seat Auth 域守卫', () => {
     expect(appSource.indexOf('<Route element={<AdminLayout />}>'), 'AdminLayout 包裹块应已声明').toBeGreaterThan(-1)
   })
 })
+
+describe('V3-26 平台审计日志入口（最小合同）', () => {
+  it('侧边栏「审计中心」保留 /logs 日志审计叶子（roles 1,3 + logs:view）', () => {
+    const auditGroup = defaultConfig.items.find((item) => item.label === '审计中心')
+    expect(auditGroup, '审计中心 group should exist').toBeDefined()
+    const leaf = collectLeaves(auditGroup!.children ?? []).find((l) => l.path === '/logs')
+    expect(leaf, '日志审计菜单叶子应存在').toBeDefined()
+    expect(leaf!.label).toBe('日志审计')
+    expect(leaf!.permission).toBe('logs:view')
+    expect(normalizeRoles(leaf!.roles)).toEqual([1, 3])
+  })
+
+  it('App.tsx 以 PermissionRoute(logs:view) 注册 /logs → AuditLogPage', () => {
+    const sourceDir = dirname(fileURLToPath(import.meta.url))
+    const appSource = readFileSync(resolve(sourceDir, '../../App.tsx'), 'utf-8')
+    expect(appSource.includes('path="/logs"'), '/logs 路由应已注册').toBe(true)
+    expect(appSource.includes('permission="logs:view"'), '/logs 应由 logs:view 守卫').toBe(true)
+    expect(appSource.includes('AuditLogPage'), 'AuditLogPage 应已接入路由').toBe(true)
+  })
+})

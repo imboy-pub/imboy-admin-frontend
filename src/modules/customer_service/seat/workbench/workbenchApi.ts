@@ -41,6 +41,7 @@ import {
   type SeatTransferTargetPage,
   toSeatReadState,
 } from './contract'
+import { buildSeatQuickRepliesPath, toSeatQuickReplyList, type SeatQuickReply } from './quickReplies'
 
 export type {
   SeatPresence,
@@ -249,11 +250,16 @@ export class SeatWorkbenchApi {
   }
 
   /**
-   * CS-WEB-02：附件字节裸 PUT（presign 响应 upload.url；只带 Content-Type、
-   * 无 Authorization/credentials——SeatApiClient.putUploadObject 通道）。
+   * CS-WEB-02/V3-16：附件字节裸 PUT（presign 响应 upload.url + 显式
+   * descriptor；s3_put 只带签名头、无 Authorization/credentials）。
    */
-  async uploadAssetBytes(uploadUrl: string, file: Blob, signal?: AbortSignal): Promise<void> {
-    await this.client.putUploadObject(uploadUrl, file, { signal })
+  async uploadAssetBytes(
+    uploadUrl: string,
+    file: Blob,
+    descriptor: import('../seatApiClient').SeatUploadDescriptor,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    await this.client.putUploadObject(uploadUrl, file, { signal, descriptor })
   }
 
   /**
@@ -430,5 +436,22 @@ export class SeatWorkbenchApi {
       query: { workspace_id: workspaceId },
       body: { last_read_message_id: lastReadMessageId },
     })
+  }
+
+  /**
+   * V3-27 快捷回复：当前坐席工作空间的只读列表（合同
+   * v3/specs/cs-quick-reply.md §3.1——GET /cs/organizations/:org/quick-replies
+   * ?workspace_id=，sort ASC/title ASC，白名单投影 id/title/content/sort）。
+   */
+  async fetchQuickReplies(
+    orgId: EntityId,
+    workspaceId: EntityId,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<SeatQuickReply[]> {
+    const payload = await this.client.request(buildSeatQuickRepliesPath(orgId), {
+      query: { workspace_id: workspaceId },
+      signal: options.signal,
+    })
+    return toSeatQuickReplyList(payload)
   }
 }

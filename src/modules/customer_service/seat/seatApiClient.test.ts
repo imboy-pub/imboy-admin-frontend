@@ -326,7 +326,7 @@ describe('CS-WEB-02 putUploadObject（裸 PUT 上传通道；presign 下发目�
     seatTokenVault.setToken('aa.bb.cc')
     const { calls, fetchImpl } = uploadResponder(200)
     const client = new SeatApiClient({ fetchImpl, getToken: () => seatTokenVault.getToken() })
-    await client.putUploadObject(UPLOAD_URL, new Blob([FILE_BYTES.slice()]))
+    await client.putUploadObject(UPLOAD_URL, new Blob([FILE_BYTES.slice()]), { descriptor: { kind: 'api_byte', method: 'PUT' } })
     expect(calls).toHaveLength(1)
     expect(calls[0]?.url).toBe(UPLOAD_URL)
     const init = calls[0]?.init as RequestInit
@@ -334,16 +334,59 @@ describe('CS-WEB-02 putUploadObject（裸 PUT 上传通道；presign 下发目�
     expect(init.credentials).toBe('omit')
     const headers = init.headers as Record<string, string>
     expect(headers['Content-Type']).toBe('application/octet-stream')
-    // Seat JWT 绝不出现在裸 PUT 通道（目标凭证由 URL 自带）。
-    expect(headers.Authorization).toBeUndefined()
+    // V3-16：api_byte 权威语义=同源 API 域带 Bearer（descriptor 决定，非 URL 外观）。
+    expect(headers.Authorization).toBe('Bearer aa.bb.cc')
   })
 
   it('http(s) 绝对 URL 放行（presign 可下发跨源对象存储目标）', async () => {
     const { calls, fetchImpl } = uploadResponder(200)
     const client = new SeatApiClient({ fetchImpl })
-    await client.putUploadObject('https://objects.example.internal/bucket/obj-1', new Blob(['x']))
+    await client.putUploadObject('https://objects.example.internal/bucket/obj-1', new Blob(['x']), { descriptor: { kind: 's3_put', method: 'PUT' } })
     expect(calls).toHaveLength(1)
     expect(calls[0]?.url).toBe('https://objects.example.internal/bucket/obj-1')
+  })
+
+  it('V3-16 s3_put：descriptor.headers 原样发送、绝无 Authorization/Cookie', async () => {
+    seatTokenVault.setToken('aa.bb.cc')
+    const { calls, fetchImpl } = uploadResponder(200)
+    const client = new SeatApiClient({ fetchImpl, getToken: () => seatTokenVault.getToken() })
+    await client.putUploadObject('https://objects.example.internal/bucket/obj-1', new Blob(['x']), {
+      descriptor: { kind: 's3_put', method: 'PUT', headers: { 'x-amz-checksum-sha256': 'QUJD' } },
+    })
+    const headers = (calls[0]?.init as RequestInit).headers as Record<string, string>
+    expect(headers['x-amz-checksum-sha256']).toBe('QUJD')
+    // 凭据隔离反例：Seat JWT 绝不进入对象存储请求（即便已登录）。
+    expect(headers.Authorization).toBeUndefined()
+    expect((calls[0]?.init as RequestInit).credentials).toBe('omit')
+  })
+
+  it('V3-16 缺 descriptor → fail-closed（不按 URL 外观猜传输类型）', async () => {
+    const { fetchImpl } = uploadResponder(200)
+    const client = new SeatApiClient({ fetchImpl })
+    // TS 层面 descriptor 必填；运行时防御：undefined descriptor 拒绝。
+    let thrown: unknown = null
+    try {
+      await client.putUploadObject(UPLOAD_URL, new Blob(['x']), undefined as never)
+    } catch (error) {
+      thrown = error
+    }
+    expect(isSeatApiError(thrown)).toBe(true)
+    expect((thrown as { kind: string }).kind).toBe('validation')
+  })
+
+  it('V3-16 api_byte：同源门外目标拒绝（validation）', async () => {
+    const { fetchImpl } = uploadResponder(200)
+    const client = new SeatApiClient({ fetchImpl })
+    let thrown: unknown = null
+    try {
+      await client.putUploadObject('https://evil.example.invalid/api/v1/seat/enterprise/organizations/123/assets/presign', new Blob(['x']), {
+        descriptor: { kind: 'api_byte', method: 'PUT' },
+      })
+    } catch (error) {
+      thrown = error
+    }
+    expect(isSeatApiError(thrown)).toBe(true)
+    expect((thrown as { kind: string }).kind).toBe('validation')
   })
 
   it('非 2xx → 按 HTTP/信封分类（500 server / 403 forbidden）', async () => {
@@ -351,7 +394,7 @@ describe('CS-WEB-02 putUploadObject（裸 PUT 上传通道；presign 下发目�
     const client = new SeatApiClient({ fetchImpl })
     let thrown: unknown = null
     try {
-      await client.putUploadObject(UPLOAD_URL, new Blob(['x']))
+      await client.putUploadObject(UPLOAD_URL, new Blob(['x']), { descriptor: { kind: 'api_byte', method: 'PUT' } })
     } catch (error) {
       thrown = error
     }
@@ -362,7 +405,7 @@ describe('CS-WEB-02 putUploadObject（裸 PUT 上传通道；presign 下发目�
     const client2 = new SeatApiClient({ fetchImpl: forbidden.fetchImpl })
     let thrown2: unknown = null
     try {
-      await client2.putUploadObject(UPLOAD_URL, new Blob(['x']))
+      await client2.putUploadObject(UPLOAD_URL, new Blob(['x']), { descriptor: { kind: 'api_byte', method: 'PUT' } })
     } catch (error) {
       thrown2 = error
     }
@@ -393,7 +436,7 @@ describe('CS-WEB-02 putUploadObject（裸 PUT 上传通道；presign 下发目�
     })
     let thrown: unknown = null
     try {
-      await client.putUploadObject(UPLOAD_URL, new Blob(['x']))
+      await client.putUploadObject(UPLOAD_URL, new Blob(['x']), { descriptor: { kind: 'api_byte', method: 'PUT' } })
     } catch (error) {
       thrown = error
     }
@@ -454,10 +497,14 @@ describe('REVIEW-2 凭据卫生锁定（全通道系统断言）', () => {
     const { calls, fetchImpl } = makeFetch(() => new Response('', { status: 200 }))
     const client = new SeatApiClient({ fetchImpl, getToken: () => seatTokenVault.getToken() })
     const blob = new Blob([new Uint8Array([9, 9, 9])])
-    // imboy API 域形态（CS-BE-01B 线特征：查询串带 upload_ref）→ 带 Bearer。
-    await client.putUploadObject('/api/v1/seat/enterprise/organizations/1/assets/presign?upload_ref=ur-1', blob)
-    // 对象存储预签形态 → 无 Authorization（Seat JWT 绝不外发第三方域）。
-    await client.putUploadObject('https://objects.example.internal/bucket/obj?X-Amz-Signature=sig', blob)
+    // V3-16 显式 descriptor：api_byte（API 域字节端点）→ 带 Bearer；
+    // s3_put（对象存储）→ 无 Authorization（Seat JWT 绝不外发第三方域）。
+    await client.putUploadObject('/api/v1/seat/enterprise/organizations/1/assets/presign?upload_ref=ur-1', blob, {
+      descriptor: { kind: 'api_byte', method: 'PUT' },
+    })
+    await client.putUploadObject('https://objects.example.internal/bucket/obj?X-Amz-Signature=sig', blob, {
+      descriptor: { kind: 's3_put', method: 'PUT' },
+    })
     expect(calls).toHaveLength(2)
     const apiInit = calls[0]?.init as RequestInit
     const s3Init = calls[1]?.init as RequestInit
@@ -539,16 +586,13 @@ describe('Console 凭证出口约束', () => {
     expect(() => assertSeatApiPath('/api/v1/enterprise/organizations/1/assets/2/content')).toThrow()
   })
 
-  it('带 upload_ref 的域外/非上传目标在发送前拒绝，Seat JWT 不外发', async () => {
+  it('V3-16 api_byte 域外目标在发送前拒绝，Seat JWT 不外发', async () => {
     const { calls, fetchImpl } = makeFetch(() => new Response('', { status: 200 }))
     const client = new SeatApiClient({ fetchImpl, getToken: () => 'aa.bb.cc' })
-    for (const url of [
-      'https://objects.example.internal/api/v1/seat/enterprise/organizations/1/assets/presign?upload_ref=r',
-      '/api/v1/enterprise/organizations/1/assets/presign?upload_ref=r',
-      '/api/v1/seat/enterprise/organizations/1/assets/confirm?upload_ref=r',
-    ]) {
-      await expect(client.putUploadObject(url, new Blob(['x']))).rejects.toBeInstanceOf(SeatApiError)
-    }
+    // descriptor=api_byte 而目标在域外 → 拒绝（Bearer 只进同源 API 域）。
+    await expect(client.putUploadObject('https://objects.example.internal/api/v1/seat/enterprise/organizations/1/assets/presign?upload_ref=r', new Blob(['x']), {
+      descriptor: { kind: 'api_byte', method: 'PUT' },
+    })).rejects.toBeInstanceOf(SeatApiError)
     expect(calls).toHaveLength(0)
   })
 })

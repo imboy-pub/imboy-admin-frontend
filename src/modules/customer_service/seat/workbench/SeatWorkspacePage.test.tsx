@@ -640,9 +640,10 @@ describe('SeatWorkspacePage CS-WEB-02 单文件发送（presign → 裸 PUT → 
     expect(presignBody.file_name).toBe('截图.png')
     expect(presignBody.mime).toBe('image/png')
     expect(presignBody.size_bytes).toBe(FILE_BYTES.length)
-    // 裸 PUT 不携带 Seat JWT（目标凭证由服务端签发 URL 自带）。
+    // api_byte 字节端点带同源 Bearer（V3-16 descriptor 权威语义）。
     const putCall = backend.calls.find((call) => call.method === 'PUT' && call.path.includes('/assets/upload/'))
-    expect(putCall?.auth).toBeNull()
+    // V3-16：api_byte 权威语义=同源 Bearer（descriptor 决定，非 URL 外观）。
+    expect(putCall?.auth).toBe('Bearer eyJh.eyJi.c2ln')
     // 成功清空：composer 与附件 chip（发送边沿驱动）。
     await waitFor(() => expect((view.getByTestId('seat-composer') as HTMLTextAreaElement).value).toBe(''))
     await waitFor(() => expect(view.queryByTestId('seat-attach-chip')).toBeNull())

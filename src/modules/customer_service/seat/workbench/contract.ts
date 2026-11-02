@@ -144,6 +144,9 @@ export type SeatPresignResult = {
   assetId: EntityId
   uploadRef: string
   uploadUrl: string | null
+  /** V3-16：显式上传 descriptor（upload.descriptor 权威投影；upload.url
+   * 存在而 descriptor 缺失 → fail-closed 抛出，倒逼服务端下发）。 */
+  uploadDescriptor: import('../seatApiClient').SeatUploadDescriptor | null
   expiresAt: number | null
 }
 
@@ -509,9 +512,35 @@ export function seatAssetContentPath(orgId: EntityId, assetId: EntityId): string
 }
 
 /**
- * CS-WEB-02：presign 结果投影（fail-closed）：asset_id/upload_ref 形状非法
+ * V3-16：显式上传 descriptor 投影（fail-closed）。kind 白名单外即抛；
+ * s3_put.headers 形状非法即抛——消费方（putUploadObject）不再按 URL 外观
+ * 或 upload_ref 猜传输类型。
+ */
+function toSeatUploadDescriptor(
+  raw: unknown,
+): import('../seatApiClient').SeatUploadDescriptor | null {
+  if (!isRecord(raw)) throw new TypeError('seat presign upload.descriptor shape invalid')
+  const kind = raw.kind
+  if (kind === 's3_put') {
+    const headers: Record<string, string> = {}
+    if (raw.headers !== undefined) {
+      if (!isRecord(raw.headers)) throw new TypeError('seat presign descriptor.headers shape invalid')
+      for (const [key, value] of Object.entries(raw.headers)) {
+        if (typeof value !== 'string') throw new TypeError('seat presign descriptor.headers value invalid')
+        headers[key] = value
+      }
+    }
+    return { kind: 's3_put', method: 'PUT', headers }
+  }
+  if (kind === 'api_byte') return { kind: 'api_byte', method: 'PUT' }
+  throw new TypeError('seat presign upload.descriptor kind invalid')
+}
+
+/**
+ * CS-WEB-02/V3-16：presign 结果投影（fail-closed）：asset_id/upload_ref 形状非法
  * 即 throw（上游按错误处理，不猜）；`upload.url` 缺失 → uploadUrl=null
- * （部署未开放对象 PUT——由上传编排终止，不在此抛）。
+ * （部署未开放对象 PUT——由上传编排终止，不在此抛）。upload.url 存在而
+ * `upload.descriptor` 缺失/非法 → throw（倒逼服务端权威下发，不猜传输类型）。
  */
 export function toSeatPresignResult(raw: unknown): SeatPresignResult {
   if (!isRecord(raw)) throw new TypeError('seat presign payload shape invalid')
@@ -519,10 +548,16 @@ export function toSeatPresignResult(raw: unknown): SeatPresignResult {
   if (assetId === null) throw new TypeError('seat presign asset_id invalid')
   if (!nonEmptyString(raw.upload_ref)) throw new TypeError('seat presign upload_ref invalid')
   const upload = isRecord(raw.upload) ? raw.upload : {}
+  const uploadUrl = optStr(upload.url)
+  let uploadDescriptor: import('../seatApiClient').SeatUploadDescriptor | null = null
+  if (uploadUrl !== null) {
+    uploadDescriptor = toSeatUploadDescriptor(upload.descriptor)
+  }
   return {
     assetId,
     uploadRef: raw.upload_ref,
-    uploadUrl: optStr(upload.url),
+    uploadUrl,
+    uploadDescriptor,
     expiresAt: optInt(upload.expires_at),
   }
 }

@@ -266,8 +266,8 @@ describe('CX03 attachment recovery — unit/mock transport/JSDOM only, not Requi
     const fileB = new File(['B'], fileA.name, { type: fileA.type, lastModified: 1 })
     const assetA = '8100000000000000001'
     const assetB = '8100000000000000002'
-    view.presign.mockResolvedValueOnce({ state: 'registered', assetId: assetA, uploadRef: 'ref-A', uploadUrl: 'https://upload.invalid/A' })
-      .mockResolvedValueOnce({ state: 'registered', assetId: assetB, uploadRef: 'ref-B', uploadUrl: 'https://upload.invalid/B' })
+    view.presign.mockResolvedValueOnce({ state: 'registered', assetId: assetA, uploadRef: 'ref-A', uploadUrl: 'https://upload.invalid/A', uploadDescriptor: { kind: 'api_byte', method: 'PUT' } })
+      .mockResolvedValueOnce({ state: 'registered', assetId: assetB, uploadRef: 'ref-B', uploadUrl: 'https://upload.invalid/B', uploadDescriptor: { kind: 'api_byte', method: 'PUT' } })
     view.upload.mockResolvedValue(undefined)
     view.confirm.mockResolvedValue(undefined)
     setDraft(view, 'A 答复', fileA)
@@ -405,7 +405,7 @@ for (const phase of ['intent', 'registered', 'uploaded'] as const) {
     await journal.save({ clientUploadId, clientMsgId, assetId: phase === 'intent' ? null : assetId,
       phase, dispatchState: 'ready', objectHash: await blobSha256Hex(file), sizeBytes: file.size, mime: file.type, updatedAt: Date.now() })
     const view = harness()
-    const recover = spyOn(view.api, 'recoverAssetUpload').mockResolvedValue({ assetId, state: 'registered', uploadRef: 'same-ref', uploadUrl: 'https://upload.invalid/owned' })
+    const recover = spyOn(view.api, 'recoverAssetUpload').mockResolvedValue({ assetId, state: 'registered', uploadRef: 'same-ref', uploadUrl: 'https://upload.invalid/owned', uploadDescriptor: { kind: 'api_byte', method: 'PUT' } })
     view.upload.mockResolvedValue(undefined)
     view.confirm.mockResolvedValue(undefined)
     view.postOutcomes.push(response({ message: { id: '9000000000000000011', sender_type: 'business_identity' } }))

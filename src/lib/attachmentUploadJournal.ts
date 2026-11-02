@@ -18,7 +18,14 @@ export type UploadSession = {
   state: string
   uploadRef: string | null
   uploadUrl: string | null
+  /** V3-16：服务端权威下发的显式上传 descriptor（s3_put|api_byte）；
+   * upload.url 存在而 descriptor 缺失 → parseUploadSession fail-closed 抛。 */
+  uploadDescriptor: SeatUploadSessionDescriptor | null
 }
+
+export type SeatUploadSessionDescriptor =
+  | { kind: 's3_put'; method: 'PUT'; headers?: Record<string, string> }
+  | { kind: 'api_byte'; method: 'PUT' }
 
 /** No capability or plaintext is persisted; every write failure stops the next remote action. */
 async function browserTaskLock<T>(name: string, operation: () => Promise<T> | T): Promise<T> {
@@ -144,7 +151,7 @@ export function parseUploadSession(value: unknown): UploadSession {
   if (!/^\d+$/.test(assetId) || !['registered', 'confirmed', 'rejected', 'expired', 'delete_intent', 'deleted'].includes(state)) {
     throw new Error('上传会话状态未知，已停止恢复')
   }
-  const upload = row.upload as { url?: unknown } | undefined
+  const upload = row.upload as { url?: unknown; descriptor?: unknown } | undefined
   const candidate = upload?.url
   let uploadUrl: string | null = null
   if (typeof candidate === 'string') {
@@ -152,7 +159,33 @@ export function parseUploadSession(value: unknown): UploadSession {
     if ((url.protocol === 'https:' || (url.origin === globalThis.window?.location.origin && ['localhost', '127.0.0.1'].includes(url.hostname)))
       && url.username === '' && url.password === '') uploadUrl = candidate
   }
-  return { assetId, state, uploadRef: typeof row.upload_ref === 'string' ? row.upload_ref : null, uploadUrl }
+  const uploadDescriptor = parseSessionUploadDescriptor(upload?.descriptor, uploadUrl !== null)
+  return { assetId, state, uploadRef: typeof row.upload_ref === 'string' ? row.upload_ref : null, uploadUrl, uploadDescriptor }
+}
+
+/** V3-16：会话 descriptor 投影（与 seat 侧 toSeatUploadDescriptor 同语义）。 */
+function parseSessionUploadDescriptor(
+  raw: unknown,
+  hasUrl: boolean,
+): SeatUploadSessionDescriptor | null {
+  if (!hasUrl) return null
+  if (typeof raw !== 'object' || raw === null) {
+    throw new Error('上传会话缺少显式 descriptor，已停止（不按 URL 外观猜传输类型）')
+  }
+  const row = raw as Record<string, unknown>
+  const kind = row.kind
+  if (kind === 'api_byte') return { kind: 'api_byte', method: 'PUT' }
+  if (kind === 's3_put') {
+    const headers: Record<string, string> = {}
+    if (row.headers !== undefined && typeof row.headers === 'object' && row.headers !== null) {
+      for (const [key, value] of Object.entries(row.headers as Record<string, unknown>)) {
+        if (typeof value !== 'string') throw new Error('上传会话 descriptor.headers 非法')
+        headers[key] = value
+      }
+    }
+    return { kind: 's3_put', method: 'PUT', headers }
+  }
+  throw new Error('上传会话 descriptor kind 未知，已停止')
 }
 
 export async function resumeUpload(input: {
@@ -164,7 +197,8 @@ export async function resumeUpload(input: {
   register: (_id: string) => Promise<UploadSession>
   status: (_id: string) => Promise<UploadSession>
   renew: (_id: string) => Promise<UploadSession>
-  put: (_url: string) => Promise<void>
+  /** V3-16：descriptor 由调用方闭包捕获或经第二参传递（widget/Seat 各自投影类型）。 */
+  put: (_url: string, _descriptor?: unknown) => Promise<void>
   confirm: (_asset: EntityId, _ref: string | null) => Promise<void>
   onCheckpoint?: (_row: UploadCheckpoint) => Promise<void>
 }): Promise<UploadCheckpoint> {
@@ -209,7 +243,7 @@ export async function resumeUpload(input: {
     if (session.state !== 'registered' || session.assetId !== row.assetId || session.uploadUrl === null) {
       throw new Error('服务端未返回同资产有效上传目标，已停止')
     }
-    await input.put(session.uploadUrl)
+    await input.put(session.uploadUrl, session.uploadDescriptor)
     await checkpoint({ phase: 'uploaded' })
   }
   guard()

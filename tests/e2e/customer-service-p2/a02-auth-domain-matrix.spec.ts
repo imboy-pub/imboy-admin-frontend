@@ -118,7 +118,7 @@ test('A02 认证域互斥：Admin Cookie×Seat API、Seat JWT×平台面、visit
     const { spawnSync } = await import('node:child_process')
     const out = spawnSync(
       'docker',
-      ['exec', 'imboy_pg18', 'psql', '-U', 'imboy_user', '-d', 'csww_20260920T051447Z', '-At', '-c',
+      ['exec', 'imboy_pg18', 'psql', '-U', 'imboy_user', '-d', process.env.CSWW_P2_PG_DB || 'imboy_test_v1', '-At', '-c',
         `select coalesce(min(id::text),'') from customer_service_event where organization_id = ${OTHER_ORG_ID}`],
       { encoding: 'utf8' }
     )

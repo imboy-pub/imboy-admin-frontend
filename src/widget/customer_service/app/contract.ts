@@ -333,10 +333,20 @@ export function buildConfirmBody(scope: RequestScope, uploadRef: string): {
 /** presign 响应投影（presign_view 白名单）：asset_id + upload_ref 必填，
  * upload.url 缺省（合同形状 rule=opaque_token_no_url_no_object_key）→ null。
  * 对象 key / 存储侧 URL 绝不投影出去。 */
+/** V3-16：显式上传 descriptor（widget 面仅 s3_put 裸 PUT；headers 为服务端
+ * 签发的签名头，无任何 visitor/Seat/Admin 凭据）。 */
+export type WidgetUploadDescriptor = {
+  kind: 's3_put'
+  method: 'PUT'
+  headers?: Record<string, string>
+}
+
 export type PresignResult = {
   assetId: string
   uploadRef: string
   uploadUrl: string | null
+  /** null=恢复路径 placeholder 或部署未开放；正常 presign 必有。 */
+  uploadDescriptor: WidgetUploadDescriptor | null
 }
 
 export function toPresignResult(raw: unknown): PresignResult | null {
@@ -348,7 +358,20 @@ export function toPresignResult(raw: unknown): PresignResult | null {
   if (isRecord(raw.upload) && typeof raw.upload.url === 'string') {
     uploadUrl = isBareHttpsUploadUrl(raw.upload.url) ? raw.upload.url : null
   }
-  return { assetId, uploadRef, uploadUrl }
+  let uploadDescriptor: WidgetUploadDescriptor | null = null
+  if (uploadUrl !== null && isRecord(raw.upload) && isRecord(raw.upload.descriptor)) {
+    const d = raw.upload.descriptor
+    if (d.kind === 's3_put') {
+      const headers: Record<string, string> = {}
+      if (d.headers !== undefined && isRecord(d.headers)) {
+        for (const [key, value] of Object.entries(d.headers)) {
+          if (typeof value === 'string') headers[key] = value
+        }
+      }
+      uploadDescriptor = { kind: 's3_put', method: 'PUT', headers }
+    }
+  }
+  return { assetId, uploadRef, uploadUrl, uploadDescriptor }
 }
 
 /**

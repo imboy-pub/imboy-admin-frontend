@@ -112,9 +112,19 @@ type SeatBlobRequestOptions = {
   query?: Record<string, string>
 }
 
-/** CS-WEB-02：裸 PUT 上传选项（presign 下发的 upload.url；目标由服务端权威签发）。 */
+/** V3-16：显式上传 descriptor——服务端 presign 视图权威下发（upload.descriptor）。
+ * 消费方按 kind 分流，禁止按 URL 外观或 upload_ref 猜传输类型（S3-only 合同 §2）。
+ * - s3_put：对象存储直传（只发 descriptor.headers 与 Content-Type；
+ *   Authorization/Cookie/Seat Bearer 绝不出 Seat 域到对象存储）。
+ * - api_byte：imboy API 域字节上传端点（同源门 + Bearer；V3-20 将切换 s3_put）。 */
+export type SeatUploadDescriptor =
+  | { kind: 's3_put'; method: 'PUT'; headers?: Record<string, string> }
+  | { kind: 'api_byte'; method: 'PUT' }
+
+/** CS-WEB-02：裸 PUT 上传选项（presign 下发的 upload.url + 显式 descriptor）。 */
 type SeatUploadPutOptions = {
   signal?: AbortSignal
+  descriptor: SeatUploadDescriptor
 }
 
 /**
@@ -260,14 +270,30 @@ export class SeatApiClient {
    * - 非 2xx：优先读 JSON 信封 code（有则按码位分类），否则按 HTTP 状态；
    *   错误 message 不含 URL/响应体（upload 引用不进日志）。
    */
-  async putUploadObject(url: string, blob: Blob, options: SeatUploadPutOptions = {}): Promise<void> {
+  async putUploadObject(url: string, blob: Blob, options: SeatUploadPutOptions): Promise<void> {
     assertUploadTargetUrl(url)
+    const descriptor = (options ?? {}).descriptor
+    if (descriptor === undefined || descriptor === null) {
+      // V3-16 fail-closed：无显式 descriptor 不发请求（不按 URL 外观猜）。
+      throw new SeatApiError('validation', 'seat upload requires explicit descriptor')
+    }
+    if (descriptor.method !== 'PUT') {
+      throw new SeatApiError('validation', 'seat upload descriptor method must be PUT')
+    }
     const headers: Record<string, string> = { 'Content-Type': 'application/octet-stream' }
-    if (uploadTargetUsesUploadRef(url)) {
+    if (descriptor.kind === 's3_put') {
+      // 显式 s3_put：仅 descriptor.headers（服务端签发的签名头等）；
+      // 无 Authorization——业务凭据绝不进入对象存储请求（V3-01 §2）。
+      for (const [key, value] of Object.entries(descriptor.headers ?? {})) {
+        headers[key] = value
+      }
+    } else {
+      // 显式 api_byte：imboy API 域端点。类型权威是 descriptor（非 URL 外观）；
+      // 同源防御门只保证 Bearer 不出 API 域（路径形态由服务端签发权威性保证）。
       const origin = globalThis.location?.origin ?? 'http://seat.api.invalid'
       const target = new URL(url, origin)
       const api = new URL(this.baseUrl, origin)
-      if (target.origin !== api.origin || !/^\/api\/v1\/seat\/enterprise\/organizations\/[0-9]+\/assets\/presign$/.test(target.pathname)) {
+      if (target.origin !== api.origin) {
         throw new SeatApiError('validation', 'seat authenticated upload target outside console domain')
       }
       const token = this.getToken()
@@ -303,22 +329,6 @@ function assertUploadTargetUrl(url: string): void {
   }
   if (/^https?:\/\//i.test(url)) return
   throw new SeatApiError('validation', 'seat upload target must be an http(s) URL or a relative path')
-}
-
-/** 上传目标是否为 imboy API 域的字节上传端点（CS-BE-01B 线格式特征：查询串
- * 携带 upload_ref——eb_tenant_handler 把 workspace_id/upload_ref 拼进 presign
- * 下发的 upload.url）。只向同源 Console presign 端点携带 Bearer
- * （CS-INT-03 实证：该 PUT 与 presign POST 同门，裸 PUT 一律 401；API 域是
- * JWT 签发域，发回该域无额外暴露）。真实对象存储预签形态（X-Amz-* /
- * signature 查询）不带 Authorization——多余头会破坏预签签名，Seat JWT
- * 绝不外发第三方域。 */
-function uploadTargetUsesUploadRef(url: string): boolean {
-  try {
-    const query = new URL(url, 'http://seat.api.invalid').searchParams
-    return query.has('upload_ref')
-  } catch {
-    return false
-  }
 }
 
 /** 错误体若携带 {code} 信封则提取码位（解析失败/非对象 → null，不猜）。 */

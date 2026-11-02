@@ -81,7 +81,18 @@ export async function runSeatAttachmentUpload(
           objectHash, fileName: input.fileName }),
       status: (id) => input.api.recoverAssetUpload(input.orgId, input.workspaceId, id, 'status'),
       renew: (id) => input.api.recoverAssetUpload(input.orgId, input.workspaceId, id, 'renew'),
-      put: (url) => input.api.uploadAssetBytes(url, input.file, input.signal),
+      put: (url, descriptor) => {
+        if (descriptor === undefined || descriptor === null) {
+          // V3-16 fail-closed：恢复视图缺显式 descriptor 不上传（不按 URL 猜）。
+          throw new SeatUploadTargetMissingError()
+        }
+        return input.api.uploadAssetBytes(
+          url,
+          input.file,
+          descriptor as import('../seatApiClient').SeatUploadDescriptor,
+          input.signal,
+        )
+      },
       confirm: (id, ref) => input.api.confirmRecoveredAsset(input.orgId, input.workspaceId, id, ref),
     })
     if (row.assetId === null) throw new Error('上传资产身份缺失')
@@ -94,8 +105,8 @@ export async function runSeatAttachmentUpload(
     fileName: input.fileName ?? null,
   })
   input.signal?.throwIfAborted()
-  if (presign.uploadUrl === null) throw new SeatUploadTargetMissingError()
-  await input.api.uploadAssetBytes(presign.uploadUrl, input.file, input.signal)
+  if (presign.uploadUrl === null || presign.uploadDescriptor === null) throw new SeatUploadTargetMissingError()
+  await input.api.uploadAssetBytes(presign.uploadUrl, input.file, presign.uploadDescriptor, input.signal)
   input.signal?.throwIfAborted()
   await input.api.confirmAssetUpload(input.orgId, input.workspaceId, presign.uploadRef)
   input.signal?.throwIfAborted()

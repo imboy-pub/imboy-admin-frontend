@@ -49,7 +49,7 @@ function harness() {
   })
   const presign = spyOn(api, 'registerAssetUpload').mockResolvedValue({
     state: 'registered',
-    assetId: '8000000000000000012', uploadRef: 'mock-ref', uploadUrl: 'https://upload.invalid/mock', expiresAt: null,
+    assetId: '8000000000000000012', uploadRef: 'mock-ref', uploadUrl: 'https://upload.invalid/mock', uploadDescriptor: { kind: 'api_byte', method: 'PUT' }, expiresAt: null,
   })
   const upload = spyOn(api, 'uploadAssetBytes').mockResolvedValue(undefined)
   const confirm = spyOn(api, 'confirmRecoveredAsset').mockResolvedValue(undefined)
@@ -98,7 +98,7 @@ describe('CX03 revocation — isolated mock/JSDOM, not browser/API/SQL acceptanc
     const pending = deferred<void>()
     spyOn(gateway.api, 'registerAssetUpload').mockResolvedValue({
     state: 'registered',
-      assetId: '6000000000000000006', uploadUrl: 'https://mock.invalid/put', uploadRef: null,
+      assetId: '6000000000000000006', uploadUrl: 'https://mock.invalid/put', uploadDescriptor: { kind: 'api_byte', method: 'PUT' }, uploadRef: null,
     })
     spyOn(gateway.api, 'uploadAssetBytes').mockResolvedValue(undefined)
     spyOn(gateway.api, 'confirmRecoveredAsset').mockImplementationOnce(() => pending.promise)
@@ -173,7 +173,7 @@ describe('CX03 revocation — isolated mock/JSDOM, not browser/API/SQL acceptanc
     const send = spyOn(gateway.api, 'sendMessage').mockRejectedValue(new SeatApiError('conflict', '旧发送错误'))
     spyOn(gateway.api, 'registerAssetUpload').mockResolvedValue({
     state: 'registered',
-      assetId: '6000000000000000006', uploadUrl: 'https://mock.invalid/put', uploadRef: null,
+      assetId: '6000000000000000006', uploadUrl: 'https://mock.invalid/put', uploadDescriptor: { kind: 'api_byte', method: 'PUT' }, uploadRef: null,
     })
     spyOn(gateway.api, 'uploadAssetBytes').mockResolvedValue(undefined)
     spyOn(gateway.api, 'confirmRecoveredAsset').mockResolvedValue(undefined)
@@ -252,7 +252,7 @@ describe('CX03 revocation — isolated mock/JSDOM, not browser/API/SQL acceptanc
     view.rerender({ ...SCOPE, writeRevoked: true })
     expectCleared(view)
     await act(async () => pending.resolve(stage === 'presign'
-      ? { assetId: '8000000000000000012', uploadRef: 'mock-ref', uploadUrl: 'https://upload.invalid/mock', expiresAt: null } : undefined))
+      ? { assetId: '8000000000000000012', uploadRef: 'mock-ref', uploadUrl: 'https://upload.invalid/mock', uploadDescriptor: { kind: 'api_byte', method: 'PUT' }, expiresAt: null } : undefined))
     expect(view.send).not.toHaveBeenCalled()
     if (stage === 'presign') expect(view.upload).not.toHaveBeenCalled()
     if (stage !== 'confirm') expect(view.confirm).not.toHaveBeenCalled()
