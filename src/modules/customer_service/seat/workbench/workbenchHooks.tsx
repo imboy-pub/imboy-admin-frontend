@@ -479,7 +479,9 @@ export function useSeatEventStream(organizationId: EntityId | null, workspaceId:
       }
       // assignment/seat：撤权/停用事实变化 → 立即收回写入口并复核上下文。
       if (envelope.reason === 'revoked' && scopeKey !== null) {
-        setRevokedScopes((previous) => ({ ...previous, [scopeKey]: true }))
+        setRevokedScopes((previous) => {
+          return { ...previous, [scopeKey]: true }
+        })
       }
       invalidate('contexts', 'sessions', 'detail')
     },

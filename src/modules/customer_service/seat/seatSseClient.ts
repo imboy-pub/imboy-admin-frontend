@@ -201,7 +201,8 @@ export class SeatEventStream {
       for (;;) {
         const { done, value } = await reader.read()
         if (done || this.stopped) break
-        const { events, retryMs } = parser.push(decoder.decode(value, { stream: true }))
+        const text = decoder.decode(value, { stream: true })
+        const { events, retryMs } = parser.push(text)
         if (retryMs !== null) this.serverRetryMs = retryMs
         for (const event of events) this.consumeEvent(event)
       }

@@ -20,12 +20,11 @@ export async function adminLogin(page: Page): Promise<void> {
   await expect(page).toHaveURL(/\/dashboard/, { timeout: 30_000 })
 }
 
-/** 打开平台客服会话列表（治理观察面）并锁定 org+workspace 作用域。 */
+/** 打开平台客服会话列表（治理观察面）并锁定 org+workspace 作用域。
+ * EADM-06：org/ws 的 URL 查询参数（org/ws）是共享选择器的上下文真源
+ * （useOrgWorkspaceScope codec）；页面无手填 TSID 输入框（#cs-sessions-org
+ * 是旧实现的形状），锁作用域 = 带参打开。 */
 export async function openPlatformSessions(page: Page, orgId = ORG_ID, workspaceId = WORKSPACE_ID): Promise<void> {
-  await page.goto(`${ADMIN_ORIGIN}/customer-service/sessions`)
-  const orgInput = page.locator('#cs-sessions-org')
-  const wsInput = page.locator('#cs-sessions-ws')
-  await expect(orgInput).toBeVisible({ timeout: 30_000 })
-  await orgInput.fill(orgId)
-  await wsInput.fill(workspaceId)
+  await page.goto(`${ADMIN_ORIGIN}/customer-service/sessions?org=${orgId}&ws=${workspaceId}`)
+  await expect(page.getByText(/组织 \/ 工作区|状态过滤/).first()).toBeVisible({ timeout: 30_000 })
 }

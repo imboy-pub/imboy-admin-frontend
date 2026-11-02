@@ -68,12 +68,14 @@ test('A02-1 错 Origin 宿主：CSP frame-ancestors 与 bootstrap 双层 fail-cl
   // 第一道真实拒绝在浏览器 CSP 层：frame 文档的 frame-ancestors 只列 allowlist
   // origin（localhost:8901），8902 宿主嵌帧被浏览器直接阻止（error page，
   // widget app 无法加载）——比 bootstrap 更前置的真实拒绝链。
+  // 注意：Playwright 的 response.headers() 会过滤安全敏感头（CSP 等），
+  // 必须用 allHeaders() 异步取原始头，否则 frame-ancestors 断言恒假失败。
   const frameCsp: string[] = []
-  page.on('response', (res) => {
+  page.on('response', async (res) => {
     // 现行 frame 路由是 /w/:public_widget_id（F2：旧 /cs/widget/frame/ 串
     // 恒不匹配 → 断言假失败）。
     if (res.url().includes('/w/')) {
-      const csp = res.headers()['content-security-policy'] ?? ''
+      const csp = (await res.allHeaders())['content-security-policy'] ?? ''
       frameCsp.push(csp)
     }
   })
@@ -81,11 +83,13 @@ test('A02-1 错 Origin 宿主：CSP frame-ancestors 与 bootstrap 双层 fail-cl
   const launcher = page.getByTestId('cs-widget-launcher')
   await expect(launcher).toBeVisible()
   await launcher.click()
+  // frame 文档响应（非 OPTIONS 等前置请求）到达后其 CSP 必含 frame-ancestors；
+  // 查找式断言避免首个 /w/ 响应为前置请求时空串假失败。
   await expect
-    .poll(() => frameCsp.length, { timeout: 20_000 })
+    .poll(() => frameCsp.filter((c) => c.includes('frame-ancestors')).length, { timeout: 20_000 })
     .toBeGreaterThan(0)
-  expect(frameCsp[0]).toContain('frame-ancestors')
-  expect(frameCsp[0]).not.toContain(`localhost:${BAD_HOST_PORT}`)
+  const frameDocCsp = frameCsp.find((c) => c.includes('frame-ancestors')) ?? ''
+  expect(frameDocCsp).not.toContain(`localhost:${BAD_HOST_PORT}`)
   // widget app 未能在 iframe 内出现（CSP 拒绝；等待覆盖 app 本应就绪的窗口）。
   const frame = page.frameLocator('iframe[data-testid="cs-widget-iframe"]')
   await expect

@@ -25,6 +25,13 @@ export const WORKSPACE_ID = '1776025844701027'
 export const INSTALLATION_ID = '5837897154422619'
 export const PUBLIC_WIDGET_ID = 'csww-e2e-widget-77729338'
 
+/** SC-FE：坐席工作台唯一入口 = cs 域 iframe（后端 /seat/:public_seat_console_id
+ * 服务 HTML 壳；本地经 static-host-p2 同源反代 /seat/ 与 /seat-assets/）。
+ * Admin SPA 的 /customer-service/workspace 路由已移除（EADM-03 合同锁定）。 */
+export const SEAT_CONSOLE_PUBLIC_ID =
+  process.env.CSWW_P2_SEAT_CONSOLE_PUBLIC_ID ?? '7772933810'
+export const seatConsoleUrl = (origin: string): string => `${origin}/seat/${SEAT_CONSOLE_PUBLIC_ID}`
+
 export const SEAT_PASSWORD = 'CswwE2e2026'
 
 /** csww run 的 scratch PG（docker 容器 imboy_pg18；与 P1 共库）。 */
