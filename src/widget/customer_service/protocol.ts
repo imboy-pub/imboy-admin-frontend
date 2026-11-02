@@ -20,10 +20,13 @@ export const WIDGET_MESSAGE_SOURCE = 'imboy-cs-widget' as const
  * 绝不作为配置来源。 */
 export const LOADER_DATA_KEYS = ['widget-id'] as const
 
-/** public_widget_id 形状校验：TSID 十进制 string（1..26 位数字）。
- * 纯数字保证 `/w/<id>` 拼接不可能被注入路径/查询结构；非法形状 fail-closed。 */
+/** public_widget_id 形状校验：seed/DB 事实形态 `csww-<前缀>-<n>` 字符串
+ * （字母/数字/连字符，1..64）。字符类不含路径分隔符与 URL 结构字符，
+ * `/w/<id>` 拼接不可能被注入路径/查询结构；非法形状 fail-closed。
+ * 历史 TSID 十进制形态是旧 fixture 遗留，后端 /w/ 与 installation 行均按
+ * 字符串 public_widget_id 查询（W12 根因⑥同源修正）。 */
 export function isValidPublicWidgetId(raw: string): boolean {
-  return /^[0-9]{1,26}$/.test(raw.trim())
+  return /^[A-Za-z0-9-]{1,64}$/.test(raw.trim())
 }
 
 type LoaderDataKey = (typeof LOADER_DATA_KEYS)[number]

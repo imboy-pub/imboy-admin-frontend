@@ -72,16 +72,16 @@ describe('readLoaderConfig / buildWidgetUrl（CSD-FE-01-A01/A02）', () => {
     expect(serialized).not.toContain('organizationId')
   })
 
-  it('缺 data-widget-id → fail-closed（null）；非法形状（非 TSID 十进制）→ fail-closed', () => {
+  it('缺 data-widget-id → fail-closed（null）；非法形状（含 URL 结构字符）→ fail-closed', () => {
     expect(readLoaderConfig(makeScript(document, {}))).toBeNull()
     expect(readLoaderConfig(makeScript(document, { 'data-widget-id': '   ' }))).toBeNull()
-    expect(readLoaderConfig(makeScript(document, { 'data-widget-id': 'wgt_pub_unit' }))).toBeNull()
     expect(readLoaderConfig(makeScript(document, { 'data-widget-id': '../../etc/passwd' }))).toBeNull()
     expect(readLoaderConfig(makeScript(document, { 'data-widget-id': '123;alert(1)' }))).toBeNull()
     expect(isValidPublicWidgetId(WIDGET_ID)).toBe(true)
     expect(isValidPublicWidgetId('0')).toBe(true) // 形状合法；服务端 404 兜底
-    expect(isValidPublicWidgetId('abc')).toBe(false)
+    expect(isValidPublicWidgetId('csww-e2e-widget-77729338')).toBe(true) // seed/DB 事实形态
     expect(isValidPublicWidgetId('1/2')).toBe(false)
+    expect(isValidPublicWidgetId('a?b=1')).toBe(false)
   })
 
   it('buildWidgetUrl 固定落点 = <origin>/w/<public_widget_id>；origin 为空或 id 非法返回 null', () => {
@@ -93,7 +93,7 @@ describe('readLoaderConfig / buildWidgetUrl（CSD-FE-01-A01/A02）', () => {
     }
     expect(buildWidgetUrl(config)).toBe('https://cs.example.com/w/72057594037928001')
     expect(buildWidgetUrl({ ...config, widgetOrigin: '' })).toBeNull()
-    expect(buildWidgetUrl({ ...config, widgetId: 'not-a-tsid' })).toBeNull()
+    expect(buildWidgetUrl({ ...config, widgetId: 'not a tsid' })).toBeNull() // 含空格非法
   })
 
   it('normalizeOriginInput 严格规范化：拒绝非 http(s)/路径/查询/通配', () => {
