@@ -72,6 +72,12 @@ export function removeSeatRow(orgId: string, identityId: string): boolean {
     `update customer_service_session set business_identity_id = null` +
       ` where organization_id = ${orgId} and business_identity_id = ${identityId} and status<>'active'`
   )
+  // RESTRICT FK 先清引用（W12：customer_service_read_cursor 的 (org, identity)
+  // 引用会挡 seat 行删除）——只读游标是会话级派生事实，随 seat 移除一并清理。
+  psql(
+    `delete from customer_service_read_cursor` +
+      ` where organization_id = ${orgId} and business_identity_id = ${identityId}`
+  )
   for (let attempt = 0; attempt < 3; attempt += 1) {
     psql(
       `delete from customer_service_seat where organization_id = ${orgId} and business_identity_id = ${identityId}`

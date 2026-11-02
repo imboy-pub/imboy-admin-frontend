@@ -23,7 +23,7 @@ import { SeatAgent } from '../customer-service-real/helpers/agent-api'
 import { SEAT_A } from '../customer-service-real/helpers/env'
 import { createCollector, watchPage } from './helpers/browser-gate'
 import { closeStaleActiveSessions } from './helpers/db-proof'
-import { ADMIN_ORIGIN, ORG_ID, SHOP_ORIGIN, WORKSPACE_ID } from './helpers/env'
+import { ADMIN_ORIGIN, seatConsoleUrl, ORG_ID, SHOP_ORIGIN, WORKSPACE_ID } from './helpers/env'
 import { qrLoginSeat } from './helpers/qr-login'
 
 const RUN_UNIQ = `${Date.now()}-${Math.random() * 1e6}`
@@ -83,7 +83,7 @@ test('A03 SSE 收敛：断开重连+重复通知+游标超窗resync 后 DOM 与�
     // —— 坐席 A 页面（QR 登录；视图收敛观察面）——
     const seatPage = await seatCtx.newPage()
     watchPage(collector, seatPage)
-    await seatPage.goto(`${ADMIN_ORIGIN}/customer-service/workspace`)
+    await seatPage.goto(seatConsoleUrl(ADMIN_ORIGIN))
     await qrLoginSeat(seatPage, SEAT_A.account)
 
     // —— 访客页面真实链（widget 建会话 + 发首条）——

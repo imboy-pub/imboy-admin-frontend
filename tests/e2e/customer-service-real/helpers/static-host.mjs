@@ -38,8 +38,11 @@ export function getRedirectAudit() {
 const BACKEND_HOST = process.env.CSWW_E2E_BACKEND_HOST ?? '127.0.0.1'
 const BACKEND_PORT = Number(process.env.CSWW_E2E_BACKEND_PORT ?? 9802)
 const PUBLIC_WIDGET_ID = process.env.CSWW_E2E_WIDGET_ID?.trim()
-if (!PUBLIC_WIDGET_ID || !/^[0-9]{1,26}$/.test(PUBLIC_WIDGET_ID)) {
-  throw new Error('CSWW_E2E_WIDGET_ID must be the decimal public_widget_id of the isolated fixture')
+// public_widget_id 现行形态为 seed 固化的 'csww-e2e-widget-<n>' 字符串（后端
+// /w/:public_widget_id 按字符串查 installation；decimal 形态是历史 fixture 遗留，
+// 传入会 404 installation_unavailable）。
+if (!PUBLIC_WIDGET_ID || !/^[A-Za-z0-9-]{1,64}$/.test(PUBLIC_WIDGET_ID)) {
+  throw new Error('CSWW_E2E_WIDGET_ID must be the public_widget_id of the isolated fixture (e.g. csww-e2e-widget-77729338)')
 }
 
 /** 宿主页：plain HTML；loader.js 引自身产物；origin 由 loader 从 script.src 推导。 */

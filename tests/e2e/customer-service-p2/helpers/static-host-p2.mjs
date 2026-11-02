@@ -139,6 +139,8 @@ function replyPreflight(req, res) {
 const STATIC_ROUTES = new Map([
   ['/widget-assets/loader.js', [path.join(DIST_WIDGET, 'loader.js'), 'text/javascript; charset=utf-8']],
   ['/widget-assets/cs-widget.v1.js', [path.join(DIST_WIDGET, 'assets', 'cs-widget.js'), 'text/javascript; charset=utf-8']],
+  // 后端 /w/ frame 壳引用的现行版本化别名（缺映射 → iframe JS 404 → consent 永不渲染）。
+  ['/widget-assets/cs-widget.v2.js', [path.join(DIST_WIDGET, 'widget-assets', 'cs-widget.v2.js'), 'text/javascript; charset=utf-8']],
 ])
 
 async function handleRequest(req, res, cors) {
@@ -151,6 +153,20 @@ async function handleRequest(req, res, cors) {
   const host = hostOf(req)
   if (urlPath.startsWith('/api/')) {
     proxyToBackend(req, res, cors)
+    return
+  }
+  // SC-FE cs 域等效承载：/seat/:public_seat_console_id（后端 HTML 壳，零凭证
+  // 导航面）反代到真后端；/seat-assets/*（cs-seat.v1.{js,css}）由 admin
+  // dist-widget 产物静态服务（部署层同款：网关反代 BEAM 壳 + 静态资产落点）。
+  // /w/:public_widget_id（现行 widget frame 路由）同样反代真后端——缺此分支
+  // iframe 会拿到宿主 HTML，widget app 永不挂载（W12 根因⑧）。
+  if (urlPath === '/seat' || urlPath.startsWith('/seat/') || urlPath === '/w' || urlPath.startsWith('/w/')) {
+    proxyToBackend(req, res, cors)
+    return
+  }
+  if (urlPath.startsWith('/seat-assets/')) {
+    const safeSeatAsset = path.normalize(decodeURIComponent(urlPath)).replace(/^(\.\.[/\\])+/, '')
+    await serveDistFile(res, path.join(DIST_WIDGET, safeSeatAsset))
     return
   }
   const staticRoute = STATIC_ROUTES.get(urlPath)

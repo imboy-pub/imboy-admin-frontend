@@ -29,23 +29,30 @@ export async function seatPassportLogin(account: string): Promise<string> {
   return body.payload.token
 }
 
-/** 预认证 API context：扫码 + 确认（手机端同款合同面；Bearer=坐席护照 JWT）。 */
-async function scanAndConfirm(seatJwt: string, qrToken: string): Promise<void> {
+/** 预认证 API context：扫码 + 确认（手机端同款合同面；Bearer=坐席护照 JWT）。
+ * scan/confirm 受后端频率限制（429）：固定退避重试（限流窗口秒级，连续坐席
+ * 登录场景 A01 坐席 A/B 背靠背），其余错误码立即抛出。 */
+async function postQrAction(action: string, seatJwt: string, qrToken: string): Promise<{ code: number; msg?: string }> {
   const headers = { 'content-type': 'application/json', authorization: `Bearer ${seatJwt}` }
-  const scan = await fetch(`${BACKEND_BASE}/api/v1/passport/qr_login/scan`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ qr_token: qrToken }),
-  })
-  const scanBody = (await scan.json()) as { code: number; msg?: string }
-  if (scanBody.code !== 0) throw new Error(`qr scan failed: ${JSON.stringify(scanBody)}`)
-  const confirm = await fetch(`${BACKEND_BASE}/api/v1/passport/qr_login/confirm`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ qr_token: qrToken }),
-  })
-  const confirmBody = (await confirm.json()) as { code: number; msg?: string }
-  if (confirmBody.code !== 0) throw new Error(`qr confirm failed: ${JSON.stringify(confirmBody)}`)
+  for (let attempt = 0; ; attempt += 1) {
+    const res = await fetch(`${BACKEND_BASE}/api/v1/passport/qr_login/${action}`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ qr_token: qrToken }),
+    })
+    const body = (await res.json()) as { code: number; msg?: string }
+    if (body.code === 0) return body
+    if (body.code === 429 && attempt < 5) {
+      await new Promise((ok) => setTimeout(ok, 2000))
+      continue
+    }
+    throw new Error(`qr ${action} failed: ${JSON.stringify(body)}`)
+  }
+}
+
+async function scanAndConfirm(seatJwt: string, qrToken: string): Promise<void> {
+  await postQrAction('scan', seatJwt, qrToken)
+  await postQrAction('confirm', seatJwt, qrToken)
 }
 
 /**

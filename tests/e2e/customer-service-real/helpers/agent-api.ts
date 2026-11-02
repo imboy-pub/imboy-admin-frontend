@@ -198,6 +198,19 @@ export class SeatAgent {
     })
     if (res.status !== 200) throw new Error(`visit token revoke failed: HTTP ${res.status} ${await res.text()}`)
   }
+
+  /** 治理面：停用/恢复坐席（生产动作 suspend_seat/resume_seat，落 seat.suspended
+   * / seat.resumed 事件——A04 腿 2 的流内 revoked 信封依赖事件行存在；psql 直改
+   * enabled 列不落事件，流永不知情）。:id = business_identity_id。 */
+  async setSeatEnabled(orgId: string, identityId: string, enabled: boolean): Promise<void> {
+    const verb = enabled ? 'resume' : 'suspend'
+    const res = await this.call(`/api/v1/cs/organizations/${orgId}/seats/${identityId}/${verb}`, {
+      method: 'POST',
+      headers: this.headers(true),
+      body: JSON.stringify({ workspace_id: WORKSPACE_ID }),
+    })
+    if (res.status !== 200) throw new Error(`seat ${verb} failed: HTTP ${res.status} ${await res.text()}`)
+  }
 }
 
 /** 访客面 API（bootstrap/建会话/读消息，供负例与评分预置用；真实后端）。 */

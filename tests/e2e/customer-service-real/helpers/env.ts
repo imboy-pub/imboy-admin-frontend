@@ -20,9 +20,12 @@ export const OTHER_ORG_ID = '1593173991415380'
 export const OTHER_INSTALLATION_ID = '9460771712205608'
 export const OTHER_PUBLIC_WIDGET_ID = 'csww-chain-1760383326'
 
-/** 合成坐席（A=org owner，具备治理面权限；B 为转接目标）。 */
-export const SEAT_A = { account: '19900000001', identityId: '1812620870393267' }
-export const SEAT_B = { account: '19900000002', identityId: '8304657945488544' }
+/** 合成坐席（A=org owner，具备治理面权限；B 为转接目标）。userId 是
+ * customer_service_seat.created_by_user_id 的 FK 合法值（user 表 id；
+ * W12：identityId 不是 user id，restoreSeatRow 兜底传 identityId 会
+ * fk_css_created_by 失败）。 */
+export const SEAT_A = { account: '19900000001', identityId: '1812620870393267', userId: '1700000000000111' }
+export const SEAT_B = { account: '19900000002', identityId: '8304657945488544', userId: '1700000000000112' }
 /** G15：仅本文件 seatLogin() 使用，撤 export。 */
 const SEAT_PASSWORD = 'CswwE2e2026'
 

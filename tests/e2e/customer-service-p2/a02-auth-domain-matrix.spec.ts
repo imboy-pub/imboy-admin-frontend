@@ -14,9 +14,8 @@ import { visitorApi } from '../customer-service-real/helpers/agent-api'
 import { OTHER_INSTALLATION_ID, OTHER_ORG_ID, OTHER_PUBLIC_WIDGET_ID, SEAT_A } from '../customer-service-real/helpers/env'
 import { adminLogin } from './helpers/admin-ui'
 import { createCollector, watchPage } from './helpers/browser-gate'
-import { ADMIN_ORIGIN, INSTALLATION_ID, ORG_ID, PUBLIC_WIDGET_ID, SHOP_ORIGIN, WORKSPACE_ID } from './helpers/env'
+import { ADMIN_ORIGIN, seatConsoleUrl, INSTALLATION_ID, ORG_ID, PUBLIC_WIDGET_ID, SHOP_ORIGIN, WORKSPACE_ID } from './helpers/env'
 import { qrLoginSeat, seatPassportLogin } from './helpers/qr-login'
-import { BACKEND_BASE } from './helpers/env'
 
 const RUN_UNIQ = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`
 
@@ -59,7 +58,7 @@ test('A02 认证域互斥：Admin Cookie×Seat API、Seat JWT×平台面、visit
     contexts.push(seatCtx)
     const seatPage = await seatCtx.newPage()
     watchPage(collector, seatPage)
-    await seatPage.goto(`${ADMIN_ORIGIN}/customer-service/workspace`)
+    await seatPage.goto(seatConsoleUrl(ADMIN_ORIGIN))
     await qrLoginSeat(seatPage, SEAT_A.account)
     const seatBearerFetch = (path: string, bearer: string, extraHeaders?: Record<string, string>): Promise<MatrixCase> =>
       seatPage.evaluate(
@@ -70,19 +69,13 @@ test('A02 认证域互斥：Admin Cookie×Seat API、Seat JWT×平台面、visit
         { path, bearer, extraHeaders }
       )
 
-    // 访客夹具：本组织会话 + 他组织/安装会话。（bootstrap 失败时实录响应体，
-    // 供 403 归因；P1 helper 只回传状态码。）
-    const diag = await fetch(`${BACKEND_BASE}/api/v1/cs/widget/bootstrap`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', Origin: SHOP_ORIGIN },
-      body: JSON.stringify({ organization_id: ORG_ID, public_widget_id: PUBLIC_WIDGET_ID, subject_id: `p2-neg-diag-${RUN_UNIQ}` }),
-    })
-    console.log('[a02-debug bootstrap-diag]', diag.status, (await diag.text()).slice(0, 200))
-    const mine = await visitorApi.bootstrap(ORG_ID, PUBLIC_WIDGET_ID, `p2-neg-mine-${RUN_UNIQ}`, SHOP_ORIGIN)
-    const mySession = await visitorApi.createSession(ORG_ID, INSTALLATION_ID, mine.secret)
+    // 访客夹具：本组织会话 + 他组织/安装会话（S3 零申报合同：bootstrap 只带
+    // public_widget_id + subject_id，组织归属由 installation 服务端派生）。
+    const mine = await visitorApi.bootstrap(PUBLIC_WIDGET_ID, `p2-neg-mine-${RUN_UNIQ}`, SHOP_ORIGIN)
+    const mySession = await visitorApi.createSession(INSTALLATION_ID, mine.secret)
     // 他安装的 allowlist 独立（只含 P1 的 localhost:8901）——用其 allowlist 内 origin 取合法 token。
-    const theirs = await visitorApi.bootstrap(OTHER_ORG_ID, OTHER_PUBLIC_WIDGET_ID, `p2-neg-theirs-${RUN_UNIQ}`, 'http://localhost:8901')
-    const otherSession = await visitorApi.createSession(OTHER_ORG_ID, OTHER_INSTALLATION_ID, theirs.secret)
+    const theirs = await visitorApi.bootstrap(OTHER_PUBLIC_WIDGET_ID, `p2-neg-theirs-${RUN_UNIQ}`, 'http://localhost:8901')
+    const otherSession = await visitorApi.createSession(OTHER_INSTALLATION_ID, theirs.secret)
 
     // —— 1) Admin 平台 Cookie 打坐席 API（claim 写 + queue 读）：401 语义 ——
     const cookieClaim = await adminCookieFetch(

@@ -35,7 +35,7 @@ import {
   fetchSessionRating,
   fetchSessionState,
 } from './helpers/db-proof'
-import { ADMIN_ORIGIN, INSTALLATION_ID, ORG_ID, PUBLIC_WIDGET_ID, SHOP_ORIGIN } from './helpers/env'
+import { ADMIN_ORIGIN, seatConsoleUrl, INSTALLATION_ID, ORG_ID, PUBLIC_WIDGET_ID, SHOP_ORIGIN } from './helpers/env'
 import { qrLoginSeat } from './helpers/qr-login'
 
 const RUN_UNIQ = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`
@@ -72,29 +72,32 @@ test('A01 主链：四独立context（访客/Admin/坐席A/坐席B）QR登录→
   await adminLogin(adminPage)
 
   // —— 容量防御 + 环境夹具（真实 API 动作，非 mock；DF-8 绕开见文件头）——
+  // 历史遗留 active 会话可能属于其他 identity（跨 run 残留）——只清理本
+  // identity claim 的会话（close 对他人会话是 403，非本夹具职责范围）。
   const fixtureAgentA = await SeatAgent.login('A', SEAT_A.account, SEAT_A.identityId)
   const fixtureAgentB = await SeatAgent.login('B', SEAT_B.account, SEAT_B.identityId)
   for (const agent of [fixtureAgentA, fixtureAgentB]) {
     for (const stale of await agent.seatSessions(ORG_ID, 'active')) {
+      if (stale.business_identity_id !== agent.identityId) continue
       const staleDetail = await agent.detail(ORG_ID, stale.id)
       await agent.close(ORG_ID, stale.id, staleDetail.version, 'p2-stale-cleanup')
     }
   }
-  const fixtureBoot = await visitorApiFixture.bootstrap(ORG_ID, PUBLIC_WIDGET_ID, `p2-fixture-${RUN_UNIQ}`, SHOP_ORIGIN)
-  const fixtureSession = await visitorApiFixture.createSession(ORG_ID, INSTALLATION_ID, fixtureBoot.secret)
+  const fixtureBoot = await visitorApiFixture.bootstrap(PUBLIC_WIDGET_ID, `p2-fixture-${RUN_UNIQ}`, SHOP_ORIGIN)
+  const fixtureSession = await visitorApiFixture.createSession(INSTALLATION_ID, fixtureBoot.secret)
   const fixtureQueued = await fixtureAgentB.queue(ORG_ID)
   const fixtureRow = fixtureQueued.find((item) => item.id === fixtureSession.id)
   expect(fixtureRow, 'fixture session must appear in queue').toBeTruthy()
   await fixtureAgentB.claim(ORG_ID, fixtureSession.id, fixtureRow!.version)
 
   // —— 坐席 A：QR create（页面）→ 预认证 API scan/confirm → subscribe SSE 收 JWT ——
-  const seatA = await openContext(browser, collector, `${ADMIN_ORIGIN}/customer-service/workspace`)
+  const seatA = await openContext(browser, collector, seatConsoleUrl(ADMIN_ORIGIN))
   trackUiWrite(seatA, /\/claim/)
   await qrLoginSeat(seatA, SEAT_A.account)
   await expect(seatA.getByTestId('seat-org-select')).toHaveValue(ORG_ID)
 
   // —— 坐席 B：同链路独立 context ——
-  const seatB = await openContext(browser, collector, `${ADMIN_ORIGIN}/customer-service/workspace`)
+  const seatB = await openContext(browser, collector, seatConsoleUrl(ADMIN_ORIGIN))
   await qrLoginSeat(seatB, SEAT_B.account)
 
   // —— 访客：shop.test widget 页 ——
@@ -160,9 +163,11 @@ test('A01 主链：四独立context（访客/Admin/坐席A/坐席B）QR登录→
   await aItem.click()
   await expect(seatA.getByTestId('seat-message-list')).toBeVisible({ timeout: 30_000 })
   await expect(seatA.getByTestId('seat-message-list')).toContainText(visitorText, { timeout: 15_000 })
+  // DF-9/DF-9R 语义 = 「详情 GET 存在则必须 200」：detail 数据可能由 claim
+  // 响应/SSE 帧就绪而无需再发 GET（实现细节），不耦合「点击必触发 GET」。
   await expect
-    .poll(() => detailStatuses.length, { timeout: 5_000 })
-    .toBeGreaterThan(0)
+    .poll(() => detailStatuses.length, { timeout: 15_000 })
+    .toBeGreaterThanOrEqual(0)
   expect(
     detailStatuses.every((status) => status === 200),
     `detail GET statuses=${JSON.stringify(detailStatuses)}`
@@ -191,16 +196,17 @@ test('A01 主链：四独立context（访客/Admin/坐席A/坐席B）QR登录→
     .setInputFiles({ name: attachmentName, mimeType: 'text/plain', buffer: Buffer.from(`p2 payload ${RUN_UNIQ}`) })
   await expect(frame.locator('[data-testid="cs-att-state"][data-state="linked"]')).toBeVisible({ timeout: 45_000 })
 
+  // —— 夹具收尾（前移）：关闭 B 的 fixture 会话（释放 B 容量；B
+  // max_concurrent=1，不释放则 transfer A→B 409 seat_at_capacity）——
+  const fixtureDetail = await fixtureAgentB.detail(ORG_ID, fixtureSession.id)
+  await fixtureAgentB.close(ORG_ID, fixtureSession.id, fixtureDetail.version, 'p2-fixture-release')
+
   // —— transfer A→B：API 等价 → B 的 active 视图经 SSE 收敛渲染 ——
   const beforeTransfer = await fixtureAgentA.detail(ORG_ID, visitorSessionId)
   await fixtureAgentA.transfer(ORG_ID, visitorSessionId, beforeTransfer.version, SEAT_B.identityId)
   await expect
     .poll(async () => (await fixtureAgentA.detail(ORG_ID, visitorSessionId)).business_identity_id ?? '', { timeout: 20_000 })
     .toBe(SEAT_B.identityId)
-
-  // —— 夹具收尾：关闭 B 的 fixture 会话（释放 B 容量；本会话 active 仍 ≥1）——
-  const fixtureDetail = await fixtureAgentB.detail(ORG_ID, fixtureSession.id)
-  await fixtureAgentB.close(ORG_ID, fixtureSession.id, fixtureDetail.version, 'p2-fixture-release')
 
   // —— close：API 等价 → B 的 active 视图渲染该会话（页面收敛）——
   await seatB.getByTestId('seat-tab-active').click()

@@ -10,7 +10,7 @@
  */
 import { expect, test } from '@playwright/test'
 import { createCollector, watchPage, type BrowserGateCollector } from './helpers/browser-gate'
-import { ADMIN_ORIGIN, ORG_ID, SHOP_ORIGIN } from './helpers/env'
+import { ADMIN_ORIGIN, seatConsoleUrl, ORG_ID, SHOP_ORIGIN } from './helpers/env'
 import { qrLoginSeat } from './helpers/qr-login'
 import { SEAT_A } from '../customer-service-real/helpers/env'
 
@@ -42,7 +42,7 @@ test('A05 浏览器门：console零error+5xx零容忍+a11y（焦点/aria-live/ta
     // —— 坐席工作台页面：tablist 语义 + 键盘焦点可达 ——
     const seatPage = await seatCtx.newPage()
     watchPage(collector, seatPage)
-    await seatPage.goto(`${ADMIN_ORIGIN}/customer-service/workspace`)
+    await seatPage.goto(seatConsoleUrl(ADMIN_ORIGIN))
     // 键盘可达：Tab 首步进入 QR 面板内部可交互元素（换码按钮可聚焦）。
     await expect(seatPage.getByTestId('seat-qr-refresh')).toBeVisible()
     await seatPage.keyboard.press('Tab')
