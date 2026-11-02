@@ -26,7 +26,8 @@
     "deadcode": "knip",
     "check": "eslint . && tsc --noEmit -p tsconfig.app.json && knip",
     "licenses:generate": "bun scripts/generate-third-party-licenses.mts",
-    "licenses:check": "bun scripts/generate-third-party-licenses.mts --check"
+    "licenses:check": "bun scripts/generate-third-party-licenses.mts --check",
+    "postinstall": "bash scripts/ts6-sidecar.sh"
   },
   "dependencies": {
     "@hookform/resolvers": "^6.0.2",
@@ -69,8 +70,9 @@
     "jsdom": "30.1.3",
     "knip": "^6.44.0",
     "tailwindcss": "^4.3.3",
-    "typescript": "~6.0.3",
+    "typescript": "~7.0.2",
     "typescript-eslint": "^8.72.1",
+    "typescript6": "npm:typescript@~6.0.3",
     "vite": "^8.3.5"
   }
 }
