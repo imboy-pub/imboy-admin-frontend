@@ -34,8 +34,8 @@ function chainFrom(events: AttachmentEvent[], start: AttachmentItem = item()): A
 
 const HAPPY: AttachmentEvent[] = [
   { type: 'hash_computed', key: BASE.key, objectHash: 'a'.repeat(64) },
-  { type: 'presign_succeeded', key: BASE.key, assetId: 'asset-1', uploadRef: 'ref-1', uploadUrl: 'https://store.example/put?sig=x' },
-  { type: 'confirm_succeeded', key: BASE.key },
+  { type: 'presign_succeeded', key: BASE.key, objectKey: 'eb/1/2/20260101/m0001.bin' },
+  { type: 'confirm_succeeded', key: BASE.key, assetId: 'asset-1' },
   { type: 'append_succeeded', key: BASE.key, messageId: 'msg-9' },
 ]
 
@@ -81,7 +81,7 @@ describe('附件状态机（§3.7 UI 映射）', () => {
     expect(reduceAttachment(linked, { type: 'step_failed', key: BASE.key, reason: 'x' })).toBe(linked)
     // 其它 key 的事件不影响本条目
     const current = item()
-    expect(reduceAttachment(current, { type: 'confirm_succeeded', key: 'other' })).toBe(current)
+    expect(reduceAttachment(current, { type: 'confirm_succeeded', key: 'other', assetId: '8100000000000000001' })).toBe(current)
   })
 
   it('retry_reset：failed → pending，client_msg_id 与已算 hash 复用（幂等键复用）', () => {

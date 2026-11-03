@@ -1,14 +1,16 @@
-import { resumeUpload, type UploadCheckpoint, type uploadJournal } from '@/lib/attachmentUploadJournal'
+import { resumeUpload, type DirectUploadGrant, type UploadCheckpoint, type uploadJournal } from '@/lib/attachmentUploadJournal'
 /**
  * CS-WEB-02：坐席附件上传编排（hash → presign → 裸 PUT → confirm）。
- *
- * 协议链与 widget 侧 uploader.ts 同构（BE-PATCH-01 已在 widget 面实证的顺序），
- * 本模块把它冻结为纯函数编排，供 useSeatSend 在发送前调用：
- * 1. Web Crypto SHA-256（64 位小写 hex）→ presign `object_hash`（PUT 后服务端复核）；
- * 2. presign（冻结字段 {conversation_id, mime, size_bytes, object_hash, file_name?}）；
- * 3. 裸 PUT 到 presign 下发的 `upload.url`（只带 Content-Type，无 JWT/Cookie）；
- *    url 缺失（部署未开放对象 PUT）→ fail-closed 终止，绝不自造端点；
- * 4. confirm(upload_ref)：重复 confirm 409 不伪成功——由调用方按失败处理；
+ * V3-C04 direct 协议（S3-only）：与 widget 侧 uploader.ts 同构，本模块把
+ * 它冻结为纯函数编排，供 useSeatSend 在发送前调用：
+ * 1. Web Crypto SHA-256（64 位小写 hex）→ presign `object_hash`（声明冻结）；
+ * 2. presign/register（冻结字段 {conversation_id, mime, size_bytes, object_hash,
+ *    file_name?}）→ dv1 descriptor {object_key, attempt_id, upload{s3_put}}；
+ * 3. 裸 PUT 到 grant.url（只带 required_headers 签名头，无 JWT/Cookie/
+ *    Authorization——请求捕获可证零业务凭据发往 S3）；grant 缺失 → fail-closed
+ *    终止，绝不自造端点；
+ * 4. confirm(object_key, attempt_id)：finalize→Worker 校验→bind active；
+ *    CONFIRMED 重放幂等回读同一行（响应丢失恢复）；
  * 5. 返回 {assetId, objectHash}——消息发送（asset_ids）由调用方执行，
  *    同 client_msg_id 幂等；重试时已 confirm 的 assetId 直接复用（不重复上传）。
  *
@@ -79,36 +81,33 @@ export async function runSeatAttachmentUpload(
       register: (clientUploadId) => input.api.registerAssetUpload(input.orgId, input.conversationId, input.workspaceId,
         { clientUploadId, mime: input.file.type || 'application/octet-stream', sizeBytes: input.file.size,
           objectHash, fileName: input.fileName }),
-      status: (id) => input.api.recoverAssetUpload(input.orgId, input.workspaceId, id, 'status'),
-      renew: (id) => input.api.recoverAssetUpload(input.orgId, input.workspaceId, id, 'renew'),
-      put: (url, descriptor) => {
-        if (descriptor === undefined || descriptor === null) {
-          // V3-16 fail-closed：恢复视图缺显式 descriptor 不上传（不按 URL 猜）。
-          throw new SeatUploadTargetMissingError()
-        }
-        return input.api.uploadAssetBytes(
-          url,
-          input.file,
-          descriptor as import('../seatApiClient').SeatUploadDescriptor,
-          input.signal,
-        )
+      status: (objectKey) => input.api.recoverAssetUpload(input.orgId, input.workspaceId, objectKey, 'status'),
+      renew: (objectKey) => input.api.recoverAssetUpload(input.orgId, input.workspaceId, objectKey, 'renew'),
+      put: (grant: DirectUploadGrant) => {
+        // grant 缺失不可能是此处入参（resumeUpload 已 fail-closed）；
+        // 这里只负责透传权威目标（url/headers 全在 grant 内）。
+        return input.api.uploadAssetBytes(grant, input.file, input.signal)
       },
-      confirm: (id, ref) => input.api.confirmRecoveredAsset(input.orgId, input.workspaceId, id, ref),
+      confirm: (objectKey, attemptId) =>
+        input.api.confirmAssetUpload(input.orgId, input.workspaceId, objectKey, attemptId),
     })
     if (row.assetId === null) throw new Error('上传资产身份缺失')
     return { assetId: row.assetId, objectHash, clientMsgId: row.clientMsgId }
   }
-  const presign = await input.api.requestAssetPresign(input.orgId, input.conversationId, input.workspaceId, {
+  const session = await input.api.registerAssetUpload(input.orgId, input.conversationId, input.workspaceId, {
     mime: input.file.type.length > 0 ? input.file.type : 'application/octet-stream',
     sizeBytes: input.file.size,
     objectHash,
     fileName: input.fileName ?? null,
+    clientUploadId: crypto.randomUUID(),
   })
   input.signal?.throwIfAborted()
-  if (presign.uploadUrl === null || presign.uploadDescriptor === null) throw new SeatUploadTargetMissingError()
-  await input.api.uploadAssetBytes(presign.uploadUrl, input.file, presign.uploadDescriptor, input.signal)
+  if (session.grant === null) throw new SeatUploadTargetMissingError()
+  await input.api.uploadAssetBytes(session.grant, input.file, input.signal)
   input.signal?.throwIfAborted()
-  await input.api.confirmAssetUpload(input.orgId, input.workspaceId, presign.uploadRef)
+  const confirmed = await input.api.confirmAssetUpload(
+    input.orgId, input.workspaceId, session.objectKey, session.attemptId,
+  )
   input.signal?.throwIfAborted()
-  return { assetId: presign.assetId, objectHash }
+  return { assetId: confirmed.assetId, objectHash }
 }

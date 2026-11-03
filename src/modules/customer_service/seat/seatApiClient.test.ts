@@ -27,10 +27,13 @@ import {
 import { isSeatApiError, SeatApiError } from './errors'
 import { seatTokenVault } from './seatAuthStore'
 import { SeatEventStream } from './seatSseClient'
-import { toSeatPresignResult } from './workbench/contract'
+import { toSeatAssetConfirmResult } from './workbench/contract'
+import { parseUploadDescriptor, type DirectUploadGrant } from '@/lib/attachmentUploadJournal'
 
 const SIGNED_HEADERS = { 'content-type': 'application/octet-stream', 'x-amz-checksum-sha256': 'A'.repeat(43) + '=' }
-const S3_DESCRIPTOR = { kind: 's3_put', method: 'PUT', headers: SIGNED_HEADERS } as const
+const S3_URL = 'https://store.example/imboy/eb/1/obj-1?X-Amz-Signature=sig-1'
+// V3-C04 direct：已解析 grant 形状（putUploadObject 输入；内部经 parseUploadDescriptor 复校验）。
+const S3_DESCRIPTOR: DirectUploadGrant = { kind: 's3_put', method: 'PUT', url: S3_URL, headers: SIGNED_HEADERS, expiresIn: 900 }
 
 type RecordedCall = { url: string; init: RequestInit | undefined }
 
@@ -318,45 +321,56 @@ describe('CS-WEB-01 requestBlob（附件 content 端点；二进制非信封）'
   })
 })
 
-describe('CS-WEB-02 putUploadObject（裸 PUT 上传通道；presign 下发目标）', () => {
-  const UPLOAD_URL = '/api/v1/seat/enterprise/organizations/123/assets/upload/1'
+describe('CS-WEB-02 putUploadObject（裸 PUT 上传通道；direct grant 下发目标）', () => {
   const FILE_BYTES = new Uint8Array([1, 2, 3, 4, 5])
 
   function uploadResponder(status: number): ReturnType<typeof makeFetch> {
     return makeFetch(() => new Response('', { status }))
   }
 
-  it('成功：PUT + blob body + octet-stream；无 Authorization；credentials omit', async () => {
+  it('成功：PUT + blob body + grant 签名头原样发送；无 Authorization；credentials omit', async () => {
     seatTokenVault.setToken('aa.bb.cc')
     const { calls, fetchImpl } = uploadResponder(200)
     const client = new SeatApiClient({ fetchImpl, getToken: () => seatTokenVault.getToken() })
-    await client.putUploadObject(UPLOAD_URL, new Blob([FILE_BYTES.slice()]), { descriptor: { kind: 'api_byte', method: 'PUT' } })
+    await client.putUploadObject(S3_URL, new Blob([FILE_BYTES.slice()]), { grant: S3_DESCRIPTOR })
     expect(calls).toHaveLength(1)
-    expect(calls[0]?.url).toBe(UPLOAD_URL)
+    expect(calls[0]?.url).toBe(S3_URL)
     const init = calls[0]?.init as RequestInit
     expect(init.method).toBe('PUT')
     expect(init.credentials).toBe('omit')
     const headers = init.headers as Record<string, string>
-    expect(headers['Content-Type']).toBe('application/octet-stream')
-    // V3-16：api_byte 权威语义=同源 API 域带 Bearer（descriptor 决定，非 URL 外观）。
-    expect(headers.Authorization).toBe('Bearer aa.bb.cc')
+    expect(headers).toEqual(SIGNED_HEADERS)
+    // V3-C04 direct：S3-only，Seat JWT 绝不进入对象存储请求（即便已登录）。
+    expect(headers.Authorization).toBeUndefined()
+  })
+
+  it('grant.url 与参数 url 逐字一致才放行；错配在发送前拒绝', async () => {
+    const { calls, fetchImpl } = uploadResponder(200)
+    const client = new SeatApiClient({ fetchImpl })
+    let thrown: unknown = null
+    try {
+      await client.putUploadObject('https://evil.example.invalid/bucket/obj', new Blob(['x']), { grant: S3_DESCRIPTOR })
+    } catch (error) {
+      thrown = error
+    }
+    expect(isSeatApiError(thrown)).toBe(true)
+    expect((thrown as { kind: string }).kind).toBe('validation')
+    expect(calls).toHaveLength(0)
   })
 
   it('http(s) 绝对 URL 放行（presign 可下发跨源对象存储目标）', async () => {
     const { calls, fetchImpl } = uploadResponder(200)
     const client = new SeatApiClient({ fetchImpl })
-    await client.putUploadObject('https://objects.example.internal/bucket/obj-1', new Blob(['x']), { descriptor: S3_DESCRIPTOR })
+    await client.putUploadObject(S3_URL, new Blob(['x']), { grant: S3_DESCRIPTOR })
     expect(calls).toHaveLength(1)
-    expect(calls[0]?.url).toBe('https://objects.example.internal/bucket/obj-1')
+    expect(calls[0]?.url).toBe(S3_URL)
   })
 
-  it('V3-16 s3_put：descriptor.headers 原样发送、绝无 Authorization/Cookie', async () => {
+  it('s3_put：grant 签名头原样发送、绝无 Authorization/Cookie；redirect error', async () => {
     seatTokenVault.setToken('aa.bb.cc')
     const { calls, fetchImpl } = uploadResponder(200)
     const client = new SeatApiClient({ fetchImpl, getToken: () => seatTokenVault.getToken() })
-    await client.putUploadObject('https://objects.example.internal/bucket/obj-1', new Blob(['x']), {
-      descriptor: S3_DESCRIPTOR,
-    })
+    await client.putUploadObject(S3_URL, new Blob(['x']), { grant: S3_DESCRIPTOR })
     const headers = (calls[0]?.init as RequestInit).headers as Record<string, string>
     expect(headers).toEqual(SIGNED_HEADERS)
     expect((calls[0]?.init as RequestInit).redirect).toBe('error')
@@ -365,33 +379,18 @@ describe('CS-WEB-02 putUploadObject（裸 PUT 上传通道；presign 下发目�
     expect((calls[0]?.init as RequestInit).credentials).toBe('omit')
   })
 
-  it('V3-16 缺 descriptor → fail-closed（不按 URL 外观猜传输类型）', async () => {
-    const { fetchImpl } = uploadResponder(200)
+  it('缺 grant → fail-closed（不按 URL 外观猜传输类型）', async () => {
+    const { calls, fetchImpl } = uploadResponder(200)
     const client = new SeatApiClient({ fetchImpl })
-    // TS 层面 descriptor 必填；运行时防御：undefined descriptor 拒绝。
+    // TS 层面 grant 必填；运行时防御：undefined grant 拒绝（parseUploadDescriptor TypeError）。
     let thrown: unknown = null
     try {
-      await client.putUploadObject(UPLOAD_URL, new Blob(['x']), undefined as never)
+      await client.putUploadObject(S3_URL, new Blob(['x']), undefined as never)
     } catch (error) {
       thrown = error
     }
-    expect(isSeatApiError(thrown)).toBe(true)
-    expect((thrown as { kind: string }).kind).toBe('validation')
-  })
-
-  it('V3-16 api_byte：同源门外目标拒绝（validation）', async () => {
-    const { fetchImpl } = uploadResponder(200)
-    const client = new SeatApiClient({ fetchImpl })
-    let thrown: unknown = null
-    try {
-      await client.putUploadObject('https://evil.example.invalid/api/v1/seat/enterprise/organizations/123/assets/presign', new Blob(['x']), {
-        descriptor: { kind: 'api_byte', method: 'PUT' },
-      })
-    } catch (error) {
-      thrown = error
-    }
-    expect(isSeatApiError(thrown)).toBe(true)
-    expect((thrown as { kind: string }).kind).toBe('validation')
+    expect(thrown).toBeInstanceOf(TypeError)
+    expect(calls).toHaveLength(0)
   })
 
   it('非 2xx → 按 HTTP/信封分类（500 server / 403 forbidden）', async () => {
@@ -399,7 +398,7 @@ describe('CS-WEB-02 putUploadObject（裸 PUT 上传通道；presign 下发目�
     const client = new SeatApiClient({ fetchImpl })
     let thrown: unknown = null
     try {
-      await client.putUploadObject(UPLOAD_URL, new Blob(['x']), { descriptor: { kind: 'api_byte', method: 'PUT' } })
+      await client.putUploadObject(S3_URL, new Blob(['x']), { grant: S3_DESCRIPTOR })
     } catch (error) {
       thrown = error
     }
@@ -410,7 +409,7 @@ describe('CS-WEB-02 putUploadObject（裸 PUT 上传通道；presign 下发目�
     const client2 = new SeatApiClient({ fetchImpl: forbidden.fetchImpl })
     let thrown2: unknown = null
     try {
-      await client2.putUploadObject(UPLOAD_URL, new Blob(['x']), { descriptor: { kind: 'api_byte', method: 'PUT' } })
+      await client2.putUploadObject(S3_URL, new Blob(['x']), { grant: S3_DESCRIPTOR })
     } catch (error) {
       thrown2 = error
     }
@@ -441,7 +440,7 @@ describe('CS-WEB-02 putUploadObject（裸 PUT 上传通道；presign 下发目�
     })
     let thrown: unknown = null
     try {
-      await client.putUploadObject(UPLOAD_URL, new Blob(['x']), { descriptor: { kind: 'api_byte', method: 'PUT' } })
+      await client.putUploadObject(S3_URL, new Blob(['x']), { grant: S3_DESCRIPTOR })
     } catch (error) {
       thrown = error
     }
@@ -461,10 +460,10 @@ describe('CS-WEB-02 putUploadObject（裸 PUT 上传通道；presign 下发目�
  * 4. redactSeatUrl：token 类键值一律替换为 ***，值不出现在输出。
  *
  * 通道盘点（真实代码）：request（JSON API）、requestBlob（资产 content 读回）、
- * putUploadObject（裸 PUT 上传，含 upload_ref 带 Bearer / 对象存储裸 PUT 两种
- * 形态）、SeatEventStream（SSE fetch 流；实现在 seatSseClient.ts，此处纳入
- * 同一断言面）。无 token 时 SSE fail-closed 不发请求，已在 seatSseClient.test.ts
- * 锁定，此处不重复。
+ * putUploadObject（对象存储裸 PUT；V3-C04 direct 后 S3-only——grant 签名头、
+ * 零 Authorization/Cookie）、SeatEventStream（SSE fetch 流；实现在 seatSseClient.ts，
+ * 此处纳入同一断言面）。无 token 时 SSE fail-closed 不发请求，已在
+ * seatSseClient.test.ts 锁定，此处不重复。
  */
 describe('REVIEW-2 凭据卫生锁定（全通道系统断言）', () => {
   const GUARD_JWT = 'REVIEW2guard.hdgJWTsig.bodynever'
@@ -497,31 +496,20 @@ describe('REVIEW-2 凭据卫生锁定（全通道系统断言）', () => {
     expect(calls[0]?.url).not.toContain(GUARD_JWT)
   })
 
-  it('通道3 裸 PUT 上传（putUploadObject）：两种形态均 credentials omit；upload_ref 形态 Bearer 进头、URL/body 不含 JWT；对象存储形态无 Authorization', async () => {
+  it('通道3 裸 PUT 上传（putUploadObject，V3-C04 后 S3-only）：credentials omit；零 Authorization；URL/body 不含 JWT', async () => {
     seatTokenVault.setToken(GUARD_JWT)
     const { calls, fetchImpl } = makeFetch(() => new Response('', { status: 200 }))
     const client = new SeatApiClient({ fetchImpl, getToken: () => seatTokenVault.getToken() })
     const blob = new Blob([new Uint8Array([9, 9, 9])])
-    // V3-16 显式 descriptor：api_byte（API 域字节端点）→ 带 Bearer；
-    // s3_put（对象存储）→ 无 Authorization（Seat JWT 绝不外发第三方域）。
-    await client.putUploadObject('/api/v1/seat/enterprise/organizations/1/assets/presign?upload_ref=ur-1', blob, {
-      descriptor: { kind: 'api_byte', method: 'PUT' },
-    })
-    await client.putUploadObject('https://objects.example.internal/bucket/obj?X-Amz-Signature=sig', blob, {
-      descriptor: S3_DESCRIPTOR,
-    })
-    expect(calls).toHaveLength(2)
-    const apiInit = calls[0]?.init as RequestInit
-    const s3Init = calls[1]?.init as RequestInit
-    for (const call of calls) {
-      const init = call.init as RequestInit
-      expect(init.credentials).toBe('omit')
-      expect(call.url).not.toContain(GUARD_JWT)
-      // body 只透传调用方 Blob（引用相等）：client 不会另构造含 JWT 的 body。
-      expect(init.body).toBe(blob)
-    }
-    expect((apiInit.headers as Record<string, string>).Authorization).toBe(`Bearer ${GUARD_JWT}`)
+    // 对象存储裸 PUT：grant 签名头 + 零 Authorization（Seat JWT 绝不外发第三方域）。
+    await client.putUploadObject(S3_URL, blob, { grant: S3_DESCRIPTOR })
+    expect(calls).toHaveLength(1)
+    const s3Init = calls[0]?.init as RequestInit
+    expect(s3Init.credentials).toBe('omit')
+    expect(calls[0]?.url).not.toContain(GUARD_JWT)
     expect((s3Init.headers as Record<string, string>).Authorization).toBeUndefined()
+    // body 只透传调用方 Blob（引用相等）：client 不会另构造含 JWT 的 body。
+    expect(s3Init.body).toBe(blob)
   })
 
   it('通道4 SSE fetch 流（SeatEventStream，实现位于 seatSseClient.ts）：credentials omit；Bearer 只进 Authorization 头；URL 不含 JWT 且 GET 无 body', async () => {
@@ -599,25 +587,29 @@ describe('Console 凭证出口约束', () => {
     ...['Authorization', 'aUtHoRiZaTiOn', 'Cookie', 'x-oa-signature', 'x-imboy-hmac', 'x-cs-visit-token', 'x-amz-acl', 'x-amz-copy-source'].map((name) =>
       ({ ...S3_DESCRIPTOR, headers: { ...SIGNED_HEADERS, [name]: 'secret' } })),
   ]) {
-    it(`S3 非法描述符在请求前拒绝 ${JSON.stringify(descriptor)}`, async () => {
+    it(`S3 非法 grant 在请求前拒绝 ${JSON.stringify(descriptor)}`, async () => {
       const { calls, fetchImpl } = makeFetch(() => new Response('', { status: 200 }))
       const client = new SeatApiClient({ fetchImpl, getToken: () => 'aa.bb.cc' })
-      await expect(client.putUploadObject('https://store.example/put', new Blob(['x']), { descriptor: descriptor as never })).rejects.toThrow()
+      await expect(client.putUploadObject(S3_URL, new Blob(['x']), { grant: descriptor as never })).rejects.toThrow()
       expect(calls).toHaveLength(0)
     })
 
-    it(`Seat presign 不把非法 method/headers 投影成有效 PUT ${JSON.stringify(descriptor)}`, () => {
-      expect(() => toSeatPresignResult({ asset_id: '12', upload_ref: 'ref', upload: {
-        url: 'https://store.example/put', descriptor,
-      } })).toThrow()
+    it(`Seat direct grant 不把非法 method/headers 投影成有效 PUT ${JSON.stringify(descriptor)}`, () => {
+      expect(() => parseUploadDescriptor(descriptor)).toThrow()
     })
   }
+
+  it('confirm 响应 asset_id fail-closed：缺失/非法/非对象均拒绝', () => {
+    expect(toSeatAssetConfirmResult({ asset_id: '8100000000000000001' })).toEqual({ assetId: '8100000000000000001' })
+    expect(() => toSeatAssetConfirmResult({})).toThrow()
+    expect(() => toSeatAssetConfirmResult(null)).toThrow()
+  })
 
   for (const url of ['https://user:secret@store.example/put', 'http://store.example/put', '/relative-s3', '//store.example/put', '/\\store.example/put']) {
     it(`S3 非法目标语法在发送前拒绝 ${url}`, async () => {
       const { calls, fetchImpl } = makeFetch(() => new Response('', { status: 200 }))
       const client = new SeatApiClient({ fetchImpl })
-      await expect(client.putUploadObject(url, new Blob(['x']), { descriptor: S3_DESCRIPTOR })).rejects.toThrow()
+      await expect(client.putUploadObject(url, new Blob(['x']), { grant: S3_DESCRIPTOR })).rejects.toThrow()
       expect(calls).toHaveLength(0)
     })
   }
@@ -625,7 +617,7 @@ describe('Console 凭证出口约束', () => {
   it('S3 重定向由 fetch error 策略中止，错误不会被当作上传成功', async () => {
     const { calls, fetchImpl } = makeFetch(() => { throw new TypeError('redirect refused') })
     const client = new SeatApiClient({ fetchImpl })
-    await expect(client.putUploadObject('https://store.example/put', new Blob(['x']), { descriptor: S3_DESCRIPTOR })).rejects.toBeInstanceOf(SeatApiError)
+    await expect(client.putUploadObject(S3_URL, new Blob(['x']), { grant: S3_DESCRIPTOR })).rejects.toBeInstanceOf(SeatApiError)
     expect(calls).toHaveLength(1)
     expect(calls[0]?.init?.redirect).toBe('error')
   })
@@ -635,13 +627,12 @@ describe('Console 凭证出口约束', () => {
     expect(() => assertSeatApiPath('/api/v1/enterprise/organizations/1/assets/2/content')).toThrow()
   })
 
-  it('V3-16 api_byte 域外目标在发送前拒绝，Seat JWT 不外发', async () => {
+  it('api_byte 退役：transport 非 s3_put 的 wire 在发送前拒绝（S3-only）', async () => {
     const { calls, fetchImpl } = makeFetch(() => new Response('', { status: 200 }))
     const client = new SeatApiClient({ fetchImpl, getToken: () => 'aa.bb.cc' })
-    // descriptor=api_byte 而目标在域外 → 拒绝（Bearer 只进同源 API 域）。
-    await expect(client.putUploadObject('https://objects.example.internal/api/v1/seat/enterprise/organizations/1/assets/presign?upload_ref=r', new Blob(['x']), {
-      descriptor: { kind: 'api_byte', method: 'PUT' },
-    })).rejects.toBeInstanceOf(SeatApiError)
+    await expect(client.putUploadObject(S3_URL, new Blob(['x']), {
+      grant: { kind: 'api_byte', method: 'PUT' } as never,
+    })).rejects.toThrow()
     expect(calls).toHaveLength(0)
   })
 })

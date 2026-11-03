@@ -1,4 +1,5 @@
-import '@/test/attachmentJournalFixture'
+import { installAttachmentLocksShim } from '@/test/attachmentJournalFixture'
+installAttachmentLocksShim()
 import '../../../../test/setupDom'
 
 import { afterEach, describe, expect, it, mock, spyOn } from 'bun:test'

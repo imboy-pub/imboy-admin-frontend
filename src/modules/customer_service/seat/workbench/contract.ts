@@ -30,7 +30,6 @@
  */
 import { isRecord, nonEmptyString, toEntityId } from '../tsid'
 import { customerServiceTimestamp } from '@/lib/customerServiceTimestamp'
-import { assertS3UploadTarget, parseUploadDescriptor } from '@/lib/attachmentUploadJournal'
 import type { EntityId } from '../types'
 
 /** G15：仅本文件 type 派生与值使用，撤 export。 */
@@ -133,23 +132,11 @@ type SeatTransferTarget = {
 }
 
 /**
- * CS-WEB-02：附件 presign 结果（eb_asset_app:presign_view 投影；坐席走
- * eb_tenant_handler presign → request_presign，职能白名单 sales|customer_service）。
- * - `upload_ref`：confirm 的不透明凭证（token 双投 presign_view 顶层与 upload.token，
- *   客户端只消费顶层）；
- * - `uploadUrl` = `upload.url`（BE-PATCH-01 widget 同款键）：裸 PUT 目标。
- *   部署未开放对象 PUT（upload 块无 url）→ null，上传编排必须 fail-closed
- *   （绝不自造端点、绝不落对象 key）。
+ * V3-C04 direct：confirm 响应投影（public_asset_view 白名单 + hold_count）。
+ * direct 会话无预分配资产 id——asset_id 只在 confirm 成功（bind active）后
+ * 出现；重复 confirm 幂等回读同一行（409 不再出现，冲突语义由服务端收敛）。
  */
-export type SeatPresignResult = {
-  assetId: EntityId
-  uploadRef: string
-  uploadUrl: string | null
-  /** V3-16：显式上传 descriptor（upload.descriptor 权威投影；upload.url
-   * 存在而 descriptor 缺失 → fail-closed 抛出，倒逼服务端下发）。 */
-  uploadDescriptor: import('../seatApiClient').SeatUploadDescriptor | null
-  expiresAt: number | null
-}
+export type SeatAssetConfirmResult = { assetId: EntityId }
 
 export type SeatTransferTargetPage = {
   targets: SeatTransferTarget[]
@@ -513,30 +500,15 @@ export function seatAssetContentPath(orgId: EntityId, assetId: EntityId): string
 }
 
 /**
- * CS-WEB-02/V3-16：presign 结果投影（fail-closed）：asset_id/upload_ref 形状非法
- * 即 throw（上游按错误处理，不猜）；`upload.url` 缺失 → uploadUrl=null
- * （部署未开放对象 PUT——由上传编排终止，不在此抛）。upload.url 存在而
- * `upload.descriptor` 缺失/非法 → throw（倒逼服务端权威下发，不猜传输类型）。
+ * V3-C04 direct：confirm 响应投影（fail-closed）：asset_id 形状非法即 throw
+ * （上游按错误处理，不猜）。会话/上传目标形状由共享库 parseUploadSession/
+ * parseUploadDescriptor 统一裁决（S3-only）。
  */
-export function toSeatPresignResult(raw: unknown): SeatPresignResult {
-  if (!isRecord(raw)) throw new TypeError('seat presign payload shape invalid')
+export function toSeatAssetConfirmResult(raw: unknown): SeatAssetConfirmResult {
+  if (!isRecord(raw)) throw new TypeError('seat confirm payload shape invalid')
   const assetId = toEntityId(raw.asset_id)
-  if (assetId === null) throw new TypeError('seat presign asset_id invalid')
-  if (!nonEmptyString(raw.upload_ref)) throw new TypeError('seat presign upload_ref invalid')
-  const upload = isRecord(raw.upload) ? raw.upload : {}
-  const uploadUrl = optStr(upload.url)
-  let uploadDescriptor: import('../seatApiClient').SeatUploadDescriptor | null = null
-  if (uploadUrl !== null) {
-    uploadDescriptor = parseUploadDescriptor(upload.descriptor)
-    if (uploadDescriptor.kind === 's3_put') assertS3UploadTarget(uploadUrl)
-  }
-  return {
-    assetId,
-    uploadRef: raw.upload_ref,
-    uploadUrl,
-    uploadDescriptor,
-    expiresAt: optInt(upload.expires_at),
-  }
+  if (assetId === null) throw new TypeError('seat confirm asset_id invalid')
+  return { assetId }
 }
 
 /**

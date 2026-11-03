@@ -1,4 +1,5 @@
-import '@/test/attachmentJournalFixture'
+import { installAttachmentLocksShim } from '@/test/attachmentJournalFixture'
+installAttachmentLocksShim()
 import '../../../../test/setupDom'
 
 import { afterEach, describe, expect, it, mock, spyOn } from 'bun:test'
@@ -70,11 +71,13 @@ function harness(initialProps: SendScope = SCOPE) {
   const sendMessage = spyOn(api, 'sendMessage').mockImplementation(async (_org, _conversation, input) => message(input))
   const fetchMessages = spyOn(api, 'fetchMessages').mockResolvedValue([])
   const presign = spyOn(api, 'registerAssetUpload').mockResolvedValue({
-    state: 'registered', assetId: '72057594037927951', uploadRef: 'mock-upload-ref',
-    uploadUrl: 'https://upload.invalid/mock', uploadDescriptor: { kind: 'api_byte', method: 'PUT' },
+    objectKey: 'eb/1/2/20260101/mock0001.bin', sessionState: 'registered' as const, directState: 'GRANTED',
+    attemptId: 1, grant: { kind: 's3_put' as const, method: 'PUT' as const, url: 'https://store.example/imboy/mock-1',
+      headers: { 'Content-Type': 'application/octet-stream', 'x-amz-checksum-sha256': 'A'.repeat(43) + '=' }, expiresIn: 900 },
+    sessionDeadline: null, stateConfirmed: false,
   })
   const upload = spyOn(api, 'uploadAssetBytes').mockResolvedValue(undefined)
-  const confirm = spyOn(api, 'confirmRecoveredAsset').mockResolvedValue(undefined)
+  const confirm = spyOn(api, 'confirmAssetUpload').mockResolvedValue({ assetId: '8100000000000000001' })
   const gateway: SeatWorkbenchGateway = {
     api, createStream: mock(() => { throw new Error('Send unit test must not start SSE') }),
   }
@@ -313,7 +316,7 @@ describe('CX03 useSeatSend direct hook — mock API/JSDOM unit evidence only, no
     setDraft(view, '', file)
     const original = await failSend(view)
     expectDraft(view, '', file)
-    expect(original.assetIds).toEqual(['72057594037927951'])
+    expect(original.assetIds).toEqual(['8100000000000000001'])
     act(() => view.result.current.retry())
     await waitFor(() => expect(view.sendMessage).toHaveBeenCalledTimes(2))
     expect(view.sendMessage.mock.calls[1]![2]).toEqual(original)
@@ -402,14 +405,15 @@ describe('CX03 UNKNOWN — 最新有限消息页未命中不是负向精确证�
 
   it('在途编辑后 confirm 推进加 POST 明确拒绝不能恢复旧快照或旧幂等键', async () => {
     const view = harness()
-    const pending = deferred<void>()
+    const pending = deferred<{ assetId: string }>()
     view.confirm.mockImplementationOnce(() => pending.promise)
     view.sendMessage.mockRejectedValueOnce(rejected())
     setDraft(view, '旧正文', attachment())
     act(() => view.result.current.send())
     await waitFor(() => expect(view.confirm).toHaveBeenCalledTimes(1))
     act(() => view.result.current.updateDraftBody('新正文'))
-    await act(async () => pending.resolve(undefined))
+    // V3-C04 direct：assetId 只能从 confirm 响应取得（无预分配）。
+    await act(async () => pending.resolve({ assetId: '8100000000000000001' }))
     await waitFor(() => expect(view.result.current.sending).toBe(false))
     act(() => view.result.current.send())
     await waitFor(() => expect(view.sendMessage).toHaveBeenCalledTimes(2))

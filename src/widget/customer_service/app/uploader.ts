@@ -1,17 +1,16 @@
-import { assertS3UploadTarget, attachmentDispatchUnknown, parseUploadDescriptor, resumeUpload, uploadJournal } from '@/lib/attachmentUploadJournal'
+import { assertS3UploadTarget, attachmentDispatchUnknown, resumeUpload, uploadJournal, type DirectUploadGrant, type UploadSession } from '@/lib/attachmentUploadJournal'
 /**
  * FE-W01：附件上传流水线（§3.7：hash → presign → 裸 PUT → confirm → 消息 asset_ids）。
  *
- * 合同要点：
- * - Web Crypto SHA-256（64 位小写 hex）→ presign `object_hash`（PUT 后服务端复核）；
- * - 裸 PUT：精确发送 descriptor 签名头，不带业务凭据，禁止重定向；
- *   presign 响应无 PUT 目标（合同形状 opaque_token_no_url_no_object_key）→
- *   fail-closed 标记 failed（绝不自造端点、绝不落对象 key）；
- * - confirm 重新鉴权：409（重复 confirm）不伪成功 → failed；
+ * 合同要点（V3-C04 direct，S3-only）：
+ * - Web Crypto SHA-256（64 位小写 hex）→ presign `object_hash`（声明冻结）；
+ * - 裸 PUT：精确发送 grant.required_headers 签名头，不带业务凭据，禁止重定向；
+ *   presign/renew 无有效 grant → fail-closed 标记 failed（绝不自造端点）；
+ * - confirm(object_key, attempt_id) 重新鉴权；CONFIRMED 重放幂等回读；
  * - 只有消息 append（asset_ids）成功 → linked（唯一成功态）；
- * - 重试复用同一 client_msg_id（幂等键）与已算 hash。
+ * - 重试复用同一 client_msg_id（幂等键）与已算 hash（object_key 复用会话）。
  */
-import { isValidSha256Hex, type PresignResult, type RequestScope } from './contract'
+import { isValidSha256Hex, type RequestScope } from './contract'
 import {
   initialAttachmentItem,
   reduceAttachment,
@@ -111,13 +110,11 @@ export async function runAttachmentPipeline(input: {
         },
         register: (clientUploadId) => input.deps.api.registerAttachment(input.sessionId, input.scope,
           { clientUploadId, mime: item.mime, sizeBytes: item.sizeBytes, objectHash: item.objectHash! }),
-        status: (id) => input.deps.api.recoverAttachment(input.sessionId, input.scope, id, 'status'),
-        renew: (id) => input.deps.api.recoverAttachment(input.sessionId, input.scope, id, 'renew'),
-        put: (url, descriptor) => {
-          if (descriptor?.kind !== 's3_put') throw new PipelineFailure('Widget 上传缺少 S3 descriptor，已停止')
-          return barePutOrThrow({ uploadUrl: url, uploadDescriptor: descriptor }, input.file, input.deps)
-        },
-        confirm: (id, ref) => input.deps.api.confirmRecoveredAttachment(input.sessionId, input.scope, id, ref),
+        status: (objectKey) => input.deps.api.recoverAttachment(input.sessionId, input.scope, objectKey, 'status'),
+        renew: (objectKey) => input.deps.api.recoverAttachment(input.sessionId, input.scope, objectKey, 'renew'),
+        put: (grant: DirectUploadGrant) => barePutOrThrow(grant, input.file, input.deps),
+        confirm: (objectKey, attemptId) =>
+          input.deps.api.confirmAttachment(input.sessionId, input.scope, objectKey, attemptId),
       })
       requireCurrent(input.deps)
       item = { ...item, clientMsgId: row.clientMsgId, assetId: row.assetId, state: 'sending' }
@@ -180,28 +177,25 @@ async function ensurePresign(
   sessionId: string,
   scope: RequestScope,
   deps: UploaderDeps
-): Promise<{ item: AttachmentItem; result: PresignResult }> {
-  // 重试且 ref 仍可用：不重复 presign（同一 hash + scope 服务端幂等）。
-  if (item.assetId !== null && item.uploadRef !== null) {
-    return {
-      item,
-      result: {
-        assetId: item.assetId,
-        uploadRef: item.uploadRef,
-        uploadUrl: item.uploadUrl,
-        // 重试路径不重发字节（ensureConfirmed 只 confirm）；descriptor 缺省。
-        uploadDescriptor: null,
-      },
+): Promise<{ item: AttachmentItem; result: UploadSession }> {
+  // 重试且会话仍可用：不重复 register（同 object_key 服务端幂等回查）。
+  if (item.objectKey !== null) {
+    const session = await deps.api
+      .recoverAttachment(sessionId, scope, item.objectKey, 'status')
+      .catch(() => null)
+    if (session !== null && session.sessionState === 'registered') {
+      return { item, result: session }
     }
   }
   if (item.objectHash === null) throw new PipelineFailure('缺少对象哈希（内部状态非法）')
-  let presign: PresignResult
+  let session: UploadSession
   try {
     requireCurrent(deps)
-    presign = await deps.api.presignAttachment(sessionId, scope, {
+    session = await deps.api.registerAttachment(sessionId, scope, {
       mime: item.mime,
       sizeBytes: item.sizeBytes,
       objectHash: item.objectHash,
+      clientUploadId: crypto.randomUUID(),
     })
   } catch (error) {
     reportCredentialRefusal(error, deps)
@@ -213,54 +207,70 @@ async function ensurePresign(
     {
       type: 'presign_succeeded',
       key: item.key,
-      assetId: presign.assetId,
-      uploadRef: presign.uploadRef,
-      uploadUrl: presign.uploadUrl,
+      objectKey: session.objectKey,
     },
     deps
   )
-  return { item: next, result: presign }
+  return { item: next, result: session }
 }
 
 async function ensureConfirmed(
   item: AttachmentItem,
-  presign: PresignResult,
+  session: UploadSession,
   file: Blob,
   sessionId: string,
   scope: RequestScope,
   deps: UploaderDeps
 ): Promise<AttachmentItem> {
   if (item.state !== 'confirming') return item
-  await barePutOrThrow(presign, file, deps)
+  let grant = session.grant
+  let attemptId = session.attemptId
+  if (grant === null) {
+    // 重试路径无 grant（status 回查）→ renew 换新 attempt + 新 staging descriptor。
+    const renewed = await deps.api.recoverAttachment(sessionId, scope, session.objectKey, 'renew')
+    if (renewed.stateConfirmed || renewed.sessionState === 'confirmed') {
+      return await confirmReplay(item, sessionId, scope, renewed, deps)
+    }
+    if (renewed.grant === null) throw new PipelineFailure('服务端未返回有效上传目标，已停止')
+    grant = renewed.grant
+    attemptId = renewed.attemptId
+  }
+  await barePutOrThrow(grant, file, deps)
   try {
     requireCurrent(deps)
-    await deps.api.confirmAttachment(sessionId, scope, presign.uploadRef)
+    const confirmed = await deps.api.confirmAttachment(sessionId, scope, session.objectKey, attemptId)
+    requireCurrent(deps)
+    return dispatch(item, { type: 'confirm_succeeded', key: item.key, assetId: confirmed.assetId }, deps)
   } catch (error) {
     reportCredentialRefusal(error, deps)
-    const status = (error as { status?: number }).status
-    // 重复 confirm 409 不伪成功（§3.7）：按失败处理，重试换新 ref。
-    const reason = status === 409 ? 'confirm 冲突（409），请重试' : 'confirm 失败'
-    throw new PipelineFailure(error instanceof Error && status !== 409 ? error.message : reason)
+    throw new PipelineFailure(error instanceof Error ? error.message : 'confirm 失败')
   }
-  requireCurrent(deps)
-  return dispatch(item, { type: 'confirm_succeeded', key: item.key }, deps)
 }
 
-/** 裸 PUT：https 目标 + 精确签名头；缺少目标或 descriptor 即停止。 */
-async function barePutOrThrow(presign: Pick<PresignResult, 'uploadUrl' | 'uploadDescriptor'>, file: Blob, deps: UploaderDeps): Promise<void> {
-  if (presign.uploadUrl === null) {
-    throw new PipelineFailure('上传目标缺失（部署阶段未开放对象 PUT），已停止且未泄露任何存储引用')
-  }
-  const descriptor = parseUploadDescriptor(presign.uploadDescriptor)
-  if (descriptor.kind !== 's3_put') throw new PipelineFailure('Widget 上传 descriptor 非法')
-  assertS3UploadTarget(presign.uploadUrl)
+/** CONFIRMED 幂等重放：confirm 回读同一 active 行（响应丢失恢复）。 */
+async function confirmReplay(
+  item: AttachmentItem,
+  sessionId: string,
+  scope: RequestScope,
+  session: UploadSession,
+  deps: UploaderDeps
+): Promise<AttachmentItem> {
+  requireCurrent(deps)
+  const confirmed = await deps.api.confirmAttachment(sessionId, scope, session.objectKey, session.attemptId)
+  requireCurrent(deps)
+  return dispatch(item, { type: 'confirm_succeeded', key: item.key, assetId: confirmed.assetId }, deps)
+}
+
+/** 裸 PUT：https（本地 localhost/127.0.0.1 http）+ 精确签名头；无 grant 即停止。 */
+async function barePutOrThrow(grant: DirectUploadGrant, file: Blob, deps: UploaderDeps): Promise<void> {
+  assertS3UploadTarget(grant.url)
   let response: Response
   try {
     requireCurrent(deps)
-    response = await deps.fetchImpl(presign.uploadUrl, {
-      method: descriptor.method,
+    response = await deps.fetchImpl(grant.url, {
+      method: grant.method,
       body: file,
-      headers: descriptor.headers,
+      headers: grant.headers,
       credentials: 'omit',
       redirect: 'error',
     })

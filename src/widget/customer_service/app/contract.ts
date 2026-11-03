@@ -19,7 +19,6 @@
  */
 
 import { customerServiceTimestamp } from '@/lib/customerServiceTimestamp'
-import { assertS3UploadTarget, parseUploadDescriptor } from '@/lib/attachmentUploadJournal'
 
 export const WIDGET_API_BASE = '/api/v1/cs/widget'
 
@@ -320,53 +319,32 @@ export function buildPresignBody(
   }
 }
 
-/** 请求体构造：confirm（upload_ref = presign 签发）。 */
-export function buildConfirmBody(scope: RequestScope, uploadRef: string): {
+/** 请求体构造：confirm（V3-C04 direct：object_key + attempt_id?）。 */
+export function buildConfirmBody(scope: RequestScope, objectKey: string, attemptId: number | null): {
   installation_id: string
-  upload_ref: string
+  object_key: string
+  attempt_id?: number
 } {
   return {
     installation_id: scope.installationId,
-    upload_ref: uploadRef,
+    object_key: objectKey,
+    ...(attemptId === null ? {} : { attempt_id: attemptId }),
   }
 }
 
-/** presign 响应投影（presign_view 白名单）：asset_id + upload_ref 必填，
- * upload.url 缺省（合同形状 rule=opaque_token_no_url_no_object_key）→ null。
- * 对象 key / 存储侧 URL 绝不投影出去。 */
-/** V3-16：显式上传 descriptor（widget 面仅 s3_put 裸 PUT；headers 为服务端
- * 签发的签名头，无任何 visitor/Seat/Admin 凭据）。 */
-export type WidgetUploadDescriptor = {
-  kind: 's3_put'
-  method: 'PUT'
-  headers?: Record<string, string>
-}
+/** V3-C04 direct（S3-only）：上传目标为服务端 grant 权威下发的
+ * {transport=s3_put, url, required_headers}——对象 key（会话定位键）只在
+ * 内存中用于 confirm 寻址，绝不进入展示/日志字段。 */
 
-export type PresignResult = {
-  assetId: string
-  uploadRef: string
-  uploadUrl: string | null
-  /** null=无 PUT 目标或无需重传字节；正常 presign 必有。 */
-  uploadDescriptor: WidgetUploadDescriptor | null
-}
+/** V3-C04 direct：confirm 响应投影（public_asset_view；asset_id 在 bind active
+ * 后才存在；CONFIRMED 重放幂等回读同一行）。 */
+export type AssetConfirmResult = { assetId: string }
 
-export function toPresignResult(raw: unknown): PresignResult | null {
-  if (!isRecord(raw)) return null
+export function toAssetConfirmResult(raw: unknown): AssetConfirmResult {
+  if (!isRecord(raw)) throw new TypeError('widget confirm 响应形状非法')
   const assetId = str(raw.asset_id)
-  const uploadRef = str(raw.upload_ref)
-  if (assetId.length === 0 || uploadRef.length === 0) return null
-  let uploadUrl: string | null = null
-  if (isRecord(raw.upload) && typeof raw.upload.url === 'string') {
-    uploadUrl = isBareHttpsUploadUrl(raw.upload.url) ? raw.upload.url : null
-  }
-  let uploadDescriptor: WidgetUploadDescriptor | null = null
-  if (uploadUrl !== null && isRecord(raw.upload)) {
-    const descriptor = parseUploadDescriptor(raw.upload.descriptor)
-    if (descriptor.kind !== 's3_put') throw new TypeError('Widget 上传 descriptor 必须为 s3_put')
-    assertS3UploadTarget(uploadUrl)
-    uploadDescriptor = descriptor
-  }
-  return { assetId, uploadRef, uploadUrl, uploadDescriptor }
+  if (assetId.length === 0 || !/^\d+$/.test(assetId)) throw new TypeError('widget confirm asset_id 非法')
+  return { assetId }
 }
 
 /**

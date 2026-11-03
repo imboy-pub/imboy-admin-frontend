@@ -1,4 +1,5 @@
-import '@/test/attachmentJournalFixture'
+import { installAttachmentLocksShim } from '@/test/attachmentJournalFixture'
+installAttachmentLocksShim()
 import { uploadJournal } from '@/lib/attachmentUploadJournal'
 import '../../../../test/setupDom'
 
@@ -48,11 +49,13 @@ function harness() {
     senderContactId: null, clientMsgId: null, body: 'reply', readAt: null, createdAt: null, attachments: [],
   })
   const presign = spyOn(api, 'registerAssetUpload').mockResolvedValue({
-    state: 'registered',
-    assetId: '8000000000000000012', uploadRef: 'mock-ref', uploadUrl: 'https://upload.invalid/mock', uploadDescriptor: { kind: 'api_byte', method: 'PUT' }, expiresAt: null,
-  })
+      objectKey: 'eb/1/2/20260101/mock0001.bin', sessionState: 'registered' as const, directState: 'GRANTED',
+      attemptId: 1, grant: { kind: 's3_put' as const, method: 'PUT' as const, url: 'https://store.example/imboy/mock-1',
+        headers: { 'Content-Type': 'application/octet-stream', 'x-amz-checksum-sha256': 'A'.repeat(43) + '=' }, expiresIn: 900 },
+      sessionDeadline: null, stateConfirmed: false,
+    })
   const upload = spyOn(api, 'uploadAssetBytes').mockResolvedValue(undefined)
-  const confirm = spyOn(api, 'confirmRecoveredAsset').mockResolvedValue(undefined)
+  const confirm = spyOn(api, 'confirmAssetUpload').mockResolvedValue({ assetId: '8100000000000000001' })
   const fetchMessages = spyOn(api, 'fetchMessages').mockResolvedValue([])
   const view = renderHook((scope: typeof SCOPE) => useSeatSend(
     scope.orgId, scope.conversationId, scope.workspaceId, scope.identityId, scope.writeRevoked,
@@ -97,11 +100,13 @@ describe('CX03 revocation — isolated mock/JSDOM, not browser/API/SQL acceptanc
       ? [{ ...first, workspaces: [...first.workspaces, ...second.workspaces] }] : [first, second]
     const pending = deferred<void>()
     spyOn(gateway.api, 'registerAssetUpload').mockResolvedValue({
-    state: 'registered',
-      assetId: '6000000000000000006', uploadUrl: 'https://mock.invalid/put', uploadDescriptor: { kind: 'api_byte', method: 'PUT' }, uploadRef: null,
+      objectKey: 'eb/1/2/20260101/mock0001.bin', sessionState: 'registered' as const, directState: 'GRANTED',
+      attemptId: 1, grant: { kind: 's3_put' as const, method: 'PUT' as const, url: 'https://store.example/imboy/mock-1',
+        headers: { 'Content-Type': 'application/octet-stream', 'x-amz-checksum-sha256': 'A'.repeat(43) + '=' }, expiresIn: 900 },
+      sessionDeadline: null, stateConfirmed: false,
     })
     spyOn(gateway.api, 'uploadAssetBytes').mockResolvedValue(undefined)
-    spyOn(gateway.api, 'confirmRecoveredAsset').mockImplementationOnce(() => pending.promise)
+    spyOn(gateway.api, 'confirmAssetUpload').mockImplementationOnce(() => pending.promise)
     const send = spyOn(gateway.api, 'sendMessage')
     const view = renderHook((grants: SeatContext[]) => {
       const scope = useSeatScopeSelection(grants)
@@ -113,7 +118,7 @@ describe('CX03 revocation — isolated mock/JSDOM, not browser/API/SQL acceptanc
       view.result.current.composer.attachFile(new File(['secret'], 'secret.txt'))
     })
     act(() => view.result.current.composer.send())
-    await waitFor(() => expect(gateway.api.confirmRecoveredAsset).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(gateway.api.confirmAssetUpload).toHaveBeenCalledTimes(1))
     act(() => {
       view.result.current.scope.selectOrganization(second.organizationId)
       view.result.current.scope.selectWorkspace(second.workspaces[0]!.id)
@@ -172,11 +177,13 @@ describe('CX03 revocation — isolated mock/JSDOM, not browser/API/SQL acceptanc
     const contextsSpy = spyOn(gateway.api, 'fetchContexts').mockResolvedValue(contexts)
     const send = spyOn(gateway.api, 'sendMessage').mockRejectedValue(new SeatApiError('conflict', '旧发送错误'))
     spyOn(gateway.api, 'registerAssetUpload').mockResolvedValue({
-    state: 'registered',
-      assetId: '6000000000000000006', uploadUrl: 'https://mock.invalid/put', uploadDescriptor: { kind: 'api_byte', method: 'PUT' }, uploadRef: null,
+      objectKey: 'eb/1/2/20260101/mock0001.bin', sessionState: 'registered' as const, directState: 'GRANTED',
+      attemptId: 1, grant: { kind: 's3_put' as const, method: 'PUT' as const, url: 'https://store.example/imboy/mock-1',
+        headers: { 'Content-Type': 'application/octet-stream', 'x-amz-checksum-sha256': 'A'.repeat(43) + '=' }, expiresIn: 900 },
+      sessionDeadline: null, stateConfirmed: false,
     })
     spyOn(gateway.api, 'uploadAssetBytes').mockResolvedValue(undefined)
-    spyOn(gateway.api, 'confirmRecoveredAsset').mockResolvedValue(undefined)
+    spyOn(gateway.api, 'confirmAssetUpload').mockResolvedValue({ assetId: '8100000000000000001' })
     const view = renderHook(() => {
       const grants = useSeatContexts()
       const scope = useSeatScopeSelection(grants.data)
@@ -379,7 +386,7 @@ describe('CX03 revocation — isolated mock/JSDOM, not browser/API/SQL acceptanc
     const contexts = await gateway.api.fetchContexts()
     const contextsSpy = spyOn(gateway.api, 'fetchContexts').mockResolvedValue(contexts)
     const pending = deferred<void>()
-    spyOn(gateway.api, 'confirmRecoveredAsset').mockImplementationOnce(() => pending.promise)
+    spyOn(gateway.api, 'confirmAssetUpload').mockImplementationOnce(() => pending.promise)
     const send = spyOn(gateway.api, 'sendMessage')
     const view = render(<QueryClientProvider client={queryClient}><SeatWorkspacePage gateway={gateway} /></QueryClientProvider>)
     fireEvent.click(await waitFor(() => view.getByTestId(`seat-session-item-${SESSION}`)))
@@ -388,7 +395,7 @@ describe('CX03 revocation — isolated mock/JSDOM, not browser/API/SQL acceptanc
     fireEvent.change(composer, { target: { value: 'page私密稿' } })
     fireEvent.change(view.getByTestId('seat-attach-input'), { target: { files: [new File(['x'], 'secret.txt')] } })
     fireEvent.click(view.getByTestId('seat-send'))
-    await waitFor(() => expect(gateway.api.confirmRecoveredAsset).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(gateway.api.confirmAssetUpload).toHaveBeenCalledTimes(1))
     contextsSpy.mockResolvedValue({ ...contexts, contexts: source === 'empty-contexts' ? [] : contexts.contexts.map((context) => source === 'disabled-seat'
       ? { ...context, seatEnabled: false }
       : { ...context, capabilities: context.capabilities.filter((capability) => capability !== 'conversation.write') }) })

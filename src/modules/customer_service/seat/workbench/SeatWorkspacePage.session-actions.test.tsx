@@ -1,4 +1,5 @@
-import '@/test/attachmentJournalFixture'
+import { installAttachmentLocksShim } from '@/test/attachmentJournalFixture'
+installAttachmentLocksShim()
 /**
  * REVIEW-4 F2/B-7：坐席工作台三 UI 入口页面级锁定——结束会话 / 转接 / 登出。
  *

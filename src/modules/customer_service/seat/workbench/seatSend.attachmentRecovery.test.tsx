@@ -1,4 +1,5 @@
-import '@/test/attachmentJournalFixture'
+import { installAttachmentLocksShim } from '@/test/attachmentJournalFixture'
+installAttachmentLocksShim()
 import { uploadJournal } from '@/lib/attachmentUploadJournal'
 import { blobSha256Hex } from './attachmentUpload'
 import '../../../../test/setupDom'
@@ -54,7 +55,7 @@ function harness() {
   const gateway = makeGateway(backend, new FakeSseStream())
   const presign = spyOn(gateway.api, 'registerAssetUpload')
   const upload = spyOn(gateway.api, 'uploadAssetBytes')
-  const confirm = spyOn(gateway.api, 'confirmRecoveredAsset')
+  const confirm = spyOn(gateway.api, 'confirmAssetUpload')
   const sendMessage = spyOn(gateway.api, 'sendMessage')
   const queryClient = new QueryClient({ defaultOptions: {
     queries: { retry: false, gcTime: Infinity }, mutations: { retry: false },
@@ -266,10 +267,15 @@ describe('CX03 attachment recovery — unit/mock transport/JSDOM only, not Requi
     const fileB = new File(['B'], fileA.name, { type: fileA.type, lastModified: 1 })
     const assetA = '8100000000000000001'
     const assetB = '8100000000000000002'
-    view.presign.mockResolvedValueOnce({ state: 'registered', assetId: assetA, uploadRef: 'ref-A', uploadUrl: 'https://upload.invalid/A', uploadDescriptor: { kind: 'api_byte', method: 'PUT' } })
-      .mockResolvedValueOnce({ state: 'registered', assetId: assetB, uploadRef: 'ref-B', uploadUrl: 'https://upload.invalid/B', uploadDescriptor: { kind: 'api_byte', method: 'PUT' } })
+    view.presign
+      .mockResolvedValueOnce({ objectKey: 'eb/1/2/20260101/aaaa0001.bin', sessionState: 'registered' as const, directState: 'GRANTED', attemptId: 1,
+        grant: { kind: 's3_put' as const, method: 'PUT' as const, url: 'https://store.example/imboy/A', headers: { 'x-amz-checksum-sha256': 'A'.repeat(43) + '=' }, expiresIn: 900 },
+        sessionDeadline: null, stateConfirmed: false })
+      .mockResolvedValueOnce({ objectKey: 'eb/1/2/20260101/bbbb0002.bin', sessionState: 'registered' as const, directState: 'GRANTED', attemptId: 1,
+        grant: { kind: 's3_put' as const, method: 'PUT' as const, url: 'https://store.example/imboy/B', headers: { 'x-amz-checksum-sha256': 'A'.repeat(43) + '=' }, expiresIn: 900 },
+        sessionDeadline: null, stateConfirmed: false })
     view.upload.mockResolvedValue(undefined)
-    view.confirm.mockResolvedValue(undefined)
+    view.confirm.mockResolvedValueOnce({ assetId: assetA }).mockResolvedValueOnce({ assetId: assetB })
     setDraft(view, 'A 答复', fileA)
     const originalA = await rejectSend(view, 429, 'rate_limited')
     view.rerender(scope)
@@ -300,7 +306,7 @@ describe('CX03 attachment recovery — unit/mock transport/JSDOM only, not Requi
       expect(view.sendMessage.mock.calls[index + 2]).toEqual([currentScope.orgId, CONV, original])
       expect(view.upload.mock.calls[index]![1]).toBe(file)
       expect(view.presign.mock.calls[index]!.slice(0, 3)).toEqual([currentScope.orgId, CONV, currentScope.workspaceId])
-      expect(view.confirm.mock.calls[index]).toEqual([currentScope.orgId, currentScope.workspaceId, index === 0 ? assetA : assetB, index === 0 ? 'ref-A' : 'ref-B'])
+      expect(view.confirm.mock.calls[index]).toEqual([currentScope.orgId, currentScope.workspaceId, index === 0 ? 'eb/1/2/20260101/aaaa0001.bin' : 'eb/1/2/20260101/bbbb0002.bin', 1])
       expectDraft(view, '', null)
       expectUploads(view, 2)
     }
@@ -402,12 +408,15 @@ for (const phase of ['intent', 'registered', 'uploaded'] as const) {
     const file = new File(['abc'], 'original.txt', { type: 'text/plain' })
     const assetId = '8100000000000000001'
     const journal = uploadJournal(['seat', '1000000000000000001', ORG, WS, IDENTITY, CONV], () => true)
+    const OWNED_KEY = 'eb/1/2/20260101/owned0001.bin'
     await journal.save({ clientUploadId, clientMsgId, assetId: phase === 'intent' ? null : assetId,
+      objectKey: phase === 'intent' ? null : OWNED_KEY,
       phase, dispatchState: 'ready', objectHash: await blobSha256Hex(file), sizeBytes: file.size, mime: file.type, updatedAt: Date.now() })
     const view = harness()
-    const recover = spyOn(view.api, 'recoverAssetUpload').mockResolvedValue({ assetId, state: 'registered', uploadRef: 'same-ref', uploadUrl: 'https://upload.invalid/owned', uploadDescriptor: { kind: 'api_byte', method: 'PUT' } })
+    const recover = spyOn(view.api, 'recoverAssetUpload').mockResolvedValue({ objectKey: OWNED_KEY, sessionState: 'registered' as const, directState: 'GRANTED', attemptId: 1, grant: { kind: 's3_put' as const, method: 'PUT' as const, url: 'https://store.example/imboy/owned', headers: { 'x-amz-checksum-sha256': 'A'.repeat(43) + '=' }, expiresIn: 900 }, sessionDeadline: null, stateConfirmed: false })
     view.upload.mockResolvedValue(undefined)
-    view.confirm.mockResolvedValue(undefined)
+    // V3-C04 direct：assetId 只能从 confirm 响应取得。
+    view.confirm.mockResolvedValue({ assetId })
     view.postOutcomes.push(response({ message: { id: '9000000000000000011', sender_type: 'business_identity' } }))
     await waitFor(() => expect(view.result.current.recoverableAttachments).toHaveLength(1))
     act(() => view.result.current.selectRecovery(view.result.current.recoverableAttachments[0]!))
@@ -419,10 +428,12 @@ for (const phase of ['intent', 'registered', 'uploaded'] as const) {
     })
     expect(view.sendMessage.mock.calls[0]![2].clientMsgId).toBe(clientMsgId)
     expect(view.dispatchCheckpoints[0]?.clientUploadId).toBe(clientUploadId)
-    expect(view.presign).toHaveBeenCalledTimes(0)
+    // direct：intent 行（object_key 未知）恢复 = 重新 register；registered/uploaded
+    // 行以 object_key 走 status/renew（recover），register 不重复。
+    expect(view.presign).toHaveBeenCalledTimes(phase === 'intent' ? 1 : 0)
     expect(view.upload).toHaveBeenCalledTimes(phase === 'uploaded' ? 0 : 1)
     expect(view.confirm).toHaveBeenCalledTimes(1)
-    expect(recover.mock.calls.every((call) => call[2] === clientUploadId)).toBe(true)
+    expect(recover.mock.calls.every((call) => call[2] === OWNED_KEY)).toBe(true)
   })
 }
 
@@ -546,13 +557,16 @@ it('seat_presign_response_lost: lost presign response persists intent and resume
   })
   expect(restarted.sendMessage).toHaveBeenCalledTimes(1)
   expect(restarted.sendMessage.mock.calls[0]![2].clientMsgId).toBe(intent.clientMsgId)
-  expect(restarted.presign).toHaveBeenCalledTimes(1) // register 只有最初 1 次
+  // V3-C04 direct：presign 响应丢失（object_key 未知）→ 恢复 = 同 UUID 重新
+  // register（最初 1 次 + 恢复 1 次；无 by-cid 回查），旧 RESERVED 行由 deadline GC 兜底。
+  expect(restarted.presign).toHaveBeenCalledTimes(2)
   expect(restarted.upload).toHaveBeenCalledTimes(1)
   expect(restarted.confirm).toHaveBeenCalledTimes(1)
   const presignBodies = restarted.transport.mock.calls
     .filter(([url]) => url.split('?')[0]!.endsWith('/assets/presign'))
     .map(([, init]) => JSON.parse(String(init?.body)) as Record<string, unknown>)
-  expect(presignBodies.map((body) => body.operation)).toEqual(['register', 'status', 'renew'])
+  // transport mock 跨会话共享计数：最初 register（响应丢失）+ 恢复 re-register。
+  expect(presignBodies.map((body) => body.operation)).toEqual(['register', 'register'])
   expect(presignBodies.every((body) => body.client_upload_id === intent.clientUploadId)).toBe(true)
   expect(restarted.dispatchCheckpoints[0]).toMatchObject({
     clientMsgId: intent.clientMsgId, clientUploadId: intent.clientUploadId, dispatchState: 'dispatch_intent',
@@ -577,7 +591,10 @@ it('seat_restart_before_put: restart between presign and PUT reuses the persiste
   expect(rows).toHaveLength(1)
   const registered = rows[0]!
   expect(registered.phase).toBe('registered')
-  expect(registered.assetId).not.toBeNull()
+  // V3-C04 direct：registered 行无预分配 assetId（bind active 后才有）；
+  // objectKey 是恢复定位键。
+  expect(registered.assetId).toBeNull()
+  expect(registered.objectKey).toMatch(/^eb\//)
   const uploadId = registered.clientUploadId
   expect(uploadId).toMatch(/^[0-9a-f-]{36}$/i)
   first.unmount()
@@ -602,7 +619,9 @@ it('seat_restart_before_put: restart between presign and PUT reuses the persiste
     .filter(([url]) => url.split('?')[0]!.endsWith('/assets/presign'))
     .map(([, init]) => JSON.parse(String(init?.body)) as Record<string, unknown>)
   expect(presignBodies.map((body) => body.operation)).toEqual(['register', 'status', 'renew'])
-  expect(presignBodies.every((body) => body.client_upload_id === uploadId)).toBe(true)
+  expect(presignBodies[0]!.client_upload_id).toBe(uploadId)
+  expect(presignBodies[1]!.object_key).toBe(registered.objectKey)
+  expect(presignBodies[2]!.object_key).toBe(registered.objectKey)
   expect(restarted.sendMessage).toHaveBeenCalledTimes(1)
   expect(restarted.sendMessage.mock.calls[0]![2].clientMsgId).toBe(registered.clientMsgId)
   expect(journal.list()).toHaveLength(0)
@@ -613,8 +632,8 @@ it('seat_expired_capability_resume: expired capability resumes with a fresh pres
   const file = new File(['expired-capability-bytes'], 'expired-capability.txt', { type: 'text/plain' })
   const objectHash = await blobSha256Hex(file)
   const journal = uploadJournal(['seat', '1000000000000000001', ORG, WS, IDENTITY, CONV], () => true)
-  // 持久化 intent（原 presign 能力已过期：服务端会话不复存在）。
-  await journal.save({ clientUploadId, clientMsgId, assetId: null, phase: 'intent', dispatchState: 'ready',
+  // 持久化 intent（原 presign 能力已过期：服务端会话不复存在；object_key 未知）。
+  await journal.save({ clientUploadId, clientMsgId, assetId: null, objectKey: null, phase: 'intent', dispatchState: 'ready',
     objectHash, sizeBytes: file.size, mime: file.type, updatedAt: Date.now() })
   const view = harness()
   await waitFor(() => expect(view.result.current.recoverableAttachments).toHaveLength(1))
@@ -634,8 +653,11 @@ it('seat_expired_capability_resume: expired capability resumes with a fresh pres
   const presignBodies = view.transport.mock.calls
     .filter(([url]) => url.split('?')[0]!.endsWith('/assets/presign'))
     .map(([, init]) => JSON.parse(String(init?.body)) as Record<string, unknown>)
-  expect(presignBodies.map((body) => body.operation)).toEqual(['status', 'register', 'renew'])
-  expect(presignBodies.every((body) => body.client_upload_id === clientUploadId)).toBe(true)
+  // V3-C04 direct：intent（object_key 未知）恢复 = 同 UUID 重新 register（无 by-cid
+  // 回查，旧 RESERVED 行由 deadline GC 兜底）；新会话自带 grant，无 status/renew。
+  expect(presignBodies.map((body) => body.operation)).toEqual(['register'])
+  expect(presignBodies[0]!.client_upload_id).toBe(clientUploadId)
+  expect(presignBodies[0]!.object_hash).toBe(objectHash)
   expect(view.upload).toHaveBeenCalledTimes(1)
   expect(view.confirm).toHaveBeenCalledTimes(1)
   expect(view.sendMessage).toHaveBeenCalledTimes(1)
