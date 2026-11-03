@@ -29,12 +29,12 @@ import {
   toBootstrapResult,
   toCreatedSession,
   toMessageList,
-  toPresignResult,
+  toAssetConfirmResult,
   toSessionList,
   toWidgetMessage,
   WIDGET_API_BASE,
   type BootstrapResult,
-  type PresignResult,
+  type AssetConfirmResult,
   type RequestScope,
   type WidgetMessage,
   type WidgetSession,
@@ -209,16 +209,19 @@ export class WidgetApiClient {
   // FE-W01：附件面（presign → 裸 PUT → confirm → 消息 asset_ids；下载走代理）
   // -------------------------------------------------------------------------
 
-  /** POST /sessions/:id/assets/presign（widget_asset_upload 逐键：mime +
-   * size_bytes + object_hash）。响应 = 不透明 upload_ref（+ 可选裸 PUT url）。 */
-  async recoverAttachment(sessionId: string, scope: RequestScope, clientUploadId: string, operation: 'status' | 'renew') {
+  /** POST /sessions/:id/assets/presign（operation=status|renew）：V3-C04 direct
+   * 会话以 object_key 寻址（client_upload_id 只是登记幂等键）。 */
+  async recoverAttachment(sessionId: string, scope: RequestScope, objectKey: string, operation: 'status' | 'renew') {
     return parseUploadSession(await this.requestJson(
       `${WIDGET_API_BASE}/sessions/${encodeURIComponent(sessionId)}/assets/presign`,
       { method: 'POST', body: JSON.stringify({ installation_id: scope.installationId,
-        client_upload_id: clientUploadId, operation }) },
+        object_key: objectKey, operation }) },
     ))
   }
 
+  /** POST /sessions/:id/assets/presign（operation=register）：dv1 descriptor
+   * {object_key, attempt_id, upload{s3_put,url,required_headers,expires_in}}；
+   * 响应无 asset_id/upload_ref（bind active 后才落资产行）。 */
   async registerAttachment(sessionId: string, scope: RequestScope,
     file: { mime: string; sizeBytes: number; objectHash: string; clientUploadId: string }) {
     return parseUploadSession(await this.requestJson(
@@ -228,34 +231,21 @@ export class WidgetApiClient {
     ))
   }
 
-  async confirmRecoveredAttachment(sessionId: string, scope: RequestScope, assetId: string, uploadRef: string | null) {
-    await this.requestJson(`${WIDGET_API_BASE}/sessions/${encodeURIComponent(sessionId)}/assets/confirm`, {
-      method: 'POST', body: JSON.stringify({ installation_id: scope.installationId, asset_id: assetId,
-        ...(uploadRef === null ? {} : { upload_ref: uploadRef }) }),
-    })
-  }
-
-  async presignAttachment(
+  /** POST /sessions/:id/assets/confirm（V3-C04 direct：object_key + attempt_id?）。
+   * finalize→Worker 校验→bind active 后响应 public_asset_view（asset_id）；
+   * CONFIRMED 重放幂等回读同一行（响应丢失恢复）。异常原样抛出
+   * （WidgetApiError.status 透传）。 */
+  async confirmAttachment(
     sessionId: string,
     scope: RequestScope,
-    file: { mime: string; sizeBytes: number; objectHash: string }
-  ): Promise<PresignResult> {
+    objectKey: string,
+    attemptId: number | null
+  ): Promise<AssetConfirmResult> {
     const payload = await this.requestJson(
-      `${WIDGET_API_BASE}/sessions/${encodeURIComponent(sessionId)}/assets/presign`,
-      { method: 'POST', body: JSON.stringify(buildPresignBody(scope, file)) }
-    )
-    const result = toPresignResult(payload)
-    if (result === null) throw new WidgetApiError('presign 响应形状非法（缺 asset_id/upload_ref）', 502)
-    return result
-  }
-
-  /** POST /sessions/:id/assets/confirm（widget_asset_confirm 逐键：upload_ref）。
-   * 重复 confirm 409 不伪成功——异常原样抛出（WidgetApiError.status = 409）。 */
-  async confirmAttachment(sessionId: string, scope: RequestScope, uploadRef: string): Promise<void> {
-    await this.requestJson(
       `${WIDGET_API_BASE}/sessions/${encodeURIComponent(sessionId)}/assets/confirm`,
-      { method: 'POST', body: JSON.stringify(buildConfirmBody(scope, uploadRef)) }
+      { method: 'POST', body: JSON.stringify(buildConfirmBody(scope, objectKey, attemptId)) }
     )
+    return toAssetConfirmResult(payload)
   }
 
   /** GET /sessions/:id/assets/:asset_id/content（授权内容代理）：

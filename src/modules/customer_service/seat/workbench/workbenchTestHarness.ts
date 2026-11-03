@@ -254,6 +254,22 @@ function customerContextText(sessionId: string, state: SeatFakeBackendState): st
 }
 
 /** 假后端：按冻结动作表回包；记录调用供断言（权威刷新次数等）。 */
+
+/** C04 direct grant（镜像 attach_direct_logic:descriptor）：s3_put + 签名头。 */
+function directGrant(objectKey: string, attemptId: number): Record<string, unknown> {
+  return {
+    transport: 's3_put',
+    method: 'PUT',
+    // 镜像真实 Garage presigned PUT：key 路径不编码 + SigV4 查询签名。
+    url: `https://store.example/imboy/${objectKey}?X-Amz-Signature=sig-${attemptId}`,
+    required_headers: [
+      { key: 'Content-Type', value: 'application/octet-stream' },
+      { key: 'x-amz-checksum-sha256', value: 'A'.repeat(43) + '=' },
+    ],
+    expires_in: 900,
+  }
+}
+
 export class SeatFakeBackend {
   heartbeatCalls = 0
   ackCalls = 0
@@ -269,11 +285,12 @@ export class SeatFakeBackend {
   assetContentFetchCount = 0
   sentClientMsgIds: string[] = []
   /** CS-WEB-02：上传/发送观测（顺序与重试不重复上传断言的唯一事实源）。 */
-  private readonly uploadSessions = new Map<string, { assetId: string; uploadRef: string; uploadUrl: string | null }>()
+  private readonly uploadSessions = new Map<string, { objectKey: string; attemptId: number; assetId: string }>()
+  private objectKeyCounter = 0
   presignCount = 0
   uploadPutCount = 0
   confirmCount = 0
-  confirmedUploadRefs: string[] = []
+  confirmedObjectKeys: string[] = []
   sentBodies: Array<string | null> = []
   sentAssetIds: string[][] = []
   /** 每次 presign 请求体（断言冻结字段）。 */
@@ -461,12 +478,20 @@ export class SeatFakeBackend {
     if (path === `/api/v1/seat/enterprise/organizations/${ORG}/assets/presign` && method === 'POST') {
       const parsed = JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>
       this.presignRequests.push(parsed)
+      // V3-C04 direct：status/renew 以 object_key 寻址（client_upload_id 只是登记幂等键）。
       if (parsed.operation === 'status' || parsed.operation === 'renew') {
-        const row = this.uploadSessions.get(String(parsed.client_upload_id))
+        const row = [...this.uploadSessions.values()].find((r) => r.objectKey === parsed.object_key)
         if (!row || parsed.workspace_id !== WS) return new Response('{"code":404,"payload":{}}', { status: 404 })
-        const confirmed = this.confirmedUploadRefs.includes(row.uploadRef)
-        return ok(JSON.stringify({ asset_id: row.assetId, session_state: confirmed ? 'confirmed' : 'registered',
-          ...(parsed.operation === 'renew' && !confirmed ? { upload_ref: row.uploadRef, upload: { url: row.uploadUrl, descriptor: { kind: 'api_byte', method: 'PUT' } } } : {}) }))
+        const confirmed = this.confirmedObjectKeys.includes(row.objectKey)
+        if (confirmed || parsed.operation === 'status') {
+          return ok(JSON.stringify({ object_key: row.objectKey, session_state: confirmed ? 'confirmed' : 'registered',
+            direct_state: confirmed ? 'CONFIRMED' : 'GRANTED', ...(confirmed ? { state_confirmed: true } : {}) }))
+        }
+        // renew：新 attempt + 新 staging descriptor（grant 必下发）。
+        this.objectKeyCounter += 1
+        row.attemptId += 1
+        return ok(JSON.stringify({ object_key: row.objectKey, session_state: 'registered', direct_state: 'GRANTED',
+          attempt_id: row.attemptId, upload: directGrant(row.objectKey, row.attemptId) }))
       }
 
       if (
@@ -487,56 +512,60 @@ export class SeatFakeBackend {
         return serverError()
       }
       this.presignCount += 1
-      const uploadRef = `ur-${this.presignCount}`
+      this.objectKeyCounter += 1
+      const attemptId = 1
       const assetId = (8100000000000000000n + BigInt(this.presignCount)).toString()
-      const uploadUrl = this.state.presignOmitUploadUrl
-        ? null
-        : `/api/v1/seat/enterprise/organizations/${ORG}/assets/upload/${this.presignCount}`
-      if (typeof parsed.client_upload_id === 'string') this.uploadSessions.set(parsed.client_upload_id, { assetId, uploadRef, uploadUrl })
-      // 镜像 eb_asset_app:presign_view + widget BE-PATCH-01 的 upload.url 投影。
-      // V3-16：与真实 backend（eb_enterprise_http:with_seat_upload_url）同构，
-      // 权威下发显式 descriptor（api_byte=本 API 域字节端点，带 Bearer）。
-      const uploadText =
-        uploadUrl === null
-          ? '{"method":"PUT","token":"opaque","expires_at":1759000000,"adapter":"local_private_object_store","rule":"opaque_token_no_url_no_object_key"}'
-          : `{"method":"PUT","url":"${uploadUrl}","token":"opaque","expires_at":1759000000,"adapter":"local_private_object_store","rule":"opaque_token_no_url_no_object_key","descriptor":{"kind":"api_byte","method":"PUT"}}`
+      // C04 direct：会话定位键（eb/<org>/<ws>/<ymd>/<hex>）——客户端 confirm/status/renew 寻址。
+      const objectKey = `eb/${ORG}/${WS}/20260101/${(this.objectKeyCounter).toString(16).padStart(8, '0')}.bin`
+      if (typeof parsed.client_upload_id === 'string') {
+        this.uploadSessions.set(parsed.client_upload_id, { objectKey, attemptId, assetId })
+      }
+      // 镜像 eb_asset_app:presign_direct_view（S3-only）：grant 权威下发
+      // {transport=s3_put, url, required_headers}；无 asset_id/upload_ref。
+      // presignOmitUploadUrl → 无 upload 块（部署异常形态，编排 fail-closed）。
+      const uploadText = this.state.presignOmitUploadUrl
+        ? ''
+        : `,"upload":${JSON.stringify(directGrant(objectKey, attemptId))}`
       return ok(
-        `{"session_state":"registered","asset_id":${assetId},"upload_ref":"${uploadRef}","object_hash":"${parsed.object_hash}","mime":"${parsed.mime}",` +
-          `"size_bytes":${parsed.size_bytes},"file_name":null,"retain_until":null,"expires_at":1759000000,"upload":${uploadText}}`,
+        `{"object_key":"${objectKey}","session_state":"GRANTED","attempt_id":${attemptId},"object_hash":"${parsed.object_hash}","mime":"${parsed.mime}",` +
+          `"size_bytes":${parsed.size_bytes},"file_name":null,"session_deadline":1790312400000${uploadText}}`,
       )
     }
-    // CS-WEB-02：裸 PUT 上传目标（presign 下发的 upload.url；同源相对路径形态）。
-    // 只带 Content-Type / 无 Authorization——无 token 断言在本端点核对。
-    if (method === 'PUT' && /^\/api\/v1\/seat\/enterprise\/organizations\/[^/]+\/assets\/upload\/\d+$/.test(path)) {
+    // CS-WEB-02/V3-C04：裸 PUT 上传目标（grant 权威下发，S3 形态绝对 URL）。
+    // 只带 required_headers 签名头；Authorization/Cookie 绝不出现（无凭据断言）。
+    if (method === 'PUT' && path.startsWith('https://store.example/imboy/')) {
       if (this.state.uploadPutFailuresLeft > 0) {
         this.state.uploadPutFailuresLeft -= 1
         return serverError()
       }
       this.uploadPutCount += 1
-      // V3-16：api_byte 端点镜像真实 Seat 认证门（同源 Bearer 必带；
-      // 对象存储 s3_put 形态的"无凭据"断言在 seatApiClient.test 锁定）。
-      if (typeof headers?.Authorization !== 'string' || !headers.Authorization.startsWith('Bearer ')) {
-        throw new Error('api_byte upload PUT must carry Bearer')
+      if (typeof headers?.Authorization === 'string') {
+        throw new Error('s3_put upload must not carry Authorization')
+      }
+      if (typeof headers?.['x-amz-checksum-sha256'] !== 'string') {
+        throw new Error('s3_put upload must carry checksum header')
       }
       return new Response('', { status: 200 })
     }
     // CS-WEB-02：附件 confirm（imboy_router.erl:1796，confirm_asset）。
     if (path === `/api/v1/seat/enterprise/organizations/${ORG}/assets/confirm` && method === 'POST') {
-      const parsed = JSON.parse(String(init?.body ?? '{}')) as { upload_ref?: string; workspace_id?: string }
-      if (typeof parsed.upload_ref !== 'string' || parsed.upload_ref.length === 0 || parsed.workspace_id !== WS) {
+      const parsed = JSON.parse(String(init?.body ?? '{}')) as { object_key?: string; workspace_id?: string }
+      if (typeof parsed.object_key !== 'string' || parsed.object_key.length === 0 || parsed.workspace_id !== WS) {
         return new Response('{"code":422,"msg":"invalid confirm arguments","payload":{}}', { status: 422 })
       }
       if (this.state.confirmFailuresLeft > 0) {
         this.state.confirmFailuresLeft -= 1
         return serverError()
       }
-      // 重复 confirm 同 ref → 409（不伪成功）。
-      if (this.confirmedUploadRefs.includes(parsed.upload_ref)) {
-        return new Response('{"code":409,"msg":"asset already confirmed","payload":{}}', { status: 409 })
+      const row = [...this.uploadSessions.values()].find((r) => r.objectKey === parsed.object_key)
+      if (!row) return new Response('{"code":404,"msg":"not found","payload":{}}', { status: 404 })
+      // V3-C04 bind_direct 幂等：重复 confirm 回读同一 active 行（C04-03 无重复引用）。
+      if (this.confirmedObjectKeys.includes(parsed.object_key)) {
+        return ok(`{"asset_id":${row.assetId},"status":"active"}`)
       }
       this.confirmCount += 1
-      this.confirmedUploadRefs.push(parsed.upload_ref)
-      return ok('{"asset_id":0,"status":"active"}')
+      this.confirmedObjectKeys.push(parsed.object_key)
+      return ok(`{"asset_id":${row.assetId},"status":"active"}`)
     }
     if (path === `/api/v1/seat/cs/organizations/${ORG}/transfer-targets`) return ok(TRANSFER_TARGETS_TEXT)
     // CS-WEB-01：真实 enterprise content 端点（imboy_router.erl:1803）：

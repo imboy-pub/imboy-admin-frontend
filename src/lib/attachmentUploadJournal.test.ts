@@ -1,8 +1,39 @@
-import '@/test/attachmentJournalFixture'
-import { describe, expect, it } from 'bun:test'
-import { parseUploadSession, resumeUpload, uploadJournal, type UploadSession } from './attachmentUploadJournal'
+import { installAttachmentLocksShim } from '@/test/attachmentJournalFixture'
+installAttachmentLocksShim()
+import { afterAll, describe, expect, it } from 'bun:test'
+import { parseUploadSession, resumeUpload, uploadJournal, type DirectUploadGrant, type UploadSession } from './attachmentUploadJournal'
 
+// journal key 的读取顺序是 globalThis.location?.origin 优先；bun 单进程连跑全部
+// 测试文件，此处 define 的假 location 若不恢复会泄漏给后续 JSDOM 环境的测试文件
+// （如 seatSend.attachmentRecovery），破坏其 location.href 依赖。
+const ORIGINAL_LOCATION_DESCRIPTOR = Object.getOwnPropertyDescriptor(globalThis, 'location')
 Object.defineProperty(globalThis, 'location', { configurable: true, value: { origin: 'https://admin.example' } })
+afterAll(() => {
+  if (ORIGINAL_LOCATION_DESCRIPTOR) {
+    Object.defineProperty(globalThis, 'location', ORIGINAL_LOCATION_DESCRIPTOR)
+  } else {
+    delete (globalThis as { location?: unknown }).location
+  }
+})
+
+const CHECKSUM = 'A'.repeat(43) + '='
+const OBJECT_KEY = 'eb/1/2/20260101/aabbccdd.txt'
+
+function wireGrant(url: string, extra: Record<string, string> = {}): Record<string, unknown> {
+  return {
+    transport: 's3_put', method: 'PUT', url,
+    required_headers: [
+      { key: 'Content-Type', value: 'text/plain' },
+      { key: 'x-amz-checksum-sha256', value: CHECKSUM },
+      ...Object.entries(extra).map(([key, value]) => ({ key, value })),
+    ],
+    expires_in: 900,
+  }
+}
+
+function grantFixture(url = 'https://store.example/secret'): DirectUploadGrant {
+  return { kind: 's3_put', method: 'PUT', url, headers: { 'Content-Type': 'text/plain', 'x-amz-checksum-sha256': CHECKSUM }, expiresIn: 900 }
+}
 
 function fixture() {
   const data = new Map<string, string>()
@@ -13,59 +44,66 @@ function fixture() {
   const file = new Blob(['abc'], { type: 'text/plain' })
   const hash = 'a'.repeat(64)
   const events: string[] = []
-  const session: UploadSession = { assetId: '8100000000000000001', state: 'registered', uploadRef: 'secret-ref', uploadUrl: 'https://store.example/secret',
-    uploadDescriptor: { kind: 's3_put', method: 'PUT', headers: { 'Content-Type': 'text/plain', 'x-amz-checksum-sha256': 'A'.repeat(43) + '=' } } }
+  const session: UploadSession = { objectKey: OBJECT_KEY, sessionState: 'registered', directState: 'GRANTED',
+    attemptId: 1, grant: grantFixture(), sessionDeadline: null, stateConfirmed: false }
   const input = { journal, file, hash, clientMsgId: 'stable-message', isCurrent: () => current,
     register: async (id: string) => { events.push(`register:${id}`); return session },
     status: async () => { events.push('status'); return session },
     renew: async () => { events.push('renew'); return session },
-    put: async () => { events.push('put') }, confirm: async () => { events.push('confirm') } }
+    put: async () => { events.push('put') },
+    confirm: async () => { events.push('confirm'); return { assetId: '8100000000000000001' } } }
   return { data, storage, journal, input, events, session, revoke: () => { current = false } }
 }
 
 describe('durable attachment journal', () => {
-  for (const descriptor of [
-    { kind: 's3_put', method: 'POST' },
-    { kind: 's3_put', method: 'PUT', headers: {} },
-    ...['Authorization', 'Cookie', 'x-oa-signature'].map((name) => ({ kind: 's3_put', method: 'PUT', headers: {
-      'Content-Type': 'text/plain', 'x-amz-checksum-sha256': 'A'.repeat(43) + '=', [name]: 'secret',
-    } })),
-  ]) {
-    it(`会话解析拒绝非法 S3 描述符 ${JSON.stringify(descriptor)}`, () => {
-      expect(() => parseUploadSession({ asset_id: '12', session_state: 'registered', upload: {
-        url: 'https://store.example/put', descriptor,
-      } })).toThrow()
+  for (const [label, upload] of [
+    ['method 非 PUT', { transport: 's3_put', method: 'POST', url: 'https://store.example/put', required_headers: [{ key: 'x-amz-checksum-sha256', value: CHECKSUM }] }],
+    ['缺 checksum 签名头', { transport: 's3_put', method: 'PUT', url: 'https://store.example/put', required_headers: [{ key: 'Content-Type', value: 'text/plain' }] }],
+    ['注入 Authorization', wireGrant('https://store.example/put', { Authorization: 'secret' })],
+    ['注入 Cookie', wireGrant('https://store.example/put', { Cookie: 'secret' })],
+    ['transport 非 s3_put', { transport: 'api_byte', method: 'PUT', url: 'https://store.example/put', required_headers: [{ key: 'x-amz-checksum-sha256', value: CHECKSUM }] }],
+    ['目标非 https', wireGrant('http://evil.example/put')],
+  ] as const) {
+    it(`会话解析拒绝非法上传目标：${label}`, () => {
+      expect(() => parseUploadSession({ object_key: OBJECT_KEY, session_state: 'registered', upload })).toThrow()
     })
   }
 
-  it('renew 的 URL 与 descriptor 成对传给 PUT，不复用 status 签名头', async () => {
+  it('renew 换新 grant 成对传给 PUT，不复用 status 目标', async () => {
     const f = fixture()
-    await expect(resumeUpload({ ...f.input, register: async () => { throw new Error('response lost') } })).rejects.toThrow()
-    const descriptor = { ...f.session.uploadDescriptor!, kind: 's3_put', method: 'PUT', headers: {
-      'content-type': 'application/renewed', 'x-amz-checksum-sha256': 'A'.repeat(43) + '=',
-    } } as const
-    const puts: unknown[] = []
-    await resumeUpload({ ...f.input, renew: async () => ({ ...f.session, uploadUrl: 'https://store.example/renewed', uploadDescriptor: descriptor }),
-      put: async (url, value) => { puts.push([url, value]) } })
-    expect(puts).toEqual([['https://store.example/renewed', descriptor]])
+    // 先建立已落 objectKey 的 registered 行（PUT 中断），再恢复 → renew 换新 attempt。
+    await expect(resumeUpload({ ...f.input, put: async () => { throw new Error('restart') } })).rejects.toThrow()
+    const renewed: UploadSession = { ...f.session, grant: grantFixture('https://store.example/renewed'), attemptId: 2 }
+    const puts: DirectUploadGrant[] = []
+    f.events.length = 0
+    await resumeUpload({ ...f.input,
+      status: async () => { f.events.push('status'); return f.session },
+      renew: async () => { f.events.push('renew'); return renewed },
+      put: async (grant) => { f.events.push('put'); puts.push(grant) },
+      confirm: async () => { f.events.push('confirm'); return { assetId: '8100000000000000001' } } })
+    expect(puts).toEqual([grantFixture('https://store.example/renewed')])
+    expect(f.events).toEqual(['status', 'renew', 'put', 'confirm'])
   })
-
   it('checkpoints precede every next remote step and never persist credentials', async () => {
     const f = fixture()
     const row = await resumeUpload({ ...f.input, onCheckpoint: async (value) => { f.events.push(value.phase) } })
     expect(f.events.map((v) => v.startsWith('register:') ? 'register' : v)).toEqual([
-      'intent', 'register', 'registered', 'put', 'uploaded', 'confirm', 'confirmed',
+      'intent', 'register', 'intent', 'registered', 'put', 'uploaded', 'confirm', 'confirmed',
     ])
     expect(row.phase).toBe('confirmed')
+    expect(row.objectKey).toBe(OBJECT_KEY)
     expect([...f.data.values()].join('')).not.toContain('secret')
   })
-  it('lost register response recovers same UUID through status and renew, never new registration', async () => {
+  it('register 响应丢失（object_key 未知）→ 同 UUID 重新登记新会话', async () => {
     const f = fixture()
     await expect(resumeUpload({ ...f.input, register: async () => { throw new Error('response lost') } })).rejects.toThrow()
     const id = f.journal.load('stable-message')!.clientUploadId
+    f.events.length = 0
     const row = await resumeUpload(f.input)
     expect(row.clientUploadId).toBe(id)
-    expect(f.events).toEqual(['status', 'renew', 'put', 'confirm'])
+    // direct 协议无 by-cid 回查：重新 register（新 objectKey），旧 RESERVED 行由 deadline GC 兜底。
+    expect(f.events.map((v) => (v.startsWith('register:') ? 'register' : v))).toEqual(['register', 'put', 'confirm'])
+    expect(row.objectKey).toBe(OBJECT_KEY)
   })
   it('storage denial stops before register', async () => {
     const f = fixture()
@@ -87,12 +125,12 @@ describe('durable attachment journal', () => {
     await resumeUpload(f.input)
     expect(f.events).toEqual(['status', 'confirm'])
   })
-  it('confirmed status wins over local registered phase', async () => {
+  it('confirmed status wins over local registered phase（幂等重放回读 assetId）', async () => {
     const f = fixture()
     await expect(resumeUpload({ ...f.input, put: async () => { throw new Error('stopped') } })).rejects.toThrow()
     f.events.length = 0
-    await resumeUpload({ ...f.input, status: async () => ({ ...f.session, state: 'confirmed' }) })
-    expect(f.events).toEqual([])
+    await resumeUpload({ ...f.input, status: async () => { f.events.push('status'); return { ...f.session, sessionState: 'confirmed' } } })
+    expect(f.events).toEqual(['status', 'confirm'])
     expect(f.journal.load('stable-message')!.phase).toBe('confirmed')
   })
   it('late account callback cannot mutate journal or start PUT', async () => {
@@ -113,16 +151,25 @@ describe('durable attachment journal', () => {
     expect(uploadJournal(['seat', 'user-b', 'ws-a', 'conversation'], () => true, f.storage).load('stable-message')).toBeNull()
     expect(uploadJournal(['seat', 'user-a', 'ws-b', 'conversation'], () => true, f.storage).load('stable-message')).toBeNull()
   })
-  it('renew missing same-asset upload target fails closed', async () => {
+  it('renew 未返回有效上传目标 fail-closed', async () => {
     const f = fixture()
     await expect(resumeUpload({ ...f.input, put: async () => { throw new Error('restart') } })).rejects.toThrow()
     f.events.length = 0
-    await expect(resumeUpload({ ...f.input, renew: async () => ({ ...f.session, uploadUrl: null }) })).rejects.toThrow('目标')
-    expect(f.events).toEqual(['status'])
+    await expect(resumeUpload({ ...f.input, renew: async () => { f.events.push('renew'); return { ...f.session, grant: null } } })).rejects.toThrow('目标')
+    expect(f.events).toEqual(['status', 'renew'])
   })
-  it('unknown state is never assumed confirmed and unsafe targets are discarded', () => {
-    expect(() => parseUploadSession({ asset_id: '12', session_state: 'unknown' })).toThrow()
-    expect(parseUploadSession({ asset_id: '12', session_state: 'registered', upload: { url: 'http://evil.example' } }).uploadUrl).toBeNull()
+  it('未知会话状态绝不当作 confirmed；定位键非法即拒绝', () => {
+    expect(() => parseUploadSession({ object_key: OBJECT_KEY, session_state: 'unknown' })).toThrow()
+    expect(() => parseUploadSession({ object_key: '', session_state: 'registered' })).toThrow()
+    expect(() => parseUploadSession({ object_key: '../escape', session_state: 'registered' })).toThrow()
+  })
+  it('presign 视图 GRANTED 归一为 registered；renew CONFIRMED 幂等投影 state_confirmed', () => {
+    const presign = parseUploadSession({ object_key: OBJECT_KEY, session_state: 'GRANTED', attempt_id: 1, upload: wireGrant('https://store.example/put') })
+    expect(presign.sessionState).toBe('registered')
+    expect(presign.grant?.url).toBe('https://store.example/put')
+    const confirmed = parseUploadSession({ object_key: OBJECT_KEY, session_state: 'registered', direct_state: 'CONFIRMED', state_confirmed: true })
+    expect(confirmed.stateConfirmed).toBe(true)
+    expect(confirmed.grant).toBeNull()
   })
   it('same bytes in a new task allocate distinct IDs rather than inheriting the old message', async () => {
     const f = fixture()
@@ -146,6 +193,12 @@ describe('durable attachment journal', () => {
     const row = await resumeUpload(f.input)
     await expect(f.journal.save({ ...row, clientUploadId: crypto.randomUUID() })).rejects.toThrow('身份冲突')
     expect(f.journal.load(row.clientMsgId)?.clientUploadId).toBe(row.clientUploadId)
+  })
+  it('objectKey 一旦落定不可变更（跨会话漂移拒绝）', async () => {
+    const f = fixture()
+    const row = await resumeUpload(f.input)
+    await expect(f.journal.save({ ...row, objectKey: 'eb/9/9/20300101/other.txt' })).rejects.toThrow('身份冲突')
+    expect(f.journal.load(row.clientMsgId)?.objectKey).toBe(OBJECT_KEY)
   })
 
   it('unavailable browser task lock blocks before register', async () => {

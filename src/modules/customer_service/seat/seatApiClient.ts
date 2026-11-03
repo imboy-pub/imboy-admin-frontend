@@ -113,17 +113,15 @@ type SeatBlobRequestOptions = {
   query?: Record<string, string>
 }
 
-/** V3-16：显式上传 descriptor——服务端 presign 视图权威下发（upload.descriptor）。
- * 消费方按 kind 分流，禁止按 URL 外观或 upload_ref 猜传输类型（S3-only 合同 §2）。
- * - s3_put：对象存储直传（只发 descriptor.headers；
- *   Authorization/Cookie/Seat Bearer 绝不出 Seat 域到对象存储）。
- * - api_byte：imboy API 域字节上传端点（同源门 + Bearer；V3-20 将切换 s3_put）。 */
+/** V3-C04 direct：上传 grant——服务端 presign/renew 权威下发（S3-only：
+ * api_byte/同源鉴权正文通道已退役）。只发 grant.headers 签名头；
+ * Authorization/Cookie/Seat Bearer 绝不出 Seat 域到对象存储（请求捕获可证）。 */
 export type SeatUploadDescriptor = SeatUploadSessionDescriptor
 
-/** CS-WEB-02：裸 PUT 上传选项（presign 下发的 upload.url + 显式 descriptor）。 */
+/** CS-WEB-02：裸 PUT 上传选项（grant 权威下发的 url + 签名头）。 */
 type SeatUploadPutOptions = {
   signal?: AbortSignal
-  descriptor: SeatUploadDescriptor
+  grant: SeatUploadDescriptor
 }
 
 /**
@@ -257,47 +255,35 @@ export class SeatApiClient {
   }
 
   /**
-   * CS-WEB-02：裸 PUT 上传通道（presign 响应 `upload.url` 的专用出口）。
-   * 与 JSON/内容通道的三点差异（widget uploader 同款纪律）：
-   * - URL 是服务端 presign 权威下发的上传目标，**不经 Seat 域路径门**
-   *   （可能同源相对路径或 http(s) 绝对地址）；协议白名单 http/https + 相对
-   *   路径，其余（javascript:/data:…）发请求前直接抛错；
-   * - Content-Type: application/octet-stream，credentials: 'omit'（Admin
-   *   Cookie 绝不出 Seat 域）；Authorization 按目标形态裁决（见
-   *   uploadTargetUsesUploadRef——imboy API 域字节上传带 Bearer，第三方
-   *   对象存储预签形态维持裸 PUT）；
+   * CS-WEB-02/V3-C04 direct：裸 PUT 上传通道（grant.url 权威目标）。
+   * 纪律（与 widget uploader 同款）：
+   * - URL/签名头全部来自服务端 grant 权威下发，调用方传参必须逐字一致
+   *   （grant.url !== url 即拒——防错配/降级重定向）；
+   * - credentials: 'omit'（Admin Cookie 绝不出域）+ 零 Authorization
+   *   （签名已在 required_headers，请求捕获可证无业务凭据发往 S3）；
    * - 非 2xx：优先读 JSON 信封 code（有则按码位分类），否则按 HTTP 状态；
-   *   错误 message 不含 URL/响应体（upload 引用不进日志）。
+   *   错误 message 不含 URL/响应体（存储引用不进日志）。
    */
   async putUploadObject(url: string, blob: Blob, options: SeatUploadPutOptions): Promise<void> {
     assertUploadTargetUrl(url)
-    let descriptor: SeatUploadDescriptor
+    let grant: SeatUploadDescriptor
     try {
-      descriptor = parseUploadDescriptor(options?.descriptor)
-      if (descriptor.kind === 's3_put') assertS3UploadTarget(url)
-    } catch {
-      throw new SeatApiError('validation', 'seat upload descriptor or target invalid')
+      grant = parseUploadDescriptor(options?.grant)
+      assertS3UploadTarget(url)
+    } catch (error: unknown) {
+      if (error instanceof TypeError) throw error
+      throw new SeatApiError('validation', 'seat upload grant or target invalid')
     }
-    const headers: Record<string, string> = descriptor.kind === 's3_put'
-      ? { ...descriptor.headers } : { 'Content-Type': 'application/octet-stream' }
-    if (descriptor.kind === 'api_byte') {
-      // 显式 api_byte：imboy API 域端点。类型权威是 descriptor（非 URL 外观）；
-      // 同源防御门只保证 Bearer 不出 API 域（路径形态由服务端签发权威性保证）。
-      const origin = globalThis.location?.origin ?? 'http://seat.api.invalid'
-      const target = new URL(url, origin)
-      const api = new URL(this.baseUrl, origin)
-      if (target.origin !== api.origin) {
-        throw new SeatApiError('validation', 'seat authenticated upload target outside console domain')
-      }
-      const token = this.getToken()
-      if (token !== null) headers.Authorization = `Bearer ${token}`
+    if (grant.url !== url) {
+      // grant.url 是唯一权威目标：调用方传参必须逐字一致（防错配/降级重定向）。
+      throw new SeatApiError('validation', 'seat upload target does not match granted url')
     }
     let response: Response
     try {
       response = await this.fetchImpl(url, {
         method: 'PUT',
         body: blob,
-        headers,
+        headers: grant.headers,
         // A01：（Admin）Cookie 绝不出 Seat 域。
         credentials: 'omit',
         redirect: 'error',

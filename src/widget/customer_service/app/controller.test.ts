@@ -1,4 +1,5 @@
-import '@/test/attachmentJournalFixture'
+import { installAttachmentLocksShim } from '@/test/attachmentJournalFixture'
+installAttachmentLocksShim()
 import { uploadJournal } from '@/lib/attachmentUploadJournal'
 import { blobSha256Hex, runAttachmentPipeline } from './uploader'
 /**
@@ -613,7 +614,7 @@ it('old attachment presign cannot PUT or confirm after re-entry', async () => {
   h.controller.retryBootstrap(); await h.settle()
   const count = h.env.requests.length
   const restoredBeforeLateResponse = h.controller.currentState().messages
-  resolve({ state: 'registered', assetId: '1', uploadRef: 'ref', uploadUrl: 'https://store.example/owned' })
+  resolve({ objectKey: 'eb/1/2/20260101/c0001.bin', sessionState: 'registered' as const, directState: 'GRANTED', attemptId: 1, grant: { kind: 's3_put' as const, method: 'PUT' as const, url: 'https://store.example/imboy/owned', headers: { 'x-amz-checksum-sha256': 'A'.repeat(43) + '=' }, expiresIn: 900 }, sessionDeadline: null, stateConfirmed: false })
   await old
   expect(h.env.requests.length).toBe(count)
   expect(h.controller.currentState().messages).toEqual(restoredBeforeLateResponse)
@@ -683,7 +684,7 @@ it('session closing during presign stops the next attachment write', async () =>
   await h.controller.handleSseFrame(h.envelopeFrame('closed-during-upload', 'session.changed'))
   expect(h.controller.currentState().phase).toBe('closed-rating')
   const count = h.env.requests.length
-  resolve({ state: 'registered', assetId: '1', uploadRef: 'ref', uploadUrl: 'https://store.example/owned' })
+  resolve({ objectKey: 'eb/1/2/20260101/c0001.bin', sessionState: 'registered' as const, directState: 'GRANTED', attemptId: 1, grant: { kind: 's3_put' as const, method: 'PUT' as const, url: 'https://store.example/imboy/owned', headers: { 'x-amz-checksum-sha256': 'A'.repeat(43) + '=' }, expiresIn: 900 }, sessionDeadline: null, stateConfirmed: false })
   await pending
   expect(h.env.requests.length).toBe(count)
   expect(h.controller.currentState().messages[0]?.status).not.toBe('sent')
@@ -698,7 +699,7 @@ it('refresh enumerates only current visitor tasks; confirmed recovery queries wi
   const h = makeHarness(); await reachChat(h)
   const message = h.controller.currentState().messages.find((row) => row.clientMsgId === 'restored-message')
   expect(message?.attachment?.state).toBe('failed')
-  h.api.recoverAttachment = async () => ({ assetId: '8100000000000000001', state: 'confirmed', uploadRef: null, uploadUrl: null })
+  h.api.recoverAttachment = async () => ({ objectKey: 'eb/1/2/20260101/r0001.bin', sessionState: 'confirmed' as const, directState: 'CONFIRMED', attemptId: null, grant: null, sessionDeadline: null, stateConfirmed: true, assetId: '8100000000000000001' })
   const before = h.env.requests.length
   await h.controller.retryMessage(message!.key)
   expect(h.env.requests.slice(before).filter((request) => request.method === 'POST')).toEqual([])
@@ -708,7 +709,7 @@ it('refresh enumerates only current visitor tasks; confirmed recovery queries wi
 
 it('restored widget upload re-selection rejects different bytes before network', async () => {
   const journal = uploadJournal(['widget', '72057594037928002', WIDGET_ID, '72057594037927936'], () => true)
-  await journal.save({ clientUploadId: crypto.randomUUID(), clientMsgId: 'restored-bytes', assetId: null,
+  await journal.save({ clientUploadId: crypto.randomUUID(), clientMsgId: 'restored-bytes', assetId: null, objectKey: null,
     phase: 'intent', objectHash: 'a'.repeat(64), sizeBytes: 3, mime: 'text/plain', updatedAt: Date.now() })
   const h = makeHarness(); await reachChat(h)
   const before = h.env.requests.length
@@ -729,7 +730,7 @@ for (const outcome of ['empty', 'exhausted', 'http-error', 'wrong-contact', 'wro
       phase: 'confirmed', objectHash, sizeBytes: file.size, mime: file.type, updatedAt: Date.now() })
     const h = makeHarness(); await reachChat(h)
     let append = 0, pages = 0
-    h.api.recoverAttachment = async () => ({ assetId: '8100000000000000001', state: 'confirmed', uploadRef: null, uploadUrl: null })
+    h.api.recoverAttachment = async () => ({ objectKey: 'eb/1/2/20260101/r0001.bin', sessionState: 'confirmed' as const, directState: 'CONFIRMED', attemptId: null, grant: null, sessionDeadline: null, stateConfirmed: true, assetId: '8100000000000000001' })
     h.api.sendMessage = async () => { append += 1; throw new Error('must not append') }
     h.api.listMessages = async () => {
       pages += 1
@@ -758,7 +759,7 @@ it('no-file confirmed recovery rejects a same-message same-contact different ass
     phase: 'confirmed', objectHash: 'a'.repeat(64), sizeBytes: 3, mime: 'text/plain', updatedAt: Date.now() })
   const h = makeHarness(); await reachChat(h)
   let append = 0
-  h.api.recoverAttachment = async () => ({ assetId: '8100000000000000001', state: 'confirmed', uploadRef: null, uploadUrl: null })
+  h.api.recoverAttachment = async () => ({ objectKey: 'eb/1/2/20260101/r0001.bin', sessionState: 'confirmed' as const, directState: 'CONFIRMED', attemptId: null, grant: null, sessionDeadline: null, stateConfirmed: true, assetId: '8100000000000000001' })
   h.api.sendMessage = async () => { append += 1; throw new Error('must not publish') }
   h.api.listMessages = async (_session, _scope, after) => after ? [] : [{
     id: '100', senderType: 'contact', senderContactId: '72057594037928002', clientMsgId,
@@ -777,7 +778,7 @@ it('no-file confirmed recovery rejects a same-message same-contact different ass
     phase: 'confirmed', dispatchState: 'ready', objectHash: 'a'.repeat(64), sizeBytes: 3, mime: 'text/plain', updatedAt: Date.now() })
   const h = makeHarness(); await reachChat(h)
   let sends = 0
-  h.api.recoverAttachment = async () => ({ assetId: '8100000000000000001', state: 'confirmed', uploadRef: null, uploadUrl: null })
+  h.api.recoverAttachment = async () => ({ objectKey: 'eb/1/2/20260101/r0001.bin', sessionState: 'confirmed' as const, directState: 'CONFIRMED', attemptId: null, grant: null, sessionDeadline: null, stateConfirmed: true, assetId: '8100000000000000001' })
   h.api.sendMessage = async () => { sends += 1; expect(journal.load(clientMsgId)?.dispatchState).toBe('dispatch_intent'); throw new Error('lost ACK') }
   h.api.listMessages = async () => []
   await h.controller.retryMessage(`local-${clientMsgId}`)
@@ -797,7 +798,7 @@ for (const stop of ['storage', 'revoked'] as const) {
     h.api.sendMessage = async () => { sends += 1; throw new Error('must not send') }
     h.api.recoverAttachment = async () => {
       if (stop === 'revoked') h.controller.closeAndCleanup()
-      return { assetId: '8100000000000000001', state: 'confirmed', uploadRef: null, uploadUrl: null }
+      return { objectKey: 'eb/1/2/20260101/r0001.bin', sessionState: 'confirmed' as const, directState: 'CONFIRMED', attemptId: null, grant: null, sessionDeadline: null, stateConfirmed: true, assetId: '8100000000000000001' }
     }
     if (stop === 'storage') localStorage.setItem = () => { throw new Error('quota') }
     await h.controller.retryMessage(`local-${clientMsgId}`)
@@ -815,7 +816,7 @@ for (const status of [422, 500, 502]) {
       phase: 'confirmed', dispatchState: 'ready', objectHash: 'a'.repeat(64), sizeBytes: 3, mime: 'text/plain', updatedAt: Date.now() })
     const h = makeHarness(); await reachChat(h)
     let sends = 0
-    h.api.recoverAttachment = async () => ({ assetId: '8100000000000000001', state: 'confirmed', uploadRef: null, uploadUrl: null })
+    h.api.recoverAttachment = async () => ({ objectKey: 'eb/1/2/20260101/r0001.bin', sessionState: 'confirmed' as const, directState: 'CONFIRMED', attemptId: null, grant: null, sessionDeadline: null, stateConfirmed: true, assetId: '8100000000000000001' })
     h.api.listMessages = async () => []
     h.api.sendMessage = async () => { sends += 1; throw new WidgetApiError('refusal', status) }
     await h.controller.retryMessage(`local-${clientMsgId}`)
@@ -838,7 +839,7 @@ for (const status of [422, 500, 502]) {
       sizeBytes: file.size, mime: file.type, updatedAt: Date.now() })
     const api = new WidgetApiClient()
     let sends = 0
-    api.recoverAttachment = async () => ({ assetId: '8100000000000000001', state: 'confirmed', uploadRef: null, uploadUrl: null })
+    api.recoverAttachment = async () => ({ objectKey: 'eb/1/2/20260101/r0001.bin', sessionState: 'confirmed' as const, directState: 'CONFIRMED', attemptId: null, grant: null, sessionDeadline: null, stateConfirmed: true, assetId: '8100000000000000001' })
     api.listMessages = async () => []
     api.sendMessage = async () => { sends += 1; throw new WidgetApiError('refusal', status) }
     const input = { sessionId, scope: { installationId: WIDGET_ID }, file, clientMsgId, durable: true, principalId,
@@ -859,7 +860,7 @@ it('refusal checkpoint storage failure retains unknown and never sends a second 
   const h = makeHarness(); await reachChat(h)
   let sends = 0
   const setItem = localStorage.setItem
-  h.api.recoverAttachment = async () => ({ assetId: '8100000000000000001', state: 'confirmed', uploadRef: null, uploadUrl: null })
+  h.api.recoverAttachment = async () => ({ objectKey: 'eb/1/2/20260101/r0001.bin', sessionState: 'confirmed' as const, directState: 'CONFIRMED', attemptId: null, grant: null, sessionDeadline: null, stateConfirmed: true, assetId: '8100000000000000001' })
   h.api.listMessages = async () => []
   h.api.sendMessage = async () => {
     sends += 1

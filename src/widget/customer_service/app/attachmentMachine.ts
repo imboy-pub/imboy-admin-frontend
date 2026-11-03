@@ -3,8 +3,8 @@
  *
  * UI 状态映射（计划 FE-W01-A04）：pending → confirming → sending → linked | failed。
  * - pending：文件已选定，hash/presign 进行中；
- * - confirming：presign 已签发 upload_ref，裸 PUT + confirm CAS 进行中；
- * - sending：confirm 成功（asset active/unbound），消息 asset_ids 绑定进行中；
+ * - confirming：presign 已签发 direct 会话（object_key），裸 PUT + confirm 进行中；
+ * - sending：confirm 成功（asset active），消息 asset_ids 绑定进行中；
  * - linked：消息已创建且 asset 绑定成功——**只有 linked 才显示成功**；
  * - failed：任一步失败（不伪成功；重试复用同一 client_msg_id 幂等键）。
  *
@@ -27,9 +27,8 @@ export type AttachmentItem = {
   /** 64 位小写 hex SHA-256（Web Crypto 计算；缓存跨重试）。 */
   objectHash: string | null
   assetId: string | null
-  uploadRef: string | null
-  /** presign 返回的裸 PUT 目标（https）；合同当前形状可能没有 URL。 */
-  uploadUrl: string | null
+  /** V3-C04 direct 会话定位键（confirm/status/renew 寻址；内存态，绝不展示）。 */
+  objectKey: string | null
   messageId: string | null
   state: AttachmentUiState
   failureReason: string | null
@@ -37,8 +36,8 @@ export type AttachmentItem = {
 
 export type AttachmentEvent =
   | { type: 'hash_computed'; key: string; objectHash: string }
-  | { type: 'presign_succeeded'; key: string; assetId: string; uploadRef: string; uploadUrl: string | null }
-  | { type: 'confirm_succeeded'; key: string }
+  | { type: 'presign_succeeded'; key: string; objectKey: string }
+  | { type: 'confirm_succeeded'; key: string; assetId: string }
   | { type: 'append_succeeded'; key: string; messageId: string }
   | { type: 'step_failed'; key: string; reason: string }
   | { type: 'retry_reset'; key: string }
@@ -59,8 +58,7 @@ export function initialAttachmentItem(input: {
     sizeBytes: input.sizeBytes,
     objectHash: null,
     assetId: null,
-    uploadRef: null,
-    uploadUrl: null,
+    objectKey: null,
     messageId: null,
     state: 'pending',
     failureReason: null,
@@ -87,13 +85,11 @@ export function reduceAttachment(item: AttachmentItem, event: AttachmentEvent): 
       if (item.state !== 'pending') return item
       return withItem(item, {
         state: 'confirming',
-        assetId: event.assetId,
-        uploadRef: event.uploadRef,
-        uploadUrl: event.uploadUrl,
+        objectKey: event.objectKey,
       })
     case 'confirm_succeeded':
       if (item.state !== 'confirming') return item
-      return withItem(item, { state: 'sending' })
+      return withItem(item, { state: 'sending', assetId: event.assetId })
     case 'append_succeeded':
       if (item.state !== 'sending') return item
       return withItem(item, { state: 'linked', messageId: event.messageId, failureReason: null })

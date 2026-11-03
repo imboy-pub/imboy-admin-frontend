@@ -24,7 +24,7 @@ import {
   toSeatAttachmentPhase,
   toSeatMessage,
   toSeatMessageList,
-  toSeatPresignResult,
+  toSeatAssetConfirmResult,
   toSeatCustomerContext,
   toSeatSessionDetail,
   toSeatSessionPage,
@@ -302,59 +302,20 @@ describe('路径构造（Seat 域 + A03 附件代理不变量）', () => {
   })
 })
 
-describe('CS-WEB-02 presign 投影与上传路径', () => {
-  it('toSeatPresignResult：完整形状投影（upload.url 消费，token/object key 丢弃）', () => {
-    const result = toSeatPresignResult({
-      asset_id: '8100000000000000001',
-      upload_ref: 'ur-1',
-      object_hash: 'ab'.repeat(32),
-      mime: 'image/png',
-      size_bytes: 2048,
-      file_name: '截图.png',
-      retain_until: null,
-      expires_at: 1759000000,
-      upload: {
-        method: 'PUT',
-        url: '/api/v1/seat/enterprise/organizations/2000000000000000002/assets/upload/1',
-        token: 'opaque-token',
-        expires_at: 1759000000,
-        adapter: 'local_private_object_store',
-        rule: 'opaque_token_no_url_no_object_key',
-        // V3-16：显式 descriptor（服务端权威下发；kind 白名单 s3_put|api_byte）。
-        descriptor: { kind: 'api_byte', method: 'PUT' },
-      },
-    })
+describe('CS-WEB-02/V3-C04 direct 上传投影与路径', () => {
+  it('toSeatAssetConfirmResult：confirm 响应投影 asset_id（bind active 后才有）', () => {
+    const result = toSeatAssetConfirmResult({ asset_id: '8100000000000000001', object_hash: 'ab'.repeat(32), hold_count: 0 })
     expect(result.assetId).toBe('8100000000000000001')
-    expect(result.uploadRef).toBe('ur-1')
-    expect(result.uploadUrl).toBe('/api/v1/seat/enterprise/organizations/2000000000000000002/assets/upload/1')
-    expect(result.expiresAt).toBe(1759000000)
-    expect(result.uploadDescriptor).toEqual({ kind: 'api_byte', method: 'PUT' })
-    // upload.token（= upload_ref 双投）与 adapter/rule 不进投影（A03 最小面）。
-    expect(Object.keys(result).sort()).toEqual(['assetId', 'expiresAt', 'uploadDescriptor', 'uploadRef', 'uploadUrl'])
+    expect(Object.keys(result).sort()).toEqual(['assetId'])
   })
-
-  it('upload.url 缺失（部署未开放对象 PUT）→ uploadUrl=null（fail-closed 由编排终止）', () => {
-    const result = toSeatPresignResult({
-      asset_id: '8100000000000000001',
-      upload_ref: 'ur-1',
-      upload: { method: 'PUT', token: 'opaque', rule: 'opaque_token_no_url_no_object_key' },
-    })
-    expect(result.uploadUrl).toBeNull()
-    expect(result.assetId).toBe('8100000000000000001')
+  it('confirm 响应形状非法 fail-closed：非对象 / asset_id 缺失或非法 → throw', () => {
+    expect(() => toSeatAssetConfirmResult(null)).toThrow()
+    expect(() => toSeatAssetConfirmResult([1, 2])).toThrow()
+    expect(() => toSeatAssetConfirmResult({})).toThrow(/asset_id/)
+    expect(() => toSeatAssetConfirmResult({ asset_id: 'abc' })).toThrow(/asset_id/)
   })
-
-  it('形状非法 fail-closed：非对象 / asset_id 非法 / upload_ref 缺失 → throw', () => {
-    expect(() => toSeatPresignResult(null)).toThrow()
-    expect(() => toSeatPresignResult([1, 2])).toThrow()
-    expect(() => toSeatPresignResult({ upload_ref: 'ur-1' })).toThrow(/asset_id/)
-    expect(() => toSeatPresignResult({ asset_id: 'abc' })).toThrow(/asset_id/)
-    expect(() => toSeatPresignResult({ asset_id: '8100000000000000001', upload_ref: '' })).toThrow(/upload_ref/)
-    expect(() => toSeatPresignResult({ asset_id: '8100000000000000001' })).toThrow(/upload_ref/)
-  })
-
   it('TSID 精度：大整数字面量 asset_id 经 parseSeatJson 收敛为 string', () => {
-    // JSON integer 传输 64-bit TSID（wire 合同）：parseSeatJson 精度保护后再投影。
-    const result = toSeatPresignResult({ asset_id: HUGE_TSID, upload_ref: 'ur-9' })
+    const result = toSeatAssetConfirmResult({ asset_id: HUGE_TSID })
     expect(result.assetId).toBe(HUGE_TSID)
   })
 

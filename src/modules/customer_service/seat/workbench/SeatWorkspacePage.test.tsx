@@ -1,4 +1,5 @@
-import '@/test/attachmentJournalFixture'
+import { installAttachmentLocksShim } from '@/test/attachmentJournalFixture'
+installAttachmentLocksShim()
 /**
  * SEAT-02：坐席工作台页面组件级测试（bun test + testing-library，SEAT-01 同款
  * 合同 fixture 替身——不 mock 合同形状，假后端按冻结 wire 形状回包）。
@@ -592,7 +593,7 @@ describe('SeatWorkspacePage CS-WEB-02 单文件发送（presign → 裸 PUT → 
       .filter(
         (call) =>
           (call.method === 'POST' && call.path.endsWith('/assets/presign')) ||
-          (call.method === 'PUT' && call.path.includes('/assets/upload/')) ||
+          (call.method === 'PUT' && call.path.startsWith('https://store.example/imboy/')) ||
           (call.method === 'POST' && call.path.endsWith('/assets/confirm')) ||
           (call.method === 'POST' && call.path.endsWith(`/conversations/${CONV}/messages`)),
       )
@@ -625,7 +626,7 @@ describe('SeatWorkspacePage CS-WEB-02 单文件发送（presign → 裸 PUT → 
     // 顺序唯一事实源：presign → 裸 PUT → confirm → 发送（不可乱序/跳步）。
     expect(pipelineCalls(backend)).toEqual([
       `POST /api/v1/seat/enterprise/organizations/${ORG}/assets/presign`,
-      `PUT /api/v1/seat/enterprise/organizations/${ORG}/assets/upload/1`,
+      `PUT https://store.example/imboy/eb/2000000000000000002/3000000000000000003/20260101/00000001.bin`,
       `POST /api/v1/seat/enterprise/organizations/${ORG}/assets/confirm`,
       `POST /api/v1/seat/enterprise/organizations/${ORG}/conversations/${CONV}/messages`,
     ])
@@ -640,10 +641,9 @@ describe('SeatWorkspacePage CS-WEB-02 单文件发送（presign → 裸 PUT → 
     expect(presignBody.file_name).toBe('截图.png')
     expect(presignBody.mime).toBe('image/png')
     expect(presignBody.size_bytes).toBe(FILE_BYTES.length)
-    // api_byte 字节端点带同源 Bearer（V3-16 descriptor 权威语义）。
-    const putCall = backend.calls.find((call) => call.method === 'PUT' && call.path.includes('/assets/upload/'))
-    // V3-16：api_byte 权威语义=同源 Bearer（descriptor 决定，非 URL 外观）。
-    expect(putCall?.auth).toBe('Bearer eyJh.eyJi.c2ln')
+    // V3-C04 direct（S3-only）：PUT 只带 grant 签名头；Bearer/Cookie 零出站。
+    const putCall = backend.calls.find((call) => call.method === 'PUT' && call.path.startsWith('https://store.example/imboy/'))
+    expect(putCall?.auth).toBeNull()
     // 成功清空：composer 与附件 chip（发送边沿驱动）。
     await waitFor(() => expect((view.getByTestId('seat-composer') as HTMLTextAreaElement).value).toBe(''))
     await waitFor(() => expect(view.queryByTestId('seat-attach-chip')).toBeNull())
@@ -710,7 +710,7 @@ describe('SeatWorkspacePage CS-WEB-02 单文件发送（presign → 裸 PUT → 
     // harness 的 uploadPutCount 只计成功（失败在计数前 return）；PUT 总尝试
     // （含第一次 500）以 calls 日志为准 = 2。
     expect(backend.uploadPutCount).toBe(1)
-    expect(backend.calls.filter((call) => call.method === 'PUT' && call.path.includes('/assets/upload/'))).toHaveLength(2)
+    expect(backend.calls.filter((call) => call.method === 'PUT' && call.path.startsWith('https://store.example/imboy/'))).toHaveLength(2)
     expect(backend.confirmCount).toBe(1)
     // 两次发送尝试（一失败一成功）是同一 client_msg_id；最终只成功创建一条。
     const sendAttempts = backend.calls

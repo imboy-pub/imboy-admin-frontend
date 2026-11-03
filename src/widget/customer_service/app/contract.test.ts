@@ -58,8 +58,9 @@ describe('出站构造器：S3 零申报合同（键集恰好）', () => {
     expect(body.size_bytes).toBe(11)
   })
 
-  it('buildConfirmBody 恰好 {installation_id, upload_ref}', () => {
-    expect(buildConfirmBody(SCOPE, 'ref-1')).toEqual({ installation_id: SCOPE.installationId, upload_ref: 'ref-1' })
+  it('buildConfirmBody 恰好 {installation_id, object_key, attempt_id?}（V3-C04 direct）', () => {
+    expect(buildConfirmBody(SCOPE, 'eb/1/2/20260101/a.txt', 2)).toEqual({ installation_id: SCOPE.installationId, object_key: 'eb/1/2/20260101/a.txt', attempt_id: 2 })
+    expect(buildConfirmBody(SCOPE, 'eb/1/2/20260101/a.txt', null)).toEqual({ installation_id: SCOPE.installationId, object_key: 'eb/1/2/20260101/a.txt' })
   })
 
   it('buildSendMessageBody 携带幂等键 client_msg_id；buildRatingBody 携带 CAS expected_version', () => {

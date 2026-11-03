@@ -648,8 +648,10 @@ export function createWidgetController(deps: ControllerDeps) {
       await journal.run(clientMsgId, async () => {
       const row = journal.load(clientMsgId)
       if (row === null) return
-      const result = await deps.api.recoverAttachment(sessionId, operationScope, row.clientUploadId, 'status')
-      if (!current() || result.state !== 'confirmed' || result.assetId !== row.assetId) return
+      // V3-C04 direct：status 以 object_key 寻址（client_upload_id 只是登记键）；
+      // assetId 以 journal 行为准（confirm 时 checkpoint 写入）。
+      const result = await deps.api.recoverAttachment(sessionId, operationScope, row.objectKey ?? row.clientUploadId, 'status')
+      if (!current() || result.sessionState !== 'confirmed' || row.assetId === null) return
       if (!attachmentDispatchUnknown(row)) {
         await journal.save({ ...row, phase: 'confirmed', dispatchState: 'dispatch_intent' })
         if (!current()) return

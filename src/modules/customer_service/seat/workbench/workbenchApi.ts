@@ -26,7 +26,7 @@ import {
   toSeatMessage,
   toSeatMessageList,
   toSeatPresence,
-  toSeatPresignResult,
+  toSeatAssetConfirmResult,
   toSeatSessionDetail,
   toSeatSessionPage,
   toSeatCustomerContext,
@@ -35,7 +35,7 @@ import {
   type SeatCustomerContext,
   type SeatPresence,
   type SeatReadState,
-  type SeatPresignResult,
+  type SeatAssetConfirmResult,
   type SeatSessionDetail,
   type SeatSessionPage,
   type SeatTransferTargetPage,
@@ -209,69 +209,68 @@ export class SeatWorkbenchApi {
    * file_name 可选 1..256 字节；workspace_id handler 级必填）。
    * mime/size/hash 的合法性由服务端裁决（422 语义透传，前端提示不替代）。
    */
-  async recoverAssetUpload(orgId: EntityId, workspaceId: EntityId, clientUploadId: string, operation: 'status' | 'renew') {
+  /** V3-C04 direct：会话回查/续期（operation=status|renew）。服务端会话以
+   * object_key 寻址（client_upload_id 只是登记幂等键）；status 只读、renew
+   * 换新 attempt + 新 staging descriptor（expected sha 复用冻结声明）。 */
+  async recoverAssetUpload(orgId: EntityId, workspaceId: EntityId, objectKey: string, operation: 'status' | 'renew') {
     return parseUploadSession(await this.client.request(buildAssetPresignPath(orgId), {
-      method: 'POST', body: { workspace_id: workspaceId, client_upload_id: clientUploadId, operation },
+      method: 'POST', body: { workspace_id: workspaceId, object_key: objectKey, operation },
     }))
   }
 
+  /** V3-C04 direct：presign 登记（register）→ dv1 descriptor
+   * {object_key, attempt_id, upload:{transport=s3_put,url,required_headers,expires_in}}。
+   * 响应无 asset_id/upload_ref（bind 时才落 active 行）。 */
   async registerAssetUpload(orgId: EntityId, conversationId: EntityId, workspaceId: EntityId,
     input: { mime: string; sizeBytes: number; objectHash: string; fileName?: string | null; clientUploadId: string }) {
-    return parseUploadSession(await this.client.request(buildAssetPresignPath(orgId), {
-      method: 'POST', body: { conversation_id: conversationId, workspace_id: workspaceId,
-        mime: input.mime, size_bytes: input.sizeBytes, object_hash: input.objectHash,
-        file_name: input.fileName, client_upload_id: input.clientUploadId, operation: 'register' },
-    }))
-  }
-
-  async confirmRecoveredAsset(orgId: EntityId, workspaceId: EntityId, assetId: EntityId, uploadRef: string | null) {
-    await this.client.request(buildAssetConfirmPath(orgId), {
-      method: 'POST', body: { workspace_id: workspaceId, asset_id: assetId,
-        ...(uploadRef === null ? {} : { upload_ref: uploadRef }) },
-    })
-  }
-
-  async requestAssetPresign(
-    orgId: EntityId,
-    conversationId: EntityId,
-    workspaceId: EntityId,
-    input: { mime: string; sizeBytes: number; objectHash: string; fileName?: string | null },
-  ): Promise<SeatPresignResult> {
-    const wire: Record<string, unknown> = {
+    const body: Record<string, unknown> = {
       conversation_id: conversationId,
+      workspace_id: workspaceId,
       mime: input.mime,
       size_bytes: input.sizeBytes,
       object_hash: input.objectHash,
-      workspace_id: workspaceId,
+      client_upload_id: input.clientUploadId,
+      operation: 'register',
     }
-    if (typeof input.fileName === 'string' && input.fileName.length > 0) wire.file_name = input.fileName
-    const payload = await this.client.request(buildAssetPresignPath(orgId), { method: 'POST', body: wire })
-    return toSeatPresignResult(payload)
+    // CS-BE-01：file_name 可选展示名——空串/null 不落线（服务端 1..256 校验）。
+    if (typeof input.fileName === 'string' && input.fileName.length > 0) body.file_name = input.fileName
+    return parseUploadSession(await this.client.request(buildAssetPresignPath(orgId), {
+      method: 'POST', body,
+    }))
   }
 
   /**
-   * CS-WEB-02/V3-16：附件字节裸 PUT（presign 响应 upload.url + 显式
-   * descriptor；s3_put 只带签名头、无 Authorization/credentials）。
+   * V3-C04 direct：附件字节裸 PUT（grant 权威下发：url + required_headers
+   * 签名头；credentials omit，无 Authorization/Cookie——请求捕获证明零业务凭据）。
    */
   async uploadAssetBytes(
-    uploadUrl: string,
+    grant: import('@/lib/attachmentUploadJournal').DirectUploadGrant,
     file: Blob,
-    descriptor: import('../seatApiClient').SeatUploadDescriptor,
     signal?: AbortSignal,
   ): Promise<void> {
-    await this.client.putUploadObject(uploadUrl, file, { signal, descriptor })
+    await this.client.putUploadObject(grant.url, file, { signal, grant })
   }
 
   /**
-   * CS-WEB-02：附件 confirm（eb_tenant_handler confirm_asset）：
-   * POST {upload_ref, workspace_id}；服务端复核 hash/size/mime 后落库 active。
-   * 重复 confirm 同 ref → 409（不伪成功，由调用方按失败处理换新 ref）。
+   * CS-WEB-02/V3-C04 direct：附件 confirm（eb_tenant_handler confirm_asset）：
+   * POST {object_key, attempt_id?, workspace_id}；finalize→Worker 校验→bind
+   * active 后响应 public_asset_view（asset_id）。CONFIRMED 重放幂等回读同一行。
    */
-  async confirmAssetUpload(orgId: EntityId, workspaceId: EntityId, uploadRef: string): Promise<void> {
-    await this.client.request(buildAssetConfirmPath(orgId), {
+  async confirmAssetUpload(
+    orgId: EntityId,
+    workspaceId: EntityId,
+    objectKey: string,
+    attemptId: number | null,
+  ): Promise<SeatAssetConfirmResult> {
+    const payload = await this.client.request(buildAssetConfirmPath(orgId), {
       method: 'POST',
-      body: { upload_ref: uploadRef, workspace_id: workspaceId },
+      body: {
+        object_key: objectKey,
+        ...(attemptId === null ? {} : { attempt_id: attemptId }),
+        workspace_id: workspaceId,
+      },
     })
+    return toSeatAssetConfirmResult(payload)
   }
 
   /**

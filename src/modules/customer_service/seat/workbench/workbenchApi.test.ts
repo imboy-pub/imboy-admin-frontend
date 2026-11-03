@@ -245,10 +245,12 @@ describe('域隔离不回退（A01）', () => {
   })
 })
 
-describe('CS-WEB-02 附件合同（presign / 裸 PUT / confirm / asset_ids 发送）', () => {
+describe('CS-WEB-02/V3-C04 direct 附件合同（presign / 裸 PUT / confirm / asset_ids 发送）', () => {
   const OBJECT_HASH = 'ab'.repeat(32)
-  const UPLOAD_PATH = `/api/v1/seat/enterprise/organizations/${ORG}/assets/upload/1`
-  const PRESIGN_PAYLOAD = `{"asset_id":8100000000000000001,"upload_ref":"ur-1","object_hash":"${OBJECT_HASH}","mime":"image/png","size_bytes":8,"expires_at":1759000000,"upload":{"method":"PUT","url":"${UPLOAD_PATH}","token":"opaque","expires_at":1759000000,"adapter":"local_private_object_store","rule":"opaque_token_no_url_no_object_key","descriptor":{"kind":"api_byte","method":"PUT"}}}`
+  const OBJECT_KEY = 'eb/1/2/20260101/aabbccdd.txt'
+  const GRANT_URL = 'https://store.example/imboy/eb-put?X-Amz-Signature=x'
+  const CHECKSUM = 'A'.repeat(43) + '='
+  const PRESIGN_PAYLOAD = `{"object_key":"${OBJECT_KEY}","session_state":"GRANTED","attempt_id":1,"object_hash":"${OBJECT_HASH}","mime":"image/png","size_bytes":8,"file_name":"截图.png","upload":{"transport":"s3_put","method":"PUT","url":"${GRANT_URL}","required_headers":[{"key":"Content-Type","value":"image/png"},{"key":"x-amz-checksum-sha256","value":"${CHECKSUM}"}],"expires_in":900}}`
   const FILE_BYTES = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
 
   /** 上传三动作 + 发送的按路径分派 responder（断言顺序用 calls）。 */
@@ -258,8 +260,8 @@ describe('CS-WEB-02 附件合同（presign / 裸 PUT / confirm / asset_ids 发�
       calls.push({ url, init })
       const path = url.split('?')[0] ?? url
       if (path === `/api/v1/seat/enterprise/organizations/${ORG}/assets/presign`) return envelope(PRESIGN_PAYLOAD)
-      if (path === UPLOAD_PATH) return new Response('', { status: 200 })
-      if (path === `/api/v1/seat/enterprise/organizations/${ORG}/assets/confirm`) return envelope('{"asset_id":0,"status":"active"}')
+      if (path === GRANT_URL.split('?')[0]) return new Response('', { status: 200 })
+      if (path === `/api/v1/seat/enterprise/organizations/${ORG}/assets/confirm`) return envelope(`{"asset_id":8100000000000000001,"object_hash":"${OBJECT_HASH}","status":"active"}`)
       if (path === `/api/v1/seat/enterprise/organizations/${ORG}/conversations/${CONV}/messages` && init?.method === 'POST') {
         return envelope(`{"message":{"id":9000000000000000012,"sender_type":"business_identity","body":"","client_msg_id":"seat-cm-2"}}`)
       }
@@ -268,14 +270,15 @@ describe('CS-WEB-02 附件合同（presign / 裸 PUT / confirm / asset_ids 发�
     return { calls, fetchImpl }
   }
 
-  it('presign：POST assets/presign + 冻结字段逐键（file_name 空串不落线）+ 响应投影', async () => {
+  it('register：POST assets/presign + 冻结字段逐键（file_name 空串不落线）+ direct 响应投影', async () => {
     const { calls, fetchImpl } = uploadStackResponder()
     const api = new SeatWorkbenchApi({ client: new SeatApiClient({ fetchImpl, getToken: () => 'tok' }) })
-    const presign = await api.requestAssetPresign(ORG, CONV, WS, {
+    const session = await api.registerAssetUpload(ORG, CONV, WS, {
       mime: 'image/png',
       sizeBytes: 8,
       objectHash: OBJECT_HASH,
       fileName: '',
+      clientUploadId: '11111111-1111-4111-8111-111111111111',
     })
     expect(calls[0]?.url).toBe(`/api/v1/seat/enterprise/organizations/${ORG}/assets/presign`)
     expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({
@@ -284,25 +287,29 @@ describe('CS-WEB-02 附件合同（presign / 裸 PUT / confirm / asset_ids 发�
       size_bytes: 8,
       object_hash: OBJECT_HASH,
       workspace_id: WS,
-    })
-    expect(presign.assetId).toBe('8100000000000000001')
-    expect(presign.uploadRef).toBe('ur-1')
-    expect(presign.uploadUrl).toBe(UPLOAD_PATH)
+      client_upload_id: '11111111-1111-4111-8111-111111111111',
+      operation: 'register',
+    })  // file_name 空串不落线（服务端可选展示名纪律）
+    expect(session.objectKey).toBe(OBJECT_KEY)
+    expect(session.attemptId).toBe(1)
+    expect(session.grant?.url).toBe(GRANT_URL)
+    expect(session.grant?.headers).toEqual({ 'Content-Type': 'image/png', 'x-amz-checksum-sha256': CHECKSUM })
 
     // file_name 非空 → 落线（CS-BE-01 可选展示名）。
     const { calls: calls2, fetchImpl: fetchImpl2 } = uploadStackResponder()
     const api2 = new SeatWorkbenchApi({ client: new SeatApiClient({ fetchImpl: fetchImpl2, getToken: () => 'tok' }) })
-    await api2.requestAssetPresign(ORG, CONV, WS, { mime: 'image/png', sizeBytes: 8, objectHash: OBJECT_HASH, fileName: '截图.png' })
+    await api2.registerAssetUpload(ORG, CONV, WS, { mime: 'image/png', sizeBytes: 8, objectHash: OBJECT_HASH, fileName: '截图.png', clientUploadId: '11111111-1111-4111-8111-111111111111' })
     expect((JSON.parse(String(calls2[0]?.init?.body)) as { file_name?: string }).file_name).toBe('截图.png')
   })
 
-  it('confirm：POST assets/confirm + {upload_ref, workspace_id} 请求体', async () => {
+  it('confirm：POST assets/confirm + {object_key, attempt_id, workspace_id} 请求体 → asset_id 投影', async () => {
     const { calls, fetchImpl } = uploadStackResponder()
     const api = new SeatWorkbenchApi({ client: new SeatApiClient({ fetchImpl, getToken: () => 'tok' }) })
-    await api.confirmAssetUpload(ORG, WS, 'ur-1')
+    const confirmed = await api.confirmAssetUpload(ORG, WS, OBJECT_KEY, 1)
     expect(calls[0]?.url).toBe(`/api/v1/seat/enterprise/organizations/${ORG}/assets/confirm`)
     expect(calls[0]?.init?.method).toBe('POST')
-    expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({ upload_ref: 'ur-1', workspace_id: WS })
+    expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({ object_key: OBJECT_KEY, attempt_id: 1, workspace_id: WS })
+    expect(confirmed.assetId).toBe('8100000000000000001')
   })
 
   it('发送 asset_ids：空正文省略 body 键 + asset_ids 数组；纯文本不出现 asset_ids', async () => {
@@ -342,15 +349,16 @@ describe('CS-WEB-02 附件合同（presign / 裸 PUT / confirm / asset_ids 发�
     // 顺序唯一事实源：calls 路径序列。
     expect(calls.map((call) => call.url.split('?')[0])).toEqual([
       `/api/v1/seat/enterprise/organizations/${ORG}/assets/presign`,
-      UPLOAD_PATH,
+      GRANT_URL.split('?')[0],
       `/api/v1/seat/enterprise/organizations/${ORG}/assets/confirm`,
     ])
-    // PUT 形状（V3-16 api_byte 权威语义）：octet-stream + 同源 Bearer
-    // （descriptor 决定；对象存储 s3_put 无凭据断言在 seatApiClient.test）。
+    // PUT 形状（V3-C04 s3_put）：grant 签名头逐字；零 Authorization/Cookie
+    // （业务凭据绝不发往对象存储——请求捕获可证）。
     const putInit = calls[1]?.init as RequestInit
     expect(putInit.method).toBe('PUT')
-    expect((putInit.headers as Record<string, string>)['Content-Type']).toBe('application/octet-stream')
-    expect((putInit.headers as Record<string, string>).Authorization).toBe('Bearer tok')
+    expect((putInit.headers as Record<string, string>)['Content-Type']).toBe('image/png')
+    expect((putInit.headers as Record<string, string>)['x-amz-checksum-sha256']).toBe(CHECKSUM)
+    expect((putInit.headers as Record<string, string>).Authorization).toBeUndefined()
     expect(result.assetId).toBe('8100000000000000001')
     expect(result.objectHash).toBe(await blobSha256Hex(new Blob([FILE_BYTES.slice()])))
   })
@@ -360,7 +368,7 @@ describe('CS-WEB-02 附件合同（presign / 裸 PUT / confirm / asset_ids 发�
     const controller = new AbortController()
     let putSignal: AbortSignal | null | undefined
     const guardedFetch = async (url: string, init?: RequestInit): Promise<Response> => {
-      if (url.split('?')[0] !== UPLOAD_PATH) return fetchImpl(url, init)
+      if (url.split('?')[0] !== GRANT_URL.split('?')[0]) return fetchImpl(url, init)
       calls.push({ url, init })
       putSignal = init?.signal
       controller.abort()
@@ -374,16 +382,16 @@ describe('CS-WEB-02 附件合同（presign / 裸 PUT / confirm / asset_ids 发�
     expect(putSignal).toBe(controller.signal)
     expect(putSignal?.aborted).toBe(true)
     expect(calls.map((call) => call.url.split('?')[0])).toEqual([
-      `/api/v1/seat/enterprise/organizations/${ORG}/assets/presign`, UPLOAD_PATH,
+      `/api/v1/seat/enterprise/organizations/${ORG}/assets/presign`, GRANT_URL.split('?')[0],
     ])
   })
 
-  it('upload.url 缺失（部署未开放对象 PUT）→ fail-closed：PUT/confirm 均不发生', async () => {
-    const presignNoUrl = PRESIGN_PAYLOAD.replace(`"url":"${UPLOAD_PATH}",`, '')
+  it('presign 响应无有效 upload 块 → fail-closed：PUT/confirm 均不发生', async () => {
+    const presignNoUpload = `{"object_key":"${OBJECT_KEY}","session_state":"GRANTED","attempt_id":1}`
     const calls: RecordedCall[] = []
     const fetchImpl = async (url: string, init?: RequestInit): Promise<Response> => {
       calls.push({ url, init })
-      return envelope(presignNoUrl)
+      return envelope(presignNoUpload)
     }
     const api = new SeatWorkbenchApi({ client: new SeatApiClient({ fetchImpl, getToken: () => 'tok' }) })
     let thrown: unknown = null
@@ -403,7 +411,7 @@ describe('CS-WEB-02 附件合同（presign / 裸 PUT / confirm / asset_ids 发�
     expect(calls).toHaveLength(1) // 仅 presign；无 PUT/confirm/发送。
   })
 
-  it('confirm 409（重复 confirm）→ conflict 分类（不伪成功）', async () => {
+  it('confirm 409（服务端冲突）→ conflict 分类（不伪成功）', async () => {
     const calls: RecordedCall[] = []
     let presignDone = false
     const fetchImpl = async (url: string, init?: RequestInit): Promise<Response> => {
@@ -413,9 +421,9 @@ describe('CS-WEB-02 附件合同（presign / 裸 PUT / confirm / asset_ids 发�
         presignDone = true
         return envelope(PRESIGN_PAYLOAD)
       }
-      if (path === UPLOAD_PATH) return new Response('', { status: 200 })
+      if (path === GRANT_URL.split('?')[0]) return new Response('', { status: 200 })
       if (path.endsWith('/assets/confirm')) {
-        return new Response('{"code":409,"msg":"asset already confirmed","payload":{}}', { status: 409 })
+        return new Response('{"code":409,"msg":"asset bind conflict","payload":{}}', { status: 409 })
       }
       return new Response('{"code":404,"msg":"not found","payload":{}}', { status: 404 })
     }
@@ -550,16 +558,16 @@ it('seat_timeout: hung presign/result-query transports classify as network and a
   expect(calls[1]!.url).toContain(`/api/v1/seat/enterprise/conversations/${CONV}/messages`)
 })
 
-it('V5 recovery uses existing authenticated presign route and stable UUID, no declaration or URL invention', async () => {
-  const { api, calls } = makeFetch(() => envelope('{"asset_id":8100000000000000001,"session_state":"registered","upload_ref":"memory-only","upload":{"url":"https://store.example/put","descriptor":{"kind":"api_byte","method":"PUT"}}}'))
-  const id = '12345678-1234-4234-8234-123456789abc'
-  const status = await api.recoverAssetUpload(ORG, WS, id, 'status')
-  expect(status.assetId).toBe('8100000000000000001')
-  await api.recoverAssetUpload(ORG, WS, id, 'renew')
+it('C04 direct recovery uses existing authenticated presign route, object_key addressing, no URL invention', async () => {
+  const { api, calls } = makeFetch(() => envelope('{"object_key":"eb/1/2/20260101/aabbccdd.txt","session_state":"registered","direct_state":"FINALIZING","attempt_id":2}'))
+  const key = 'eb/1/2/20260101/aabbccdd.txt'
+  const status = await api.recoverAssetUpload(ORG, WS, key, 'status')
+  expect(status.objectKey).toBe(key)
+  expect(status.grant).toBeNull()
+  const renewed = await api.recoverAssetUpload(ORG, WS, key, 'renew')
   expect(calls.map((call) => JSON.parse(String(call.init?.body)))).toEqual([
-    { workspace_id: WS, client_upload_id: id, operation: 'status' },
-    { workspace_id: WS, client_upload_id: id, operation: 'renew' },
+    { workspace_id: WS, object_key: key, operation: 'status' },
+    { workspace_id: WS, object_key: key, operation: 'renew' },
   ])
-  await api.confirmRecoveredAsset(ORG, WS, status.assetId, null)
-  expect(JSON.parse(String(calls[2]!.init?.body))).toEqual({ workspace_id: WS, asset_id: status.assetId })
+  expect(renewed.objectKey).toBe(key)
 })
