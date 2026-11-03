@@ -27,6 +27,10 @@ import {
 import { isSeatApiError, SeatApiError } from './errors'
 import { seatTokenVault } from './seatAuthStore'
 import { SeatEventStream } from './seatSseClient'
+import { toSeatPresignResult } from './workbench/contract'
+
+const SIGNED_HEADERS = { 'content-type': 'application/octet-stream', 'x-amz-checksum-sha256': 'A'.repeat(43) + '=' }
+const S3_DESCRIPTOR = { kind: 's3_put', method: 'PUT', headers: SIGNED_HEADERS } as const
 
 type RecordedCall = { url: string; init: RequestInit | undefined }
 
@@ -341,7 +345,7 @@ describe('CS-WEB-02 putUploadObject（裸 PUT 上传通道；presign 下发目�
   it('http(s) 绝对 URL 放行（presign 可下发跨源对象存储目标）', async () => {
     const { calls, fetchImpl } = uploadResponder(200)
     const client = new SeatApiClient({ fetchImpl })
-    await client.putUploadObject('https://objects.example.internal/bucket/obj-1', new Blob(['x']), { descriptor: { kind: 's3_put', method: 'PUT' } })
+    await client.putUploadObject('https://objects.example.internal/bucket/obj-1', new Blob(['x']), { descriptor: S3_DESCRIPTOR })
     expect(calls).toHaveLength(1)
     expect(calls[0]?.url).toBe('https://objects.example.internal/bucket/obj-1')
   })
@@ -351,10 +355,11 @@ describe('CS-WEB-02 putUploadObject（裸 PUT 上传通道；presign 下发目�
     const { calls, fetchImpl } = uploadResponder(200)
     const client = new SeatApiClient({ fetchImpl, getToken: () => seatTokenVault.getToken() })
     await client.putUploadObject('https://objects.example.internal/bucket/obj-1', new Blob(['x']), {
-      descriptor: { kind: 's3_put', method: 'PUT', headers: { 'x-amz-checksum-sha256': 'QUJD' } },
+      descriptor: S3_DESCRIPTOR,
     })
     const headers = (calls[0]?.init as RequestInit).headers as Record<string, string>
-    expect(headers['x-amz-checksum-sha256']).toBe('QUJD')
+    expect(headers).toEqual(SIGNED_HEADERS)
+    expect((calls[0]?.init as RequestInit).redirect).toBe('error')
     // 凭据隔离反例：Seat JWT 绝不进入对象存储请求（即便已登录）。
     expect(headers.Authorization).toBeUndefined()
     expect((calls[0]?.init as RequestInit).credentials).toBe('omit')
@@ -503,7 +508,7 @@ describe('REVIEW-2 凭据卫生锁定（全通道系统断言）', () => {
       descriptor: { kind: 'api_byte', method: 'PUT' },
     })
     await client.putUploadObject('https://objects.example.internal/bucket/obj?X-Amz-Signature=sig', blob, {
-      descriptor: { kind: 's3_put', method: 'PUT' },
+      descriptor: S3_DESCRIPTOR,
     })
     expect(calls).toHaveLength(2)
     const apiInit = calls[0]?.init as RequestInit
@@ -581,6 +586,50 @@ describe('REVIEW-2 凭据卫生锁定（全通道系统断言）', () => {
 
 
 describe('Console 凭证出口约束', () => {
+  for (const descriptor of [
+    { ...S3_DESCRIPTOR, method: 'POST' },
+    { ...S3_DESCRIPTOR, method: undefined },
+    { ...S3_DESCRIPTOR, kind: 'unknown' },
+    { ...S3_DESCRIPTOR, headers: undefined },
+    { ...S3_DESCRIPTOR, headers: [] },
+    { ...S3_DESCRIPTOR, headers: { 'content-type': 'application/pdf' } },
+    { ...S3_DESCRIPTOR, headers: { ...SIGNED_HEADERS, 'Content-Type': 'other' } },
+    { ...S3_DESCRIPTOR, headers: { ...SIGNED_HEADERS, 'content-type': 'bad\r\nAuthorization: secret' } },
+    { ...S3_DESCRIPTOR, headers: { ...SIGNED_HEADERS, 'x-amz-checksum-sha256': 'QUJD' } },
+    ...['Authorization', 'aUtHoRiZaTiOn', 'Cookie', 'x-oa-signature', 'x-imboy-hmac', 'x-cs-visit-token', 'x-amz-acl', 'x-amz-copy-source'].map((name) =>
+      ({ ...S3_DESCRIPTOR, headers: { ...SIGNED_HEADERS, [name]: 'secret' } })),
+  ]) {
+    it(`S3 非法描述符在请求前拒绝 ${JSON.stringify(descriptor)}`, async () => {
+      const { calls, fetchImpl } = makeFetch(() => new Response('', { status: 200 }))
+      const client = new SeatApiClient({ fetchImpl, getToken: () => 'aa.bb.cc' })
+      await expect(client.putUploadObject('https://store.example/put', new Blob(['x']), { descriptor: descriptor as never })).rejects.toThrow()
+      expect(calls).toHaveLength(0)
+    })
+
+    it(`Seat presign 不把非法 method/headers 投影成有效 PUT ${JSON.stringify(descriptor)}`, () => {
+      expect(() => toSeatPresignResult({ asset_id: '12', upload_ref: 'ref', upload: {
+        url: 'https://store.example/put', descriptor,
+      } })).toThrow()
+    })
+  }
+
+  for (const url of ['https://user:secret@store.example/put', 'http://store.example/put', '/relative-s3', '//store.example/put', '/\\store.example/put']) {
+    it(`S3 非法目标语法在发送前拒绝 ${url}`, async () => {
+      const { calls, fetchImpl } = makeFetch(() => new Response('', { status: 200 }))
+      const client = new SeatApiClient({ fetchImpl })
+      await expect(client.putUploadObject(url, new Blob(['x']), { descriptor: S3_DESCRIPTOR })).rejects.toThrow()
+      expect(calls).toHaveLength(0)
+    })
+  }
+
+  it('S3 重定向由 fetch error 策略中止，错误不会被当作上传成功', async () => {
+    const { calls, fetchImpl } = makeFetch(() => { throw new TypeError('redirect refused') })
+    const client = new SeatApiClient({ fetchImpl })
+    await expect(client.putUploadObject('https://store.example/put', new Blob(['x']), { descriptor: S3_DESCRIPTOR })).rejects.toBeInstanceOf(SeatApiError)
+    expect(calls).toHaveLength(1)
+    expect(calls[0]?.init?.redirect).toBe('error')
+  })
+
   it('完整 Human API 路径不属于 Console 域', () => {
     expect(() => assertSeatApiPath('/api/v1/cs/me/seat-contexts')).toThrow()
     expect(() => assertSeatApiPath('/api/v1/enterprise/organizations/1/assets/2/content')).toThrow()

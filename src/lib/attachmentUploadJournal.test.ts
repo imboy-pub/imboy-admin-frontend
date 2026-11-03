@@ -13,7 +13,8 @@ function fixture() {
   const file = new Blob(['abc'], { type: 'text/plain' })
   const hash = 'a'.repeat(64)
   const events: string[] = []
-  const session: UploadSession = { assetId: '8100000000000000001', state: 'registered', uploadRef: 'secret-ref', uploadUrl: 'https://store.example/secret' }
+  const session: UploadSession = { assetId: '8100000000000000001', state: 'registered', uploadRef: 'secret-ref', uploadUrl: 'https://store.example/secret',
+    uploadDescriptor: { kind: 's3_put', method: 'PUT', headers: { 'Content-Type': 'text/plain', 'x-amz-checksum-sha256': 'A'.repeat(43) + '=' } } }
   const input = { journal, file, hash, clientMsgId: 'stable-message', isCurrent: () => current,
     register: async (id: string) => { events.push(`register:${id}`); return session },
     status: async () => { events.push('status'); return session },
@@ -23,6 +24,32 @@ function fixture() {
 }
 
 describe('durable attachment journal', () => {
+  for (const descriptor of [
+    { kind: 's3_put', method: 'POST' },
+    { kind: 's3_put', method: 'PUT', headers: {} },
+    ...['Authorization', 'Cookie', 'x-oa-signature'].map((name) => ({ kind: 's3_put', method: 'PUT', headers: {
+      'Content-Type': 'text/plain', 'x-amz-checksum-sha256': 'A'.repeat(43) + '=', [name]: 'secret',
+    } })),
+  ]) {
+    it(`会话解析拒绝非法 S3 描述符 ${JSON.stringify(descriptor)}`, () => {
+      expect(() => parseUploadSession({ asset_id: '12', session_state: 'registered', upload: {
+        url: 'https://store.example/put', descriptor,
+      } })).toThrow()
+    })
+  }
+
+  it('renew 的 URL 与 descriptor 成对传给 PUT，不复用 status 签名头', async () => {
+    const f = fixture()
+    await expect(resumeUpload({ ...f.input, register: async () => { throw new Error('response lost') } })).rejects.toThrow()
+    const descriptor = { ...f.session.uploadDescriptor!, kind: 's3_put', method: 'PUT', headers: {
+      'content-type': 'application/renewed', 'x-amz-checksum-sha256': 'A'.repeat(43) + '=',
+    } } as const
+    const puts: unknown[] = []
+    await resumeUpload({ ...f.input, renew: async () => ({ ...f.session, uploadUrl: 'https://store.example/renewed', uploadDescriptor: descriptor }),
+      put: async (url, value) => { puts.push([url, value]) } })
+    expect(puts).toEqual([['https://store.example/renewed', descriptor]])
+  })
+
   it('checkpoints precede every next remote step and never persist credentials', async () => {
     const f = fixture()
     const row = await resumeUpload({ ...f.input, onCheckpoint: async (value) => { f.events.push(value.phase) } })

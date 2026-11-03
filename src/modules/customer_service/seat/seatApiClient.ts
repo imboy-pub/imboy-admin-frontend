@@ -16,6 +16,7 @@
  * TSID（A05）：响应一律经 parseSeatJson 精度保护解析。
  */
 import { classifySeatError, seatInvalidResponse, seatNetworkError, SeatApiError } from './errors'
+import { assertS3UploadTarget, parseUploadDescriptor, type SeatUploadSessionDescriptor } from '@/lib/attachmentUploadJournal'
 import { isRecord, nonEmptyString, parseSeatJson } from './tsid'
 
 export const SEAT_API_BASE = '/api/v1'
@@ -114,12 +115,10 @@ type SeatBlobRequestOptions = {
 
 /** V3-16：显式上传 descriptor——服务端 presign 视图权威下发（upload.descriptor）。
  * 消费方按 kind 分流，禁止按 URL 外观或 upload_ref 猜传输类型（S3-only 合同 §2）。
- * - s3_put：对象存储直传（只发 descriptor.headers 与 Content-Type；
+ * - s3_put：对象存储直传（只发 descriptor.headers；
  *   Authorization/Cookie/Seat Bearer 绝不出 Seat 域到对象存储）。
  * - api_byte：imboy API 域字节上传端点（同源门 + Bearer；V3-20 将切换 s3_put）。 */
-export type SeatUploadDescriptor =
-  | { kind: 's3_put'; method: 'PUT'; headers?: Record<string, string> }
-  | { kind: 'api_byte'; method: 'PUT' }
+export type SeatUploadDescriptor = SeatUploadSessionDescriptor
 
 /** CS-WEB-02：裸 PUT 上传选项（presign 下发的 upload.url + 显式 descriptor）。 */
 type SeatUploadPutOptions = {
@@ -272,22 +271,16 @@ export class SeatApiClient {
    */
   async putUploadObject(url: string, blob: Blob, options: SeatUploadPutOptions): Promise<void> {
     assertUploadTargetUrl(url)
-    const descriptor = (options ?? {}).descriptor
-    if (descriptor === undefined || descriptor === null) {
-      // V3-16 fail-closed：无显式 descriptor 不发请求（不按 URL 外观猜）。
-      throw new SeatApiError('validation', 'seat upload requires explicit descriptor')
+    let descriptor: SeatUploadDescriptor
+    try {
+      descriptor = parseUploadDescriptor(options?.descriptor)
+      if (descriptor.kind === 's3_put') assertS3UploadTarget(url)
+    } catch {
+      throw new SeatApiError('validation', 'seat upload descriptor or target invalid')
     }
-    if (descriptor.method !== 'PUT') {
-      throw new SeatApiError('validation', 'seat upload descriptor method must be PUT')
-    }
-    const headers: Record<string, string> = { 'Content-Type': 'application/octet-stream' }
-    if (descriptor.kind === 's3_put') {
-      // 显式 s3_put：仅 descriptor.headers（服务端签发的签名头等）；
-      // 无 Authorization——业务凭据绝不进入对象存储请求（V3-01 §2）。
-      for (const [key, value] of Object.entries(descriptor.headers ?? {})) {
-        headers[key] = value
-      }
-    } else {
+    const headers: Record<string, string> = descriptor.kind === 's3_put'
+      ? { ...descriptor.headers } : { 'Content-Type': 'application/octet-stream' }
+    if (descriptor.kind === 'api_byte') {
       // 显式 api_byte：imboy API 域端点。类型权威是 descriptor（非 URL 外观）；
       // 同源防御门只保证 Bearer 不出 API 域（路径形态由服务端签发权威性保证）。
       const origin = globalThis.location?.origin ?? 'http://seat.api.invalid'
@@ -307,6 +300,7 @@ export class SeatApiClient {
         headers,
         // A01：（Admin）Cookie 绝不出 Seat 域。
         credentials: 'omit',
+        redirect: 'error',
         signal: options.signal,
       })
     } catch (error: unknown) {

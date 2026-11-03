@@ -27,6 +27,40 @@ export type SeatUploadSessionDescriptor =
   | { kind: 's3_put'; method: 'PUT'; headers?: Record<string, string> }
   | { kind: 'api_byte'; method: 'PUT' }
 
+export function parseUploadDescriptor(raw: unknown): SeatUploadSessionDescriptor {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) throw new TypeError('上传 descriptor 非法')
+  const row = raw as Record<string, unknown>
+  if (row.method !== 'PUT') throw new TypeError('上传 descriptor method 必须为 PUT')
+  if (row.kind === 'api_byte') return { kind: 'api_byte', method: 'PUT' }
+  if (row.kind !== 's3_put') throw new TypeError('上传 descriptor kind 未知')
+  if (typeof row.headers !== 'object' || row.headers === null || Array.isArray(row.headers)) {
+    throw new TypeError('S3 descriptor 缺少签名 headers')
+  }
+  const headers: Record<string, string> = {}
+  const names = new Set<string>()
+  for (const [name, value] of Object.entries(row.headers)) {
+    const normalized = name.toLowerCase()
+    if (!['content-type', 'x-amz-checksum-sha256'].includes(normalized) || names.has(normalized)
+      || typeof value !== 'string' || !value.trim() || /\p{Cc}/u.test(value)) {
+      throw new TypeError('S3 descriptor 包含非法或重复 header')
+    }
+    if (normalized === 'x-amz-checksum-sha256'
+      && (!/^[A-Za-z0-9+/]{43}=$/.test(value) || btoa(atob(value)) !== value)) {
+      throw new TypeError('S3 checksum 必须为 32 字节 Base64')
+    }
+    names.add(normalized)
+    headers[name] = value
+  }
+  if (names.size !== 2) throw new TypeError('S3 descriptor 缺少签名 header')
+  return { kind: 's3_put', method: 'PUT', headers }
+}
+
+export function assertS3UploadTarget(url: string): void {
+  const target = new URL(url)
+  if (target.protocol !== 'https:' || target.username || target.password || target.hash
+    || url.trim() !== url || url.includes('\\')) throw new TypeError('S3 上传目标非法')
+}
+
 /** No capability or plaintext is persisted; every write failure stops the next remote action. */
 async function browserTaskLock<T>(name: string, operation: () => Promise<T> | T): Promise<T> {
   if (!globalThis.navigator?.locks) throw new Error('浏览器不支持安全上传任务锁，已停止')
@@ -159,33 +193,9 @@ export function parseUploadSession(value: unknown): UploadSession {
     if ((url.protocol === 'https:' || (url.origin === globalThis.window?.location.origin && ['localhost', '127.0.0.1'].includes(url.hostname)))
       && url.username === '' && url.password === '') uploadUrl = candidate
   }
-  const uploadDescriptor = parseSessionUploadDescriptor(upload?.descriptor, uploadUrl !== null)
+  const uploadDescriptor = uploadUrl === null ? null : parseUploadDescriptor(upload?.descriptor)
+  if (uploadDescriptor?.kind === 's3_put') assertS3UploadTarget(uploadUrl!)
   return { assetId, state, uploadRef: typeof row.upload_ref === 'string' ? row.upload_ref : null, uploadUrl, uploadDescriptor }
-}
-
-/** V3-16：会话 descriptor 投影（与 seat 侧 toSeatUploadDescriptor 同语义）。 */
-function parseSessionUploadDescriptor(
-  raw: unknown,
-  hasUrl: boolean,
-): SeatUploadSessionDescriptor | null {
-  if (!hasUrl) return null
-  if (typeof raw !== 'object' || raw === null) {
-    throw new Error('上传会话缺少显式 descriptor，已停止（不按 URL 外观猜传输类型）')
-  }
-  const row = raw as Record<string, unknown>
-  const kind = row.kind
-  if (kind === 'api_byte') return { kind: 'api_byte', method: 'PUT' }
-  if (kind === 's3_put') {
-    const headers: Record<string, string> = {}
-    if (row.headers !== undefined && typeof row.headers === 'object' && row.headers !== null) {
-      for (const [key, value] of Object.entries(row.headers as Record<string, unknown>)) {
-        if (typeof value !== 'string') throw new Error('上传会话 descriptor.headers 非法')
-        headers[key] = value
-      }
-    }
-    return { kind: 's3_put', method: 'PUT', headers }
-  }
-  throw new Error('上传会话 descriptor kind 未知，已停止')
 }
 
 export async function resumeUpload(input: {
@@ -197,8 +207,7 @@ export async function resumeUpload(input: {
   register: (_id: string) => Promise<UploadSession>
   status: (_id: string) => Promise<UploadSession>
   renew: (_id: string) => Promise<UploadSession>
-  /** V3-16：descriptor 由调用方闭包捕获或经第二参传递（widget/Seat 各自投影类型）。 */
-  put: (_url: string, _descriptor?: unknown) => Promise<void>
+  put: (_url: string, _descriptor: SeatUploadSessionDescriptor | null) => Promise<void>
   confirm: (_asset: EntityId, _ref: string | null) => Promise<void>
   onCheckpoint?: (_row: UploadCheckpoint) => Promise<void>
 }): Promise<UploadCheckpoint> {

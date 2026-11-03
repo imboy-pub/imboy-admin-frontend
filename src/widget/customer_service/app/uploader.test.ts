@@ -14,6 +14,11 @@ type Recorded = { url: string; init: RequestInit }
 const SCOPE = { installationId: '72057594037928001' }
 const SESSION_ID = '72057594037927936'
 const HASH = 'a'.repeat(64)
+const SIGNED_HEADERS = {
+  'content-type': 'application/pdf',
+  'x-amz-checksum-sha256': btoa(String.fromCharCode(...new Uint8Array(32).fill(170))),
+}
+const S3_DESCRIPTOR = { kind: 's3_put', method: 'PUT', headers: SIGNED_HEADERS } as const
 
 /** 按 URL/方法路由的 fetch 替身（bare PUT 与 API 面共用同一注入点）。 */
 function makeEnv(opts: {
@@ -21,6 +26,7 @@ function makeEnv(opts: {
   confirmStatus?: number
   presignFails?: boolean
   putFails?: boolean
+  descriptor?: unknown
 } = {}) {
   const requests: Recorded[] = []
   const putRequests: Recorded[] = []
@@ -51,7 +57,7 @@ function makeEnv(opts: {
         upload:
           opts.apiPutTarget === null
             ? { method: 'PUT', token: 'ref-opaque-1', expires_at: 1789600000000, adapter: 'local_private_object_store', rule: 'opaque_token_no_url_no_object_key' }
-            : { method: 'PUT', url: opts.apiPutTarget, token: 'ref-opaque-1', expires_at: 1789600000000 },
+            : { method: 'PUT', url: opts.apiPutTarget, descriptor: opts.descriptor ?? S3_DESCRIPTOR, expires_at: 1789600000000 },
       }
     } else if (isPost && url.includes('/assets/confirm')) {
       if (opts.confirmStatus !== undefined && opts.confirmStatus !== 200) {
@@ -131,6 +137,8 @@ describe('runAttachmentPipeline（hash→presign→裸PUT→confirm→asset_ids 
     expect(env.putRequests[0]?.init.method).toBe('PUT')
     expect(putHeaders['x-cs-visit-token']).toBeUndefined()
     expect(env.putRequests[0]?.init.credentials).toBe('omit')
+    expect(putHeaders).toEqual(SIGNED_HEADERS)
+    expect(env.putRequests[0]?.init.redirect).toBe('error')
     const confirm = env.requests.find((r) => r.url.includes('/assets/confirm'))
     expect(JSON.parse(String(confirm?.init.body))).toEqual({
       installation_id: SCOPE.installationId,
@@ -190,7 +198,7 @@ for (const boundary of ['hash', 'presign', 'put']) {
     api.presignAttachment = async () => {
       presigns += 1
       if (boundary === 'presign') current = false
-      return { assetId: '1', uploadRef: 'ref', uploadUrl: 'https://store.example/owned' }
+      return { assetId: '1', uploadRef: 'ref', uploadUrl: 'https://store.example/owned', uploadDescriptor: S3_DESCRIPTOR }
     }
     api.confirmAttachment = async () => { confirms += 1 }
     api.sendMessage = async () => { sends += 1; return { id: '2', senderType: 'contact', senderContactId: null, clientMsgId: 'stable', body: '', createdAt: null, assets: [] } }
@@ -259,13 +267,12 @@ type DurableHandlers = {
   sendMessage?: (_body: Record<string, unknown>) => unknown
 }
 
-function registeredSession(assetId: string, uploadRef: string, uploadUrl: string) {
-  // V3-16：服务端会话响应带显式 descriptor（api_byte=API 域字节端点）。
+function registeredSession(assetId: string, uploadRef: string, uploadUrl: string, descriptor: unknown = S3_DESCRIPTOR) {
   return {
     asset_id: assetId,
     session_state: 'registered',
     upload_ref: uploadRef,
-    upload: { url: uploadUrl, descriptor: { kind: 'api_byte', method: 'PUT' } },
+    upload: { url: uploadUrl, descriptor },
   }
 }
 
@@ -374,6 +381,55 @@ const UUID_SHAPE = /^[0-9a-f-]{36}$/i
 describe('W5-02 status-sync（durable 恢复面；仅 mock 传输层/定时器）', () => {
   beforeEach(clearJournalKeys)
 
+  it('durable 首传精确透传 S3 签名头，禁带业务凭据和重定向', async () => {
+    const env = makeDurableEnv()
+    const result = await runDurable(env, { clientMsgId: 'cm-s3-first', principalId: 'contact-s3', file: new Blob(['first']) })
+    expect(result.final.state).toBe('linked')
+    expect(env.putRequests).toHaveLength(1)
+    expect(env.putRequests[0]?.init).toMatchObject({ headers: SIGNED_HEADERS, method: 'PUT', credentials: 'omit', redirect: 'error' })
+    expect(env.putRequests[0]?.init.headers).toEqual(SIGNED_HEADERS)
+  })
+
+  for (const descriptor of [
+    { ...S3_DESCRIPTOR, method: 'POST' },
+    { ...S3_DESCRIPTOR, headers: {} },
+    ...['Authorization', 'cOoKiE', 'x-oa-signature', 'x-cs-visit-token', 'x-amz-copy-source'].map((name) =>
+      ({ ...S3_DESCRIPTOR, headers: { ...SIGNED_HEADERS, [name]: 'secret' } })),
+  ]) {
+    it(`首传与 durable 拒绝非法 descriptor ${JSON.stringify(descriptor)}`, async () => {
+      const env = makeEnv({ apiPutTarget: PUT_TARGET, descriptor })
+      expect((await run(env, 'cm-bad')).final.state).toBe('failed')
+      expect(env.putRequests).toHaveLength(0)
+      const durable = makeDurableEnv({ register: () => registeredSession('81', 'ref', PUT_TARGET, descriptor) })
+      expect((await runDurable(durable, { clientMsgId: 'cm-bad-durable', principalId: 'contact-bad', file: new Blob(['bad']) })).final.state).toBe('failed')
+      expect(durable.putRequests).toHaveLength(0)
+      expect(durable.requests.some((request) => request.url.includes('/assets/confirm') || request.url.includes('/messages'))).toBe(false)
+    })
+  }
+
+  it('durable 拒绝 renew 注入业务头，保留原任务且不 PUT/confirm/send', async () => {
+    const file = new Blob(['renew bytes'])
+    const options = { clientMsgId: 'cm-bad-renew', principalId: 'contact-renew', file }
+    await runDurable(makeDurableEnv({ put: () => { throw new Error('restart') } }), options)
+    const before = journalRows('cm-bad-renew')[0]
+    const env = makeDurableEnv({ renew: () => registeredSession('8100000000000000001', 'ref', PUT_TARGET,
+      { ...S3_DESCRIPTOR, headers: { ...SIGNED_HEADERS, Authorization: 'secret' } }) })
+    expect((await runDurable(env, options)).final.state).toBe('failed')
+    expect(presignOps(env)).toEqual(['status', 'renew'])
+    expect(env.putRequests).toHaveLength(0)
+    expect(env.requests.some((request) => request.url.includes('/assets/confirm') || request.url.includes('/messages'))).toBe(false)
+    expect(journalRows('cm-bad-renew')[0]?.clientUploadId).toBe(before?.clientUploadId)
+  })
+
+  it('durable 重定向失败保持 registered，禁止确认或发消息', async () => {
+    const env = makeDurableEnv({ put: () => { throw new TypeError('redirect refused') } })
+    const result = await runDurable(env, { clientMsgId: 'cm-redirect', principalId: 'contact-redirect', file: new Blob(['redirect']) })
+    expect(env.putRequests[0]?.init.redirect).toBe('error')
+    expect(result.final.state).toBe('failed')
+    expect(journalRows('cm-redirect')[0]?.phase).toBe('registered')
+    expect(env.requests.some((request) => request.url.includes('/assets/confirm') || request.url.includes('/messages'))).toBe(false)
+  })
+
   it('widget_timeout: hung presign times out and stops without retry storm', async () => {
     let presignAttempts = 0
     const fetchImpl = (async (input: string | URL) => {
@@ -461,13 +517,17 @@ describe('W5-02 status-sync（durable 恢复面；仅 mock 传输层/定时器�
     const resumedEnv = makeDurableEnv({
       register: () => { throw new Error('restart resume must not re-register') },
       status: () => registeredSession(ASSET, 'ref-restart', 'https://store.example/put/restart-status'),
-      renew: () => registeredSession(ASSET, 'ref-restart', 'https://store.example/put/restart-resume'),
+      renew: () => registeredSession(ASSET, 'ref-restart', 'https://store.example/put/restart-resume',
+        { ...S3_DESCRIPTOR, headers: { ...SIGNED_HEADERS, 'content-type': 'application/renewed' } }),
     })
     const second = await runDurable(resumedEnv, { clientMsgId: 'cm-restart', principalId: 'contact-restart', file })
     expect(second.final.state).toBe('linked')
     expect(second.final.assetId).toBe(ASSET) // 复用持久化能力，对象不换
     expect(presignOps(resumedEnv)).toEqual(['status', 'renew']) // 不二次 presign
     expect(resumedEnv.putRequests.map((request) => request.url)).toEqual(['https://store.example/put/restart-resume'])
+    expect(killedEnv.putRequests[0]?.init.headers).toEqual(SIGNED_HEADERS)
+    expect(resumedEnv.putRequests[0]?.init.headers).toEqual({ ...SIGNED_HEADERS, 'content-type': 'application/renewed' })
+    expect(resumedEnv.putRequests[0]?.init.redirect).toBe('error')
     const confirm = resumedEnv.requests.find((request) => request.url.includes('/assets/confirm'))
     expect(JSON.parse(String(confirm?.init.body)).asset_id).toBe(ASSET)
   })
@@ -495,6 +555,7 @@ describe('W5-02 status-sync（durable 恢复面；仅 mock 传输层/定时器�
     expect(second.final.assetId).toBe(ASSET) // 以新 presign 恢复，对象身份不变
     expect(presignOps(resumedEnv)).toEqual(['status', 'renew'])
     expect(resumedEnv.putRequests.map((request) => request.url)).toEqual(['https://store.example/put/cap-v2?sig=fresh'])
+    expect(resumedEnv.putRequests[0]?.init.headers).toEqual(SIGNED_HEADERS)
     const append = resumedEnv.requests.find((request) => request.url.includes('/messages'))
     expect(JSON.parse(String(append?.init.body)).asset_ids).toEqual([ASSET])
   })

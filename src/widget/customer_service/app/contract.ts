@@ -19,6 +19,7 @@
  */
 
 import { customerServiceTimestamp } from '@/lib/customerServiceTimestamp'
+import { assertS3UploadTarget, parseUploadDescriptor } from '@/lib/attachmentUploadJournal'
 
 export const WIDGET_API_BASE = '/api/v1/cs/widget'
 
@@ -345,7 +346,7 @@ export type PresignResult = {
   assetId: string
   uploadRef: string
   uploadUrl: string | null
-  /** null=恢复路径 placeholder 或部署未开放；正常 presign 必有。 */
+  /** null=无 PUT 目标或无需重传字节；正常 presign 必有。 */
   uploadDescriptor: WidgetUploadDescriptor | null
 }
 
@@ -359,17 +360,11 @@ export function toPresignResult(raw: unknown): PresignResult | null {
     uploadUrl = isBareHttpsUploadUrl(raw.upload.url) ? raw.upload.url : null
   }
   let uploadDescriptor: WidgetUploadDescriptor | null = null
-  if (uploadUrl !== null && isRecord(raw.upload) && isRecord(raw.upload.descriptor)) {
-    const d = raw.upload.descriptor
-    if (d.kind === 's3_put') {
-      const headers: Record<string, string> = {}
-      if (d.headers !== undefined && isRecord(d.headers)) {
-        for (const [key, value] of Object.entries(d.headers)) {
-          if (typeof value === 'string') headers[key] = value
-        }
-      }
-      uploadDescriptor = { kind: 's3_put', method: 'PUT', headers }
-    }
+  if (uploadUrl !== null && isRecord(raw.upload)) {
+    const descriptor = parseUploadDescriptor(raw.upload.descriptor)
+    if (descriptor.kind !== 's3_put') throw new TypeError('Widget 上传 descriptor 必须为 s3_put')
+    assertS3UploadTarget(uploadUrl)
+    uploadDescriptor = descriptor
   }
   return { assetId, uploadRef, uploadUrl, uploadDescriptor }
 }

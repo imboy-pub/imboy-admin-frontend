@@ -1,10 +1,10 @@
-import { attachmentDispatchUnknown, resumeUpload, uploadJournal } from '@/lib/attachmentUploadJournal'
+import { assertS3UploadTarget, attachmentDispatchUnknown, parseUploadDescriptor, resumeUpload, uploadJournal } from '@/lib/attachmentUploadJournal'
 /**
  * FE-W01：附件上传流水线（§3.7：hash → presign → 裸 PUT → confirm → 消息 asset_ids）。
  *
  * 合同要点：
  * - Web Crypto SHA-256（64 位小写 hex）→ presign `object_hash`（PUT 后服务端复核）；
- * - 裸 PUT：只带 Content-Type，不带 visit token / Cookie（credentials: 'omit'）；
+ * - 裸 PUT：精确发送 descriptor 签名头，不带业务凭据，禁止重定向；
  *   presign 响应无 PUT 目标（合同形状 opaque_token_no_url_no_object_key）→
  *   fail-closed 标记 failed（绝不自造端点、绝不落对象 key）；
  * - confirm 重新鉴权：409（重复 confirm）不伪成功 → failed；
@@ -113,7 +113,10 @@ export async function runAttachmentPipeline(input: {
           { clientUploadId, mime: item.mime, sizeBytes: item.sizeBytes, objectHash: item.objectHash! }),
         status: (id) => input.deps.api.recoverAttachment(input.sessionId, input.scope, id, 'status'),
         renew: (id) => input.deps.api.recoverAttachment(input.sessionId, input.scope, id, 'renew'),
-        put: (url) => barePutOrThrow({ assetId: '', uploadRef: '', uploadUrl: url, uploadDescriptor: null }, input.file, input.deps),
+        put: (url, descriptor) => {
+          if (descriptor?.kind !== 's3_put') throw new PipelineFailure('Widget 上传缺少 S3 descriptor，已停止')
+          return barePutOrThrow({ uploadUrl: url, uploadDescriptor: descriptor }, input.file, input.deps)
+        },
         confirm: (id, ref) => input.deps.api.confirmRecoveredAttachment(input.sessionId, input.scope, id, ref),
       })
       requireCurrent(input.deps)
@@ -243,27 +246,23 @@ async function ensureConfirmed(
   return dispatch(item, { type: 'confirm_succeeded', key: item.key }, deps)
 }
 
-/** 裸 PUT：https 目标 + 只带 Content-Type；无目标 → fail-closed（不自造端点）。 */
-async function barePutOrThrow(presign: PresignResult, file: Blob, deps: UploaderDeps): Promise<void> {
+/** 裸 PUT：https 目标 + 精确签名头；缺少目标或 descriptor 即停止。 */
+async function barePutOrThrow(presign: Pick<PresignResult, 'uploadUrl' | 'uploadDescriptor'>, file: Blob, deps: UploaderDeps): Promise<void> {
   if (presign.uploadUrl === null) {
     throw new PipelineFailure('上传目标缺失（部署阶段未开放对象 PUT），已停止且未泄露任何存储引用')
   }
+  const descriptor = parseUploadDescriptor(presign.uploadDescriptor)
+  if (descriptor.kind !== 's3_put') throw new PipelineFailure('Widget 上传 descriptor 非法')
+  assertS3UploadTarget(presign.uploadUrl)
   let response: Response
   try {
     requireCurrent(deps)
-    // V3-16：s3_put 显式 descriptor 的签名头原样发送（presign 已绑定
-    // content-type/checksum）；无 descriptor 时维持裸 PUT（无凭据面不变）。
-    const headers: Record<string, string> = { 'Content-Type': 'application/octet-stream' }
-    if (presign.uploadDescriptor?.kind === 's3_put') {
-      for (const [key, value] of Object.entries(presign.uploadDescriptor.headers ?? {})) {
-        headers[key] = value
-      }
-    }
     response = await deps.fetchImpl(presign.uploadUrl, {
-      method: 'PUT',
+      method: descriptor.method,
       body: file,
-      headers,
+      headers: descriptor.headers,
       credentials: 'omit',
+      redirect: 'error',
     })
   } catch {
     throw new PipelineFailure('附件字节上传失败（网络）')
