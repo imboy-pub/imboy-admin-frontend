@@ -28,6 +28,7 @@ import {
 import { useListQueryState } from '@/hooks/useListQueryState'
 import { getErrorMessage } from '@/lib/errorUtils'
 import type { EntityId } from '@/types/common'
+import { useAuthStore } from '@/stores/authStore'
 import {
   getAiAgentList,
   getAiAgentDetail,
@@ -35,6 +36,7 @@ import {
   updateAiAgent,
   setAiAgentStatus,
   uploadAgentAvatar,
+  clearAvatarUploadJournal,
   createAgentMandate,
   getAiRolePage,
   type AiAgentListItem,
@@ -51,6 +53,9 @@ interface AgentForm {
   account: string
   nickname: string
   avatar: string
+  avatar_object_key?: string
+  avatar_client_upload_id?: string
+  avatar_admin_id?: string
   provider: string
   model: string
   description: string
@@ -101,11 +106,13 @@ export function AiAgentListPage() {
   const [mandateAgent, setMandateAgent] = useState<AiAgentListItem | null>(null)
   const [mandateForm, setMandateForm] = useState({ maxAmount: '', maxTotal: '', expiresInDays: '7' })
   const [avatarUploading, setAvatarUploading] = useState(false)
+  const adminId = useAuthStore((state) => state.isAuthenticated ? state.admin?.id : undefined)
   // Garage 私桶裸 URL 直读 403：加载失败后回退本地 blob 预览，再失败降级占位符
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false)
   const [avatarFallbackUrl, setAvatarFallbackUrl] = useState<string | null>(null)
   const avatarObjectUrlRef = useRef<string | null>(null)
   const avatarInputRef = useRef<HTMLInputElement>(null)
+  const avatarUploadRef = useRef<AbortController | null>(null)
 
   const resetAvatarPreview = useCallback(() => {
     if (avatarObjectUrlRef.current) {
@@ -118,6 +125,8 @@ export function AiAgentListPage() {
 
   useEffect(
     () => () => {
+      avatarUploadRef.current?.abort()
+      avatarUploadRef.current = null
       if (avatarObjectUrlRef.current) URL.revokeObjectURL(avatarObjectUrlRef.current)
     },
     []
@@ -163,7 +172,10 @@ export function AiAgentListPage() {
   const upsertMutation = useMutation({
     mutationFn: (input: AiAgentUpsertInput) =>
       input.user_id ? updateAiAgent(input) : createAiAgent(input),
-    onSuccess: () => {
+    onSuccess: (_, input) => {
+      if (input.avatar_client_upload_id) {
+        try { clearAvatarUploadJournal(input.avatar_client_upload_id) } catch { /* 保留记录供下次清理 */ }
+      }
       toast.success(dialogMode === 'create' ? 'AI 助手已创建' : 'AI 助手已更新')
       queryClient.invalidateQueries({ queryKey: [LIST_KEY] })
       setDialogOpen(false)
@@ -256,28 +268,53 @@ export function AiAgentListPage() {
     }
   }, [resetAvatarPreview])
 
-  const handleAvatarChange = useCallback(async (file: File | undefined) => {
-    if (!file) return
-    setAvatarUploading(true)
-    try {
-      const { url } = await uploadAgentAvatar(file)
-      // 服务端返回 Garage 裸 URL（私桶直读 403）：保留本地 blob 作为
-      // <img> onError 后的回退预览源；表单仍提交服务端 URL，后端存 user.avatar
-      if (avatarObjectUrlRef.current) URL.revokeObjectURL(avatarObjectUrlRef.current)
-      const objectUrl = URL.createObjectURL(file)
-      avatarObjectUrlRef.current = objectUrl
-      setAvatarFallbackUrl(objectUrl)
-      setAvatarLoadFailed(false)
-      setForm((prev) => ({ ...prev, avatar: url }))
-      toast.success('头像已上传，保存后生效')
-    } catch (err) {
-      toast.error(`头像上传失败: ${getErrorMessage(err)}`)
-    } finally {
-      setAvatarUploading(false)
-    }
-  }, [])
+  const handleAvatarChange = useCallback(
+    async (file: File | undefined) => {
+      if (!file) return
+      const controller = new AbortController()
+      avatarUploadRef.current = controller
+      setAvatarUploading(true)
+      try {
+        // C08（V3-13）direct-v1：application 主体 = agent 自身 uid（edit）；
+        // create 模式 agent 未建号，由 API 层取临时标识。
+        const { url, objectKey, clientUploadId } = await uploadAgentAvatar(file, {
+          agentId: form.user_id ? String(form.user_id) : undefined,
+          signal: controller.signal,
+        })
+        if (controller.signal.aborted) return
+        // 保留本地 blob 作为 <img> onError 后的回退
+        // 预览源；表单仍提交服务端 URL，后端存 user.avatar
+        if (avatarObjectUrlRef.current) URL.revokeObjectURL(avatarObjectUrlRef.current)
+        const objectUrl = URL.createObjectURL(file)
+        avatarObjectUrlRef.current = objectUrl
+        setAvatarFallbackUrl(objectUrl)
+        setAvatarLoadFailed(false)
+        setForm((prev) => ({
+          ...prev,
+          avatar: url,
+          avatar_object_key: objectKey,
+          avatar_client_upload_id: clientUploadId,
+          avatar_admin_id: String(adminId),
+        }))
+        toast.success('头像已上传，保存后生效')
+      } catch (err) {
+        if (!controller.signal.aborted) toast.error(`头像上传失败: ${getErrorMessage(err)}`)
+      } finally {
+        if (avatarUploadRef.current === controller) {
+          avatarUploadRef.current = null
+          setAvatarUploading(false)
+        }
+      }
+    },
+    [form.user_id, adminId],
+  )
 
   const handleSubmit = useCallback(() => {
+    if (avatarUploading) return
+    if (form.avatar_client_upload_id && (!adminId || form.avatar_admin_id !== String(adminId))) {
+      toast.error('管理员会话已切换，请重新选择头像')
+      return
+    }
     if (!form.provider.trim()) {
       toast.error('provider 不能为空')
       return
@@ -291,6 +328,8 @@ export function AiAgentListPage() {
       nickname: form.nickname.trim() || undefined,
       account: dialogMode === 'create' ? form.account.trim() || undefined : undefined,
       avatar: form.avatar || undefined,
+      avatar_object_key: form.avatar_object_key,
+      avatar_client_upload_id: form.avatar_client_upload_id,
       provider: form.provider.trim(),
       role_id: form.role_id.trim() || undefined,
       model: form.model.trim() || undefined,
@@ -302,7 +341,7 @@ export function AiAgentListPage() {
       temperature: form.temperature,
     }
     upsertMutation.mutate(input)
-  }, [form, dialogMode, upsertMutation])
+  }, [form, dialogMode, upsertMutation, avatarUploading, adminId])
 
   const columns = useMemo<LegacyColumnDef<AiAgentListItem>[]>(
     () => [
@@ -448,7 +487,10 @@ export function AiAgentListPage() {
       />
 
       {/* 新建/编辑对话框 */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={dialogOpen} onOpenChange={(open) => {
+        if (!open) avatarUploadRef.current?.abort()
+        setDialogOpen(open)
+      }}>
         <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{dialogMode === 'create' ? '新建 AI 助手' : '编辑 AI 助手'}</DialogTitle>
@@ -651,10 +693,10 @@ export function AiAgentListPage() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+            <Button variant="outline" onClick={() => { avatarUploadRef.current?.abort(); setDialogOpen(false) }}>
               取消
             </Button>
-            <Button onClick={handleSubmit} disabled={upsertMutation.isPending}>
+            <Button onClick={handleSubmit} disabled={upsertMutation.isPending || avatarUploading}>
               {upsertMutation.isPending ? '保存中...' : '保存'}
             </Button>
           </DialogFooter>

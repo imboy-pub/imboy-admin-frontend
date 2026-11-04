@@ -9,6 +9,7 @@ import { act } from 'react'
 import { MemoryRouter } from 'react-router-dom'
 import client from '@/services/api/client'
 import { AiAgentListPage } from './AiAgentListPage'
+import { useAuthStore } from '@/stores/authStore'
 
 type AnyFn = (..._args: unknown[]) => unknown
 type MutableClient = { get: AnyFn; post: AnyFn }
@@ -237,6 +238,10 @@ describe('AiAgentListPage 编辑对话框扩展字段', () => {
   })
 
   it('上传头像成功后表单记录新 URL 并显示预览', async () => {
+    localStorage.clear()
+    useAuthStore.setState({ isAuthenticated: true, admin: { id: '42' } as never })
+    Object.defineProperty(navigator, 'locks', { configurable: true,
+      value: { request: async (_name: string, _opts: unknown, run: (_lock: object) => unknown) => run({}) } })
     mutableClient.get = async (url: string) => {
       if (url === '/ai_agent/list') {
         return envelope({ list: [listRow], page: 1, size: 10, total: 1 })
@@ -246,44 +251,182 @@ describe('AiAgentListPage 编辑对话框扩展字段', () => {
       }
       throw new Error(`unexpected GET: ${url}`)
     }
+    // C08（V3-13）direct-v1：mock avatar_direct 五步会话
+    let uploadId = ''
+    let savedBody: Record<string, unknown> | null = null
     mutableClient.post = async (url: string, body: unknown) => {
-      if (url === '/ai_agent/upload_avatar') {
-        expect(body).toBeInstanceOf(FormData)
-        expect((body as FormData).get('file')).not.toBeNull()
-        return envelope({ url: 'https://s3.example.com/new-avatar.png' })
+      if (url === '/ai_agent/update') {
+        savedBody = body as Record<string, unknown>
+        return envelope({ user_id: '1001' })
+      }
+      if (url === '/ai_agent/avatar_direct') {
+        const op = (body as { op?: string }).op
+        if (op === 'register') {
+          uploadId = String((body as Record<string, unknown>).client_upload_id)
+          return envelope({ object_key: 'app1001/avatar/a.png', state: 'RESERVED' })
+        }
+        if (op === 'declare') return envelope({})
+        if (op === 'grant') {
+          return envelope({
+            state: 'GRANTED',
+            attempt_id: 1,
+            grant: {
+              transport: 's3_put',
+              url: 'https://s3.invalid/staging/a.png',
+              method: 'PUT',
+              required_headers: [
+                { key: 'Content-Type', value: 'image/png' },
+                { key: 'x-amz-checksum-sha256', value: 'KFjR0XFXoQsx0cHZXfqS9mMkN+uM3Y3T4KZ1fFTzQyU=' },
+              ],
+              expires_in: 3600,
+            },
+          })
+        }
+        if (op === 'finalize') return envelope({ state: 'CONFIRMED' })
+        if (op === 'publish') return envelope({ public_url: 'https://public.example.com/new-avatar.png' })
+        throw new Error(`unexpected avatar_direct op: ${op}`)
       }
       throw new Error(`unexpected POST: ${url}`)
     }
+    const originalFetch = globalThis.fetch
+    let finishUpload: ((_response: Response) => void) | undefined
+    globalThis.fetch = (() => new Promise<Response>((resolve) => { finishUpload = resolve })) as typeof fetch
 
-    let view: ReturnType<typeof renderPage>
-    await act(async () => {
-      view = renderPage()
-    })
-    await waitFor(() => expect(view.getAllByText('医生助手').length).toBeGreaterThan(0))
+    try {
+      let view: ReturnType<typeof renderPage>
+      await act(async () => {
+        view = renderPage()
+      })
+      await waitFor(() => expect(view.getAllByText('医生助手').length).toBeGreaterThan(0))
 
-    await act(async () => {
-      fireEvent.click(view.getAllByText('编辑')[0])
-    })
-    await waitFor(() => expect(view.getByTestId('avatar-input')).toBeTruthy())
+      await act(async () => {
+        fireEvent.click(view.getAllByText('编辑')[0])
+      })
+      await waitFor(() => expect(view.getByTestId('avatar-input')).toBeTruthy())
 
-    const file = new File(['PNGDATA'], 'avatar.png', { type: 'image/png' })
-    await act(async () => {
-      fireEvent.change(view.getByTestId('avatar-input'), { target: { files: [file] } })
-    })
+      const file = new File(['PNGDATA'], 'avatar.png', { type: 'image/png' })
+      await act(async () => {
+        fireEvent.change(view.getByTestId('avatar-input'), { target: { files: [file] } })
+      })
 
-    await waitFor(() => {
-      // 预览图 src 更新为新 URL
-      expect((view.getByTestId('avatar-preview') as HTMLImageElement).src).toContain(
-        'new-avatar.png'
-      )
-    })
+      await waitFor(() => expect(finishUpload).toBeDefined())
+      expect((view.getByText('保存') as HTMLButtonElement).disabled).toBeTrue()
+      expect((view.getByText('取消') as HTMLButtonElement).disabled).toBeFalse()
+      await act(async () => { finishUpload?.(new Response(null, { status: 200 })) })
 
-    // 私桶 403 → onError 回退到本地 blob 预览（不裂图）
-    fireEvent.error(view.getByTestId('avatar-preview'))
-    await waitFor(() => {
-      const img = view.getByTestId('avatar-preview') as HTMLImageElement
-      expect(img.src.startsWith('blob:')).toBeTrue()
-    })
+      await waitFor(() => {
+        // 预览图 src 更新为新 URL
+        expect((view.getByTestId('avatar-preview') as HTMLImageElement).src).toContain(
+          'new-avatar.png'
+        )
+      })
+
+      // 私桶 403 → onError 回退到本地 blob 预览（不裂图）
+      fireEvent.error(view.getByTestId('avatar-preview'))
+      await waitFor(() => {
+        const img = view.getByTestId('avatar-preview') as HTMLImageElement
+        expect(img.src.startsWith('blob:')).toBeTrue()
+      })
+
+      await act(async () => {
+        fireEvent.click(view.getByText('保存'))
+      })
+      await waitFor(() => expect(savedBody).toMatchObject({
+        avatar: 'https://public.example.com/new-avatar.png',
+        avatar_object_key: 'app1001/avatar/a.png',
+        avatar_client_upload_id: uploadId,
+      }))
+
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
+  it('取消对话框时中止在途头像上传', async () => {
+    localStorage.clear()
+    useAuthStore.setState({ isAuthenticated: true, admin: { id: '42' } as never })
+    Object.defineProperty(navigator, 'locks', { configurable: true,
+      value: { request: async (_name: string, _opts: unknown, run: (_lock: object) => unknown) => run({}) } })
+    mutableClient.get = async (url: string) => {
+      if (url === '/ai_agent/list') {
+        return envelope({ list: [listRow], page: 1, size: 10, total: 1 })
+      }
+      if (url === '/ai_agent/detail') {
+        return envelope({ ...detailFixture, avatar: 'https://s3.example.com/old.png' })
+      }
+      throw new Error(`unexpected GET: ${url}`)
+    }
+    // C08（V3-13）direct-v1：mock avatar_direct 五步会话
+    let savedBody: Record<string, unknown> | null = null
+    mutableClient.post = async (url: string, body: unknown) => {
+      if (url === '/ai_agent/update') {
+        savedBody = body as Record<string, unknown>
+        return envelope({ user_id: '1001' })
+      }
+      if (url === '/ai_agent/avatar_direct') {
+        const op = (body as { op?: string }).op
+        if (op === 'register') {
+          return envelope({ object_key: 'app1001/avatar/a.png', state: 'RESERVED' })
+        }
+        if (op === 'declare') return envelope({})
+        if (op === 'grant') {
+          return envelope({
+            state: 'GRANTED',
+            attempt_id: 1,
+            grant: {
+              transport: 's3_put',
+              url: 'https://s3.invalid/staging/a.png',
+              method: 'PUT',
+              required_headers: [
+                { key: 'Content-Type', value: 'image/png' },
+                { key: 'x-amz-checksum-sha256', value: 'KFjR0XFXoQsx0cHZXfqS9mMkN+uM3Y3T4KZ1fFTzQyU=' },
+              ],
+              expires_in: 3600,
+            },
+          })
+        }
+        if (op === 'finalize') return envelope({ state: 'CONFIRMED' })
+        if (op === 'publish') return envelope({ public_url: 'https://public.example.com/new-avatar.png' })
+        throw new Error(`unexpected avatar_direct op: ${op}`)
+      }
+      throw new Error(`unexpected POST: ${url}`)
+    }
+    const originalFetch = globalThis.fetch
+    let uploadSignal: AbortSignal | undefined
+    globalThis.fetch = ((_input: RequestInfo | URL, init?: RequestInit) => {
+      uploadSignal = init?.signal ?? undefined
+      return new Promise<Response>((_resolve, reject) => {
+        uploadSignal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')), { once: true })
+      })
+    }) as typeof fetch
+
+    try {
+      let view: ReturnType<typeof renderPage>
+      await act(async () => {
+        view = renderPage()
+      })
+      await waitFor(() => expect(view.getAllByText('医生助手').length).toBeGreaterThan(0))
+
+      await act(async () => {
+        fireEvent.click(view.getAllByText('编辑')[0])
+      })
+      await waitFor(() => expect(view.getByTestId('avatar-input')).toBeTruthy())
+
+      const file = new File(['PNGDATA'], 'avatar.png', { type: 'image/png' })
+      await act(async () => {
+        fireEvent.change(view.getByTestId('avatar-input'), { target: { files: [file] } })
+      })
+
+      await waitFor(() => expect(uploadSignal).toBeDefined())
+      expect((view.getByText('保存') as HTMLButtonElement).disabled).toBeTrue()
+      await act(async () => { fireEvent.click(view.getByText('取消')) })
+      expect(uploadSignal?.aborted).toBeTrue()
+      await waitFor(() => expect(view.queryByTestId('avatar-input')).toBeNull())
+      expect(savedBody).toBeNull()
+
+    } finally {
+      globalThis.fetch = originalFetch
+    }
   })
 
   it('旧头像裸 URL 加载失败时降级占位并展示已存 URL', async () => {

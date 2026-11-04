@@ -1,6 +1,8 @@
 // AI 助手管理 API / AI agent management API
 // 后端: src/adm/adm_ai_agent_handler.erl（baseURL /api/adm，调用不写前缀）
 import client from '@/services/api/client'
+import { parseUploadDescriptor } from '@/lib/attachmentUploadJournal'
+import { useAuthStore } from '@/stores/authStore'
 import { requireApiPayload } from '@/services/api/responseAdapter'
 import type { ApiResponse, PaginatedResponse } from '@/types/api'
 import type { EntityId } from '@/types/common'
@@ -58,6 +60,8 @@ export interface AiAgentUpsertInput {
   account?: string
   /** 头像 URL（admin 上传后随 update 提交，后端同步写 user.avatar） */
   avatar?: string
+  avatar_object_key?: string
+  avatar_client_upload_id?: string
   provider: string
   role_id?: string
   model?: string
@@ -291,19 +295,190 @@ export async function deleteAiRole(roleId: string): Promise<AiRolesMap> {
   return payload.roles ?? {}
 }
 
-// --- 头像上传（multipart → Garage → URL） ---
+// --- 头像上传（C08/V3-13：direct-v1 application 主体会话） ---
 
-/** POST /ai_agent/upload_avatar：multipart 上传头像，返回可访问 URL */
-export async function uploadAgentAvatar(file: File): Promise<{ url: string }> {
-  const form = new FormData()
-  form.append('file', file)
-  // 必须清除实例级 Content-Type: application/json 默认头：axios 检测到 FormData 时
-  // 仅在未显式设置 Content-Type 时才自动生成 multipart boundary（否则后端
-  // cowboy_req:init_multipart 收到 application/json 直接 badmatch 崩溃 → HTTP 500）
-  const response = await client.post('/ai_agent/upload_avatar', form, {
-    headers: { 'Content-Type': undefined },
+/** avatar_direct 单步响应信封 payload（register/finalize/publish 各取所需） */
+interface AvatarDirectResponse {
+  object_key?: string
+  state?: string
+  attempt_id?: number
+  grant?: {
+    transport?: string
+    url?: string
+    method?: string
+    required_headers?: Array<{ key: string; value: string }>
+    expires_in?: number
+  }
+  public_url?: string
+  expected?: unknown
+}
+
+async function avatarDirect(body: Record<string, unknown>, signal: AbortSignal): Promise<AvatarDirectResponse> {
+  const response = await client.post('/ai_agent/avatar_direct', body, { signal })
+  return requireApiPayload<AvatarDirectResponse>(response.data, '/ai_agent/avatar_direct')
+}
+
+/** 文件字节 SHA-256（hex 小写，declare 的 expected 冻结值） */
+async function sha256HexOfFile(file: File): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer())
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
+}
+
+/**
+ * POST /ai_agent/avatar_direct 全链上传 AI 头像并通过受控边缘别名发布。
+ * 链路（协议 §5 Admin 身份域，application 主体，正文不经后端）：
+ *   register（application_id 缺省取 agentId，org 缺省 admin 平台域）
+ *   → declare（sha256/size 冻结）→ grant（staging s3_put 描述符）
+ *   → 浏览器 PUT grant.url（只发 required_headers，credentials: 'omit'，
+ *      Admin Cookie 绝不出域；与服务端签名逐字一致，不增不减）
+ *   → finalize（CONFIRMED）→ publish（检查私有 winner → 公开别名）。
+ * 返回公开可读 URL（随 update 提交，后端同步写 user.avatar）。
+ * 中途失败直接抛错（前端可按原会话安全重试；
+ * 同 filename+clientUploadId 重试时 register 幂等恢复同一会话）。
+ */
+const avatarJournalPrefix = 'imboy-avatar-upload-v1:'
+
+function currentAvatarAdmin(): string {
+  const { admin, isAuthenticated } = useAuthStore.getState()
+  if (!isAuthenticated || !admin?.id) throw new Error('管理员会话不可用，无法恢复头像上传')
+  return String(admin.id)
+}
+
+/** 保存成功后只清除此管理员和上传会话对应的恢复记录。 */
+export function clearAvatarUploadJournal(clientUploadId: string): void {
+  const owner = currentAvatarAdmin()
+  const storage = globalThis.localStorage
+  for (let i = storage.length - 1; i >= 0; i--) {
+    const key = storage.key(i)
+    if (!key?.startsWith(`${avatarJournalPrefix}${encodeURIComponent(owner)}:`)) continue
+    const value = JSON.parse(storage.getItem(key) ?? 'null') as { clientUploadId?: unknown } | null
+    if (value?.clientUploadId === clientUploadId) storage.removeItem(key)
+  }
+}
+
+export async function uploadAgentAvatar(
+  file: File,
+  opts?: { agentId?: string; clientUploadId?: string; signal?: AbortSignal },
+): Promise<{ url: string; objectKey: string; clientUploadId: string }> {
+  const mime = file.type || 'image/png'
+  if (file.size <= 0 || file.size > 100 * 1024 * 1024 ||
+      !['image/png', 'image/jpeg', 'image/gif', 'image/webp'].includes(mime)) {
+    throw new Error('头像格式或大小不受支持')
+  }
+  const owner = currentAvatarAdmin()
+  let invalidated = false
+  const controller = new AbortController()
+  const cancel = () => controller.abort()
+  opts?.signal?.addEventListener('abort', cancel, { once: true })
+  if (opts?.signal?.aborted) cancel()
+  const timer = setTimeout(cancel, 120_000)
+  const unsubscribe = useAuthStore.subscribe((state) => {
+    if (!state.isAuthenticated || String(state.admin?.id ?? '') !== owner) {
+      invalidated = true
+      controller.abort()
+    }
   })
-  return requireApiPayload<{ url: string }>(response.data, '/ai_agent/upload_avatar')
+  const checkOwner = () => {
+    if (invalidated || currentAvatarAdmin() !== owner) throw new Error('管理员会话已切换，上传已停止')
+    if (controller.signal.aborted) throw new Error('头像上传已取消或超时，请重试')
+  }
+  try {
+    const sha256 = await sha256HexOfFile(file)
+    checkOwner()
+    const name = file.name || 'avatar.png'
+    const journalKey = `${avatarJournalPrefix}${encodeURIComponent(owner)}:${encodeURIComponent(opts?.agentId || 'create')}:${sha256}:${file.size}:${encodeURIComponent(mime)}:${encodeURIComponent(name)}`
+    const locks = globalThis.navigator?.locks
+    if (!locks) throw new Error('浏览器不支持安全上传任务锁')
+    return await locks.request(`avatar:${journalKey}`, { ifAvailable: true }, async (lock) => {
+      if (!lock) throw new Error('头像上传正在其他页面进行')
+      checkOwner()
+      const storage = globalThis.localStorage
+      const stored = storage.getItem(journalKey)
+      const journal = stored === null ? null : JSON.parse(stored) as { clientUploadId?: unknown; objectKey?: unknown }
+      if (journal !== null && (typeof journal.clientUploadId !== 'string' ||
+          !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(journal.clientUploadId) ||
+          (journal.objectKey !== undefined && typeof journal.objectKey !== 'string'))) {
+        throw new Error('头像恢复记录无效')
+      }
+      if (journal && opts?.clientUploadId && journal.clientUploadId !== opts.clientUploadId) {
+        throw new Error('头像恢复会话冲突')
+      }
+      const clientUploadId = (journal?.clientUploadId as string | undefined) ?? opts?.clientUploadId ?? crypto.randomUUID()
+      const save = (objectKey?: string) => {
+        storage.setItem(journalKey, JSON.stringify({ clientUploadId, ...(objectKey ? { objectKey } : {}) }))
+      }
+      save(typeof journal?.objectKey === 'string' ? journal.objectKey : undefined)
+
+      const request = async (body: Record<string, unknown>) => {
+        checkOwner()
+        const result = await avatarDirect(body, controller.signal)
+        checkOwner()
+        return result
+      }
+      const registered = await request({
+        op: 'register', application_id: opts?.agentId || clientUploadId,
+        filename: name, client_upload_id: clientUploadId,
+      })
+      const objectKey = registered.object_key
+      if (!objectKey || (journal?.objectKey && journal.objectKey !== objectKey)) {
+        throw new Error('头像会话定位键不一致')
+      }
+      save(objectKey)
+
+      let state = registered.state
+      if (state !== 'RESERVED') {
+        const status = await request({ op: 'status', object_key: objectKey })
+        if (status.object_key !== objectKey) throw new Error('头像状态定位键不一致')
+        state = status.state
+        const raw = status.expected
+        const expected: unknown = typeof raw === 'string' ? JSON.parse(raw) : raw
+        if (typeof expected !== 'object' || expected === null ||
+            (expected as Record<string, unknown>).sha256 !== sha256 ||
+            String((expected as Record<string, unknown>).size_bytes) !== String(file.size) ||
+            (expected as Record<string, unknown>).mime !== mime) {
+          throw new Error('头像文件与已登记内容不一致')
+        }
+      }
+      if (state === 'RESERVED') {
+        await request({ op: 'declare', object_key: objectKey, sha256, size_bytes: file.size, mime })
+        state = 'DECLARED'
+      }
+      if (state !== 'CONFIRMED') {
+        if (state !== 'DECLARED' && state !== 'GRANTED' && state !== 'FINALIZING') {
+          throw new Error('头像上传会话状态不可恢复')
+        }
+        const granted = await request({
+          op: state === 'DECLARED' ? 'grant' : 'renew', object_key: objectKey, sha256,
+        })
+        if (granted.state !== 'CONFIRMED') {
+          const grant = parseUploadDescriptor(granted.grant)
+          const attemptId = granted.attempt_id
+          if (typeof attemptId !== 'number' || !Number.isSafeInteger(attemptId) || attemptId < 1) {
+            throw new Error('avatar grant 未返回 attempt_id')
+          }
+          checkOwner()
+          const putResp = await fetch(grant.url, {
+            method: 'PUT', body: file, headers: grant.headers, credentials: 'omit', redirect: 'error',
+            signal: controller.signal,
+          })
+          checkOwner()
+          if (!putResp.ok) throw new Error(`头像直传存储失败（HTTP ${putResp.status}）`)
+          const finalized = await request({ op: 'finalize', object_key: objectKey, attempt_id: attemptId })
+          if (finalized.state !== 'CONFIRMED') throw new Error('头像会话未确认（未达 CONFIRMED）')
+        }
+      }
+      const published = await request({ op: 'publish', object_key: objectKey, agent_id: opts?.agentId ?? '' })
+      const publicUrl = published.public_url
+      if (!publicUrl) throw new Error('头像发布未返回公开 URL')
+      return { url: publicUrl, objectKey, clientUploadId }
+    })
+  } finally {
+    clearTimeout(timer)
+    opts?.signal?.removeEventListener('abort', cancel)
+    unsubscribe()
+  }
 }
 
 /** 受控支付授权入参（agent_payment_mandate_logic:authorize/2，金额单位分） */
