@@ -657,7 +657,7 @@ export function createWidgetController(deps: ControllerDeps) {
         if (!current()) return
         let sent: WidgetMessage
         try {
-          sent = await deps.api.sendMessage(sessionId, operationScope, row.clientMsgId, '', [result.assetId])
+          sent = await deps.api.sendMessage(sessionId, operationScope, row.clientMsgId, '', [row.assetId])
         } catch (error) {
           if (current() && isDefiniteMessageRefusal(error)) await journal.acknowledgeRefusal(row.clientMsgId, row.clientUploadId)
           throw error
