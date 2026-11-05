@@ -98,7 +98,12 @@ test.describe('P0-5 首启初始化向导', () => {
     await expect(page.getByText('两次输入的密码不一致')).toBeVisible()
   })
   test('提交成功后跳转 /login', async ({ page }) => {
-    await page.route(SETUP_STATUS_URL, mockStatus(false))
+    let initialized = false
+    let initializedStatusRequests = 0
+    await page.route(SETUP_STATUS_URL, async (route) => {
+      if (initialized) initializedStatusRequests += 1
+      await mockStatus(initialized)(route)
+    })
     await page.route(SETUP_INIT_URL, async (route) => {
       expect(route.request().method()).toBe('POST')
       const body = route.request().postDataJSON() as {
@@ -112,6 +117,8 @@ test.describe('P0-5 首启初始化向导', () => {
       expect(typeof body.password).toBe('string')
       expect(body.password.length).toBeGreaterThan(0)
       expect(body.password).not.toBe('StrongPass123')
+      // 初始化成功后，登录页守卫再次查询时应读到已初始化状态。
+      initialized = true
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -128,6 +135,8 @@ test.describe('P0-5 首启初始化向导', () => {
     await page.getByLabel('密码', { exact: true }).fill('StrongPass123')
     await page.getByLabel('确认密码').fill('StrongPass123')
     await page.getByRole('button', { name: '创建超级管理员' }).click()
+    await expect.poll(() => initializedStatusRequests).toBeGreaterThan(0)
+    await expect(page.getByRole('button', { name: '登录', exact: true })).toBeVisible()
     await expect(page).toHaveURL(/\/login$/)
   })
   test('已初始化时访问 /setup 自动跳转 /login', async ({ page }) => {
