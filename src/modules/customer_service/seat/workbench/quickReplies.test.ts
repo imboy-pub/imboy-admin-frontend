@@ -17,13 +17,13 @@ import { SeatApiClient } from '../seatApiClient'
 import { SeatWorkbenchApi } from './workbenchApi'
 
 const ORG = '1234567890123456789'
-const WS = '9876543210987654321'
+const WS = '8876543210987654321'
 
 function wireRow(overrides: Record<string, unknown> = {}) {
   return {
     id: '999999999999999999',
-    tenant_id: Number(ORG),
-    workspace_id: Number(WS),
+    organization_id: ORG,
+    workspace_id: WS,
     title: '问候语',
     content: '您好，很高兴为您服务。',
     sort: 0,
