@@ -116,7 +116,7 @@ type SeatBlobRequestOptions = {
 /** V3-C04 direct：上传 grant——服务端 presign/renew 权威下发（S3-only：
  * api_byte/同源鉴权正文通道已退役）。只发 grant.headers 签名头；
  * Authorization/Cookie/Seat Bearer 绝不出 Seat 域到对象存储（请求捕获可证）。 */
-export type SeatUploadDescriptor = SeatUploadSessionDescriptor
+type SeatUploadDescriptor = SeatUploadSessionDescriptor
 
 /** CS-WEB-02：裸 PUT 上传选项（grant 权威下发的 url + 签名头）。 */
 type SeatUploadPutOptions = {
