@@ -36,11 +36,6 @@ export type QuickReplyPage = {
 export const QUICK_REPLY_TITLE_MAX = 64
 export const QUICK_REPLY_CONTENT_MAX = 2000
 
-/** TSID 十进制串形状校验（同 widgetInstallationsPure 口径）。 */
-export function isValidQuickReplyScopeId(value: string): boolean {
-  return /^[0-9]{1,20}$/.test(value) && Number(value) > 0
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }

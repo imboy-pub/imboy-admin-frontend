@@ -28,7 +28,7 @@ export const PUBLIC_WIDGET_ID = 'csww-e2e-widget-77729338'
 /** SC-FE：坐席工作台唯一入口 = cs 域 iframe（后端 /seat/:public_seat_console_id
  * 服务 HTML 壳；本地经 static-host-p2 同源反代 /seat/ 与 /seat-assets/）。
  * Admin SPA 的 /customer-service/workspace 路由已移除（EADM-03 合同锁定）。 */
-export const SEAT_CONSOLE_PUBLIC_ID =
+const SEAT_CONSOLE_PUBLIC_ID =
   process.env.CSWW_P2_SEAT_CONSOLE_PUBLIC_ID ?? '7772933810'
 export const seatConsoleUrl = (origin: string): string => `${origin}/seat/${SEAT_CONSOLE_PUBLIC_ID}`
 

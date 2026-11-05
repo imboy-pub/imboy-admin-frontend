@@ -44,7 +44,7 @@ export function fetchSeatState(orgId: string, identityId: string): { enabled: bo
 }
 
 /** A04 一次性夹具：停用坐席（真实治理动作的落库等价物，后续恢复用 true）。 */
-export function setSeatEnabled(orgId: string, identityId: string, enabled: boolean): void {
+function setSeatEnabled(orgId: string, identityId: string, enabled: boolean): void {
   psql(`update customer_service_seat set enabled = ${enabled ? 'true' : 'false'}` + ` where organization_id = ${orgId} and business_identity_id = ${identityId}`)
 }
 
