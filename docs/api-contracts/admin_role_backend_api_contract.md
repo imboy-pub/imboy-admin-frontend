@@ -11,7 +11,7 @@
 ## 前置变量
 
 ```bash
-export IMBOY_ADMIN_BASE_URL='http://localhost:8082/adm'
+export IMBOY_ADMIN_BASE_URL='http://localhost:8082/api/adm'
 export IMBOY_ADMIN_COOKIE='adm_user_id=xxx; adm_user_sig=xxx'
 ```
 
@@ -187,7 +187,7 @@ bash scripts/check_admin_role_backend_readiness.sh --strict
 如需显式指定地址和 Cookie：
 
 ```bash
-IMBOY_ADMIN_BASE_URL='http://localhost:8082/adm' \
+IMBOY_ADMIN_BASE_URL='http://localhost:8082/api/adm' \
 IMBOY_ADMIN_COOKIE='adm_user_id=xxx; adm_user_sig=xxx' \
 bash scripts/check_admin_role_backend_readiness.sh --strict
 ```

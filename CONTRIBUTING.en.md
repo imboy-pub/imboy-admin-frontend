@@ -8,7 +8,7 @@
 
 | Tool | Version | Notes |
 |---|---|---|
-| bun | **1.3.6** (CI-anchored, see `BUN_VERSION` in `.github/workflows/ci.yml`) | Package manager / test runner / script runtime; this repo does **not** use npm/yarn/pnpm |
+| bun | **1.3.14** (CI-anchored, see `BUN_VERSION` in `.github/workflows/ci.yml`) | Package manager / test runner / script runtime; this repo does **not** use npm/yarn/pnpm |
 | Node | not declared by the repo (no `engines` field in `package.json`) | No standalone requirement; Playwright uses its bundled runtime. If Node is installed locally, current LTS is recommended |
 | Backend | local imboy backend, default `http://127.0.0.1:9800` | Most feature pages and E2E need a real backend |
 
@@ -87,7 +87,7 @@ Type and architecture conventions (TSID/`EntityId`, pagination, payload-first): 
 2. Self-check before committing: `bun run check` (lint + typecheck + knip) and `bun run test` all green.
 3. PR descriptions use the template [.github/pull_request_template.md](./.github/pull_request_template.md); its self-review checklist covers:
    - Conventions: `EntityId`, `DataTablePagination`, module boundaries, bilingual documentation rule
-   - Quality gates: lint (ratchet ≤10), typecheck (ratchet ≤31), knip (ratchet ≤35), unit tests green, E2E key flows
+   - Quality gates: lint (ratchet ≤37), typecheck (ratchet ≤31), knip (ratchet ≤35), unit tests green, E2E key flows
    - Contract changes: cross-repo (imboy / imboyapp) synchronized release requirement
    - Security: no hardcoded credentials (gitleaks), no leftover `console.log`
-4. CI (`.github/workflows/`): `quality.yml` (lint+tsc+knip+secrets), `sonar.yml`, `ci.yml`, `admin-e2e.yml`, `widget-pairing.yml` (cross-repo widget asset pairing gate); all status checks must pass before merge.
+4. CI (`.github/workflows/`): `quality.yml` (lint+tsc+knip+secrets), `ci.yml`, `admin-e2e.yml`, `widget-pairing.yml` (cross-repo widget asset pairing gate); all status checks must pass before merge.

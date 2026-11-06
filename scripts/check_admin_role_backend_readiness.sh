@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-BASE_URL="${IMBOY_ADMIN_BASE_URL:-http://localhost:8082/adm}"
+BASE_URL="${IMBOY_ADMIN_BASE_URL:-http://localhost:8082/api/adm}"
 COOKIE="${IMBOY_ADMIN_COOKIE:-}"
 STRICT_MODE=0
 

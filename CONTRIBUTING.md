@@ -7,7 +7,7 @@
 
 | 工具 | 版本 | 说明 |
 |---|---|---|
-| bun | **1.3.6**（CI 锚定值，见 `.github/workflows/ci.yml` 的 `BUN_VERSION`） | 包管理 / 测试 / 脚本运行时；本仓**不使用** npm/yarn/pnpm |
+| bun | **1.3.14**（CI 锚定值，见 `.github/workflows/ci.yml` 的 `BUN_VERSION`） | 包管理 / 测试 / 脚本运行时；本仓**不使用** npm/yarn/pnpm |
 | Node | 仓库未声明（`package.json` 无 `engines` 字段） | 无独立要求；Playwright 使用自带运行时。如本机装有 Node，建议当前 LTS |
 | 后端 | 本地 imboy 后端，默认 `http://127.0.0.1:9800` | 多数功能页与 E2E 需要真实后端 |
 
@@ -86,7 +86,7 @@ bun run test:e2e
 2. 提交前自查：`bun run check`（lint + typecheck + knip）与 `bun run test` 全绿。
 3. PR 描述使用模板 [.github/pull_request_template.md](./.github/pull_request_template.md)，其自检清单涵盖：
    - 规范项：`EntityId`、`DataTablePagination`、模块边界、双语文档规则
-   - 质量门：lint（ratchet ≤10）、typecheck（ratchet ≤31）、knip（ratchet ≤35）、单测全绿、E2E 关键流
+   - 质量门：lint（ratchet ≤37）、typecheck（ratchet ≤31）、knip（ratchet ≤35）、单测全绿、E2E 关键流
    - 契约变更：跨仓（imboy / imboyapp）同步发版要求
    - 安全：无硬编码凭据（gitleaks）、无 `console.log` 残留
-4. CI（`.github/workflows/`）：`quality.yml`（lint+tsc+knip+secrets）、`sonar.yml`、`ci.yml`、`admin-e2e.yml`、`widget-pairing.yml`（跨仓挂件资产配对门）；合并前全部 status check 须通过。
+4. CI（`.github/workflows/`）：`quality.yml`（lint+tsc+knip+secrets）、`ci.yml`、`admin-e2e.yml`、`widget-pairing.yml`（跨仓挂件资产配对门）；合并前全部 status check 须通过。

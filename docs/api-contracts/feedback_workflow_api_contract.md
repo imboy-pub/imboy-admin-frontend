@@ -7,7 +7,7 @@
 ## 1. Read Config
 
 - Method: `GET`
-- URL: `/adm/admin/config/feedback-workflow`
+- URL: `/api/adm/admin/config/feedback-workflow`
 - Success response (推荐):
 
 ```json
@@ -33,7 +33,7 @@
 ## 2. Save Config
 
 - Method priority: `PUT` first, fallback `POST`
-- URL: `/adm/admin/config/feedback-workflow`（可通过 `VITE_FEEDBACK_WORKFLOW_CONFIG_SAVE_URL` 覆盖）
+- URL: `/api/adm/admin/config/feedback-workflow`
 - Request body:
 
 ```json
@@ -57,10 +57,9 @@
 
 ## 3. Frontend Env
 
-- `VITE_FEEDBACK_WORKFLOW_CONFIG_URL`
-- `VITE_FEEDBACK_WORKFLOW_CONFIG_SAVE_URL`
+- `VITE_FEEDBACK_WORKFLOW_CONFIG_URL`（读取与保存同源）
 
-默认值均为：`/adm/admin/config/feedback-workflow`
+默认值：`/api/adm/admin/config/feedback-workflow`
 
 ## 4. Readiness Check
 
@@ -78,7 +77,7 @@ bash scripts/check_admin_role_backend_readiness.sh --strict
 
 反馈工作流自身涉及的关键接口如下：
 
-- `GET /adm/current`
-- `GET /adm/admin/config/feedback-workflow`
-- `PUT /adm/admin/config/feedback-workflow`
-- `POST /adm/admin/config/feedback-workflow`
+- `GET /api/adm/current`
+- `GET /api/adm/admin/config/feedback-workflow`
+- `PUT /api/adm/admin/config/feedback-workflow`
+- `POST /api/adm/admin/config/feedback-workflow`

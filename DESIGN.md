@@ -5,7 +5,7 @@
 >
 > 最后更新：2026-06-30
 > 风格方向：**数据优先的管理后台（Clean SaaS Admin）**
-> 技术栈：React 19.2 + TypeScript + Tailwind v4 + Radix UI + Lucide React
+> 技术栈：React 19.3 + TypeScript + Tailwind v4 + Radix UI + Lucide React
 
 ---
 
@@ -74,7 +74,7 @@ ImBoy Admin 是供运营/管理员使用的**内部管理后台**，设计目标
 | `--input` | `214.3 31.8% 91.4%` | `#E2E8F0` | 输入框边框 |
 | `--ring` | `215 78% 52%` | `#2474E5` | 焦点环（与 primary 一致） |
 
-> ⚠️ **修正说明**：原 `index.css` 中 `--primary: 221.2 83.2% 53.3%`（≈ `#3B82F6` Tailwind 默认蓝）与品牌色 `#2474E5` 存在偏差。应将 `--primary` 修正为 `215 78% 52%`。
+> ✅ **已修正**：`index.css` 中 `--primary` 已为 `215 78% 52%`（品牌色 `#2474E5`）。
 
 #### Sidebar 专属 Token
 
@@ -369,11 +369,11 @@ export function XxxPage() {
 />
 ```
 
-- 标题 `text-3xl font-bold text-gray-900`（待改为 `text-foreground`）
-- 描述 `text-gray-600`（待改为 `text-muted-foreground`）
+- 标题 `text-3xl font-bold text-foreground`
+- 描述 `text-muted-foreground`
 - Actions 区靠右，`flex items-center gap-2`
 
-> ⚠️ 当前 PageHeader 写死了 `text-gray-900` / `text-gray-600`，暗色下显示异常，待修正为语义 token。
+> ✅ PageHeader 已使用语义 token（`text-foreground` / `text-muted-foreground`），暗色自动适配。
 
 ### 8.4 `DataTable` + `DataTablePagination`
 
@@ -488,7 +488,6 @@ if (!data?.length) return <EmptyState message="暂无用户" />
 
 - **只用语义 token**，不写 `dark:text-white`（Tailwind 暗色前缀）来覆盖 —— 语义 token 已自动适配
 - 状态色（green/yellow/red）暗色下需手动处理：`dark:bg-green-900 dark:text-green-100`
-- `PageHeader` 中 `text-gray-900` / `text-gray-600` 是已知暗色 bug，待统一修正
 
 ---
 
@@ -631,10 +630,8 @@ export function XxxPage() {
 
 | 问题 | 位置 | 优先级 |
 |------|------|--------|
-| `--primary` 色值偏差（`#3B82F6` vs 品牌色 `#2474E5`） | `src/index.css:11` | P0 |
-| `PageHeader` 中 `text-gray-900`/`text-gray-600` 暗色不适配 | `src/components/shared/PageHeader.tsx` | P1 |
 | 缺少动画 token（`--duration-*`/`--ease-*`） | `src/index.css` | P2 |
-| UI 组件库缺 Select / Combobox / Toast（Sonner） | `src/components/ui/` | P2 |
+| UI 组件库缺 Combobox（Select 与 Sonner Toast 已接入） | `src/components/ui/` | P2 |
 
 ---
 

@@ -29,7 +29,7 @@
 
 ### 质量门（自动跑，但请提前自查）
 
-- [ ] `bun run lint` 通过 / 无新增 issue（ratchet 上限 10）
+- [ ] `bun run lint` 通过 / 无新增 issue（ratchet 上限 37）
 - [ ] `bun run typecheck` 通过 / TS errors ≤ 31（ratchet）
 - [ ] `bun run deadcode` (knip) 不增（ratchet 35）
 - [ ] `bun run test` 全绿（测试文件隔离运行）
@@ -75,7 +75,6 @@
 
 本 PR 会自动跑（详见 `.github/workflows/`）：
 - `quality.yml` → react-lint (eslint + tsc + knip) + secrets-scan
-- `sonar.yml` → SonarCloud 扫描（含 coverage trend + Quality Gate）
 - `ci.yml` → 业务 CI
 
 合并前所有上述 status check 必须 ✅。

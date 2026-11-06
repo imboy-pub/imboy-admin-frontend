@@ -33,6 +33,11 @@ Modules with a public barrel (the ownership boundary):
 | Ops & governance | `src/modules/ops_governance` | `ops_governance/public.ts` | `api/reports.ts`, `api/feedback.ts`, `api/versions.ts`, `api/ddl.ts`, `api/index.ts` |
 | AI agent | `src/modules/ai_agent` | `ai_agent/public.ts` | `api/index.ts`, `pages/` |
 | Finance | `src/modules/finance` | `finance/public.ts` | `api/index.ts` |
+| Bots | `src/modules/bots` | `bots/public.ts` | `api/index.ts` |
+| Customer service | `src/modules/customer_service` | `customer_service/public.ts` | `api/index.ts`, `api/provisioning.ts`, `api/quickReplies.ts`, `api/seatConsoles.ts`, `api/widgetInstallations.ts` |
+| Enterprise apps | `src/modules/enterprise_apps` | `enterprise_apps/public.ts` | `api/index.ts`, `api/contracts.ts` |
+| Enterprise business | `src/modules/enterprise_business` | `enterprise_business/public.ts` | `api/index.ts` |
+| Organization | `src/modules/organization` | `organization/public.ts` | `api/index.ts`, `api/departmentDirectory.ts`, `api/csSummary.ts` |
 
 Extension-point modules (registry/contracts only, no public barrel):
 

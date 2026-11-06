@@ -3,7 +3,7 @@
 # IMBoy Admin Frontend - AI 上下文文档 / AI Context Document
 
 > **最后更新 / Last updated**: 2026-09-19（版本锚点与术语链接刷新；结构描述未全量复核）
-> **技术栈 / Stack**: React 19.2 + TypeScript + Vite + Radix UI + Zustand + TanStack Query/Table
+> **技术栈 / Stack**: React 19.3 + TypeScript + Vite + Radix UI + Zustand + TanStack Query/Table
 > **包管理 / Package manager**: bun
 > **测试 / Testing**: `bun run test`（= `bun test --isolate`，unit）+ Playwright (E2E)
 >   ⚠️ 单测必须带 `--isolate`：bun 默认所有测试文件共享同一全局对象（同一
@@ -92,7 +92,7 @@ const safeText = trimmed.replace(/(?<=[:,[\s])(-?\d{16,})(?=[,\]}\s])/g, '"$1"')
 // new Date(number) 与算术全部失效。
 ```
 
-回归用例见 `src/lib/safeParseBigIntJson.test.ts`（16 个，含字符串内长数字、转义引号、安全边界 ±1）。
+回归用例见 `src/lib/safeParseBigIntJson.test.ts`（19 个，含字符串内长数字、转义引号、安全边界 ±1）。
 
 **TypeScript 类型规范**:
 
