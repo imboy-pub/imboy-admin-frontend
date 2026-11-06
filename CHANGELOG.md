@@ -13,6 +13,34 @@
 
 ---
 
+## [1.0.0-alpha.18] - 2026-11-06
+
+### Added
+
+**客服坐席与挂件 / Customer Service**
+- Seat/Widget 附件切换 C04 direct-v1 直传协议（`s3_put` descriptor 分流），坐席头像经直传发布
+- 快捷回复全前端补齐并响应合同对齐（#86）；附件白名单同步常见类型
+- 客服统计窗口支持 natural-day + 显式时区选择与回显校验（D03）；seat/widget createdAt 统一经共享 RFC3339 时间戳解析投影
+- 挂件：确认附件以 journal asset ID 恢复（#85）；`public_widget_id` 形态校验对齐 seed/DB 事实
+- 附件派发意图（dispatch intent）跨浏览器恢复持久化
+
+### Changed
+
+**时区修复 / Timezone**
+- V1.1 时区修复批次贯穿 admin：moderation 日期筛选保留浏览器 IANA 时区；凭证时钟与 ID 投影修复
+- 审计面：畸形日期筛选按无界处理，日期范围按全天查询
+
+**依赖与工具链 / Dependencies**
+- TypeScript 6.0.3 → 7.0.2（TS6 side-car 保留 lint 工具链）；React/ReactDOM、Vite 8.3.5、axios 1.21.0、TanStack Query 5.105、Radix UI、zustand、lucide-react、knip 等批量升级
+- CI：跨仓合同任务要求后端源码就绪（#87）；DCO 豁免 dependabot；e2e 声明所用系统二进制
+
+### Fixed
+
+- S3 上传描述符保留与校验；quick reply 响应合同对齐（#86）
+- W6-02 附件生命周期 v5 真浏览器 e2e：strict-mode/checkpoint 竞态修复并冻结检查点窗口
+
+---
+
 ## [1.0.0-alpha.17] - 2026-10-22
 
 ### Added
