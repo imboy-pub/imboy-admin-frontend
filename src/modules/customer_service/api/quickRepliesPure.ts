@@ -1,8 +1,8 @@
 /**
  * 客服快捷回复管理面纯函数（V3-27 快捷回复子能力）。
  *
- * 合同真源：.task-state/imboy-garage-direct-v1/v3/specs/cs-quick-reply.md
- * （字段命名与本文件类型完全一致；backend 车道按该合同实现）。
+ * 合同真源：后端 cs_quick_reply_app 行投影与 cs_http TSID 编码。
+ * organization_id 表示业务归属，所有实体 ID 在 HTTP 响应中均为 string。
  *
  * 纪律：
  * - TSID 全程 string（EntityId），绝不 Number() 回转（>2^53 丢精度）；
@@ -14,7 +14,7 @@ import type { EntityId } from '@/types/common'
 /** 快捷回复行投影（线缆 snake_case；合同 §7）。 */
 export type QuickReply = {
   id: EntityId
-  tenant_id: EntityId
+  organization_id: EntityId
   workspace_id: EntityId
   title: string
   content: string
@@ -45,22 +45,22 @@ function str(value: unknown): string {
 }
 
 function optTime(value: unknown): string | null {
-  // 后端全 API 惯例：epoch 秒 number；规范化为 string，null/undefined 落 null。
+  // cs_pg_quick_reply 返回 epoch 秒 integer；规范化为 string，null/undefined 保留为 null。
   return value == null ? null : String(value)
 }
 
-/** 行投影：白名单 + 必需键形状校验；缺 id/workspace_id/title/content → null（fail-closed）。 */
+/** 行投影：白名单 + 必需键形状校验；归属与创建者 ID 必须为 TSID string。 */
 export function toQuickReply(raw: unknown): QuickReply | null {
   if (!isRecord(raw)) return null
   const id = str(raw.id)
-  const tenantId = str(raw.tenant_id)
+  const organizationId = str(raw.organization_id)
   const workspaceId = str(raw.workspace_id)
   const createdBy = str(raw.created_by)
   const title = str(raw.title)
   const content = str(raw.content)
   if (
     id.length === 0 ||
-    tenantId.length === 0 ||
+    organizationId.length === 0 ||
     workspaceId.length === 0 ||
     createdBy.length === 0 ||
     title.length === 0 ||
@@ -71,7 +71,7 @@ export function toQuickReply(raw: unknown): QuickReply | null {
   const sort = typeof raw.sort === 'number' && Number.isSafeInteger(raw.sort) ? raw.sort : 0
   return {
     id,
-    tenant_id: tenantId,
+    organization_id: organizationId,
     workspace_id: workspaceId,
     title,
     content,

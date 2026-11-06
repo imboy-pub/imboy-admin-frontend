@@ -34,7 +34,7 @@ const realRbacExports = { ...realRbacModule }
 const realAdminConfigExports = { ...realAdminConfigModule }
 
 const ORG_ID = '1234567890123456789'
-const WS_ID = '9876543210987654321'
+const WS_ID = '8876543210987654321'
 const WS2_ID = '246813572468135724'
 
 const ORG_ROW = {
@@ -59,7 +59,7 @@ const WS2_ROW = { ...WS_ROW, id: WS2_ID, name: '第二工作区' }
 function replyRow(overrides: Record<string, unknown> = {}) {
   return {
     id: '999999999999999999',
-    tenant_id: ORG_ID,
+    organization_id: ORG_ID,
     workspace_id: WS_ID,
     title: '问候语',
     content: '您好，很高兴为您服务。',
@@ -338,7 +338,12 @@ describe('CsQuickRepliesPage — 反例与防重复提交', () => {
       '列表就绪'
     )
     await openCreateDialog(view)
-    await user.type(view.getByTestId('csqr-form-title'), 'a'.repeat(65))
+    const titleInput = view.getByTestId('csqr-form-title') as HTMLInputElement
+    await user.click(titleInput)
+    // 粘贴到合法边界，再真实键入第 65 字符，避免逐字输入的重复渲染成本。
+    await user.paste('a'.repeat(64))
+    await user.type(titleInput, 'a')
+    expect(titleInput.value).toHaveLength(65)
     await user.type(view.getByTestId('csqr-form-content'), '内容')
     fireEvent.click(view.getByTestId('csqr-form-submit'))
     await waitFor(() => expect(view.getByTestId('csqr-form-title-error')).not.toBeNull())
