@@ -67,6 +67,39 @@ bun run test:e2e
 IMBOY_ADMIN_E2E_BASE_URL=https://your-admin.example.com bun run test:e2e:prod
 ```
 
+### 跨仓静态契约 / Cross-repository static contract
+
+`src/modules/enterprise_business/api/crossRepoContract.test.ts` 保留 7 项检查：4 项字段矩阵与 Admin 白名单检查，3 项后端 SQL 真源绑定。后端目录默认是本仓同级 `../imboy`，也可用 `IMBOY_REPO_DIR` 指定（相对路径从运行命令的目录解析）。不需要启动 Erlang 服务或数据库。
+
+The existing suite contains 7 tests: 4 field-matrix/Admin allowlist checks and 3 backend SQL source checks. The backend defaults to sibling `../imboy`; override it with `IMBOY_REPO_DIR` (relative to the command's working directory). No running backend or database is required.
+
+```bash
+# 从管理后台根目录执行 / Run from the admin repository root
+IMBOY_REPO_DIR=/path/to/imboy IMBOY_CROSS_REPO_REQUIRED=1 \
+  bun run test src/modules/enterprise_business/api/crossRepoContract.test.ts
+```
+
+普通本地运行未设置严格标志、且找不到 SQL 真源时，会输出 `ENV_MISSING`、查找路径和补齐方式：4 项执行，3 项明确跳过。`IMBOY_CROSS_REPO_REQUIRED=1` 时缺源直接失败；显式指定错误路径不会回退到别的后端目录。
+
+Without required mode, a local run missing the SQL source reports `ENV_MISSING`, the attempted path and remediation: 4 tests run and 3 skip. With `IMBOY_CROSS_REPO_REQUIRED=1`, missing sources fail. An explicit path never silently falls back to another checkout.
+
+现有 `Admin Frontend CI` 的 `lint-and-build` 在独立目录仅检出所需后端 SQL 文件，并在整个 job 启用严格模式。定向门禁解析 Bun JUnit 报告中的实际测试项，必须恰好 `7 pass / 0 fail / 0 skip`；数量不足、任何跳过、测试失败或报告缺失都失败。Actions 摘要记录数量、跳过原因、请求的 backend ref、两仓实际 SHA；上游失败会注明未执行，无法生成报告则注明数量不可确认。JUnit 文件作为 artifact 保留。随后完整单测仍执行这 7 项，原覆盖率阈值保持不变。
+
+The existing `lint-and-build` job checks out only the required backend SQL file and enables required mode for the whole job. Its focused gate reads actual test cases from Bun's JUnit report and requires exactly `7 pass / 0 fail / 0 skip`. Missing cases, skips, failures or a missing report fail the gate. The Actions summary records counts, skip reasons, the requested backend ref and both checked-out SHAs; upstream failures are reported as not run, while missing reports have unknown counts. JUnit is retained as an artifact. The full unit suite still runs these tests with unchanged coverage thresholds.
+
+| 场景 / Scenario | 后端版本 / Backend version | 证据含义 / Evidence |
+| --- | --- | --- |
+| 普通 PR、push；手动运行不填 `backend_sha` / Regular PR, push; manual run without `backend_sha` | `imboy-pub/imboy` 的 `main`，记录实际 SHA / `main`, recording resolved SHA | 当前 main 兼容性 / Compatibility with current main |
+| 手动选择管理后台分支，并填写 `backend_sha` / Manual run on the selected admin branch with `backend_sha` | 配套 PR 的完整 40 位提交 SHA；不接受分支名或 PR ref / Exact 40-character companion commit SHA; no branch or PR ref | 固定组合的补充验证 / Additional validation of that exact pair |
+
+配套 SHA 验证使用独立检查名 `lint-and-build (paired backend SHA)`，不能替代普通 PR 对后端 `main` 的 `lint-and-build` 检查。后端 PR 更新后须使用新 SHA 重验；后端合并后重跑 main 组合。不存在或不可访问的 SHA 会使 checkout 失败，不回退到 main。普通 PR 的 Admin SHA 是 Actions 实际测试的合并提交，不冒充 PR head。后端 `main` 单独变化不会触发本仓工作流；需要在本仓手动重跑。
+
+Paired-SHA validation uses the distinct check name `lint-and-build (paired backend SHA)` and does not replace the regular PR/main `lint-and-build` check. Revalidate a new backend PR SHA after updates and rerun against main after merge. An unavailable SHA fails checkout without falling back to main. For regular PR runs, the recorded Admin SHA is the tested merge checkout, not the PR head. Backend-only main changes do not trigger this repository's workflow; rerun it manually when needed.
+
+覆盖边界：SQL 全文件列名文本包含性、Admin 实时白名单、人工冻结的 Flutter 字段矩阵。通过不代表当前 Flutter 源码一致，也不证明特定 SELECT 投影、真实 API/数据库行为或三端 E2E。
+
+Scope: column-name presence in the SQL file, live Admin allowlists and a frozen Flutter field matrix. Passing does not validate current Flutter source, a specific SELECT projection, live API/database behavior or three-client E2E.
+
 ## 代码入口
 
 ```text

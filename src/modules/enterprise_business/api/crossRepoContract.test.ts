@@ -8,7 +8,9 @@
  * 三个真源与提取方式：
  *   ① 后端：`imboy/src/features/enterprise_business/infrastructure/eb_pg_store_sql.erl`
  *      —— 文本级包含性检查（登记列必须在 SQL 文本中出现；后端删列/改名即挂）。
- *      仓不在同级工作区时整组 skip（CI 可移植性；本地工作区必有）。
+ *      IMBOY_REPO_DIR 可指定后端路径，默认同级 ../imboy。
+ *      普通本地缺源时说明原因并 skip；正式 CI / 严格模式缺源必须失败。
+ *      Local missing sources may skip; CI / required mode must fail closed.
  *   ② Admin：`./pureFunctions.ts` 的 EB_*_SAFE_KEYS —— 运行时 import 真源提取。
  *   ③ App：`imboyapp/lib/modules/enterprise/domain/enterprise_models.dart` 的
  *      EnterpriseMessage.fromJson 消费键 —— 人工冻结为登记矩阵（App 仓只读，
@@ -22,7 +24,7 @@
 import { describe, expect, it } from 'bun:test'
 
 import { existsSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { resolve } from 'node:path'
 
 import {
   EB_CONTACT_SAFE_KEYS,
@@ -120,20 +122,23 @@ const SHARED_CORE_KEYS = [
 ] as const
 
 // ---------------------------------------------------------------------------
-// 后端真源文件（同级工作区；不存在即整组 skip）
+// 后端真源文件 / Backend source (explicit path or sibling checkout)
 // ---------------------------------------------------------------------------
-const BACKEND_SQL_PATH = join(
-  process.cwd(),
-  '..',
-  'imboy',
-  'src',
-  'features',
-  'enterprise_business',
-  'infrastructure',
-  'eb_pg_store_sql.erl',
+const BACKEND_SQL_PATH = resolve(
+  process.env.IMBOY_REPO_DIR || '../imboy',
+  'src/features/enterprise_business/infrastructure/eb_pg_store_sql.erl',
 )
 
 const backendSqlAvailable = existsSync(BACKEND_SQL_PATH)
+const backendSqlRequired = process.env.IMBOY_CROSS_REPO_REQUIRED === '1'
+const skipBackendSql = !backendSqlAvailable && !backendSqlRequired
+
+if (skipBackendSql) {
+  console.warn(
+    `[AC15-X-01] ENV_MISSING: skipping 3 backend source checks; missing ${BACKEND_SQL_PATH}. ` +
+      'Set IMBOY_REPO_DIR to the backend checkout; set IMBOY_CROSS_REPO_REQUIRED=1 to require all 7 tests.',
+  )
+}
 
 describe('AC15-X-01 三方字段一致性（静态契约比对）', () => {
   it('Admin 平台面消息白名单 ⊆ 后端 SQL 出站列（悬空键 = 后端漂移）', () => {
@@ -173,9 +178,9 @@ describe('AC15-X-01 三方字段一致性（静态契约比对）', () => {
     }
   })
 
-  describe.skipIf(!backendSqlAvailable)('后端真源文本绑定（防登记矩阵与后端漂移）', () => {
-    it('（后端仓不在同级工作区时整组 skip；本地工作区必须可绑定）', () => {
-      expect(backendSqlAvailable).toBe(true)
+  describe.skipIf(skipBackendSql)('后端真源文本绑定（防登记矩阵与后端漂移）', () => {
+    it('后端 SQL 真源文件存在（严格模式缺源失败 / required source must exist）', () => {
+      expect(backendSqlAvailable, `Required backend SQL source missing: ${BACKEND_SQL_PATH}`).toBe(true)
     })
 
     it('登记的消息列全部出现在 eb_pg_store_sql.erl 文本中', () => {
