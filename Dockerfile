@@ -27,7 +27,10 @@ RUN bun --version && bun install --frozen-lockfile
 
 # 复制源码并构建 / Copy source and build
 COPY . .
-RUN bun run build
+# Bun 预载 env 早于 Vite；仅构建时选择 production，安装仍保留 devDependencies。
+# Bun loads env before Vite; select production only for the build, not install.
+RUN NODE_ENV=production bun run build \
+    && bun scripts/verify-admin-build.mts
 
 # ─────────────────────────────────────────────────────────────
 # Stage 2: Runtime (Nginx)
