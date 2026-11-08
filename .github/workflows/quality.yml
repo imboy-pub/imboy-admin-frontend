@@ -57,23 +57,18 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Test scanner installation and result handling
+        run: python3 -B -m unittest discover -s scripts -p 'test_*gitleaks*.py' -v
+
+      - name: Install verified gitleaks CLI
+        timeout-minutes: 5
+        run: bash scripts/install_gitleaks.sh "$RUNNER_TEMP/gitleaks"
+
       - name: Verify no new leaks (ratchet — baseline 40)
         run: |
           set -euo pipefail
-          ver=8.30.1
-          gitleaks_tmp=$(mktemp -d)
-          trap 'rm -rf "$gitleaks_tmp"' EXIT
-          # Download fully and verify the pinned official checksum before extraction.
-          curl -fsSL --retry 3 --retry-delay 2 --retry-max-time 180 \
-            --connect-timeout 15 --max-time 60 \
-            "https://github.com/gitleaks/gitleaks/releases/download/v${ver}/gitleaks_${ver}_linux_x64.tar.gz" \
-            -o "$gitleaks_tmp/gitleaks.tar.gz"
-          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  $gitleaks_tmp/gitleaks.tar.gz" | sha256sum -c -
-          tar -xzf "$gitleaks_tmp/gitleaks.tar.gz" -C "$gitleaks_tmp" gitleaks
-          install -m 0755 "$gitleaks_tmp/gitleaks" /tmp/gitleaks
-          /tmp/gitleaks version
           rm -f /tmp/leaks.json
           rc=0
-          /tmp/gitleaks detect --no-git --config .gitleaks.toml --redact --no-banner \
+          "$RUNNER_TEMP/gitleaks" detect --no-git --config .gitleaks.toml --redact --no-banner \
             --report-format json --report-path /tmp/leaks.json --exit-code 10 || rc=$?
           python3 scripts/check_gitleaks_result.py /tmp/leaks.json "$rc"

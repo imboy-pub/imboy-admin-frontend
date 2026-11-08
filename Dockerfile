@@ -13,7 +13,8 @@
 # ─────────────────────────────────────────────────────────────
 # Stage 1: Builder
 # ─────────────────────────────────────────────────────────────
-FROM oven/bun:1-slim AS builder
+# 与 CI / Widget 使用相同 Bun / Match the CI and Widget Bun toolchain.
+FROM oven/bun:1.3.14-slim AS builder
 
 WORKDIR /build
 
@@ -22,11 +23,14 @@ COPY package.json bun.lock* bunfig.toml* ./
 # 安装依赖前复制本地包与根 postinstall / Local package and root postinstall inputs
 COPY vendor/ ./vendor/
 COPY scripts/ts6-sidecar.sh ./scripts/ts6-sidecar.sh
-RUN bun install --frozen-lockfile
+RUN bun --version && bun install --frozen-lockfile
 
 # 复制源码并构建 / Copy source and build
 COPY . .
-RUN bun run build
+# Bun 预载 env 早于 Vite；仅构建时选择 production，安装仍保留 devDependencies。
+# Bun loads env before Vite; select production only for the build, not install.
+RUN NODE_ENV=production bun run build \
+    && bun scripts/verify-admin-build.mts
 
 # ─────────────────────────────────────────────────────────────
 # Stage 2: Runtime (Nginx)
@@ -89,7 +93,7 @@ COPY --from=builder /build/dist /usr/share/nginx/html
 # https://${API_DOMAIN}）。未设置时回落到同源相对路径 /api/adm。
 # Vite 构建时 import.meta.env 已静态替换，运行时 env 无效——必须替换产物文件。
 # 替换 JS + HTML（含 CSP connect-src 的域名白名单）。
-RUN printf '#!/bin/sh\nset -eu\nHOST="${IMBOY_API_HOST:-}"\nif [ -n "$HOST" ]; then\n  find /usr/share/nginx/html \\( -name "*.js" -o -name "*.html" \\) -exec sed -i "s|__IMBOY_API_HOST__|'"'"'$HOST'"'"'|g" {} +\nfi\nexec nginx -g "daemon off;"\n' > /docker-entrypoint-imboy.sh && chmod +x /docker-entrypoint-imboy.sh
+COPY --chmod=0755 docker/admin/entrypoint.sh /docker-entrypoint-imboy.sh
 
 EXPOSE 80
 

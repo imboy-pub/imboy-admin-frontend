@@ -42,6 +42,9 @@
     "tests/e2e/**/*.spec.ts",
 
     // —— 测试与 QA 工具入口（手动 CLI，无静态引用方）——
+    // Docker builder 生产产物合同：Dockerfile 直接用 bun 调用，不经 TS import。
+    // Real Docker CLI entry; verifies production URLs before copying to runtime.
+    "scripts/verify-admin-build.mts",
     // node --test 直跑入口（bunfig.toml [test] root=./src 不覆盖 scripts/，
     // 用法见 docs/qa/customer-service-real-static-host-2026-10-01.md）
     "scripts/test/*.test.mjs",

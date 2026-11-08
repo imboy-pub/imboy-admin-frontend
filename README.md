@@ -100,6 +100,26 @@ Paired-SHA validation uses the distinct check name `lint-and-build (paired backe
 
 Scope: column-name presence in the SQL file, live Admin allowlists and a frozen Flutter field matrix. Passing does not validate current Flutter source, a specific SELECT projection, live API/database behavior or three-client E2E.
 
+### Docker 镜像验证 / Docker image validation
+
+`Admin Frontend CI` 的 `docker-images` 接在 `lint-and-build` 之后，复用其实际测试的前后端完整 SHA。它用 `linux/amd64` 构建并加载本仓的 `Dockerfile` 和 `Dockerfile.widget`，不登录镜像仓、不推送、不触发 Release。Admin builder 与 Widget 构建都固定 Bun `1.3.14`；Docker 日志记录实际 Bun 版本及解析的基础镜像。Admin 必须在宿主安装依赖之前构建，避免 `COPY . .` 带入宿主 `node_modules` 覆盖容器内的 frozen install。
+
+The `docker-images` job follows `lint-and-build` and reuses its exact frontend/backend SHAs. It builds and loads the real `Dockerfile` and `Dockerfile.widget` for `linux/amd64`, without registry login, push or Release. Both builds use Bun `1.3.14`; Docker logs record the actual builder version and resolved base images. Admin builds before host dependency installation so `COPY . .` cannot overwrite the builder's frozen dependencies with host `node_modules`.
+
+Widget 复用现有的前后端资产配对、`build:widget` 和 `verify:widget`；manifest 的 `source_head` 必须等于本次 checkout。`scripts/check_docker_images.sh` 启动实际镜像：Admin 检查健康页、SPA 回退及 HTML/打包 JS 的 origin 替换（显式 origin 与默认同源）；Widget 检查 UID 101、只读根文件系统、manifest 全部文件的 HTTP 字节及 `/v1/loader.js` 别名。失败会阻断 job。Actions 摘要记录实际源码 SHA 与本地镜像 ID；本地 ID 不是 Registry digest，通过也不代表四镜像 Golden 或匿名拉取门已完成。
+
+Widget reuses both repositories' asset-pairing checks, `build:widget` and `verify:widget`, requiring the manifest's `source_head` to equal the checkout. `scripts/check_docker_images.sh` starts the real images: Admin checks health, SPA fallback and origin replacement in HTML/bundled JS (explicit and same-origin); Widget checks UID 101, a read-only root filesystem, HTTP bytes for every manifest file and the `/v1/loader.js` alias. Failures block the job. The Actions summary records tested SHAs and local image IDs, which are not registry digests or evidence of four-image Golden/anonymous-pull acceptance.
+
+安装器与入口脚本的离线回归 / Offline installer and entrypoint regressions:
+
+```bash
+python3 -B -m unittest discover -s scripts -p 'test_*.py' -v
+```
+
+Quality Gate 的 gitleaks 安装复用 Backend 的 `8.30.1` 官方固定 SHA256、有限重试及超时；下载/校验/解压失败均阻断扫描。原扫描范围、退出码校验与 40 条基线保持不变。
+
+The Quality Gate installer uses the backend's gitleaks `8.30.1` official checksum, bounded retries and timeouts. Download, checksum or extraction failures stop the scan; scan scope, exit-code validation and the existing 40-finding ceiling remain unchanged.
+
 ## 代码入口
 
 ```text
