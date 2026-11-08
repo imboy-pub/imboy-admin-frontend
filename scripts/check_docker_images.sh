@@ -29,7 +29,7 @@ for image in "$admin_image" "$widget_image"; do
 done
 
 wait_for_http() {
-  curl -fsS --retry 10 --retry-connrefused --retry-delay 1 --retry-max-time 60 \
+  curl -fsS --retry 10 --retry-all-errors --retry-connrefused --retry-delay 1 --retry-max-time 60 \
     --connect-timeout 2 --max-time 5 "$1" -o "$2"
 }
 
