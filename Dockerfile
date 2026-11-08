@@ -19,6 +19,9 @@ WORKDIR /build
 
 # 安装依赖（利用层缓存）/ Install dependencies (layer cache)
 COPY package.json bun.lock* bunfig.toml* ./
+# 安装依赖前复制本地包与根 postinstall / Local package and root postinstall inputs
+COPY vendor/ ./vendor/
+COPY scripts/ts6-sidecar.sh ./scripts/ts6-sidecar.sh
 RUN bun install --frozen-lockfile
 
 # 复制源码并构建 / Copy source and build
