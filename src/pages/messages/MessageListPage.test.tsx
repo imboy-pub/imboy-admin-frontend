@@ -265,6 +265,65 @@ describe('MessageListPage flow', () => {
     expect(view.container.textContent).toContain('消息详情')
   })
 
+  // AT09/D01 补测：筛选变化后页码必须重置 page=1（项目规范）
+  it('resets to page 1 when filter changes after paging', async () => {
+    const getCalls: MessageListCall[] = []
+
+    mutableClient.get = async (url: string, config?: { params?: Record<string, unknown> }) => {
+      if (url !== '/message/list') {
+        throw new Error(`unexpected GET url: ${url}`)
+      }
+      const page = Number(config?.params?.page ?? 1)
+      const size = Number(config?.params?.size ?? 10)
+      const msg_scope = String(config?.params?.msg_scope ?? 'all')
+      getCalls.push({ page, size, msg_scope })
+
+      return {
+        data: {
+          code: 0,
+          msg: 'ok',
+          payload: {
+            items: [createMockMessageItem(`p${page}`, msg_scope === 'all' ? 'c2c' : msg_scope)],
+            page,
+            size,
+            total: 25,
+            total_pages: Math.ceil(25 / size),
+          },
+        },
+      }
+    }
+
+    const user = userEvent.setup()
+    const view = renderMessageListPage()
+
+    await waitFor(() => {
+      expect(getCalls.length).toBeGreaterThan(0)
+      expect(view.container.textContent).toContain('msg-p1')
+    })
+    expect(getCalls[0].page).toBe(1)
+
+    // 先翻到第 2 页
+    await act(async () => {
+      fireEvent.click(view.getByRole('button', { name: '下一页' }))
+    })
+    await waitFor(() => {
+      expect(getCalls.some((call) => call.page === 2 && call.msg_scope === 'all')).toBe(true)
+      expect(view.container.textContent).toContain('msg-p2')
+    })
+
+    // 变更筛选（scope: all -> c2c）并查询
+    const scopeSelect = view.container.querySelector('select') as HTMLSelectElement
+    await user.selectOptions(scopeSelect, 'c2c')
+    await user.click(view.getByRole('button', { name: '查询' }))
+
+    // 新筛选以 page=1 发起请求
+    await waitFor(() => {
+      expect(getCalls.some((call) => call.page === 1 && call.msg_scope === 'c2c')).toBe(true)
+    })
+    // 筛选生效后不允许沿用旧页码（page=2 + 新筛选）的请求
+    expect(getCalls.some((call) => call.page === 2 && call.msg_scope === 'c2c')).toBe(false)
+  })
+
   it('covers copy row JSON action', async () => {
     // Set up mock BEFORE rendering
     const getCalls: MessageListCall[] = []

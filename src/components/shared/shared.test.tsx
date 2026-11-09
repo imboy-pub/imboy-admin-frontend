@@ -862,6 +862,105 @@ describe('DataTablePagination', () => {
     const prevBtn = getByRole('button', { name: '上一页' }) as HTMLButtonElement
     expect(prevBtn.disabled).toBe(true)
   })
+
+  // —— AT09/D01 补测：列表边界计数（默认 size:10）——
+  it('boundary total=0 shows 0 条 single disabled page', () => {
+    const { container, getByRole, queryByRole } = wrapWithQuery(
+      <DataTablePagination
+        page={1}
+        pageSize={10}
+        total={0}
+        onPageChange={() => {}}
+        onPageSizeChange={() => {}}
+      />
+    )
+    expect(container.textContent).toContain('显示 0-0 条，共 0 条')
+    expect(container.textContent).toContain('第 1 / 1 页')
+    expect((getByRole('button', { name: '上一页' }) as HTMLButtonElement).disabled).toBe(true)
+    expect((getByRole('button', { name: '下一页' }) as HTMLButtonElement).disabled).toBe(true)
+    // 唯一页码 1，且无第 2 页按钮
+    expect((getByRole('button', { name: '1' }) as HTMLButtonElement).disabled).toBe(true)
+    expect(queryByRole('button', { name: '2' })).toBeNull()
+  })
+
+  it('boundary total=1 shows 1-1 条 single page with both nav buttons disabled', () => {
+    const { container, getByRole, queryByRole } = wrapWithQuery(
+      <DataTablePagination
+        page={1}
+        pageSize={10}
+        total={1}
+        onPageChange={() => {}}
+        onPageSizeChange={() => {}}
+      />
+    )
+    expect(container.textContent).toContain('显示 1-1 条，共 1 条')
+    expect(container.textContent).toContain('第 1 / 1 页')
+    expect((getByRole('button', { name: '上一页' }) as HTMLButtonElement).disabled).toBe(true)
+    expect((getByRole('button', { name: '下一页' }) as HTMLButtonElement).disabled).toBe(true)
+    expect(queryByRole('button', { name: '2' })).toBeNull()
+  })
+
+  it('boundary total=11 shows 2 pages with next enabled and jumps to page 2', () => {
+    let newPage = 0
+    const { container, getByRole } = wrapWithQuery(
+      <DataTablePagination
+        page={1}
+        pageSize={10}
+        total={11}
+        onPageChange={(p) => { newPage = p }}
+        onPageSizeChange={() => {}}
+      />
+    )
+    expect(container.textContent).toContain('显示 1-10 条，共 11 条')
+    expect(container.textContent).toContain('第 1 / 2 页')
+    expect((getByRole('button', { name: '上一页' }) as HTMLButtonElement).disabled).toBe(true)
+    expect((getByRole('button', { name: '下一页' }) as HTMLButtonElement).disabled).toBe(false)
+    // 页码 1 为当前页（禁用），页码 2 可点击
+    expect((getByRole('button', { name: '1' }) as HTMLButtonElement).disabled).toBe(true)
+    expect((getByRole('button', { name: '2' }) as HTMLButtonElement).disabled).toBe(false)
+    fireEvent.click(getByRole('button', { name: '下一页' }))
+    expect(newPage).toBe(2)
+  })
+
+  it('boundary total=11 last page shows remaining 1 record with next disabled', () => {
+    const { container, getByRole, queryByRole } = wrapWithQuery(
+      <DataTablePagination
+        page={2}
+        pageSize={10}
+        total={11}
+        onPageChange={() => {}}
+        onPageSizeChange={() => {}}
+      />
+    )
+    expect(container.textContent).toContain('显示 11-11 条，共 11 条')
+    expect(container.textContent).toContain('第 2 / 2 页')
+    expect((getByRole('button', { name: '上一页' }) as HTMLButtonElement).disabled).toBe(false)
+    expect((getByRole('button', { name: '下一页' }) as HTMLButtonElement).disabled).toBe(true)
+    expect(queryByRole('button', { name: '3' })).toBeNull()
+  })
+
+  it('boundary total=21 shows 3 pages and jumps via page number button', () => {
+    let newPage = 0
+    const { container, getByRole } = wrapWithQuery(
+      <DataTablePagination
+        page={1}
+        pageSize={10}
+        total={21}
+        onPageChange={(p) => { newPage = p }}
+        onPageSizeChange={() => {}}
+      />
+    )
+    expect(container.textContent).toContain('显示 1-10 条，共 21 条')
+    expect(container.textContent).toContain('第 1 / 3 页')
+    expect((getByRole('button', { name: '上一页' }) as HTMLButtonElement).disabled).toBe(true)
+    expect((getByRole('button', { name: '下一页' }) as HTMLButtonElement).disabled).toBe(false)
+    // 页码 1/2/3 全部渲染，仅当前页 1 禁用
+    expect((getByRole('button', { name: '1' }) as HTMLButtonElement).disabled).toBe(true)
+    expect((getByRole('button', { name: '2' }) as HTMLButtonElement).disabled).toBe(false)
+    expect((getByRole('button', { name: '3' }) as HTMLButtonElement).disabled).toBe(false)
+    fireEvent.click(getByRole('button', { name: '3' }))
+    expect(newPage).toBe(3)
+  })
 })
 
 // ---------------------------------------------------------------------------
