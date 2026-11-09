@@ -61,6 +61,11 @@ export default defineConfig({
     '**/customer-service-hosted/**',
     '**/customer-service-int02/**',
     '**/enterprise-ent-int01/**',
+    // AT13 (2026-11-09)：helpers/a04-runtime.test.cjs 是 node:test 原生单测
+    // （bun test 口径），非 playwright spec——默认 testMatch 误收集后模块级
+    // `ts.createSourceFile` 在 playwright loader 下炸（ts 为 undefined），
+    // 整个默认套件被拖挂。按上面同类「专属栈排除」口径排除 helpers 目录。
+    '**/customer-service-seat-embed/helpers/**',
   ],
   fullyParallel: false,
   workers: process.env.CI ? 2 : '50%',
