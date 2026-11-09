@@ -72,6 +72,15 @@ type GovernanceState = {
   scopes: string[]
   issued: Array<{ id: string; prefix: string; status: string; createdAt: string; lastUsedAt: string }>
   grants: Array<{ id: string; version: number; status: string; scopes: string[]; kind: string; workspaces: string[] }>
+  /** A-16..A-18 身份映射（external_user_id <-> user）。 */
+  identities: Array<{
+    id: string
+    external_user_id: string
+    user_id: string
+    status: string
+    created_at: string
+    updated_at: string
+  }>
   audits: Array<Record<string, unknown>>
   /** 本轮签发/轮换的一次性明文（只在响应里出现一次）。 */
   pendingSecret: string | null
@@ -102,6 +111,7 @@ function freshState(role: Role): GovernanceState {
         workspaces: ['9200000000000000001'],
       },
     ],
+    identities: [],
     audits: [],
     pendingSecret: null,
     leakPayload: false,
@@ -343,6 +353,41 @@ async function installGovernanceRoutes(page: Page, state: GovernanceState) {
       return
     }
     await route.fulfill(envelope(state.grants))
+  })
+
+  // R13 增量（2026-11-09）：IdentityPanel（A-16..A-18）落地后详情页挂载即拉
+  // GET .../identities —— 此前 mock 清单未覆盖，未 mock 调用经 vite proxy 打到
+  // 真后端 401 → AUTH_EXPIRED_EVENT 全局登出，4 个 openDetail 用例确定性弹回
+  // 登录页（E2E_HARNESS，mock 层落后于 SPA 演进）。按 contracts.ts 冻结合同
+  // 现值补齐 A-16 列表 / A-17 绑定 / A-18 软删三面；只补 mock，不动任何断言。
+  await page.route(`**${base}/${APP}/identities*`, async (route) => {
+    const method = route.request().method()
+    if (method === 'GET') {
+      await route.fulfill(envelope(state.identities))
+      return
+    }
+    if (method === 'POST') {
+      if (!writeGuard(route)) return
+      const body = route.request().postDataJSON() as { external_user_id?: string; user_id?: string }
+      const row = {
+        id: `910000000000000001${state.identities.length + 1}`,
+        external_user_id: String(body.external_user_id ?? ''),
+        user_id: String(body.user_id ?? ''),
+        status: 'active',
+        created_at: '2026-09-22 10:00:00',
+        updated_at: '2026-09-22 10:00:00',
+      }
+      state.identities = [...state.identities, row]
+      await route.fulfill(envelope(row))
+      return
+    }
+    // DELETE（A-18 软删，?external_user_id=...）
+    if (!writeGuard(route)) return
+    const external = new URL(route.request().url()).searchParams.get('external_user_id') ?? ''
+    state.identities = state.identities.map((row) =>
+      row.external_user_id === external ? { ...row, status: 'removed' } : row
+    )
+    await route.fulfill(envelope({ external_user_id: external, status: 'removed' }))
   })
 
   await page.route(`**${base}/${APP}/grants/${GRANT}`, async (route) => {
@@ -669,8 +714,13 @@ test.describe('FULL-04 无权限拒绝链', () => {
     await expect(page.getByTestId('credential-readonly-hint')).toBeVisible()
     await expect(page.getByTestId('credential-issue')).toBeDisabled()
     await expect(page.getByTestId('lifecycle-to-disabled')).toBeDisabled()
-    await expect(page.getByTestId('application-scope-save')).toBeDisabled()
-    await expect(page.getByTestId('grant-create-submit')).toBeDisabled()
+    // R13 校准（commit 9a202a8 移除 ScopeEditor/GrantPanel）：application-scope-save
+    // 与 grant-create-submit 锚点已随产品演进而删除，同强度改锚现行写入口——
+    // IdentityPanel 的绑定按钮与 external_user_id 输入（readonly 角色必须 disabled）。
+    await expect(page.getByTestId('identity-panel').getByRole('button', { name: '绑定' })).toBeDisabled()
+    await expect(
+      page.getByTestId('identity-panel').getByLabel('external_user_id（OA 侧唯一标识）')
+    ).toBeDisabled()
 
     // 点 disabled 按钮：不打开二次确认、不发请求（浏览器原生 disabled 语义）
     await page.getByTestId('credential-issue').click({ force: true })
