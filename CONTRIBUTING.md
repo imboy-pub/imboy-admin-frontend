@@ -90,3 +90,31 @@ bun run test:e2e
    - 契约变更：跨仓（imboy / imboyapp）同步发版要求
    - 安全：无硬编码凭据（gitleaks）、无 `console.log` 残留
 4. CI（`.github/workflows/`）：`quality.yml`（lint+tsc+knip+secrets）、`ci.yml`、`admin-e2e.yml`、`widget-pairing.yml`（跨仓挂件资产配对门）；合并前全部 status check 须通过。
+
+## 自动安全扫描
+
+[Security Scan](./.github/workflows/security-scan.yml) 在推送到 `main` / `dev`、以这两个分支为目标的 PR，以及手动触发时运行。其他分支仅 push 不触发；开 PR 后会随 PR 更新扫描。扫描当前检出的完整工作区，不是只检查新增问题，也不扫描完整 Git 历史。
+
+- Semgrep CE 使用 `p/security-audit`、`p/secrets`、`p/owasp-top-ten`；所有规则级别进入报告，`HIGH` / `CRITICAL` 及旧格式 `ERROR` 级发现使检查失败。Semgrep 规则级别不等同于 CVSS 高危评分。
+- Trivy 显式启用 `vuln,misconfig,secret`，扫描依赖、受支持的配置及密钥；报告并阻断 `HIGH,CRITICAL`，包含开发依赖和暂无修复版本的漏洞。
+- 两个扫描 job 独立运行；安装失败、规则/数据库下载错误、扫描器致命错误或报告上传失败都使检查失败。汇总检查名称固定为 `security-scan`。
+- 两份 SARIF 使用独立 category 上传到 **Security → Code scanning**；PR 分析也显示在对应 PR 检查中。报告可能包含源码或密钥片段，因此不上传公开 Actions artifact，不把报告提交进仓库。
+- 保留既有 Gitleaks、测试和质量门。使用普通 `pull_request`，不需要业务密钥或 Semgrep 账号，不运行应用安装/构建脚本。
+
+Semgrep 的 `warn` / `warning` 级解析、规则匹配或超时诊断不单独阻断，但摘要会明确显示数量、类型和“部分文件或规则未完成分析”。其他级别（含未知级别）的诊断、报告无效或零文件扫描均失败。绿色只表示配置的门禁通过，不保证所有源码路径都被完整分析；不得把覆盖告警当成零问题。
+
+### 接入与维护
+
+工作流默认 `FINDINGS_EXIT_CODE: "1"`。存量发现也会让检查失败。若维护者明确选择观察期，可在评审后的变更中设为 `"0"`；仅发现问题不再阻断，扫描器执行/报告错误仍失败。这不自动提供“只拦新增”的基线能力，也不改变既有 Gitleaks 门。
+
+首次运行后，在目标分支保护或 ruleset 中把 **`security-scan`** 加入必需检查，才会强制阻止失败 PR 合并；仅合入 YAML 不会修改仓库设置。先确认三项 job 实际执行及 SARIF 可见，再启用必需检查。若 Code scanning 上传被权限或仓库功能设置拒绝，应修正配置，不能以忽略错误代替成功。
+
+Dependabot/fork 的普通 PR 可上传 SARIF。若 Dependabot authored 的 squash merge 使 `push` 运行只有只读 token，上传可能返回 403；由有权限维护者发起新的 `workflow_dispatch` 获取该提交的报告，并评估后续合并方式。不要为解决此问题改用 `pull_request_target` 执行 PR 代码或忽略上传错误。
+
+外部 Actions 固定到完整提交 SHA，注释保留版本；既有 Dependabot 的 `github-actions` 更新继续适用。Semgrep/Trivy 引擎版本固定在 workflow 中，需要随升级验证。Semgrep Registry 规则和 Trivy 漏洞数据库随上游更新，因此即使代码不变，发现也可能变化。误报或例外应逐项记录理由并审阅，不用排除整个业务目录压低数量。
+
+### 本仓覆盖边界
+
+Semgrep 针对适用的 JavaScript/TypeScript/React 及配置规则运行；Trivy 读取已提交的文本 `bun.lock`，并通过 `TRIVY_INCLUDE_DEV_DEPS` 包含 Vite、测试和其他构建依赖。无需为了扫描改换包管理器或增加另一种锁文件。锁文件匹配不能替代对 `vendor/` 本地 tarball 实际内容的审查，也不覆盖运行时服务/API 行为。
+
+参考：[Semgrep CE 语言](https://semgrep.dev/docs/semgrep-ce-languages)、[Trivy Bun 支持与开发依赖](https://trivy.dev/docs/latest/coverage/language/nodejs/)。
