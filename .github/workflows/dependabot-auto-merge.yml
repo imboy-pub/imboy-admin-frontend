@@ -1,6 +1,6 @@
 # Dependabot 自动合并策略
 #
-# patch  → 自动 approve + auto-merge（squash），CI 全绿后触发
+# patch  → 显式核验全部必需 CI + strict 分支保护后 squash；不预先排队
 # minor  → 自动 approve + 打 label auto-approved，需人工合并
 # major  → 打 label needs-review，不做其他操作
 #
@@ -11,20 +11,31 @@
 name: Dependabot auto-merge
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened]
+  # Privileged control plane: never checkout or execute PR contents.
+  pull_request_target:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
 
 permissions:
-  contents: write       # 允许合并（auto-merge）
+  actions: read        # Read exact workflow runs and latest job attempts
+  contents: write       # 允许合并（服务器仍强制执行分支保护）
   pull-requests: write  # 允许 approve / label
   issues: write         # gh label create 走 Labels API（属 issues 权限面）
+
+concurrency:
+  group: dependabot-gate-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 jobs:
   auto-merge:
     name: Triage & auto-merge dependabot PR
     runs-on: ubuntu-latest
     # 仅处理 dependabot[bot] 发起的 PR
-    if: github.actor == 'dependabot[bot]'
+    if: >-
+      github.event.pull_request.user.login == 'dependabot[bot]' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      !github.event.pull_request.draft
+    timeout-minutes: 30
 
     steps:
       - name: Fetch Dependabot metadata
@@ -33,7 +44,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      # ── patch：approve + 开启 auto-merge（squash）──────────────────
+      # ── patch：approve + 显式核验后合并（squash）──────────────────
       - name: Approve patch PR
         if: steps.meta.outputs.update-type == 'version-update:semver-patch'
         run: |
@@ -42,12 +53,118 @@ jobs:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Enable auto-merge for patch PR
+      - name: Verify required CI and merge exact patch head
         if: steps.meta.outputs.update-type == 'version-update:semver-patch'
-        run: gh pr merge --auto --squash "$PR_URL"
         env:
-          PR_URL: ${{ github.event.pull_request.html_url }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import subprocess
+          import time
+
+          REQUIRED = {
+              'ci.yml': ['lint-and-build', 'Docker images (linux/amd64)'],
+              'quality.yml': ['ESLint + Typecheck + Knip', 'Secrets scan (gitleaks)'],
+              'admin-e2e.yml': ['Playwright e2e (chromium)'],
+              'widget-pairing.yml': ['Widget asset pairing (admin manifest vs backend macro)'],
+          }
+
+
+          def api(endpoint, *args):
+              return json.loads(subprocess.check_output(
+                  ['gh', 'api', endpoint, *args], text=True))
+
+
+          def paged(endpoint, key):
+              pages = api(endpoint, '--paginate', '--slurp')
+              return [item for page in pages for item in page[key]]
+
+
+          def ready(repo, sha, branch):
+              for workflow, names in REQUIRED.items():
+                  runs = paged(
+                      f'repos/{repo}/actions/workflows/{workflow}/runs'
+                      f'?event=pull_request&head_sha={sha}&per_page=100', 'workflow_runs')
+                  runs = [r for r in runs if r['head_sha'] == sha
+                          and r['head_branch'] == branch
+                          and r['head_repository']['full_name'] == repo]
+                  if not runs:
+                      return False
+                  run = max(runs, key=lambda r: r['id'])
+                  if run['status'] != 'completed':
+                      return False
+                  if run['conclusion'] != 'success':
+                      raise RuntimeError(f"{workflow}: {run['conclusion']}")
+                  jobs = paged(f"repos/{repo}/actions/runs/{run['id']}/jobs"
+                               '?filter=latest&per_page=100', 'jobs')
+                  for name in names:
+                      matches = [j for j in jobs if j['name'] == name]
+                      if len(matches) != 1:
+                          raise RuntimeError(f'{workflow}: missing/ambiguous job {name}')
+                      job = matches[0]
+                      if job['status'] != 'completed' or job['conclusion'] != 'success':
+                          raise RuntimeError(f"{name}: {job['status']}/{job['conclusion']}")
+              return True
+
+
+          def guard(repo, number, sha):
+              pr = api(f'repos/{repo}/pulls/{number}')
+              if not (pr['state'] == 'open' and not pr['draft']
+                      and pr['user']['login'] == 'dependabot[bot]'
+                      and pr['base']['ref'] == 'main'
+                      and pr['head']['repo']['full_name'] == repo
+                      and pr['head']['sha'] == sha):
+                  raise RuntimeError('PR identity, state or head changed')
+              owner, name = repo.split('/')
+              query = '''query($owner:String!,$name:String!) {
+                repository(owner:$owner,name:$name) {
+                  ref(qualifiedName:"refs/heads/main") { branchProtectionRule {
+                    requiresStatusChecks requiresStrictStatusChecks
+                    requiredStatusCheckContexts isAdminEnforced
+                    requiredStatusChecks { context app { slug } }
+                  } }
+                }
+              }'''
+              result = api('graphql', '-f', f'query={query}', '-f', f'owner={owner}',
+                           '-f', f'name={name}')
+              rule = result['data']['repository']['ref']['branchProtectionRule']
+              required = {n for names in REQUIRED.values() for n in names}
+              if not (rule and rule['requiresStatusChecks']
+                      and rule['requiresStrictStatusChecks'] and rule['isAdminEnforced']
+                      and required <= set(rule['requiredStatusCheckContexts'])
+                      and required <= {c['context'] for c in rule['requiredStatusChecks']
+                                       if c.get('app') and c['app']['slug'] == 'github-actions'}):
+                  raise RuntimeError('Required strict, enforced main protection is absent')
+              return pr
+
+
+          def main(repo, number, sha):
+              # No checkout/import of PR code. Never leave a deferred auto-merge request.
+              deadline = time.monotonic() + 25 * 60
+              while time.monotonic() < deadline:
+                  pr = guard(repo, number, sha)
+                  if ready(repo, sha, pr['head']['ref']):
+                      fresh = guard(repo, number, sha)
+                      if (fresh['base']['sha'] == pr['base']['sha']
+                              and fresh['merge_commit_sha'] == pr['merge_commit_sha']
+                              and fresh['mergeable_state'] == 'clean'
+                              and ready(repo, sha, fresh['head']['ref'])):
+                          result = api(f'repos/{repo}/pulls/{number}/merge',
+                                       '--method', 'PUT', '-f', 'merge_method=squash',
+                                       '-f', f'sha={sha}')
+                          if result.get('merged') is not True:
+                              raise RuntimeError('GitHub refused merge')
+                          print(f'Merged verified patch {number} at {sha}')
+                          return
+                  time.sleep(20)
+              raise RuntimeError('Timed out waiting for all required CI checks')
+          import os
+          main(os.environ["REPO"], os.environ["PR_NUMBER"], os.environ["EXPECTED_HEAD"])
+          PY
 
       # ── minor：approve + label，等人工合并 ────────────────────────
       - name: Approve minor PR
