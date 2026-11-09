@@ -35,7 +35,7 @@ jobs:
       github.event.pull_request.user.login == 'dependabot[bot]' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
       !github.event.pull_request.draft
-    timeout-minutes: 30
+    timeout-minutes: 60
 
     steps:
       - name: Fetch Dependabot metadata
@@ -144,7 +144,7 @@ jobs:
 
           def main(repo, number, sha):
               # No checkout/import of PR code. Never leave a deferred auto-merge request.
-              deadline = time.monotonic() + 25 * 60
+              deadline = time.monotonic() + 55 * 60
               while time.monotonic() < deadline:
                   pr = guard(repo, number, sha)
                   if ready(repo, sha, pr['head']['ref']):
