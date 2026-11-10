@@ -8,7 +8,7 @@ const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/adm'
 /**
  * @deprecated Prefer `getMessageListPayload` to consume typed payload directly.
  */
-export async function getMessageList(
+async function getMessageList(
   params: MessageListParams
 ): Promise<ApiResponse<PaginatedResponse<ManagedMessage>>> {
   const response = await client.get('/message/list', { params })
@@ -24,7 +24,7 @@ export async function getMessageListPayload(
 /**
  * @deprecated Prefer `getMessageDetailPayload` to consume typed payload directly.
  */
-export async function getMessageDetail(
+async function getMessageDetail(
   msgId: string,
   msgScope: MessageListParams['msg_scope'] = 'all',
   contentAccess?: Pick<MessageListParams, 'ticket' | 'reason'>

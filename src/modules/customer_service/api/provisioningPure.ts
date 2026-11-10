@@ -31,7 +31,7 @@ export type CsProvisioningAuditEntry = {
  * 出站键（cs_pg_seat.erl:622）仅 `enabled` 与 `max_concurrent`（非 TSID 标量，
  * 出站保持原值）；`business_identity_id`/`workspace_id`/`status` 不在 seat 子对象内。
  */
-export type CsProvisioningSeat = {
+type CsProvisioningSeat = {
   enabled: boolean
   max_concurrent: number
 }

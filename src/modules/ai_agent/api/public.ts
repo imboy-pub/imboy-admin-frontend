@@ -8,7 +8,7 @@ import type { ApiResponse, PaginatedResponse } from '@/types/api'
 import type { EntityId } from '@/types/common'
 
 // visibility: 0=私有 1=公开可发现（进助手广场）
-export type AgentVisibility = 0 | 1
+type AgentVisibility = 0 | 1
 // status: 0=停用 1=启用
 export type AgentStatus = 0 | 1
 

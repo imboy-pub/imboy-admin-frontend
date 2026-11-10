@@ -25,7 +25,7 @@ export interface GroupListParams {
 /**
  * @deprecated Prefer `getGroupListPayload` to consume typed payload directly.
  */
-export async function getGroupList(
+async function getGroupList(
   params: GroupListParams
 ): Promise<ApiResponse<PaginatedResponse<Group>>> {
   const response = await client.get('/group/list', { params })
@@ -43,7 +43,7 @@ export type GroupDetail = Group
 /**
  * @deprecated Prefer `getGroupDetailPayload` to consume typed payload directly.
  */
-export async function getGroupDetail(gid: EntityId): Promise<ApiResponse<GroupDetail>> {
+async function getGroupDetail(gid: EntityId): Promise<ApiResponse<GroupDetail>> {
   const response = await client.get('/group/detail', { params: { gid } })
   return response.data
 }
@@ -75,7 +75,7 @@ export async function updateGroup(
 /**
  * @deprecated Prefer `searchGroupsPayload` to consume typed payload directly.
  */
-export async function searchGroups(
+async function searchGroups(
   keyword: string,
   page = 1,
   size = DEFAULT_PAGE_SIZE
@@ -95,7 +95,7 @@ export async function searchGroupsPayload(
 /**
  * @deprecated Prefer `getGroupMembersPayload` to consume typed payload directly.
  */
-export async function getGroupMembers(
+async function getGroupMembers(
   gid: EntityId,
   page = 1,
   size = DEFAULT_PAGE_SIZE

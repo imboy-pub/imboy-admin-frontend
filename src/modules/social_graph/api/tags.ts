@@ -24,7 +24,7 @@ export interface UserTagItem {
 /**
  * @deprecated Prefer `getUserTagListPayload` to consume typed payload directly.
  */
-export async function getUserTagList(params: UserTagListParams): Promise<ApiResponse<PaginatedResponse<UserTagItem>>> {
+async function getUserTagList(params: UserTagListParams): Promise<ApiResponse<PaginatedResponse<UserTagItem>>> {
   const { uid, scene, page = 1, size = 10, keyword } = params
   const response = await client.get('/user/tag/list', {
     params: {

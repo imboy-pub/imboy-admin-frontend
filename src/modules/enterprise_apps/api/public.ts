@@ -59,13 +59,8 @@ function fingerprint(secret: string): string {
   return md5(secret)
 }
 
-/** 测试/证据辅助：已登记指纹数。 */
-export function issuedFingerprintCount(): number {
-  return issuedSecretFingerprints.size
-}
-
 /** 递归找出 payload 里所有字符串值，逐个与已签发指纹比对。 */
-export function findSecretEcho(payload: unknown, fingerprints: ReadonlySet<string>): string | null {
+function findSecretEcho(payload: unknown, fingerprints: ReadonlySet<string>): string | null {
   if (fingerprints.size === 0) return null
   for (const value of collectStringValues(payload)) {
     if (value.length >= 8 && fingerprints.has(fingerprint(value))) return value
@@ -394,9 +389,4 @@ export async function unbindIdentity(
   )
   const payload = requireApiPayload(response.data, 'DELETE admin identity')
   guardRead(payload, 'DELETE admin identity')
-}
-
-/** 清空指纹集（测试/登出）。 */
-export function resetIssuedFingerprints(): void {
-  issuedSecretFingerprints.clear()
 }

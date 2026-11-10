@@ -26,7 +26,7 @@ export interface UserCollectItem {
 /**
  * @deprecated Prefer `getUserCollectListPayload` to consume typed payload directly.
  */
-export async function getUserCollectList(
+async function getUserCollectList(
   params: UserCollectListParams
 ): Promise<ApiResponse<PaginatedResponse<UserCollectItem>>> {
   const { uid, page = 1, size = 10, kind = 0, keyword, tag, order } = params
