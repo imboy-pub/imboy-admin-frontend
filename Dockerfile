@@ -37,8 +37,13 @@ RUN NODE_ENV=production bun run build \
 # ─────────────────────────────────────────────────────────────
 FROM nginx:alpine AS runtime
 
-# 删除默认配置 / Remove default config
-RUN rm /etc/nginx/conf.d/default.conf
+# 非 root master/worker：PID 与临时文件落 /tmp；配置仍由 root 拥有。
+# Non-root master/workers: writable PID/temp paths; keep config owned by root.
+# 保留官方 Docker 24+ Compose 的内部 80 端口（默认允许非 root 绑定）。
+# Preserve port 80 for the supported Docker 24+ Compose runtime defaults.
+RUN rm /etc/nginx/conf.d/default.conf \
+    && sed -i '/^user[[:space:]]/d; s|/var/run/nginx.pid|/tmp/nginx.pid|; s|/run/nginx.pid|/tmp/nginx.pid|' /etc/nginx/nginx.conf \
+    && sed -i '/^http {/a\    client_body_temp_path /tmp/client_temp;\n    proxy_temp_path /tmp/proxy_temp;\n    fastcgi_temp_path /tmp/fastcgi_temp;\n    uwsgi_temp_path /tmp/uwsgi_temp;\n    scgi_temp_path /tmp/scgi_temp;' /etc/nginx/nginx.conf
 
 # 写入 SPA 配置（history 路由回退）/ SPA config with history fallback
 RUN printf 'server {\n\
@@ -87,6 +92,9 @@ RUN printf 'server {\n\
 
 # 复制构建产物 / Copy build artifacts
 COPY --from=builder /build/dist /usr/share/nginx/html
+# sed -i 需要目录写权限来替换文件；仅静态产物交给运行用户。
+# sed -i needs writable directories to replace files; grant only the static tree.
+RUN chown -R 101:101 /usr/share/nginx/html
 
 # 运行时配置注入：构建时用占位符 __IMBOY_API_HOST__ 代替硬编码域名，
 # 容器启动时 sed 替换为 IMBOY_API_HOST 环境变量（compose 传入
@@ -94,6 +102,8 @@ COPY --from=builder /build/dist /usr/share/nginx/html
 # Vite 构建时 import.meta.env 已静态替换，运行时 env 无效——必须替换产物文件。
 # 替换 JS + HTML（含 CSP connect-src 的域名白名单）。
 COPY --chmod=0755 docker/admin/entrypoint.sh /docker-entrypoint-imboy.sh
+
+USER 101
 
 EXPOSE 80
 

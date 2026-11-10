@@ -27,12 +27,28 @@ jobs:
       - name: 检出代码
         uses: checkout
 
-      # 版本与 .github/workflows/ci.yml 的 BUN_VERSION 保持一致
+      # 固定现有版本；升级时同步更新发布资产的 SHA256。
+      # Keep the current version; update the release digest when upgrading.
       - name: 安装 bun 1.3.6
         run: |
           set -euo pipefail
-          curl -fsSL https://bun.sh/install | bash -s "bun-v1.3.6"
-          "$HOME/.bun/bin/bun" --version
+          BUN_VERSION=1.3.6
+          BUN_SHA256=1954abee08900de610a8b4692f5fffa6c6b15d8afde7d1de4d3f88cfc60e7d5f
+          bun_install_tmp=$(mktemp -d)
+          trap 'rm -rf "$bun_install_tmp"' EXIT
+          # baseline 兼容未保证 AVX2 的 x64 runner。
+          # The baseline build supports x64 runners without guaranteed AVX2.
+          curl --fail --silent --show-error --location --retry 3 \
+            --output "$bun_install_tmp/bun.zip" \
+            "https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/bun-linux-x64-baseline.zip"
+          printf '%s  %s\n' "$BUN_SHA256" "$bun_install_tmp/bun.zip" | sha256sum --check --status
+          unzip -q "$bun_install_tmp/bun.zip" -d "$bun_install_tmp"
+          mkdir -p "$HOME/.bun/bin"
+          install -m 0755 "$bun_install_tmp/bun-linux-x64-baseline/bun" "$HOME/.bun/bin/bun"
+          ln -sfn bun "$HOME/.bun/bin/bunx"
+          bun_installed_version=$("$HOME/.bun/bin/bun" --version)
+          test "$bun_installed_version" = "$BUN_VERSION"
+          printf 'Bun %s\n' "$bun_installed_version"
 
       - name: 安装依赖
         run: |
