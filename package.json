@@ -30,7 +30,7 @@
     "postinstall": "bash scripts/ts6-sidecar.sh"
   },
   "dependencies": {
-    "@hookform/resolvers": "^6.0.2",
+    "@hookform/resolvers": "^7.0.3",
     "@radix-ui/react-alert-dialog": "^1.2.1",
     "@radix-ui/react-dialog": "^1.1.15",
     "@tanstack/react-query": "^5.105.0",
