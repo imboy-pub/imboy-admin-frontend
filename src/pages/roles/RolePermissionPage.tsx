@@ -160,9 +160,16 @@ export function RolePermissionPage() {
   }, [sidebarConfig?.rbac?.permissions])
 
   const roleTemplates = useMemo<RoleTemplate[]>(() => {
-    // TSID 同长时字典序即数值序；内置角色（'1'~'3'）天然靠后
+    // EntityId 是十进制数字串（内置 '1'~'6'，自定义角色为 TSID ≤19 位），
+    // 数值降序即「最新创建在前」：先比长度、同长再按码点比较。
+    // 禁止 localeCompare：字典序下 '6' > '123…'，会把 TSID 自定义角色排到
+    // 内置角色之后，破坏 role/list 数值倒序合同（J02-a 顺序敏感断言假红）。
     const sortByNewest = (items: RoleTemplate[]) =>
-      [...items].sort((a, b) => String(b.id).localeCompare(String(a.id)))
+      [...items].sort((a, b) => {
+        if (b.id.length !== a.id.length) return b.id.length - a.id.length
+        if (b.id === a.id) return 0
+        return b.id > a.id ? 1 : -1
+      })
 
     const fromApi = roleListData?.items
     if (Array.isArray(fromApi) && fromApi.length > 0) {
