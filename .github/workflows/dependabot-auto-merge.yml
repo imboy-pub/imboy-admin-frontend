@@ -69,6 +69,7 @@ jobs:
           REQUIRED = {
               'ci.yml': ['lint-and-build', 'Docker images (linux/amd64)'],
               'quality.yml': ['ESLint + Typecheck + Knip', 'Secrets scan (gitleaks)'],
+              'security-scan.yml': ['security-scan'],
               'admin-e2e.yml': ['Playwright e2e (chromium)'],
               'widget-pairing.yml': ['Widget asset pairing (admin manifest vs backend macro)'],
           }
