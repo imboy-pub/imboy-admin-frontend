@@ -1023,7 +1023,10 @@ describe('KeyboardShortcutsDialog', () => {
       </>
     )
     const input = container.querySelector('input') as HTMLInputElement
-    fireEvent.keyDown(input, { key: '?', target: input })
+    // 在 input 上派发 keyDown 时 e.target 自然就是 input（组件按
+    // e.target.tagName 判定），显式 target 覆盖会走 RTL 对节点属性的
+    // 赋值路径，曾在 CI 触发 react-dom getNodeFromInstance 空实例崩溃
+    fireEvent.keyDown(input, { key: '?' })
     // dialog should remain closed because target is INPUT
     expect(container.textContent).toBe('')
   })

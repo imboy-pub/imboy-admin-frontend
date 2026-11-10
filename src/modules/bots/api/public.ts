@@ -7,7 +7,7 @@ import type { ApiResponse, PaginatedResponse } from '@/types/api'
 import type { EntityId } from '@/types/common'
 
 // status: -1=deleted 0=disabled 1=active
-export type BotStatus = -1 | 0 | 1
+type BotStatus = -1 | 0 | 1
 
 /** admin 列表行（bot_repo:page JOIN user） */
 export interface BotListItem {

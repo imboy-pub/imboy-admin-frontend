@@ -33,7 +33,7 @@ export interface DDLSaveParams {
  * 获取 DDL 配置列表
  * @deprecated Prefer `getDDLListPayload` to consume typed payload directly.
  */
-export async function getDDLList(params: DDLListParams): Promise<ApiResponse<PaginatedResponse<DDL>>> {
+async function getDDLList(params: DDLListParams): Promise<ApiResponse<PaginatedResponse<DDL>>> {
   const response = await client.get('/app_ddl/index', {
     params: { ajax: 1, ...params },
   })

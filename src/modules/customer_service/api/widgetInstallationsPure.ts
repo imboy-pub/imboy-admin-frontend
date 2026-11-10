@@ -23,18 +23,6 @@ export type WidgetInstallation = {
   created_at: string | null
 }
 
-/** installation 展示白名单（branding 子键单独投影）。 */
-export const WIDGET_INSTALLATION_SAFE_KEYS = [
-  'id',
-  'organization_id',
-  'display_name',
-  'public_widget_id',
-  'allowed_origins',
-  'consent_version',
-  'status',
-  'created_at',
-] as const
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }

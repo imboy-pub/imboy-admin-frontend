@@ -11,12 +11,12 @@ type ApiErrorLike = {
   message?: string
 }
 
-export interface MomentStats {
+interface MomentStats {
   like_count: number
   comment_count: number
 }
 
-export interface MomentAcl {
+interface MomentAcl {
   allow_uids: EntityId[]
   deny_uids: EntityId[]
 }
@@ -65,7 +65,7 @@ export interface MomentReportListParams {
   status?: number
 }
 
-export type MomentReportBatchResolveMode = 'batch' | 'fallback'
+type MomentReportBatchResolveMode = 'batch' | 'fallback'
 
 export interface MomentReportBatchResolveSummary {
   mode: MomentReportBatchResolveMode
@@ -234,7 +234,7 @@ function normalizeMomentReport(raw: unknown): MomentReport {
   }
 }
 
-export async function getMomentList(
+async function getMomentList(
   params: MomentListParams = { page: 1, size: 10, status: -2 }
 ): Promise<ApiResponse<PaginatedResponse<Record<string, unknown>>>> {
   const response = await client.get('/moment/list', { params })
@@ -251,7 +251,7 @@ export async function getMomentListPayload(
   return { ...payload, items }
 }
 
-export async function getMomentDetail(
+async function getMomentDetail(
   momentId: EntityId
 ): Promise<ApiResponse<Record<string, unknown>>> {
   const response = await client.get(`/moment/detail/${momentId}`)
@@ -274,7 +274,7 @@ export async function deleteMoment(
   return response.data
 }
 
-export async function getMomentReportList(
+async function getMomentReportList(
   params: MomentReportListParams = { page: 1, size: 10, status: -1 }
 ): Promise<ApiResponse<PaginatedResponse<MomentReport>>> {
   const response = await client.get('/moment/report/list', { params })

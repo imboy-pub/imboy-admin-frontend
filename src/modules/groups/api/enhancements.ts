@@ -19,7 +19,7 @@ export interface GroupVote {
   total_votes?: number
 }
 
-export interface GroupVoteOption {
+interface GroupVoteOption {
   id?: EntityId
   option_id: EntityId
   option_text: string
@@ -44,7 +44,7 @@ export interface GroupSchedule {
   created_at?: string
 }
 
-export interface GroupScheduleParticipant {
+interface GroupScheduleParticipant {
   id?: EntityId
   user_id: EntityId
   status?: number
@@ -211,7 +211,7 @@ export interface GroupPaginationParams {
 /**
  * @deprecated Prefer `getGroupVotesPayload`.
  */
-export async function getGroupVotes(
+async function getGroupVotes(
   gid: EntityId,
   params: GroupPaginationParams = { page: 1, size: 10 }
 ): Promise<ApiResponse<PaginatedResponse<GroupVote>>> {
@@ -231,7 +231,7 @@ export async function getGroupVotesPayload(
 /**
  * @deprecated Prefer `getGroupVoteDetailPayload`.
  */
-export async function getGroupVoteDetail(voteId: string): Promise<ApiResponse<GroupVoteDetail>> {
+async function getGroupVoteDetail(voteId: string): Promise<ApiResponse<GroupVoteDetail>> {
   const response = await client.get('/group/vote/detail', { params: { vote_id: voteId } })
   return response.data
 }
@@ -248,7 +248,7 @@ export async function closeGroupVote(voteId: string): Promise<ApiResponse<Record
 /**
  * @deprecated Prefer `getGroupSchedulesPayload`.
  */
-export async function getGroupSchedules(
+async function getGroupSchedules(
   gid: EntityId,
   params: GroupPaginationParams = { page: 1, size: 10 }
 ): Promise<ApiResponse<PaginatedResponse<GroupSchedule>>> {
@@ -268,7 +268,7 @@ export async function getGroupSchedulesPayload(
 /**
  * @deprecated Prefer `getGroupScheduleDetailPayload`.
  */
-export async function getGroupScheduleDetail(
+async function getGroupScheduleDetail(
   scheduleId: string
 ): Promise<ApiResponse<GroupScheduleDetail>> {
   const response = await client.get('/group/schedule/detail', {
@@ -303,7 +303,7 @@ export async function restoreGroupSchedule(
 /**
  * @deprecated Prefer `getGroupNoticesPayload`.
  */
-export async function getGroupNotices(
+async function getGroupNotices(
   gid: EntityId,
   params: GroupPaginationParams = { page: 1, size: 10 }
 ): Promise<ApiResponse<PaginatedResponse<GroupNotice>>> {
@@ -323,7 +323,7 @@ export async function getGroupNoticesPayload(
 /**
  * @deprecated Prefer `getGroupNoticeDetailPayload`.
  */
-export async function getGroupNoticeDetail(
+async function getGroupNoticeDetail(
   noticeId: EntityId | string
 ): Promise<ApiResponse<GroupNotice>> {
   const response = await client.get('/group/notice/detail', {
@@ -348,7 +348,7 @@ export async function deleteGroupNotice(
 /**
  * @deprecated Prefer `getGroupTagsPayload`.
  */
-export async function getGroupTags(
+async function getGroupTags(
   gid: EntityId,
   params: GroupPaginationParams = { page: 1, size: 10 }
 ): Promise<ApiResponse<Record<string, unknown>>> {
@@ -383,7 +383,7 @@ export async function deleteGroupTag(
 /**
  * @deprecated Prefer `getGroupCategoriesPayload`.
  */
-export async function getGroupCategories(
+async function getGroupCategories(
   params: GroupCategoryListParams
 ): Promise<ApiResponse<PaginatedResponse<GroupCategory>>> {
   const response = await client.get('/group/category/list', { params })
@@ -412,7 +412,7 @@ export async function deleteGroupCategory(
 /**
  * @deprecated Prefer `getGroupFilesPayload`.
  */
-export async function getGroupFiles(
+async function getGroupFiles(
   gid: EntityId,
   params: GroupFileListParams = { page: 1, size: 10 }
 ): Promise<ApiResponse<PaginatedResponse<GroupFile>>> {
@@ -432,7 +432,7 @@ export async function getGroupFilesPayload(
 /**
  * @deprecated Prefer `getGroupFileDetailPayload`.
  */
-export async function getGroupFileDetail(fileId: EntityId | string): Promise<ApiResponse<GroupFile>> {
+async function getGroupFileDetail(fileId: EntityId | string): Promise<ApiResponse<GroupFile>> {
   const response = await client.get('/group/file/detail', {
     params: { file_id: fileId },
   })
@@ -453,7 +453,7 @@ export async function deleteGroupFile(
 /**
  * @deprecated Prefer `getGroupAlbumsPayload`.
  */
-export async function getGroupAlbums(
+async function getGroupAlbums(
   gid: EntityId,
   params: GroupPaginationParams = { page: 1, size: 10 }
 ): Promise<ApiResponse<PaginatedResponse<GroupAlbum>>> {
@@ -473,7 +473,7 @@ export async function getGroupAlbumsPayload(
 /**
  * @deprecated Prefer `getGroupAlbumDetailPayload`.
  */
-export async function getGroupAlbumDetail(
+async function getGroupAlbumDetail(
   albumId: EntityId | string
 ): Promise<ApiResponse<GroupAlbum>> {
   const response = await client.get('/group/album/detail', {
@@ -498,7 +498,7 @@ export async function deleteGroupAlbum(
 /**
  * @deprecated Prefer `getGroupTasksPayload`.
  */
-export async function getGroupTasks(
+async function getGroupTasks(
   gid: EntityId,
   params: GroupTaskListParams = { page: 1, size: 10 }
 ): Promise<ApiResponse<PaginatedResponse<GroupTask>>> {
@@ -518,7 +518,7 @@ export async function getGroupTasksPayload(
 /**
  * @deprecated Prefer `getGroupTaskDetailPayload`.
  */
-export async function getGroupTaskDetail(taskId: string): Promise<ApiResponse<GroupTask>> {
+async function getGroupTaskDetail(taskId: string): Promise<ApiResponse<GroupTask>> {
   const response = await client.get('/group/task/detail', {
     params: { task_id: taskId },
   })
@@ -539,7 +539,7 @@ export async function deleteGroupTask(
 /**
  * @deprecated Prefer `getGroupTaskPendingReviewsPayload`.
  */
-export async function getGroupTaskPendingReviews(
+async function getGroupTaskPendingReviews(
   taskId: string,
   params: GroupTaskPendingReviewListParams = { page: 1, size: DEFAULT_PAGE_SIZE }
 ): Promise<ApiResponse<PaginatedResponse<GroupTaskAssignment>>> {
@@ -587,7 +587,7 @@ export async function restoreGroupTask(
 /**
  * @deprecated Prefer `getGroupGovernanceLogsPayload`.
  */
-export async function getGroupGovernanceLogs(
+async function getGroupGovernanceLogs(
   params: GroupGovernanceLogListParams = { page: 1, size: 10 }
 ): Promise<ApiResponse<PaginatedResponse<GroupGovernanceLog>>> {
   const response = await client.get('/group/governance_log/list', { params })

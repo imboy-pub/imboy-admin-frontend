@@ -9,7 +9,6 @@
 
 import client from '@/services/api/client'
 import { requireApiPayload } from '@/services/api/responseAdapter'
-import { DEFAULT_PAGE_SIZE } from '@/lib/pagination'
 import { ApiResponse, PaginatedResponse } from '@/types/api'
 import type { EntityId } from '@/types/common'
 import type {
@@ -43,7 +42,7 @@ export interface WalletListParams {
 /**
  * @deprecated Prefer `getWalletListPayload`.
  */
-export async function getWalletList(
+async function getWalletList(
   params: WalletListParams
 ): Promise<ApiResponse<PaginatedResponse<Wallet>>> {
   const response = await client.get(`${FINANCE_BASE}/wallets`, { params })
@@ -91,7 +90,7 @@ export interface WalletTransactionListParams {
 /**
  * @deprecated Prefer `getWalletTransactionListPayload`.
  */
-export async function getWalletTransactionList(
+async function getWalletTransactionList(
   params: WalletTransactionListParams
 ): Promise<ApiResponse<PaginatedResponse<WalletTransaction>>> {
   if (!params.user_id) throw new Error('user_id is required for wallet transactions')
@@ -126,7 +125,7 @@ export interface RechargeOrderListParams {
 /**
  * @deprecated Prefer `getRechargeOrderListPayload`.
  */
-export async function getRechargeOrderList(
+async function getRechargeOrderList(
   params: RechargeOrderListParams
 ): Promise<ApiResponse<PaginatedResponse<RechargeOrder>>> {
   const response = await client.get(`${FINANCE_BASE}/recharge-orders`, { params })
@@ -171,7 +170,7 @@ export interface PaymentTransactionListParams {
 /**
  * @deprecated Prefer `getPaymentTransactionListPayload`.
  */
-export async function getPaymentTransactionList(
+async function getPaymentTransactionList(
   params: PaymentTransactionListParams
 ): Promise<ApiResponse<PaginatedResponse<PaymentTransaction>>> {
   const response = await client.get(`${FINANCE_BASE}/payment-transactions`, { params })
@@ -215,7 +214,7 @@ export interface BillingPlanListParams {
 /**
  * @deprecated Prefer `getBillingPlanListPayload`.
  */
-export async function getBillingPlanList(
+async function getBillingPlanList(
   params: BillingPlanListParams
 ): Promise<ApiResponse<PaginatedResponse<BillingPlan>>> {
   const response = await client.get(`${BILLING_BASE}/plans`, { params })
@@ -258,7 +257,7 @@ export interface BillingSubscriptionListParams {
 /**
  * @deprecated Prefer `getBillingSubscriptionListPayload`.
  */
-export async function getBillingSubscriptionList(
+async function getBillingSubscriptionList(
   params: BillingSubscriptionListParams
 ): Promise<ApiResponse<PaginatedResponse<BillingSubscription>>> {
   const response = await client.get(`${BILLING_BASE}/subscriptions`, { params })
@@ -287,7 +286,7 @@ export interface BillingInvoiceListParams {
 /**
  * @deprecated Prefer `getBillingInvoiceListPayload`.
  */
-export async function getBillingInvoiceList(
+async function getBillingInvoiceList(
   params: BillingInvoiceListParams
 ): Promise<ApiResponse<PaginatedResponse<BillingInvoice>>> {
   const response = await client.get(`${BILLING_BASE}/invoices`, { params })
@@ -328,5 +327,3 @@ export async function rejectWithdrawal(id: EntityId): Promise<void> {
   const response = await client.post(`${FINANCE_BASE}/withdrawals/reject`, { id })
   requireApiPayload(response.data, `${FINANCE_BASE}/withdrawals/reject`)
 }
-
-export const DEFAULT_FINANCE_PAGE_SIZE = DEFAULT_PAGE_SIZE

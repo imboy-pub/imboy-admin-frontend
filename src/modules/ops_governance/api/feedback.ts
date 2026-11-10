@@ -56,7 +56,7 @@ function normalizeFeedback(item: RawFeedback): Feedback {
 /**
  * @deprecated Prefer `getFeedbackListPayload` to consume typed payload directly.
  */
-export async function getFeedbackList(params: FeedbackListParams): Promise<ApiResponse<PaginatedResponse<Feedback>>> {
+async function getFeedbackList(params: FeedbackListParams): Promise<ApiResponse<PaginatedResponse<Feedback>>> {
   const response = await client.get('/feedback/index', { params })
   return response.data
 }

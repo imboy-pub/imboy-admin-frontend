@@ -15,7 +15,7 @@ export interface UserListParams {
 /**
  * @deprecated Prefer `getUserListPayload` to consume typed payload directly.
  */
-export async function getUserList(params: UserListParams): Promise<ApiResponse<PaginatedResponse<User>>> {
+async function getUserList(params: UserListParams): Promise<ApiResponse<PaginatedResponse<User>>> {
   const response = await client.get('/user/list', { params })
   return response.data
 }
@@ -33,7 +33,7 @@ export type UserDetail = User & {
 /**
  * @deprecated Prefer `getUserDetailPayload` to consume typed payload directly.
  */
-export async function getUserDetail(uid: EntityId): Promise<ApiResponse<UserDetail>> {
+async function getUserDetail(uid: EntityId): Promise<ApiResponse<UserDetail>> {
   const response = await client.get('/user/detail', { params: { user_id: uid } })
   return response.data
 }
@@ -55,7 +55,7 @@ export async function unbanUser(uid: EntityId): Promise<ApiResponse<Record<strin
 /**
  * @deprecated Prefer `searchUsersPayload` to consume typed payload directly.
  */
-export async function searchUsers(
+async function searchUsers(
   keyword: string,
   page = 1,
   size = DEFAULT_PAGE_SIZE
