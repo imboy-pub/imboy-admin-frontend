@@ -39,12 +39,26 @@ for api_origin in 'https://api.docker-smoke.invalid' ''; do
   admin_container=$(docker create --pull=never --platform linux/amd64 \
     -e "IMBOY_API_HOST=$api_origin" -p 127.0.0.1::80 "$admin_image")
   containers+=("$admin_container")
+  test "$(docker inspect --format '{{.Config.User}}' "$admin_container")" = 101
   mkdir -p "$smoke_tmp/admin"
   docker cp "$admin_container:/usr/share/nginx/html/." "$smoke_tmp/admin"
   docker start "$admin_container" >/dev/null
   admin_http="http://$(docker port "$admin_container" 80/tcp)"
   wait_for_http "$admin_http/health" "$smoke_tmp/admin-health"
   test "$(cat "$smoke_tmp/admin-health")" = ok
+  # 检查实际 master/worker 身份，避免仅声明 USER 却仍由 root 提供服务。
+  # Verify real master/worker identities as well as the configured container user.
+  docker exec -i "$admin_container" sh -eu <<'SH'
+test "$(cat /proc/1/comm)" = nginx
+nginx_process_count=0
+for nginx_pid in 1 $(cat /proc/1/task/1/children); do
+  if [ "$(cat "/proc/$nginx_pid/comm")" = nginx ]; then
+    test "$(awk '/^Uid:/ { print $2, $3, $4, $5 }' "/proc/$nginx_pid/status")" = '101 101 101 101'
+    nginx_process_count=$((nginx_process_count + 1))
+  fi
+done
+test "$nginx_process_count" -ge 2
+SH
   python3 - "$smoke_tmp/admin" "$admin_http" "$api_origin" <<'PY'
 from html.parser import HTMLParser
 from pathlib import Path
@@ -94,7 +108,7 @@ for route in paths:
     if route.endswith('.js'):
         content = content.replace(placeholder, api_origin.encode())
     assert fetch(route) == content, f'Admin runtime asset differs: {route}'
-print(f'Admin runtime PASS: origin={api_origin or "same-origin"}, {len(paths)} entry/config assets')
+print(f'Admin runtime PASS: uid=101, origin={api_origin or "same-origin"}, {len(paths)} entry/config assets')
 PY
 done
 
@@ -133,7 +147,7 @@ PY
   printf -- '- Frontend tested checkout: %s\n' "$frontend_sha"
   printf -- '- Admin local image ID: %s\n' "$(docker image inspect --format '{{.Id}}' "$admin_image")"
   printf -- '- Widget local image ID: %s\n' "$(docker image inspect --format '{{.Id}}' "$widget_image")"
-  echo '- PASS: Admin health, SPA/entry assets and API origin injection (explicit and same-origin).'
+  echo '- PASS: Admin UID 101, health, SPA/entry assets and API origin injection (explicit and same-origin).'
   echo '- PASS: Widget UID 101/read-only runtime, exact verified artifact bytes, manifest source SHA and v1 loader alias.'
   echo '- Scope: local linux/amd64 images; no registry digest, Golden acceptance or anonymous pull evidence.'
 } | tee -a "${GITHUB_STEP_SUMMARY:-/dev/null}"
