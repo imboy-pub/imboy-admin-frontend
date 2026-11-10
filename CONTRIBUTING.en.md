@@ -91,3 +91,33 @@ Type and architecture conventions (TSID/`EntityId`, pagination, payload-first): 
    - Contract changes: cross-repo (imboy / imboyapp) synchronized release requirement
    - Security: no hardcoded credentials (gitleaks), no leftover `console.log`
 4. CI (`.github/workflows/`): `quality.yml` (lint+tsc+knip+secrets), `ci.yml`, `admin-e2e.yml`, `widget-pairing.yml` (cross-repo widget asset pairing gate); all status checks must pass before merge.
+
+## Automated security scanning
+
+[Security Scan](./.github/workflows/security-scan.yml) runs on pushes to `main` / `dev`, pull requests targeting either branch, and manual dispatch. A push to another branch alone does not trigger it; subsequent PR updates do. It scans the checked-out workspace, not only newly introduced findings or the entire Git history.
+
+- Semgrep CE uses `p/security-audit`, `p/secrets`, and `p/owasp-top-ten`. All rule severities are reported; `HIGH` / `CRITICAL` and legacy `ERROR` findings fail the check. Semgrep rule severity is not a CVSS rating.
+- Trivy explicitly enables `vuln,misconfig,secret` for dependencies, supported configurations, and secrets. It reports and blocks `HIGH,CRITICAL`, including development dependencies and vulnerabilities with no available fix.
+- The scanners run independently. Installation, rule/database download, fatal scanner, and report-upload errors fail the workflow. The aggregate check has the stable name `security-scan`.
+- The Trivy scan step uses `exit-code: "0"` solely to separate execution status from findings. Unless cancelled, `Verify Trivy report` checks that the scan actually succeeded and validates the pinned version, SARIF structure, rule mappings, severities, and locations. Execution failures and missing, malformed, or unknown reports fail with exit code 2; a separate `Enforce Trivy findings` step applies `FINDINGS_EXIT_CODE` to validated findings. Semgrep also checks the scan step's actual outcome before evaluating findings.
+- Original SARIF reports are uploaded only to **Security → Code scanning** under separate categories, with PR analyses also appearing in PR checks. Raw JSON/SARIF may contain source or secret snippets and is never uploaded as an ordinary Actions artifact or committed.
+- Each scanner also produces a field-allowlisted inventory retained as a separate Actions artifact for 14 days, named with the run ID and attempt. It contains only rule IDs, categories, severities, file/line locations, and, for dependencies, package names and installed/fixed versions; raw messages, source snippets, and secret matches are omitted. Provenance records the scanner version, repository, checked-out `GITHUB_SHA`, run ID, and attempt. Only an inventory generated after this run's successful execution and report checks is uploaded. Valid inventories remain available when the findings gate fails; raw reports remain in Code scanning.
+- Existing Gitleaks, tests, and quality gates remain in place. Ordinary `pull_request` events require no application secrets or Semgrep account, and no application install/build scripts are executed.
+
+Semgrep `warn` / `warning` diagnostics for parsing, rule matching, or timeouts do not independently block, but the summary shows their counts/types and explicitly states that some files or rules were not fully analyzed. Other or unknown diagnostic levels, invalid reports, and zero scanned files fail. A green check means the configured gate passed, not that every source path was fully analyzed; coverage warnings are not zero findings.
+
+### Rollout and maintenance
+
+The default is `FINDINGS_EXIT_CODE: "1"`, so existing findings also fail the check. If maintainers explicitly choose an observation period, change it to `"0"` through a reviewed change. Findings then become report-only, but scanner/report errors still fail. This does not implement a new-findings-only baseline or relax existing Gitleaks gates.
+
+After the first run, require **`security-scan`** in the target branch protection or ruleset to enforce merge blocking. Merging the YAML does not change repository settings. Verify that all three jobs run and SARIF reports are visible before requiring the check. Resolve permission or Code scanning availability errors instead of ignoring upload failures.
+
+Ordinary Dependabot/fork PR runs can upload SARIF. A Dependabot-authored squash merge may leave a push run with a read-only token and produce an upload 403. A maintainer can start a new `workflow_dispatch` to report that commit and review the merge strategy for future updates. Do not switch to `pull_request_target` to execute PR code or ignore upload errors.
+
+External Actions are pinned to full commit SHAs with version comments; existing Dependabot `github-actions` updates still apply. Engine versions are pinned in the workflow and need validation when upgraded. Semgrep Registry rules and the Trivy vulnerability database update independently, so findings may change without source changes. Review and document individual exceptions instead of excluding entire application directories.
+
+### Repository coverage limits
+
+Semgrep runs applicable JavaScript/TypeScript/React and configuration rules. Trivy reads the committed text `bun.lock` and includes Vite, tests, and other build dependencies through `TRIVY_INCLUDE_DEV_DEPS`. No package-manager migration or additional lockfile is needed. Lockfile matching does not replace reviewing the actual contents of local tarballs in `vendor/` or assess runtime service/API behavior.
+
+References: [Semgrep CE languages](https://semgrep.dev/docs/semgrep-ce-languages), [Trivy Bun and development dependency support](https://trivy.dev/docs/latest/coverage/language/nodejs/).
