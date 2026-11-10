@@ -55,7 +55,25 @@
     // 残留检查/密钥扫描；admin-local-gates-2026-10-02 证据链使用，
     // 后续交付验收（AC28）复用，保留工具入口）
     "tests/e2e/customer-service-real/scripts/*.mjs",
-    "tests/e2e/customer-service-p2/scripts/*.mjs"
+    "tests/e2e/customer-service-p2/scripts/*.mjs",
+
+    // —— 模块 API 边界层（2026-11-09，knip 6.44.1 检测口径对齐）——
+    // knip 6.44.1 补齐了「index/public barrel → 具体文件」star re-export 链的
+    // 导出计数：6.44.0 漏报的 API 层遗留导出（@deprecated raw fn、预留类型、
+    // e2e 取证 helper）开始批量进入 Unused exports，且 caret 范围使每个
+    // Dependabot PR 重排 bun.lock 时被动携带新 knip，Quality Gate 连坐红。
+    // 处置：本层是各模块对页面的稳定 API 边界（文件头注释自证，页面统一经
+    // `@/modules/<m>/api` barrel 消费 Payload 变体），按入口建模——导出面是
+    // 刻意预留的 surface area 不计入 unused；文件自身未用 import/依赖仍检查。
+    // 单独升级 knip 清理真死码时再逐条收窄此面。
+    "src/modules/*/api/*.ts",
+    // 模块公共面 barrel（index.ts/public.ts）：页面与跨模块消费统一经
+    // barrel 命名导入；SeatWorkspacePage/SEAT_WORKSPACE_ROUTE 的真实消费方
+    // 是 seat 构建模式路由替身 src/seat/routerStub.tsx（已在 ignore 清单，
+    // 其 import 不计数），页面导出仅经 barrel 转发
+    "src/modules/*/index.ts",
+    "src/modules/*/public.ts",
+    "src/modules/*/seat/index.ts"
   ],
   "ignore": [
     // —— 被字符串命令/env var/alias 动态调用的文件（knip 无法静态解析）——
