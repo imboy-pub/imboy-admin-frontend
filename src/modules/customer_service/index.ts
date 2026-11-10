@@ -1,5 +1,5 @@
 export * from './public'
 export { AiConfigPage } from './pages/AiConfigPage'
 export { AiFaqPage } from './pages/AiFaqPage'
-export { AiSessionsPage, AiOriginBadge } from './pages/AiSessionsPage'
+export { AiSessionsPage,  } from './pages/AiSessionsPage'
 export { AiMetricsPage } from './pages/AiMetricsPage'

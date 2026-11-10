@@ -33,7 +33,7 @@ export interface VersionSaveParams {
 /**
  * @deprecated Prefer `getVersionListPayload` to consume typed payload directly.
  */
-export async function getVersionList(params: VersionListParams): Promise<ApiResponse<PaginatedResponse<AppVersion>>> {
+async function getVersionList(params: VersionListParams): Promise<ApiResponse<PaginatedResponse<AppVersion>>> {
   const response = await client.get('/app_version/index', { params })
   return response.data
 }

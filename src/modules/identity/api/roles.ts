@@ -156,7 +156,7 @@ function putEndpoint(endpoint: string, body: Record<string, unknown>): Promise<A
 }
 
 
-export async function getRoleList(): Promise<ApiResponse<unknown>> {
+async function getRoleList(): Promise<ApiResponse<unknown>> {
   return getEndpoint(ROLE_LIST_ENDPOINT, {
     page: 1,
     size: ROLE_PICKER_FETCH_SIZE,

@@ -63,7 +63,7 @@ export interface ReportListParams {
   keyword?: string
 }
 
-export type ReportBatchResolveMode = 'batch' | 'target-batch' | 'fallback'
+type ReportBatchResolveMode = 'batch' | 'target-batch' | 'fallback'
 
 export interface ReportBatchResolveSummary {
   mode: ReportBatchResolveMode
@@ -547,21 +547,6 @@ export async function resolveReportBatchWithFallback(
     failedCount,
     failedIds,
   }
-}
-
-/**
- * R-01: 举报工单详情——仅返回该工单自身绑定的结构化证据（含消息举报
- * 的 scope/author/evidence），不提供按消息 ID 的任意浏览入口。
- */
-export async function getReportDetail(
-  reportId: EntityId
-): Promise<ReportTicket> {
-  const response = await client.get('/report/detail', { params: { report_id: reportId } })
-  const payload = requireApiPayload<Record<string, unknown>>(
-    response.data as ApiResponse<Record<string, unknown>>,
-    '/report/detail'
-  )
-  return normalizeReport(payload, 'message')
 }
 
 // ─────────────────────────────────────────────────────────────

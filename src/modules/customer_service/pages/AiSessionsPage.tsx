@@ -35,7 +35,7 @@ function asSessionRows(payload: Record<string, unknown>): SessionRow[] {
 }
 
 /** AI 来源徽标（03-G #6：origin_kind='ai_product' 语义的管理面呈现）。 */
-export function AiOriginBadge(): ReactElement {
+function AiOriginBadge(): ReactElement {
   return (
     <Badge variant="secondary" className="ml-2">
       AI

@@ -40,7 +40,7 @@ export function getCaptchaUrl() {
 }
 
 // 获取登录元数据（JSON）
-export async function getLoginMeta(): Promise<LoginMeta> {
+async function getLoginMeta(): Promise<LoginMeta> {
   const response = await client.get<ApiResponse<LoginMeta>>('/passport/meta')
   return normalizeLoginMeta(requireApiPayload(response.data, '/passport/meta'))
 }
@@ -57,7 +57,7 @@ export async function getLoginPage(): Promise<{
 /**
  * @deprecated Prefer `loginPayload` to consume typed payload directly.
  */
-export async function login(params: LoginParams): Promise<ApiResponse<LoginResponse>> {
+async function login(params: LoginParams): Promise<ApiResponse<LoginResponse>> {
   const response = await client.post('/passport/do_login', params)
   return response.data
 }
@@ -69,7 +69,7 @@ export async function loginPayload(params: LoginParams): Promise<LoginResponse> 
 /**
  * @deprecated Prefer `getCurrentAdminPayload` to consume typed payload directly.
  */
-export async function getCurrentAdmin(): Promise<ApiResponse<Admin>> {
+async function getCurrentAdmin(): Promise<ApiResponse<Admin>> {
   const response = await client.get('/current')
   return response.data
 }
