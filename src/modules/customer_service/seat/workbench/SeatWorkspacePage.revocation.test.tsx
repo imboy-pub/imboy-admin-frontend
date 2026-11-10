@@ -98,13 +98,15 @@ describe('SeatWorkspacePage C02 失权后组件状态（session-revoked：输入
     const view = renderWorkspace(backend, sse)
     await claimActiveSession(view)
     pushRevoked(sse, '9900000000000000002')
-    await waitFor(() => expect(view.queryByTestId('seat-composer')).toBeNull())
+    // 轮询布尔值，避免旧 DOM 暂态的 Fiber 展开阻塞异步撤权。
+    // Poll a boolean so formatting a transient DOM/Fiber tree cannot block the update.
+    await waitFor(() => expect(view.queryByTestId('seat-composer') === null).toBe(true))
 
     // 服务端正常 fin → 客户端凭 Last-Event-ID 自动无损重连（网络层允许）。
     sse.close()
     await waitFor(() => expect(sse.connectCount).toBeGreaterThanOrEqual(2), { timeout: 5000 })
     // 重连后的流量全部 benign（非撤权、非证明授权）：updated + 普通消息追加。
-    await waitFor(() => expect(view.queryByTestId('seat-composer')).toBeNull())
+    await waitFor(() => expect(view.queryByTestId('seat-composer') === null).toBe(true))
     sse.push(envelopeFrame('9900000000000000003', 'seat.changed', 'seat', null, 'updated'))
     sse.push(envelopeFrame('9900000000000000004', 'message.appended', 'message', SESSION))
     await waitFor(() => expect(view.getByTestId('seat-live-region').textContent).toContain('写入口已收回'))
