@@ -2,7 +2,7 @@
 
 # IMBoy Admin Frontend - AI 上下文文档 / AI Context Document
 
-> **最后更新 / Last updated**: 2026-09-19（版本锚点与术语链接刷新；结构描述未全量复核）
+> **最后更新 / Last updated**: 2026-11-11（校准头部日期；正文上次对齐 2026-11-06 CI 门禁/依赖版本与 /api/adm 契约事实）
 > **技术栈 / Stack**: React 19.3 + TypeScript + Vite + Radix UI + Zustand + TanStack Query/Table
 > **包管理 / Package manager**: bun
 > **测试 / Testing**: `bun run test`（= `bun test --isolate`，unit）+ Playwright (E2E)

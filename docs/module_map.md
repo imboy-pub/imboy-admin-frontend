@@ -1,6 +1,6 @@
 # Admin Frontend Module Map
 
-> Date: 2026-08 (rewritten from the 2026-03-15 plan to reflect the completed modular layout)
+> Date: 2026-08, updated 2026-11 (rewritten from the 2026-03-15 plan to reflect the completed modular layout; barrel-less helper modules recorded)
 > Scope: admin React app domain modules, public barrels, and extension-point boundaries
 
 ## Module Layout
@@ -46,6 +46,13 @@ Extension-point modules (registry/contracts only, no public barrel):
 | Dashboard panels | `src/modules/dashboard` | `contracts/`, `registry/` |
 | Report panels | `src/modules/reports` | `contracts/`, `registry/` |
 | Plugin management | `src/modules/plugin_management` | `api/`, `pages/` |
+
+Barrel-less helper modules (no public barrel; consumed directly by their pages):
+
+| Domain | Module | Layout |
+|---|---|---|
+| AI agent hub | `src/modules/agent-hub` | `api.ts` (API adapter for `pages/ai-hub`) |
+| Enterprise access | `src/modules/enterprise_access` | `preset.ts`, `hooks.ts` (enterprise menu preset and org filtering for group/workspace/channel list pages) |
 
 ## Migration Note
 
