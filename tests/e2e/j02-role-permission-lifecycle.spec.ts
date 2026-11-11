@@ -355,6 +355,24 @@ test('J02-c 修改角色 R 权限后 C 侧刷新传播：撤权生效、未撤�
     await expect(cPage).toHaveURL(/\/forbidden$/, { timeout: 15_000 })
     await expect(cPage.getByRole('heading', { name: '无权限访问' })).toBeVisible()
 
+    // ADM-CREATE-LOGIN-001：/forbidden 不能单独证明首次登录身份正确
+    const currentRes = await cPage.request.get('/api/adm/current')
+    expect(currentRes.status(), 'C 当前身份接口应为 HTTP 200').toBe(200)
+    const currentBody = await readEnvelope(currentRes)
+    expect(currentBody.code, 'C 当前身份接口业务码必须成功').toBe(0)
+    expect((currentBody.payload as { account?: string } | undefined)?.account,
+      '首次登录必须是本轮新建的管理员 C').toBe(account)
+
+    const rbacBeforeRes = await cPage.request.get('/api/adm/rbac/me')
+    expect(rbacBeforeRes.status(), 'C 初始 RBAC HTTP 成功').toBe(200)
+    const rbacBeforeBody = await readEnvelope(rbacBeforeRes)
+    expect(rbacBeforeBody.code, 'C 初始 RBAC 业务成功').toBe(0)
+    expect(stringList(rbacBeforeBody.payload, 'role_names'),
+      'C 必须属于本轮角色 R').toContain(roleName)
+    const cPermissionsBefore = stringList(rbacBeforeBody.payload, 'permissions')
+    expect(cPermissionsBefore, '初始 dashboard:view 必须存在').toContain('dashboard:view')
+    expect(cPermissionsBefore, '初始 organizations:read 必须存在').toContain('organizations:read')
+
     // 初态允许面：/organizations 仅 permission 门（organizations:read 已授）→ 可见
     await cPage.goto('/organizations')
     await expect(
@@ -363,6 +381,9 @@ test('J02-c 修改角色 R 权限后 C 侧刷新传播：撤权生效、未撤�
     ).toBeVisible({ timeout: 15_000 })
     const orgsBefore = await cPage.request.get('/api/adm/organizations?page=1&size=1')
     expect(orgsBefore.status(), '授权期 C 直调 GET /api/adm/organizations 应被允许').toBe(200)
+
+    const orgsBeforeBody = await readEnvelope(orgsBefore)
+    expect(orgsBeforeBody.code, 'C 初始组织访问业务码必须为 0').toBe(0)
 
     // —— 超管：改 R 权限（撤掉 organizations:read，保留 dashboard:view）并保存 ——
     await page.goto('/roles')
