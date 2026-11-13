@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "run_id": "j02_20261113_01",
+  "frontend_sha": "b8d91e7f11fa096d81d7ec4ee2bccd8191999528",
+  "frontend_url": "http://127.0.0.1:18082",
+  "super_account": "j02_super@local.test",
+  "backend": {
+    "sha": "d41f06f560e768d9370cbc7cb602d162433ac5e8",
+    "source_dir": "/ABSOLUTE_PATH/imboy-source",
+    "release_dir": "/ABSOLUTE_PATH/immutable-test-release",
+    "vm_args_file": "/ABSOLUTE_PATH/test-conf/vm.args",
+    "sys_config_file": "/ABSOLUTE_PATH/test-conf/sys.config",
+    "url": "http://127.0.0.1:19821",
+    "node": "j02_20261113_01@127.0.0.1",
+    "environment": "test",
+    "rsa_public_key_sha256": "REPLACE_WITH_SHA256_OF_RUNTIME_PUBLIC_PEM_WITH_LF_REMOVED"
+  },
+  "database": {
+    "host": "127.0.0.1",
+    "port": 55432,
+    "name": "j02_j02_20261113_01",
+    "user": "j02_test_user",
+    "server_address": "127.0.0.1",
+    "server_port": 55432,
+    "major": 18,
+    "schema": "public"
+  },
+  "isolation": {
+    "instance_id": "REPLACE_WITH_PROVISIONED_INSTANCE_ID",
+    "owner": "REPLACE_WITH_ENVIRONMENT_OWNER",
+    "evidence_file": "/ABSOLUTE_PATH/redacted-provisioning-receipt.json",
+    "dedicated_backend": false,
+    "dedicated_database": false,
+    "fresh_database": false,
+    "test_only_keys": false,
+    "no_production_data": false,
+    "no_shared_cluster": false
+  },
+  "cleanup": {
+    "strategy": "dispose-entire-dedicated-environment",
+    "owner": "REPLACE_WITH_CLEANUP_OWNER",
+    "procedure": "REPLACE_WITH_EXACT_STOP_AND_DISPOSAL_PROCEDURE_FOR_THIS_INSTANCE_AND_DATABASE"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "decision": "NOT_APPROVED",
+  "scope": "RUN_J02_C_ONCE",
+  "plan_sha256": "REPLACE_AFTER_REVIEWING_PLAN_JSON_AND_REVIEW_MD",
+  "approved_by": "REPLACE_ONLY_AFTER_EXPLICIT_HUMAN_APPROVAL",
+  "approval_reference": "REPLACE_WITH_THE_ACTUAL_APPROVAL_RECORD",
+  "approved_at": "REPLACE_WITH_ISO8601_TIMESTAMP",
+  "expires_at": "REPLACE_WITH_ISO8601_TIMESTAMP_WITHIN_24_HOURS"
+}
