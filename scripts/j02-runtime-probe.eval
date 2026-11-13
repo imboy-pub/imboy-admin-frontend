@@ -1,0 +1,45 @@
+%% Read-only RPC against the already running, dedicated release. Never start it here.
+%% 仅连接既有专用节点；白名单输出；固定 SELECT；同一连接 BEGIN READ ONLY / ROLLBACK。
+{ok, PgConf} = application:get_env(imboy, pg_conf),
+#{start_mfa := {_, _, [PgOptions]}} = PgConf,
+{ok, PublicKey} = application:get_env(imboy, login_rsa_pub_key),
+PublicWire = re:replace(ec_cnv:to_binary(PublicKey), "\n", "", [global, {return, binary}]),
+DbFacts = elib_pg:with_conn(fun(C) ->
+    {ok, _, _} = epgsql:squery(C, <<"BEGIN READ ONLY">>),
+    try
+        {ok, [Identity]} = elib_pg:query(C, <<"SELECT current_database() AS database, current_user::text AS username, inet_server_addr()::text AS server_address, inet_server_port() AS server_port, current_setting('server_version_num')::int AS server_version_num, current_setting('transaction_read_only') AS transaction_read_only, pg_is_in_recovery() AS is_replica">>, []),
+        {ok, Migrations} = elib_pg:query(C, <<"SELECT version, dirty FROM public.schema_migrations ORDER BY version">>, []),
+        {ok, History} = elib_pg:query(C, <<"SELECT version FROM public.schema_migrations_history ORDER BY version">>, []),
+        {ok, [Tables]} = elib_pg:query(C, <<"SELECT to_regclass('public.adm_user')::text AS adm_user, to_regclass('public.adm_role')::text AS adm_role, to_regclass('public.config')::text AS config, to_regclass('public.adm_auth_epoch')::text AS adm_auth_epoch, to_regclass('public.organization')::text AS organization">>, []),
+        {ok, [PriorRuns]} = elib_pg:query(C, <<"SELECT (SELECT count(*)::int FROM public.adm_user WHERE left(account,10)='j02_admin_') AS admins, (SELECT count(*)::int FROM public.adm_role WHERE left(role_name,9)='j02_role_') AS roles">>, []),
+        {ok, Extensions} = elib_pg:query(C, <<"SELECT extname, extversion FROM pg_extension ORDER BY extname">>, []),
+        #{identity => Identity, migrations => Migrations, history => History, tables => Tables, prior_runs => PriorRuns, extensions => Extensions}
+    after
+        {ok, _, _} = epgsql:squery(C, <<"ROLLBACK">>)
+    end
+end),
+true = is_map(DbFacts),
+Modules = [adm_admin_handler, adm_passport_handler, adm_index_handler, adm_role_handler, adm_acl, adm_user_repo, config_ds, imboy_env],
+ModuleFacts = maps:from_list(lists:map(fun(M) ->
+    Loaded = M:module_info(md5),
+    BeamPath = code:which(M),
+    {ok, {M, Disk}} = beam_lib:md5(BeamPath),
+    {M, #{loaded_md5 => binary:encode_hex(Loaded, lowercase), disk_md5 => binary:encode_hex(Disk, lowercase), path => unicode:characters_to_binary(BeamPath)}}
+end, Modules)),
+{Ip, Port} = ranch:get_addr(imboy_listener),
+{ok, Vsn} = application:get_key(imboy, vsn),
+Out = #{
+    environment => imboy_env:current(),
+    node => atom_to_binary(node(), utf8),
+    connected_nodes => [atom_to_binary(N, utf8) || N <- nodes()],
+    release_root => unicode:characters_to_binary(filename:dirname(filename:dirname(code:lib_dir(imboy)))),
+    version => unicode:characters_to_binary(Vsn),
+    otp_release => list_to_binary(erlang:system_info(otp_release)),
+    erts_version => list_to_binary(erlang:system_info(version)),
+    http => #{ip => list_to_binary(inet:ntoa(Ip)), port => Port},
+    pg => maps:map(fun(_, V) -> case is_list(V) of true -> unicode:characters_to_binary(V); false -> V end end, maps:with([host, port, database, username], PgOptions)),
+    database => DbFacts,
+    modules => ModuleFacts,
+    login_rsa_public_key_sha256 => binary:encode_hex(crypto:hash(sha256, PublicWire), lowercase)
+},
+io:format("J02_RUNTIME_JSON=~s~n", [jsone:encode(Out, [native_utf8])]).

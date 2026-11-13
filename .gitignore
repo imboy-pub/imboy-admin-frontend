@@ -44,6 +44,8 @@ prod_login*.mjs
 .env
 .env.local
 .env.*.local
+# J02 target/approval/provisioning receipts are local, reviewed execution inputs.
+.j02/
 
 # Erlang Common Test artifacts (from adjacent imboy backend)
 _build
