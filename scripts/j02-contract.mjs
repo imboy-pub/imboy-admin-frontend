@@ -2,9 +2,9 @@
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 
-export const RUN_ID = /^[a-z0-9][a-z0-9_-]{7,47}$/
-export const SHA = /^[a-f0-9]{40}$/
-export const DIGEST = /^[a-f0-9]{64}$/
+const RUN_ID = /^[a-z0-9][a-z0-9_-]{7,47}$/
+const SHA = /^[a-f0-9]{40}$/
+const DIGEST = /^[a-f0-9]{64}$/
 export const REQUIRED_BACKEND_COMMIT = 'b418ad52944b687e0b643431d5b7e5be82b9594d'
 export const MODULES = [
   'adm_admin_handler', 'adm_passport_handler', 'adm_index_handler',
@@ -26,7 +26,7 @@ export const CLEANUP = [
 ]
 
 export function sha256(bytes) { return createHash('sha256').update(bytes).digest('hex') }
-export function stable(value) {
+function stable(value) {
   if (Array.isArray(value)) return value.map(stable)
   if (value && typeof value === 'object') return Object.fromEntries(Object.keys(value).sort().map(k => [k, stable(value[k])]))
   return value
@@ -44,7 +44,7 @@ function text(value, label) {
   assert(!/REPLACE|CHANGE_ME|ABSOLUTE_PATH/.test(value), `${label} still contains a placeholder`)
 }
 function absolute(value, label) { text(value, label); assert(value.startsWith('/'), `${label} must be absolute`) }
-export function localOrigin(value, label) {
+function localOrigin(value, label) {
   text(value, label)
   const url = new URL(value)
   assert(url.protocol === 'http:' && url.hostname === '127.0.0.1', `${label}: run on the isolated host using http://127.0.0.1`)

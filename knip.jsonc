@@ -26,6 +26,10 @@
     // 是宿主 snippet 的稳定入口（冻结合同 v1 S6）
     "src/widget/customer_service/loader.ts",
 
+    // J02 的 Playwright webServer.command 通过 --config 字符串加载此配置。
+    // Real CLI entry; keep static dependency checks without executing its environment guard.
+    "vite.j02.config.ts",
+
     // —— Playwright 套件配置入口 ——
     // 默认名 playwright.config.ts 与 package.json scripts 挂载的 3 个 config
     // （prod-check/real/p2）由 knip playwright 插件自动识别，无需声明。
