@@ -137,9 +137,15 @@ jobs:
                   pr = guard(repo, number, sha)
                   if ready(repo, sha, pr['head']['ref']):
                       fresh = guard(repo, number, sha)
+                      # mergeable_state 只能是 'clean' 或 'unstable'：
+                      #   本 triage check 自身就是 PR 上一个 pending 的非必需检查，
+                      #   在 job 结束（即 merge 完成）前 state 恒为 'unstable'，
+                      #   强求 'clean' 会自我死锁。必需检查是否全绿由 ready()
+                      #   逐 job 显式核验（比 'clean' 更严格、且绑定精确 head sha），
+                      #   服务端分支保护在 merge API 处兜底，'blocked' 等态不放行。
                       if (fresh['base']['sha'] == pr['base']['sha']
                               and fresh['merge_commit_sha'] == pr['merge_commit_sha']
-                              and fresh['mergeable_state'] == 'clean'
+                              and fresh['mergeable_state'] in ('clean', 'unstable')
                               and ready(repo, sha, fresh['head']['ref'])):
                           result = api(f'repos/{repo}/pulls/{number}/merge',
                                        '--method', 'PUT', '-f', 'merge_method=squash',
