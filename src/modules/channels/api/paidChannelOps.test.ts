@@ -1,12 +1,11 @@
 /**
  * Unit tests for the paid-channel operations money-path:
  *   - setChannelPrice: PUT URL + fen body field passthrough (price_fen/original_price_fen)
- *   - getChannelOrdersPayload: pagination envelope parsing
- *   - yuanToFen / fenToYuan: 元 ↔ 分 conversion used by SetChannelPriceDialog
+ *   - yuanToFen / fenToYuan: 元 ↔ 分 conversion used by the price edit form
  */
 import { afterEach, describe, expect, it } from 'bun:test'
 import client from '@/services/api/client'
-import { setChannelPrice, getChannelOrdersPayload } from './public'
+import { setChannelPrice } from './public'
 import { yuanToFen, fenToYuan } from '@/lib/money'
 
 type AnyFn = (..._args: unknown[]) => unknown
@@ -73,60 +72,6 @@ describe('setChannelPrice', () => {
     // 用户在表单输入 9.90 元 → 990 分
     await setChannelPrice('ch-2', { price_fen: yuanToFen('9.90') })
     expect((capturedBody as { price_fen: number }).price_fen).toBe(990)
-  })
-})
-
-// ---------------------------------------------------------------------------
-// getChannelOrdersPayload — pagination envelope parsing
-// ---------------------------------------------------------------------------
-
-describe('getChannelOrdersPayload', () => {
-  const rawOrder = {
-    id: '700001',
-    channel_id: '100',
-    user_id: '52278',
-    order_no: 'ORD-20260622-001',
-    amount: '9.90',
-    currency: 'CNY',
-    status: 1,
-    payment_method: 'alipay',
-    payment_at: '2026-06-22 10:00:00',
-    subscription_start_at: '2026-06-22 10:00:00',
-    subscription_end_at: '2026-07-22 10:00:00',
-    created_at: '2026-06-22 09:59:00',
-  }
-
-  it('parses paginated orders payload', async () => {
-    mutableClient.get = async (url: unknown) => {
-      expect(url).toBe('/channel/ch-9/orders')
-      return {
-        data: {
-          code: 0,
-          msg: 'ok',
-          payload: { items: [rawOrder], page: 1, size: 10, total: 1, total_pages: 1 },
-        },
-      }
-    }
-
-    const result = await getChannelOrdersPayload('ch-9', { page: 1, size: 10 })
-    expect(result.items).toHaveLength(1)
-    expect(result.items[0].order_no).toBe('ORD-20260622-001')
-    expect(result.page).toBe(1)
-    expect(result.total).toBe(1)
-  })
-
-  it('forwards page/size query params', async () => {
-    let capturedParams: Record<string, unknown> = {}
-    mutableClient.get = async (_url: unknown, config?: { params?: Record<string, unknown> }) => {
-      capturedParams = config?.params ?? {}
-      return {
-        data: { code: 0, msg: 'ok', payload: { items: [], page: 2, size: 5, total: 0, total_pages: 0 } },
-      }
-    }
-
-    await getChannelOrdersPayload('ch-1', { page: 2, size: 5 })
-    expect(capturedParams.page).toBe(2)
-    expect(capturedParams.size).toBe(5)
   })
 })
 

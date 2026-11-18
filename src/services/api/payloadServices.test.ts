@@ -8,9 +8,7 @@ import {
   deleteChannelMessage,
   getChannelAdminsPayload,
   getChannelDetailPayload,
-  getChannelInvitationsPayload,
   getChannelMessagesPayload,
-  getChannelOrdersPayload,
   getChannelStatsPayload,
   getChannelSubscribersPayload,
   pinChannelMessage,
@@ -480,61 +478,6 @@ describe('payload-first services', () => {
     const response = await removeChannelAdmin(8, 3001)
     expect(capturedUrl).toBe('/channel/8/admin/3001')
     expect(response.code).toBe(0)
-  })
-
-  it('getChannelInvitationsPayload reads /channel/:id/invitations and forwards params', async () => {
-    let capturedUrl = ''
-    let capturedParams: Record<string, unknown> | undefined
-    mutableClient.get = async (url: string, config: { params?: Record<string, unknown> }) => {
-      capturedUrl = url
-      capturedParams = config.params
-      return {
-        data: {
-          code: 0,
-          msg: 'ok',
-          payload: {
-            items: [{ id: 11, inviter_uid: 4001, invitee_uid: 4002 }],
-            page: 1,
-            size: 10,
-            total: 1,
-            total_pages: 1,
-          },
-        },
-      }
-    }
-
-    const payload = await getChannelInvitationsPayload(8, { page: 1, size: 10 })
-    expect(capturedUrl).toBe('/channel/8/invitations')
-    expect(capturedParams).toEqual({ page: 1, size: 10 })
-    expect(payload.items[0]?.id).toBe(11)
-  })
-
-  it('getChannelOrdersPayload reads /channel/:id/orders and forwards params', async () => {
-    let capturedUrl = ''
-    let capturedParams: Record<string, unknown> | undefined
-    mutableClient.get = async (url: string, config: { params?: Record<string, unknown> }) => {
-      capturedUrl = url
-      capturedParams = config.params
-      return {
-        data: {
-          code: 0,
-          msg: 'ok',
-          payload: {
-            items: [{ id: 21, order_no: 'CH202602220001' }],
-            page: 2,
-            size: 20,
-            total: 41,
-            total_pages: 3,
-          },
-        },
-      }
-    }
-
-    const payload = await getChannelOrdersPayload(8, { page: 2, size: 20 })
-    expect(capturedUrl).toBe('/channel/8/orders')
-    expect(capturedParams).toEqual({ page: 2, size: 20 })
-    expect(payload.page).toBe(2)
-    expect(payload.items[0]?.id).toBe(21)
   })
 
   it('getChannelStatsPayload reads /channel/:id/stats', async () => {

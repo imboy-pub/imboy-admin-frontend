@@ -53,7 +53,6 @@ const TARGETS: Target[] = [
   { slug: 'GroupContextGatewayPage', module: 'groups', path: '/groups/context' },
   { slug: 'MomentListPage', module: 'moments', path: '/moments' },
   { slug: 'ChannelListPage', module: 'channels', path: '/channels' },
-  { slug: 'PaidChannelOpsPage', module: 'channels', path: '/channels/paid' },
   { slug: 'SettingsHomePage', module: 'settings', path: '/settings' },
   { slug: 'FeatureConfigPage', module: 'settings', path: '/settings/features' },
   { slug: 'ProfileSwitchPage', module: 'settings', path: '/settings/profile' },

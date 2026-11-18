@@ -104,7 +104,6 @@ export const defaultConfig: SidebarMenuConfig = {
         { path: '/groups', icon: 'UsersRound', label: '群组管理', roles: ['1', '2'], permission: 'groups:read' },
         { path: '/groups/tasks', icon: 'FileText', label: '群作业管理', roles: ['1', '2'], permission: 'groups:task:read' },
         { path: '/channels', icon: 'Radio', label: '频道管理', roles: ['1', '2'], permission: 'channels:read' },
-        { path: '/channels/paid', icon: 'DollarSign', label: '付费频道运营', roles: ['1', '2'], permission: 'channels:read' },
         { path: '/moments', icon: 'Camera', label: '朋友圈管理', roles: ['1', '2'], permission: 'moments:read' },
         { path: '/ai-agents', icon: 'Bot', label: 'AI 助手管理', roles: ['1', '2'], permission: 'users:read' },
         { path: '/ai-agents/onboarding', icon: 'Bot', label: '新手引导配置', roles: ['1', '2'], permission: 'users:read' },

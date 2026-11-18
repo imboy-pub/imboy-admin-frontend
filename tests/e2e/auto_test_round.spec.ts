@@ -116,13 +116,10 @@ const PAGES: PageSpec[] = [
   { slug: 'MomentReportPage', module: 'moments', path: '/moments/reports' },
 
   { slug: 'ChannelListPage', module: 'channels', path: '/channels' },
-  { slug: 'PaidChannelOpsPage', module: 'channels', path: '/channels/paid' },
   { slug: 'ChannelDetailPage', module: 'channels', path: '/channels/{id}', idFrom: 'channels' },
   { slug: 'ChannelMessagePage', module: 'channels', path: '/channels/{id}/messages', idFrom: 'channels' },
   { slug: 'ChannelSubscriberPage', module: 'channels', path: '/channels/{id}/subscribers', idFrom: 'channels' },
   { slug: 'ChannelAdminPage', module: 'channels', path: '/channels/{id}/admins', idFrom: 'channels' },
-  { slug: 'ChannelInvitationPage', module: 'channels', path: '/channels/{id}/invitations', idFrom: 'channels' },
-  { slug: 'ChannelOrderPage', module: 'channels', path: '/channels/{id}/orders', idFrom: 'channels' },
 
   { slug: 'SettingsHomePage', module: 'settings', path: '/settings' },
   { slug: 'FeatureConfigPage', module: 'settings', path: '/settings/features' },

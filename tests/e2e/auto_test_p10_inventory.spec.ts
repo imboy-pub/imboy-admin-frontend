@@ -29,8 +29,6 @@ const TARGETS = [
   { slug: 'ChannelMessagePage', path: '/channels/{cid}/messages' },
   { slug: 'ChannelSubscriberPage', path: '/channels/{cid}/subscribers' },
   { slug: 'ChannelAdminPage', path: '/channels/{cid}/admins' },
-  { slug: 'ChannelInvitationPage', path: '/channels/{cid}/invitations' },
-  { slug: 'ChannelOrderPage', path: '/channels/{cid}/orders' },
   { slug: 'MutedUsersPage', path: '/settings/muted-users' },
   { slug: 'SSOConfigPage', path: '/settings/sso' },
   { slug: 'ComplianceKeyPage', path: '/settings/compliance-keys' },
