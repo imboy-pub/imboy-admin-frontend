@@ -31,7 +31,6 @@ const TARGETS = [
   { slug: 'ChannelAdminPage', path: '/channels/{cid}/admins' },
   { slug: 'MutedUsersPage', path: '/settings/muted-users' },
   { slug: 'SSOConfigPage', path: '/settings/sso' },
-  { slug: 'ComplianceKeyPage', path: '/settings/compliance-keys' },
   { slug: 'BillingPlanListPage', path: '/billing-plans' },
   { slug: 'FeedbackListPage', path: '/feedback' },
   { slug: 'PluginManagementPage', path: '/plugins' },

@@ -10,7 +10,7 @@ export function complianceKeyQueryKey() {
 
 // --- 类型定义 ---
 
-export interface ComplianceKey {
+interface ComplianceKey {
   key_id: EntityId
   algorithm?: string
   status: number          // 1=active, 0=revoked

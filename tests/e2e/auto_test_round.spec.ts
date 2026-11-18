@@ -125,7 +125,6 @@ const PAGES: PageSpec[] = [
   { slug: 'FeatureConfigPage', module: 'settings', path: '/settings/features' },
   { slug: 'ProfileSwitchPage', module: 'settings', path: '/settings/profile' },
   { slug: 'CapabilityConfigPage', module: 'settings', path: '/settings/capabilities' },
-  { slug: 'ComplianceKeyPage', module: 'settings', path: '/settings/compliance-keys', skipCreate: true },
   { slug: 'VersionPage', module: 'settings', path: '/settings/versions' },
   { slug: 'MutedUsersPage', module: 'settings', path: '/settings/muted-users' },
   { slug: 'PushTokenListPage', module: 'settings', path: '/settings/push-tokens' },
