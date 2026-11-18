@@ -76,8 +76,7 @@
     // 是 seat 构建模式路由替身 src/seat/routerStub.tsx（已在 ignore 清单，
     // 其 import 不计数），页面导出仅经 barrel 转发
     "src/modules/*/index.ts",
-    "src/modules/*/public.ts",
-    "src/modules/*/seat/index.ts"
+    "src/modules/*/public.ts"
   ],
   "ignore": [
     // —— 被字符串命令/env var/alias 动态调用的文件（knip 无法静态解析）——
