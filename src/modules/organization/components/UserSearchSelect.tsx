@@ -24,7 +24,7 @@ interface UserSearchSelectProps {
 /**
  * 用户搜索选择器（organization 域内共享）：按账号 / 昵称 / 邮箱 / 手机号
  * 模糊搜索用户（后端 GET /user/search 四字段 OR LIKE）并点选，禁止手填
- * 裸 TSID——与 OrganizationCreateDialog 同一约定。
+ * 裸 TSID——与 OrganizationCreateDialogV2 同一约定。
  *
  * 可选性口径与创建组织一致：仅 status=1（active）可选；human 判定由
  * 后端 fail-closed 完成（User 类型无 account_type，UI 不假装能判定）。

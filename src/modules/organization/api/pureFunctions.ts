@@ -736,7 +736,7 @@ export function formatEpochSeconds(seconds: number | null): string {
 // 关键约束（与后端 org_create_write/4 对齐）：
 //   * 请求体严格三键：name / owner_user_id / default_workspace_name；
 //     owner_user_id 必须为非空 string（TSID）——**禁止**前端手填裸 TSID 之外的
-//     任意形态；owner 必须经由用户搜索选择（见 OrganizationCreateDialog）。
+//     任意形态；owner 必须经由用户搜索选择（见 OrganizationCreateDialogV2）。
 //   * 响应 {organization, default_workspace, created}；created=false 是幂等命中
 //     （同 owner + 归一化同名已有 active 组织），UI 必须区别于"真实新建"，
 //     且不得呈现为失败态。
