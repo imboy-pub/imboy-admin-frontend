@@ -13,12 +13,7 @@
     "/channels",
     "/channels/:id/messages",
     "/channels/:id/subscribers",
-    "/channels/:id/admins",
-    "/channels/:id/invitations",
-    "/channels/:id/orders"
-  ],
-  "ChannelInvitationPage": [
-    "/channels/:id"
+    "/channels/:id/admins"
   ],
   "ChannelListPage": [
     "/channels/:id",
@@ -26,9 +21,6 @@
     "/channels/:id/messages"
   ],
   "ChannelMessagePage": [
-    "/channels/:id"
-  ],
-  "ChannelOrderPage": [
     "/channels/:id"
   ],
   "ChannelSubscriberPage": [
@@ -107,9 +99,6 @@
     "/plugins/logs"
   ],
   "CapabilityConfigPage": [
-    "/settings"
-  ],
-  "ComplianceKeyPage": [
     "/settings"
   ],
   "FeatureConfigPage": [

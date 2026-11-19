@@ -152,43 +152,6 @@ export interface ChannelAdmin {
   user?: ChannelUserSummary
 }
 
-export interface ChannelInvitation {
-  id: EntityId
-  channel_id: EntityId
-  inviter_uid: EntityId
-  invitee_uid: EntityId
-  invitation_code: string | null
-  status: number
-  message: string | null
-  expires_at: string
-  accepted_at: string | null
-  created_at: string
-  updated_at: string | null
-  inviter_user?: ChannelUserSummary
-  invitee_user?: ChannelUserSummary
-}
-
-export interface ChannelOrder {
-  id: EntityId
-  channel_id: EntityId
-  user_id: EntityId
-  order_no: string
-  amount: string
-  currency: string
-  status: number
-  payment_method: string | null
-  payment_no: string | null
-  payment_at: string | null
-  subscription_start_at: string | null
-  subscription_end_at: string | null
-  expires_at: string
-  refund_reason: string | null
-  refund_at: string | null
-  created_at: string
-  updated_at: string | null
-  user?: ChannelUserSummary
-}
-
 interface ChannelStats {
   channel_id: EntityId
   subscriber_count: number
@@ -380,42 +343,6 @@ export async function removeChannelAdmin(
   return response.data
 }
 
-async function getChannelInvitations(
-  channelId: EntityId,
-  params: ChannelGovernanceListParams = { page: 1, size: 10 }
-): Promise<ApiResponse<PaginatedResponse<ChannelInvitation>>> {
-  const response = await client.get(`/channel/${channelId}/invitations`, { params })
-  return response.data
-}
-
-export async function getChannelInvitationsPayload(
-  channelId: EntityId,
-  params: ChannelGovernanceListParams = { page: 1, size: 10 }
-): Promise<PaginatedResponse<ChannelInvitation>> {
-  return requireApiPayload(
-    await getChannelInvitations(channelId, params),
-    '/channel/:id/invitations'
-  )
-}
-
-async function getChannelOrders(
-  channelId: EntityId,
-  params: ChannelGovernanceListParams = { page: 1, size: 10 }
-): Promise<ApiResponse<PaginatedResponse<ChannelOrder>>> {
-  const response = await client.get(`/channel/${channelId}/orders`, { params })
-  return response.data
-}
-
-export async function getChannelOrdersPayload(
-  channelId: EntityId,
-  params: ChannelGovernanceListParams = { page: 1, size: 10 }
-): Promise<PaginatedResponse<ChannelOrder>> {
-  return requireApiPayload(
-    await getChannelOrders(channelId, params),
-    '/channel/:id/orders'
-  )
-}
-
 async function getChannelStats(channelId: EntityId): Promise<ApiResponse<ChannelStats>> {
   const response = await client.get(`/channel/${channelId}/stats`)
   return response.data
@@ -433,20 +360,5 @@ export async function setChannelPrice(
   data: ChannelPriceParams
 ): Promise<ApiResponse<Record<string, never>>> {
   const response = await client.put(`/channel/${channelId}/price`, data)
-  return response.data
-}
-
-/**
- * 频道订单退款（管理端，client 自动加 adm 前缀）。
- * 成功返回 { order_no }；退款不可撤销。
- */
-export async function refundChannelOrder(
-  orderNo: string,
-  reason: string
-): Promise<ApiResponse<{ order_no: string }>> {
-  const response = await client.post('/channel/order/refund', {
-    order_no: orderNo,
-    refund_reason: reason,
-  })
   return response.data
 }

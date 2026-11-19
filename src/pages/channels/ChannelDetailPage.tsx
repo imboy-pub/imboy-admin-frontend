@@ -13,9 +13,7 @@ import { ConfirmDialog, ErrorState, LoadingState, PageHeader, StatusBadge } from
 import { ChannelUpdateParams, ChannelPriceParams, deleteChannel, getChannelDetailPayload, getChannelStatsPayload, setChannelPrice, updateChannel } from '@/modules/channels/api'
 import { formatDate } from '@/lib/utils'
 import { fenToYuan, yuanToFen } from '@/lib/money'
-import { useAdminFeatures, useAdminEntryEnabled } from '@/hooks/useAdminFeatures'
 import { useAdminPermission } from '@/hooks/useAdminPermission'
-import { isAdminFeatureEnabled } from '@/services/api/features'
 import { getErrorMessage } from '@/lib/errorUtils'
 import { Select } from '@/components/ui/select'
 import { ChannelDiscussionPanel } from './ChannelDiscussionPanel'
@@ -82,8 +80,6 @@ export function ChannelDetailPage() {
   const [isPriceEditing, setIsPriceEditing] = useState(false)
   const [priceFormData, setPriceFormData] = useState<ChannelPriceForm | null>(null)
   const [activeTab, setActiveTab] = useState('messages')
-  const { data: featureFlags } = useAdminFeatures()
-  const channelEntryEnabled = useAdminEntryEnabled('channel')
   const { allowed: canUpdateChannel } = useAdminPermission({
     permission: 'channels:update',
     roles: ['1', '2'],
@@ -179,7 +175,6 @@ export function ChannelDetailPage() {
       description: resolvedFormData.description,
     })
   }
-  const orderEnabled = channelEntryEnabled && isAdminFeatureEnabled(featureFlags, 'channel_order')
 
   // 确定可用的 Tab 列表
   const tabs = [
@@ -187,7 +182,6 @@ export function ChannelDetailPage() {
     { key: 'overview', label: '概览', icon: FileText },
     { key: 'subscribers', label: '订阅者', icon: Users },
     { key: 'admins', label: '管理员', icon: Shield },
-    ...(orderEnabled ? [{ key: 'orders', label: '订单', icon: DollarSign }] : []),
   ]
 
   const statsCards = [
@@ -630,28 +624,6 @@ onClick={() => {
           </Card>
         </TabsContent>
 
-        {/* 订单 Tab（条件显示） */}
-        {orderEnabled && (
-          <TabsContent value="orders">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <DollarSign className="h-5 w-5" />
-                  订单管理
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Button
-                  variant="outline"
-                  onClick={() => navigate(`/channels/${channelId}/orders`)}
-                >
-                  <DollarSign className="h-4 w-4 mr-2" />
-                  查看订单列表
-                </Button>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        )}
       </Tabs>
 
       {channel.scope === 'personal' && channel.status === 1 && <ChannelDiscussionPanel channelId={channelId} canManage={canUpdateChannel && canManageDiscussionGroup} />}

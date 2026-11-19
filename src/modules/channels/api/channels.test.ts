@@ -11,8 +11,6 @@ import {
   getChannelMessagesPayload,
   getChannelSubscribersPayload,
   getChannelAdminsPayload,
-  getChannelInvitationsPayload,
-  getChannelOrdersPayload,
   getChannelStatsPayload,
 } from './public'
 
@@ -215,32 +213,6 @@ describe('getChannelAdminsPayload', () => {
       }
     }
     const result = await getChannelAdminsPayload('ch-1')
-    expect(result.items).toEqual([])
-  })
-})
-
-describe('getChannelInvitationsPayload', () => {
-  it('calls /channel/:id/invitations', async () => {
-    mutableClient.get = async (url: unknown) => {
-      expect(String(url)).toContain('invitation')
-      return {
-        data: { code: 0, msg: 'ok', payload: { items: [], total: 0, page: 1, size: 10 } },
-      }
-    }
-    const result = await getChannelInvitationsPayload('ch-1')
-    expect(result.items).toEqual([])
-  })
-})
-
-describe('getChannelOrdersPayload', () => {
-  it('calls /channel/:id/orders', async () => {
-    mutableClient.get = async (url: unknown) => {
-      expect(String(url)).toContain('order')
-      return {
-        data: { code: 0, msg: 'ok', payload: { items: [], total: 0, page: 1, size: 10 } },
-      }
-    }
-    const result = await getChannelOrdersPayload('ch-1')
     expect(result.items).toEqual([])
   })
 })

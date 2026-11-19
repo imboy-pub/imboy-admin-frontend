@@ -203,7 +203,6 @@ const CASES: { slug: string; module: string; url: string }[] = [
   { slug: 'SensitiveWordPage', module: 'content-moderation', url: '/moderation/sensitive-words' },
   { slug: 'UserTagManagePage', module: 'users', url: `/users/${UID}/tags` },
   { slug: 'UserCollectManagePage', module: 'users', url: `/users/${UID}/collects` },
-  { slug: 'ComplianceKeyPage', module: 'settings', url: '/settings/compliance-keys' },
   { slug: 'BillingPlanListPage', module: 'billing-plans', url: '/billing-plans' },
   { slug: 'FeedbackListPage', module: 'feedback', url: '/feedback' },
 ]

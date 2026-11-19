@@ -1,7 +1,7 @@
 /**
  * 修改组织 Owner 对话框组件级单测（OrganizationOwnerTransferDialog）。
  *
- * ⚠️ 替身与反污染约定与 OrganizationCreateDialog.test.tsx 同源：不用 mock.module；
+ * ⚠️ 替身与反污染约定与 OrganizationCreateDialogV2.test.tsx 同源：不用 mock.module；
  * 权限源经真实 useAdminPermission 的权威端点 `GET /rbac/me` 供料，sidebar 模板走
  * 全局 fetch stub；client.get/post 用内存 responder（形状必须与真实 client 一致：
  * `{data: 信封}`）。输入必须走 @testing-library/user-event（RTL 16.3 + React 19.2

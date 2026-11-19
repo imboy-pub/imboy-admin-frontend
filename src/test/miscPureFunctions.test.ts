@@ -1,61 +1,11 @@
 /**
  * Inline mirror tests for private pure functions in misc pages:
- *   ComplianceKeyPage:  isValidPemFormat
  *   RolePermissionPage: normalizeRoleIds (page-level variant)
  *   ReportCenterPage:   isNonMomentTargetType
  *   ChannelDetailPage:  toFormData
  *   FeedbackListPage:   getSlaInfo (uses Date.now — tested with fixed time)
  */
 import { describe, expect, it } from 'bun:test'
-
-// ---------------------------------------------------------------------------
-// isValidPemFormat — ComplianceKeyPage.tsx
-// ---------------------------------------------------------------------------
-
-function isValidPemFormat(value: string): boolean {
-  const trimmed = value.trim()
-  return /^-----BEGIN [A-Z ]+-----/.test(trimmed) && /-----END [A-Z ]+-----\s*$/.test(trimmed)
-}
-
-describe('isValidPemFormat', () => {
-  it('returns true for valid PEM public key', () => {
-    const pem = '-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkq...\n-----END PUBLIC KEY-----' // gitleaks:allow
-    expect(isValidPemFormat(pem)).toBe(true)
-  })
-
-  it('returns true for valid RSA PRIVATE KEY', () => {
-    const pem = '-----BEGIN RSA PRIVATE KEY-----\ndata...\n-----END RSA PRIVATE KEY-----' // gitleaks:allow
-    expect(isValidPemFormat(pem)).toBe(true)
-  })
-
-  it('returns true with trailing whitespace/newline', () => {
-    const pem = '-----BEGIN PUBLIC KEY-----\ndata\n-----END PUBLIC KEY-----\n'
-    expect(isValidPemFormat(pem)).toBe(true)
-  })
-
-  it('returns false for missing BEGIN header', () => {
-    const pem = 'some data\n-----END PUBLIC KEY-----'
-    expect(isValidPemFormat(pem)).toBe(false)
-  })
-
-  it('returns false for missing END footer', () => {
-    const pem = '-----BEGIN PUBLIC KEY-----\nsome data'
-    expect(isValidPemFormat(pem)).toBe(false)
-  })
-
-  it('returns false for empty string', () => {
-    expect(isValidPemFormat('')).toBe(false)
-  })
-
-  it('returns false for plain text', () => {
-    expect(isValidPemFormat('just some random text')).toBe(false)
-  })
-
-  it('trims surrounding whitespace before validation', () => {
-    const pem = '  -----BEGIN PUBLIC KEY-----\ndata\n-----END PUBLIC KEY-----  '
-    expect(isValidPemFormat(pem)).toBe(true)
-  })
-})
 
 // ---------------------------------------------------------------------------
 // normalizeRoleIds (page-level) — RolePermissionPage.tsx
