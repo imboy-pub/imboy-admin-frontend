@@ -13,6 +13,14 @@ import { getErrorMessage } from '@/lib/errorUtils'
 import { useAdminPermission } from '@/hooks/useAdminPermission'
 import { UserDeviceList } from './UserDeviceList'
 
+const regionStatusLabels: Readonly<Record<string, string>> = {
+  resolved: '已解析',
+  unresolved: '未解析',
+  empty: '未选择',
+  ambiguous: '地区有歧义',
+  retired: '地区已退役',
+}
+
 type DetailTab = 'profile' | 'stats' | 'devices' | 'actions'
 
 function TabButton({ active, onClick, children, icon: Icon }: {
@@ -236,6 +244,22 @@ export function UserDetailPage() {
               <InfoRow label="地区">
                 {user.region || '-'}
               </InfoRow>
+              {user.regionSelectionStatus && (
+                <InfoRow label="地区解析状态">
+                  {Object.prototype.hasOwnProperty.call(regionStatusLabels, user.regionSelectionStatus)
+                    ? regionStatusLabels[user.regionSelectionStatus]
+                    : '未知'}
+                </InfoRow>
+              )}
+              {user.regionSelection && (
+                <InfoRow label="地区标识">
+                  <div className="break-all font-mono text-sm">
+                    <div>{user.regionSelection.countryCode} / {user.regionSelection.datasetId}</div>
+                    <div>{user.regionSelection.pathIds.join(' / ')}</div>
+                    <div>数据版本 {user.regionSelection.dataRevision}</div>
+                  </div>
+                </InfoRow>
+              )}
               <InfoRow label="签名">
                 {user.sign || '-'}
               </InfoRow>

@@ -25,6 +25,13 @@ export async function getUserListPayload(params: UserListParams): Promise<Pagina
 }
 
 export type UserDetail = User & {
+  regionSelection?: {
+    countryCode: string
+    datasetId: string
+    dataRevision: string
+    pathIds: string[]
+  } | null
+  regionSelectionStatus?: string
   device_count: number
   friend_count: number
   group_count: number

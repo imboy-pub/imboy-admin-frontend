@@ -97,6 +97,54 @@ describe('UserDetailPage flow', () => {
     await waitFor(() => {
       expect(view.container.textContent).toContain('Alice')
       expect(view.container.textContent).toContain('user-alice')
+      expect(view.getByText('CN')).toBeDefined()
+      expect(view.queryByText('地区标识')).toBeNull()
     })
+  })
+
+  it('shows the legacy region and structured identity in separate fields', async () => {
+    mutableClient.get = async () => ({
+      data: {
+        code: 0,
+        msg: 'ok',
+        payload: {
+          ...userDetailFixture,
+          region: '中国 北京',
+          regionSelection: {
+            countryCode: 'CN',
+            datasetId: 'china-administrative-divisions',
+            pathIds: ['cc:CN', 'cn:110000'],
+            dataRevision: 's-1234567890123456',
+          },
+          regionSelectionStatus: 'resolved',
+        },
+      },
+    })
+
+    const view = renderPage()
+    expect(await view.findByText('中国 北京')).toBeDefined()
+    expect(view.getByText('cc:CN / cn:110000')).toBeDefined()
+    expect(view.getByText('数据版本 s-1234567890123456')).toBeDefined()
+    expect(view.getByText('已解析')).toBeDefined()
+  })
+
+  it('shows the legacy edit and unresolved status after the backend clears the selection', async () => {
+    mutableClient.get = async () => ({
+      data: {
+        code: 0,
+        msg: 'ok',
+        payload: {
+          ...userDetailFixture,
+          region: '旧端修改',
+          regionSelection: null,
+          regionSelectionStatus: 'unresolved',
+        },
+      },
+    })
+
+    const view = renderPage()
+    expect(await view.findByText('旧端修改')).toBeDefined()
+    expect(view.getByText('未解析')).toBeDefined()
+    expect(view.queryByText('地区标识')).toBeNull()
   })
 })
