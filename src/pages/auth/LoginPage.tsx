@@ -169,6 +169,8 @@ export function LoginPage() {
 
   const onSubmit = async (data: LoginForm) => {
     setLoading(true)
+    // 认证域代次：请求在途期间发生注销/401 过期/并发登录会递增代次。
+    const authEpoch = useAuthStore.getState().authEpoch
     try {
       const encryptedPwd = await encryptLoginPassword(data.password, publicKey)
       if (!encryptedPwd) {
@@ -183,6 +185,8 @@ export function LoginPage() {
         captcha: data.captcha,
         csrf_token: csrfToken,
       })
+      // 迟到守卫（A-06）：终结/切换后到达的迟到成功不得复活已清空的认证域。
+      if (useAuthStore.getState().authEpoch !== authEpoch) return
       setAdmin({
         id: loginData.id,
         account: loginData.account,

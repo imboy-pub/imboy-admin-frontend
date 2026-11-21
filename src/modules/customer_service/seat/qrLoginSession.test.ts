@@ -226,3 +226,89 @@ describe('toQrStatusFrame 形状收敛', () => {
     expect(toQrStatusFrame('x')).toBe(null)
   })
 })
+
+describe('A-06 终结后迟到结果不复活会话', () => {
+  it('cancel 终结后迟到的 confirmed status（含合法 JWT）不再 onConfirmed，轮询停摆', async () => {
+    const calls: Call[] = []
+    const events: Array<Record<string, unknown>> = []
+    let statusPayload: unknown = { status: 'waiting' }
+    const fetchImpl = async (url: string, init?: RequestInit): Promise<Response> => {
+      calls.push({ url, init })
+      if (url.includes('/qr_login/create')) {
+        return jsonEnvelope({ qr_token: 'qr-token-1', session_token: 'st-secret-1', expires_in: 60 })
+      }
+      if (url.includes('/qr_login/status')) return jsonEnvelope(statusPayload)
+      if (url.includes('/qr_login/cancel')) return jsonEnvelope({})
+      return new Response('{}', { status: 404 })
+    }
+    const session = new QrLoginSession({
+      client: new SeatApiClient({ fetchImpl }),
+      // SSE 不可用 → 走 2s（测试 5ms）轮询 fallback。
+      fetchImpl: () => Promise.reject(new TypeError('sse down')),
+      pollIntervalMs: 5,
+      callbacks: {
+        onQrCreated: () => events.push({ kind: 'created' }),
+        onConfirmed: (token) => events.push({ kind: 'confirmed', token }),
+        onEnded: (reason) => events.push({ kind: 'ended', reason }),
+      },
+    })
+    await session.start(startArgs())
+    await sleep(15)
+    expect(calls.some((c) => c.url.includes('/qr_login/status'))).toBe(true)
+    // 用户换码/手机端取消 → 终结。
+    await session.cancel()
+    expect(events.some((e) => e.kind === 'ended' && e.reason === 'cancelled')).toBe(true)
+    expect(session.getPhase()).toBe('ended')
+    const statusCallsAtEnd = calls.filter((c) => c.url.includes('/qr_login/status')).length
+    // 迟到的服务端事实：终结后 status 才返回 confirmed + 合法 JWT。
+    statusPayload = { status: 'confirmed', token: JWT }
+    await sleep(40)
+    expect(events.some((e) => e.kind === 'confirmed')).toBe(false)
+    expect(session.getPhase()).toBe('ended')
+    // 轮询已停摆：终结后不再发起 status 请求。
+    expect(calls.filter((c) => c.url.includes('/qr_login/status')).length).toBe(statusCallsAtEnd)
+  })
+
+  it('expired 终结后迟到的 SSE confirmed 帧不复活会话', async () => {
+    const events: Array<Record<string, unknown>> = []
+    const frames: string[] = ['data: {"status":"expired"}\n\n']
+    let releaseLate!: () => void
+    const gate = new Promise<void>((resolve) => { releaseLate = resolve })
+    const fetchImpl = async (url: string): Promise<Response> => {
+      if (url.includes('/qr_login/create')) {
+        return jsonEnvelope({ qr_token: 'qr-token-1', session_token: 'st-secret-1', expires_in: 60 })
+      }
+      if (url.includes('/qr_login/subscribe')) {
+        // 先投递 expired 帧终结，再挂起；终结后推送迟到 confirmed 帧。
+        const encoder = new TextEncoder()
+        const stream = new ReadableStream<Uint8Array>({
+          async start(controller) {
+            controller.enqueue(encoder.encode(frames[0]))
+            await gate
+            controller.enqueue(encoder.encode(`data: {"status":"confirmed","token":"${JWT}"}\n\n`))
+            controller.close()
+          },
+        })
+        return new Response(stream, { status: 200 })
+      }
+      return new Response('{}', { status: 404 })
+    }
+    const session = new QrLoginSession({
+      client: new SeatApiClient({ fetchImpl }),
+      fetchImpl,
+      pollIntervalMs: 5,
+      callbacks: {
+        onQrCreated: () => events.push({ kind: 'created' }),
+        onConfirmed: (token) => events.push({ kind: 'confirmed', token }),
+        onEnded: (reason) => events.push({ kind: 'ended', reason }),
+      },
+    })
+    await session.start(startArgs())
+    await sleep(20)
+    expect(events.some((e) => e.kind === 'ended' && e.reason === 'expired')).toBe(true)
+    releaseLate()
+    await sleep(30)
+    expect(events.some((e) => e.kind === 'confirmed')).toBe(false)
+    expect(session.getPhase()).toBe('ended')
+  })
+})

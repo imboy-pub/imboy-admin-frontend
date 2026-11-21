@@ -5,6 +5,9 @@ import { Admin } from '@/types/admin'
 interface AuthState {
   admin: Admin | null
   isAuthenticated: boolean
+  /** 认证域代次：setAdmin/logout 各自递增。在途登录响应以此做迟到守卫——
+   * 终结（注销/401 过期）或切换后到达的迟到成功不得复活已清空的认证状态（A-06）。 */
+  authEpoch: number
   setAdmin: (_admin: Admin | null) => void
   logout: () => void
 }
@@ -14,8 +17,9 @@ export const useAuthStore = create<AuthState>()(
     (set) => ({
       admin: null,
       isAuthenticated: false,
-      setAdmin: (admin) => set({ admin, isAuthenticated: !!admin }),
-      logout: () => set({ admin: null as Admin | null, isAuthenticated: false }),
+      authEpoch: 0,
+      setAdmin: (admin) => set((state) => ({ admin, isAuthenticated: !!admin, authEpoch: state.authEpoch + 1 })),
+      logout: () => set((state) => ({ admin: null as Admin | null, isAuthenticated: false, authEpoch: state.authEpoch + 1 })),
     }),
     {
       name: 'imboy-admin-auth',
