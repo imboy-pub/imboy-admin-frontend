@@ -71,6 +71,8 @@ export class SeatEventStream {
   private controller: AbortController | null = null
   private stopped = true
   private consecutiveFailures = 0
+  /** 单重连计划：同一时刻至多一个待运行的重连回调（A-02 双计时器收敛）。 */
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null
   private scope: { organizationId: string; workspaceId: string; initialAfterId: string | null } | null = null
 
   constructor(options: SeatEventStreamOptions) {
@@ -107,6 +109,11 @@ export class SeatEventStream {
   stop(): void {
     this.stopped = true
     this.scope = null
+    // 清理 stop 后待运行的重连回调：旧计划不得在重启后复活为并发第二流。
+    if (this.reconnectTimer !== null) {
+      clearTimeout(this.reconnectTimer)
+      this.reconnectTimer = null
+    }
     try {
       this.controller?.abort()
     } catch {
@@ -123,11 +130,17 @@ export class SeatEventStream {
 
   private scheduleReconnect(): void {
     if (this.stopped || this.scope === null) return
+    // 单重连代次：已有排队回调时不叠加（readStream 异常 + connect 收敛点
+    // 双调度在此收敛为一）。
+    if (this.reconnectTimer !== null) return
     this.consecutiveFailures += 1
     this.onStatus(this.consecutiveFailures >= OFFLINE_AFTER_FAILURES ? 'offline' : 'reconnecting')
     const localBackoff = Math.min(this.backoffBaseMs * 2 ** Math.min(this.consecutiveFailures, 4), MAX_BACKOFF_MS)
     const backoff = this.serverRetryMs ?? localBackoff
-    setTimeout(() => void this.connect(), backoff)
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null
+      void this.connect()
+    }, backoff)
   }
 
   private buildUrl(): string {
@@ -151,6 +164,7 @@ export class SeatEventStream {
       return
     }
     this.controller = new AbortController()
+    const controller = this.controller
     this.onStatus(this.consecutiveFailures === 0 ? 'connecting' : 'reconnecting')
     const headers: Record<string, string> = {
       Accept: 'text/event-stream',
@@ -163,10 +177,11 @@ export class SeatEventStream {
       response = await this.fetchImpl(this.buildUrl(), {
         headers,
         credentials: 'omit',
-        signal: this.controller.signal,
+        signal: controller.signal,
       })
     } catch {
-      if (!this.stopped) this.scheduleReconnect()
+      // 只推进仍由本代次持有的连接：stop/重启后的陈旧回调不得再排重连。
+      if (this.controller === controller) this.scheduleReconnect()
       return
     }
     if (response.status === 401 || response.status === 403) {
@@ -177,7 +192,7 @@ export class SeatEventStream {
       return
     }
     if (!response.ok || response.body === null) {
-      this.scheduleReconnect()
+      if (this.controller === controller) this.scheduleReconnect()
       return
     }
     const retention = response.headers.get('X-CS-Event-Retention-Seconds')
@@ -188,8 +203,9 @@ export class SeatEventStream {
     this.consecutiveFailures = 0
     this.onStatus('online')
     await this.readStream(response)
-    // 服务端到 deadline 正常 fin——凭 Last-Event-ID 无损重连续传。
-    if (!this.stopped) this.scheduleReconnect()
+    // 服务端到 deadline 正常 fin——凭 Last-Event-ID 无损重连续传；读流中断也
+    // 在 readStream 内部吞掉、统一由此收敛点排唯一重连（单计时器）。
+    if (this.controller === controller) this.scheduleReconnect()
   }
 
   private async readStream(response: Response): Promise<void> {
@@ -207,8 +223,8 @@ export class SeatEventStream {
         for (const event of events) this.consumeEvent(event)
       }
     } catch {
-      // 读流中断 → 走重连（游标仍在，无损续传）。
-      if (!this.stopped) this.scheduleReconnect()
+      // 读流中断不在本层调度：由 connect 收尾的收敛点统一排唯一重连
+      //（游标仍在，无损续传）。
       return
     }
   }

@@ -239,3 +239,93 @@ describe('A04 fail-closed（401/403 停流）', () => {
     harness.stream.stop()
   })
 })
+
+describe('A-02 单路重连（每 scope 至多一个活动流/重连计划）', () => {
+  /** 读流中断形态：先投递一帧（可消费），随后 reader.read() 拒绝（mid-stream break）。 */
+  function erroringStreamResponse(body: string): Response {
+    const encoder = new TextEncoder()
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(encoder.encode(body))
+        setTimeout(() => controller.error(new TypeError('mock mid-stream break')), 5)
+      },
+    })
+    return new Response(stream, { status: 200, headers: { 'Content-Type': 'text/event-stream' } })
+  }
+
+  /** 挂起流：投递一帧后永不 fin（阻断后续调度链，稳定观测窗口）。 */
+  function hangingStreamResponse(body: string): Response {
+    const encoder = new TextEncoder()
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(encoder.encode(body))
+      },
+    })
+    return new Response(stream, { status: 200, headers: { 'Content-Type': 'text/event-stream' } })
+  }
+
+  it('A-02:LOCAL:01 双计时器负例：读流中断后只有一个重连计划；续传水位一致且重复帧不重投', async () => {
+    const calls: RecordedCall[] = []
+    const delivered: string[] = []
+    const statuses: string[] = []
+    const fetchImpl = async (url: string, init?: RequestInit) => {
+      calls.push({ url, init })
+      if (calls.length === 1) return erroringStreamResponse(envelopeFrame('1000000000000000011'))
+      // 断线重连：服务端按 at-least-once 重发已见帧 + 新帧。
+      return hangingStreamResponse(`${envelopeFrame('1000000000000000011')}${envelopeFrame('1000000000000000012')}`)
+    }
+    const stream = new SeatEventStream({
+      getToken: () => JWT,
+      fetchImpl,
+      backoffBaseMs: 5,
+      onEnvelope: (envelope) => delivered.push(envelope.eventId),
+      onResync: () => {},
+      onStatus: (status) => statuses.push(status),
+    })
+    stream.start({ organizationId: ORG, workspaceId: WS })
+    await sleep(40)
+    // 读流中断只允许一个重连计划：双计时器会产生 2 次排队调度（reconnecting×3
+    // 后双连并发，calls=3）；修复后恰一次调度 + 单链续连（calls=2）。
+    expect(statuses).toEqual(['connecting', 'online', 'reconnecting', 'reconnecting', 'online'])
+    expect(calls).toHaveLength(2)
+    // 断线续传水位一致：重连以 Last-Event-ID 携带最后已见事件。
+    const secondHeaders = (calls[1]!.init as RequestInit).headers as Record<string, string>
+    expect(secondHeaders['Last-Event-ID']).toBe('1000000000000000011')
+    // at-least-once 重投的旧帧去重（正文一致），新帧恰好投递一次，游标推进。
+    expect(delivered).toEqual(['1000000000000000011', '1000000000000000012'])
+    expect(stream.getCursor()).toBe('1000000000000000012')
+    stream.stop()
+  })
+
+  it('A-02:LOCAL:01 stop 清理待运行重连回调：重启后旧计划不复活，同 scope 只有一条活动流', async () => {
+    const calls: RecordedCall[] = []
+    let releasePending!: (_response: Response) => void
+    const pending = new Promise<Response>((resolve) => {
+      releasePending = resolve
+    })
+    const fetchImpl = async (url: string, init?: RequestInit) => {
+      calls.push({ url, init })
+      // 首连正常 fin（游标推进）→ 排队一次重连（backoff 100*2^1=200ms）；
+      // 重启后的新流挂起，阻断其调度链。
+      if (calls.length === 1) return sseResponse(envelopeFrame('1000000000000000021'))
+      return pending
+    }
+    const stream = new SeatEventStream({
+      getToken: () => JWT,
+      fetchImpl,
+      backoffBaseMs: 100,
+      onEnvelope: () => {},
+      onResync: () => {},
+      onStatus: () => {},
+    })
+    stream.start({ organizationId: ORG, workspaceId: WS })
+    await sleep(30)
+    stream.stop()
+    stream.start({ organizationId: ORG, workspaceId: WS })
+    // 旧重连计划若未被 stop 清理，将在 ~200ms 处复活为第三条并发连接。
+    await sleep(420)
+    expect(calls).toHaveLength(2)
+    stream.stop()
+    releasePending(new Response(null, { status: 500 }))
+  })
+})
