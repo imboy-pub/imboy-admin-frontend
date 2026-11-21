@@ -38,6 +38,7 @@ import {
   sleep,
 } from './workbenchTestHarness'
 import { establishSeatSession, seatTokenVault, useSeatAuthStore } from '../seatAuthStore'
+import { SeatApiError } from '../errors'
 import { getOrCreateSeatDeviceId, resetSeatDeviceIdForTest } from './deviceIdentity'
 
 function makeQueryClient(): QueryClient {
@@ -326,6 +327,95 @@ describe('SeatWorkspacePage 工作台（A01/A02/A03/A04/A05/A06）', () => {
     await waitFor(() => expect(view.getByTestId(`seat-message-9000000000000000009`)).toBeDefined())
     // resync 全量刷新后同一消息 id 仍只有一行（无重复渲染）。
     expect(view.getAllByTestId(`seat-message-9000000000000000009`).length).toBe(1)
+  })
+
+  it('A-03:LOCAL:02 无权限历史立即收回：消息读取被 403 拒绝后正文立即从 DOM 收回且不再自动重取、零 ACK', async () => {
+    const backend = new SeatFakeBackend()
+    const sse = new FakeSseStream()
+    const gateway = makeGateway(backend, sse)
+    const fetchMessages = spyOn(gateway.api, 'fetchMessages')
+    const view = render(
+      <QueryClientProvider client={makeQueryClient()}>
+        <SeatWorkspacePage gateway={gateway} />
+      </QueryClientProvider>,
+    )
+    fireEvent.click(await waitFor(() => view.getByTestId(`seat-session-item-${SESSION}`)))
+    fireEvent.click(await waitFor(() => view.getByTestId(`seat-claim-${SESSION}`)))
+    await waitFor(() => expect(view.getByText('您好，请问有什么可以帮您？')).toBeDefined())
+    expect(view.container.querySelectorAll('[data-message-id]')).toHaveLength(2)
+    // 转接/撤权后原坐席失去该会话读权（真实 403）。
+    fetchMessages.mockRejectedValue(new SeatApiError('forbidden', 'not a seat member', { status: 403 }))
+    sse.push(envelopeFrame('9910000000000000100', 'message.appended', 'message', SESSION))
+    await waitFor(() => expect(view.queryByText('您好，请问有什么可以帮您？')).toBeNull())
+    await waitFor(() => expect(view.container.querySelectorAll('[data-message-id]')).toHaveLength(0))
+    expect(view.container.innerHTML).not.toContain('您好，请问有什么')
+    // 收回后：读取拒绝态短路自动重取（api 调用冻结），且不产生已读 ACK。
+    const frozen = fetchMessages.mock.calls.length
+    await sleep(300)
+    expect(fetchMessages.mock.calls.length).toBe(frozen)
+    expect(backend.ackCalls).toBe(0)
+  })
+
+  it('A-03:LOCAL:03 后台标签不误清未读：焦点/可见就绪前零 ACK；未读徽章只认服务端计数；送达与已读区分', async () => {
+    const backend = new SeatFakeBackend()
+    backend.state.unreadCount = 4
+    const sse = new FakeSseStream()
+    // 视口替身：消息行全部可见（同步回调 + 非零矩形），驱动真实
+    // onVisibleMessageChange → useSeatFocusAck 页面接线。
+    const visibleRect = { top: 0, bottom: 400, left: 0, right: 100, width: 100, height: 400, x: 0, y: 0 } as DOMRect
+    const originalRect = HTMLElement.prototype.getBoundingClientRect
+    HTMLElement.prototype.getBoundingClientRect = function () { return visibleRect }
+    class ImmediateIntersectionObserver {
+      constructor(private readonly _callback: IntersectionObserverCallback) {}
+      observe(target: Element): void {
+        this._callback(
+          [{ target, isIntersecting: true, intersectionRatio: 1 } as unknown as IntersectionObserverEntry],
+          this as unknown as IntersectionObserver,
+        )
+      }
+      unobserve(_target: Element): void {}
+      disconnect(): void {}
+    }
+    const observerHolder = globalThis as { IntersectionObserver?: typeof IntersectionObserver }
+    const originalObserver = observerHolder.IntersectionObserver
+    observerHolder.IntersectionObserver = ImmediateIntersectionObserver as unknown as typeof IntersectionObserver
+    let focused = false
+    let documentVisible = false
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => (documentVisible ? 'visible' : 'hidden') })
+    Object.defineProperty(document, 'hasFocus', { configurable: true, get: () => () => focused })
+    try {
+      const view = renderWorkspace(backend, sse)
+      fireEvent.click(await waitFor(() => view.getByTestId(`seat-session-item-${SESSION}`)))
+      fireEvent.click(await waitFor(() => view.getByTestId(`seat-claim-${SESSION}`)))
+      await waitFor(() => expect(view.getByTestId('seat-unread-badge').textContent).toBe('4'))
+      // 后台标签（不可见 + 无焦点）：已见消息不产生任何已读 ACK——服务端未读不被清。
+      await sleep(150)
+      expect(backend.ackCalls).toBe(0)
+      // 权威刷新（SSE）在后台同样不触发 ACK；未读徽章保持服务端计数。
+      sse.push(envelopeFrame('9910000000000000200', 'message.appended', 'message', SESSION))
+      await waitFor(() => expect(backend.messageFetchCount).toBeGreaterThanOrEqual(2))
+      await sleep(150)
+      expect(backend.ackCalls).toBe(0)
+      expect(view.getByTestId('seat-unread-badge').textContent).toBe('4')
+      // 送达与已读区分：已送达未读（read_at 缺省）无已读标记；已读消息有标记。
+      expect(view.container.querySelector('[data-testid="seat-message-9000000000000000010"] [data-testid="seat-message-acked"]')).toBeNull()
+      expect(view.container.querySelector('[data-testid="seat-message-9000000000000000009"] [data-testid="seat-message-acked"]')).not.toBeNull()
+      // 回到前台（可见 + 焦点）：ACK 恰一次，游标为当前可见最新消息；单调去重不重发。
+      focused = true
+      documentVisible = true
+      window.dispatchEvent(new Event('focus'))
+      await waitFor(() => expect(backend.ackCalls).toBe(1))
+      await sleep(150)
+      expect(backend.ackCalls).toBe(1)
+      // 客户端 ACK 不本地清零：徽章仍只认服务端 read-cursor 权威计数。
+      expect(view.getByTestId('seat-unread-badge').textContent).toBe('4')
+    } finally {
+      HTMLElement.prototype.getBoundingClientRect = originalRect
+      if (originalObserver === undefined) delete observerHolder.IntersectionObserver
+      else observerHolder.IntersectionObserver = originalObserver
+      delete (document as unknown as Record<string, unknown>).visibilityState
+      delete (document as unknown as Record<string, unknown>).hasFocus
+    }
   })
 
   it('A04：seat.changed revoked → 写入口立即收回（claim 禁用 + composer 收回）且状态可解释', async () => {
