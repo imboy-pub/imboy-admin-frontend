@@ -25,6 +25,79 @@ import { LogoutApplication, LogoutApplicationListParams } from '@/types/logoutAp
 import { getErrorMessage } from '@/lib/errorUtils'
 import { useAdminPermission } from '@/hooks/useAdminPermission'
 
+/**
+ * A-05：后端 list 行附加的正式注销请求/删除任务可查状态
+ * （adm_logout_apply_handler normalize_list_row：request_status/execution_status
+ * 及 execution_finished_at/request_approved_at）。类型文件不在本卡写集，
+ * 行级扩展在此声明，缺失字段按 undefined 只读降级。
+ */
+type LogoutApplicationRow = LogoutApplication & {
+  request_status?: string
+  execution_status?: string
+  execution_finished_at?: string
+  request_approved_at?: string
+}
+
+/**
+ * 正式注销请求状态（user_deletion_request.status：requested|cancelled|approved；
+ * unknown=存量旗标用户无正式申请行）。只映射后端已实现取值，未知值原样透传。
+ */
+export function requestStatusText(status: string | undefined): string {
+  switch (status) {
+    case 'requested':
+      return '已申请'
+    case 'cancelled':
+      return '已取消'
+    case 'approved':
+      return '已批准'
+    case 'unknown':
+      return '无正式申请记录'
+    case undefined:
+      return '-'
+    default:
+      return status
+  }
+}
+
+/**
+ * 删除任务执行状态（user_deletion_job：not_started=无任务行；pending=宽限期
+ * 未满待执行；running|completed|failed）。审批≠擦除：completed 之前不得出现
+ * 任何"擦除/删除已完成"表述；failed 为可见例外态。
+ */
+export function executionStatusText(status: string | undefined): string {
+  switch (status) {
+    case 'not_started':
+      return '未开始'
+    case 'pending':
+      return '待执行（宽限期）'
+    case 'running':
+      return '执行中'
+    case 'completed':
+      return '已执行完成'
+    case 'failed':
+      return '执行失败（例外）'
+    case undefined:
+      return '-'
+    default:
+      return status
+  }
+}
+
+function executionStatusClass(status: string | undefined): string {
+  switch (status) {
+    case 'completed':
+      return 'text-green-700'
+    case 'failed':
+      return 'text-red-600'
+    case 'running':
+      return 'text-blue-700'
+    case 'pending':
+      return 'text-amber-700'
+    default:
+      return 'text-muted-foreground'
+  }
+}
+
 export function LogoutApplicationListPage() {
   const queryClient = useQueryClient()
   const [params, setParams] = useState<LogoutApplicationListParams>({
@@ -136,13 +209,36 @@ export function LogoutApplicationListPage() {
     },
     {
       accessorKey: 'user_status',
-      header: '状态',
+      header: '账号状态',
       cell: ({ row }) => {
         const status = row.original.user_status
+        // -1 只是 user 表账号旗标（审批即置位），不代表数据已删除——
+        // 数据删除进度见「注销进度」列（宽限期后由删除任务执行）。
         if (status === 2) return <span className="inline-flex items-center rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">注销中</span>
         if (status === 1) return <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">已驳回</span>
-        if (status === -1) return <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800">已删除</span>
+        if (status === -1) return <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800">已注销</span>
         return <span className="text-muted-foreground">-</span>
+      },
+    },
+    {
+      id: 'deletion_progress',
+      header: '注销进度',
+      cell: ({ row }) => {
+        const item = row.original as LogoutApplicationRow
+        return (
+          <span className="text-xs">
+            {requestStatusText(item.request_status)}
+            <span className="mx-1 text-muted-foreground">·</span>
+            <span className={executionStatusClass(item.execution_status)}>
+              {executionStatusText(item.execution_status)}
+            </span>
+            {item.execution_status === 'completed' && item.execution_finished_at && (
+              <span className="ml-1 text-muted-foreground">
+                （完成于 {formatDate(item.execution_finished_at)}）
+              </span>
+            )}
+          </span>
+        )
       },
     },
     {
@@ -239,7 +335,7 @@ export function LogoutApplicationListPage() {
     <div className="space-y-6">
       <PageHeader
         title="注销申请"
-        description="查看用户账号注销申请记录（审计）"
+        description="查看用户账号注销申请记录（审计）。「账号状态」为 user 表旗标；个人数据删除在宽限期后由后台删除任务执行（见「注销进度」列），企业持有记录与保留例外记录不随账号删除。"
       />
 
       <Card>
@@ -316,7 +412,7 @@ export function LogoutApplicationListPage() {
         open={canApprove && approveConfirmUid !== null}
         onOpenChange={(open) => { if (!open) setApproveConfirmUid(null) }}
         title="确认审批通过"
-        description={`确定要审批通过用户 ${approveConfirmUid ?? ''} 的注销申请吗？该操作将注销用户账号，不可恢复。`}
+        description={`确定要审批通过用户 ${approveConfirmUid ?? ''} 的注销申请吗？审批后账号立即标记为已注销；个人数据在宽限期（按部署配置）满后由后台删除任务执行，「注销进度」为已完成前不代表数据已擦除。企业持有的记录（已转移所有权的群/客服记录等）与保留例外记录不随账号删除。该操作不可恢复。`}
         confirmText="确认通过"
         onConfirm={() => {
           if (approveConfirmUid) void approveMutation.mutateAsync(approveConfirmUid)
