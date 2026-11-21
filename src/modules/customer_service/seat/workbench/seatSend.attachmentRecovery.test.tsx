@@ -11,7 +11,7 @@ import type { ReactNode } from 'react'
 import { seatTokenVault, useSeatAuthStore } from '../seatAuthStore'
 import { SeatWorkbenchProvider, useSeatSend } from './workbenchHooks'
 import {
-  CONV, FakeSseStream, IDENTITY, ORG, SeatFakeBackend, WS, makeGateway,
+  CONV, FakeSseStream, IDENTITY, OTHER_IDENTITY, ORG, SeatFakeBackend, WS, makeGateway,
 } from './workbenchTestHarness'
 
 const SCOPE = { orgId: ORG, conversationId: CONV, workspaceId: WS, identityId: IDENTITY }
@@ -632,7 +632,7 @@ it('seat_expired_capability_resume: expired capability resumes with a fresh pres
   const file = new File(['expired-capability-bytes'], 'expired-capability.txt', { type: 'text/plain' })
   const objectHash = await blobSha256Hex(file)
   const journal = uploadJournal(['seat', '1000000000000000001', ORG, WS, IDENTITY, CONV], () => true)
-  // 持久化 intent（原 presign 能力已过期：服务端会话不复存在；object_key 未知）。
+  // 持久化 intent（原 presign 能力过期：服务端会话不复存在；object_key 未知）。
   await journal.save({ clientUploadId, clientMsgId, assetId: null, objectKey: null, phase: 'intent', dispatchState: 'ready',
     objectHash, sizeBytes: file.size, mime: file.type, updatedAt: Date.now() })
   const view = harness()
@@ -663,4 +663,85 @@ it('seat_expired_capability_resume: expired capability resumes with a fresh pres
   expect(view.sendMessage).toHaveBeenCalledTimes(1)
   expect(view.sendMessage.mock.calls[0]![2]).toMatchObject({ clientMsgId, assetIds: ['8100000000000000001'] })
   expect(journal.list()).toHaveLength(0)
+})
+
+// A-01:LOCAL:01 负例：权威查询越过 1000 条（20 整页 × 50）仍未命中时，未知
+// 结果保留为唯一发送事实——不重放 POST、不重新上传，空页终止同判未知。
+it('unknown result query exhausts 20 full pages (1000 messages) without a hit and never starts a second send', async () => {
+  const view = harness()
+  const file = new File(['私密附件'], '凭证.txt', { type: 'text/plain' })
+  setDraft(view, BODY, file)
+  view.postOutcomes.push(new Error('mock POST connection lost'))
+  act(() => view.result.current.send())
+  await waitFor(() => {
+    expect(view.result.current.error).toMatchObject({ kind: 'network' })
+    expect(view.result.current.sending).toBe(false)
+  })
+  const original = view.sendMessage.mock.calls[0]![2]
+  expect(original.assetIds).toHaveLength(1)
+  const fullPage = (page: number) => response({ messages: Array.from({ length: 50 }, (_, rowIndex) => ({
+    id: (1000000000000000100n + BigInt(page) * 50n + BigInt(rowIndex)).toString(),
+    sender_type: 'business_identity', sender_identity_id: IDENTITY,
+    client_msg_id: null, body: '其他消息噪音', created_at: null, assets: [],
+  })) })
+  for (let page = 0; page < 20; page += 1) view.getOutcomes.push(fullPage(page))
+  act(() => view.result.current.retry())
+  await waitFor(() => {
+    expect(messageRequests(view, 'GET')).toHaveLength(20)
+    expect(view.result.current.sending).toBe(false)
+  })
+  expect(messageRequests(view, 'POST')).toHaveLength(1)
+  expectUploads(view, 1)
+  expect(view.result.current.outcomeUnknown).toBe(true)
+  const exhausted = view.result.current.error as Error
+  expect(exhausted.message).toContain('1000')
+  expect(exhausted.message).toContain('请勿重复发送')
+  expectDraft(view, BODY, file)
+  // 游标逐页前进：第 2 页起 after_id 恒为前页最后一条 id，limit 固定 50。
+  for (const [index, [url]] of messageRequests(view, 'GET').entries()) {
+    const request = new URL(url, 'https://unit.invalid')
+    expect(request.searchParams.get('limit')).toBe('50')
+    expect(request.searchParams.get('after_id'))
+      .toBe(index === 0 ? null : (1000000000000000100n + BigInt(index - 1) * 50n + 49n).toString())
+  }
+  // 再次 retry 仍是只读查询（空页终止同判未知），不产生第二个发送事实。
+  view.getOutcomes.push(response({ messages: [] }))
+  act(() => view.result.current.retry())
+  await waitFor(() => {
+    expect(messageRequests(view, 'GET')).toHaveLength(21)
+    expect(view.result.current.sending).toBe(false)
+  })
+  expect(messageRequests(view, 'POST')).toHaveLength(1)
+  expectUploads(view, 1)
+  expect(view.result.current.outcomeUnknown).toBe(true)
+  expect(view.sendMessage).toHaveBeenCalledTimes(1)
+})
+
+// A-01:LOCAL:03 负例：切换坐席身份后，旧身份的恢复检查点对新身份作用域不可
+// 见、不可注入；新身份发送不引用旧身份/旧资产，旧身份检查点不被写入或清除。
+it('identity switch: old-identity recovery rows never leak into the new identity scope', async () => {
+  const OLD_ASSET = '8999999999999999999'
+  const journalOld = uploadJournal(['seat', '1000000000000000001', ORG, WS, IDENTITY, CONV], () => true)
+  await journalOld.save({ clientUploadId: crypto.randomUUID(), clientMsgId: 'old-identity-seat', assetId: OLD_ASSET,
+    phase: 'confirmed', objectHash: 'a'.repeat(64), sizeBytes: 3, mime: 'text/plain', updatedAt: Date.now() })
+  const view = harness()
+  await waitFor(() => expect(view.result.current.recoverableAttachments).toHaveLength(1))
+  const staleRow = view.result.current.recoverableAttachments[0]!
+  view.rerender({ ...SCOPE, identityId: OTHER_IDENTITY })
+  await waitFor(() => expect(view.result.current.recoverableAttachments).toHaveLength(0))
+  expect(view.result.current.recoveryError).toBeNull()
+  // 旧作用域行的迟到投影不能注入新身份草稿。
+  act(() => view.result.current.selectRecovery(staleRow))
+  expect(view.result.current.draft).toEqual({ body: '', fileName: null, fileSize: null })
+  // 新身份发送不引用旧身份/旧资产。
+  setDraft(view, '新身份答复', new File(['fresh'], 'fresh.txt', { type: 'text/plain' }))
+  view.postOutcomes.push(response({ message: { id: '9000000000000000011', sender_type: 'business_identity' } }))
+  act(() => view.result.current.send())
+  await waitFor(() => expect(view.sendMessage).toHaveBeenCalledTimes(1))
+  const sent = view.sendMessage.mock.calls[0]![2]
+  expect(sent.identityId).toBe(OTHER_IDENTITY)
+  expect(sent.assetIds[0]).not.toBe(OLD_ASSET)
+  // 旧身份检查点未被新作用域写入/清除。
+  expect(journalOld.load('old-identity-seat')).toMatchObject({ assetId: OLD_ASSET, phase: 'confirmed' })
+  expect(journalOld.list()).toHaveLength(1)
 })
