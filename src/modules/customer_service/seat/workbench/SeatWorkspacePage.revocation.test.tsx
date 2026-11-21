@@ -19,8 +19,14 @@ import '../../../../test/setupDom'
 import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from 'bun:test'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/react'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import client from '@/services/api/client'
+import { PlatformCsSessionsPage } from '@/modules/customer_service/pages/PlatformCsSessionsPage'
+import { CsSessionDetailPage } from '@/modules/customer_service/pages/CsSessionDetailPage'
 import { SeatWorkspacePage } from './SeatWorkspacePage'
 import {
+  CONV,
+  CONTACT,
   FakeSseStream,
   SESSION,
   SESSION2,
@@ -152,5 +158,311 @@ describe('SeatWorkspacePage C02 失权后组件状态（session-revoked：输入
     sse.push(envelopeFrame('9900000000000000007', 'message.appended', 'message', SESSION))
     expect(view.getByTestId(`seat-claim-${SESSION2}`).getAttribute('disabled')).not.toBeNull()
     expect(view.queryByTestId('seat-composer')).toBeNull()
+  })
+})
+
+/**
+ * A-04:LOCAL:02 权限撤销后分页和导出无法续读（页面级，读权限维度）。
+ *
+ * 与上方 C02/AT08 写入口撤权不同：本组断言读链路——消息历史分页（加载更早
+ * 的消息）在续读下一页被服务端 403 拒绝后必须整体 fail-closed：
+ * 1. 已渲染的历史正文立即从 DOM 收回（不是保留缓存正文）；
+ * 2. 「加载更早的消息」分页入口消失（hasOlderMessages 归零）；
+ * 3. 任何重试/交互都不能再触发消息读取（fetch 计数冻结）；
+ * 4. 撤权后零 ACK（readAllowed 门控，正文不可见即不可已读）。
+ *
+ * 续读拒绝用带 before_id 的第二页 GET 模拟（第一页满页 50 条 → hasNextPage
+ * 真）；服务端撤销读权限的裁决由假后端按冻结错误信封回 403。
+ */
+describe('SeatWorkspacePage A-04 撤权后历史分页无法续读（message read revocation mid-pagination）', () => {
+  beforeEach(() => {
+    spyOn(console, 'error').mockImplementation(() => {})
+    spyOn(console, 'warn').mockImplementation(() => {})
+    expect(establishSeatSession('eyJh.eyJi.c2ln', null)).toBe(true)
+  })
+
+  afterEach(() => {
+    cleanup()
+    localStorage.clear()
+    seatTokenVault.clear()
+    useSeatAuthStore.setState({ status: 'anonymous', userId: null, endReason: null })
+    mock.restore()
+  })
+
+  it('第二页 403 → 已加载正文收回、分页入口消失、重试零读取、零 ACK（fail-closed 续读阻断）', async () => {
+    const backend = new SeatFakeBackend()
+    const sse = new FakeSseStream()
+
+    // A04HIST 标记正文：仅本用例合成，撤权后 DOM 不得残留。
+    const fullPage = Array.from(
+      { length: 50 },
+      (_, i) =>
+        `{"id":91000000000000000${String(10 + i)},"sender_type":"contact","sender_contact_id":"${CONTACT}",` +
+        `"body":"A04HIST-body-${String(i).padStart(2, '0')}","client_msg_id":"a04-hist-${i}",` +
+        `"created_at":"2026-09-20T05:30:00Z","read_at":null}`,
+    ).join(',')
+    const messagesPath = `/api/v1/seat/enterprise/conversations/${CONV}/messages`
+    const originalHandle = backend.handle
+    let messageReadCalls = 0
+    backend.handle = async (url: string, init?: RequestInit) => {
+      const [path, query = ''] = url.split('?')
+      if (path === messagesPath && (init?.method ?? 'GET') === 'GET') {
+        // 续读（带 before_id 游标翻更早一页）一律 403：服务端撤销该 scope 读权限。
+        if (query.includes('before_id=')) {
+          messageReadCalls += 1
+          return new Response('{"code":403,"msg":"message read permission revoked","payload":{}}', {
+            status: 403,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        }
+        return new Response(`{"code":0,"msg":"success","payload":[${fullPage}]}`, {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }
+      return originalHandle(url, init)
+    }
+
+    const view = renderWorkspace(backend, sse)
+    await claimActiveSession(view)
+
+    // 对照事实：满页 50 条 → hasNextPage 真，分页入口在场，正文已渲染。
+    await waitFor(() => expect(view.getByTestId('seat-load-older')).toBeDefined(), { timeout: 5000 })
+    expect(view.container.querySelectorAll('[data-message-id]').length).toBe(50)
+    expect(view.container.textContent).toContain('A04HIST-body-00')
+    expect(view.container.textContent).toContain('A04HIST-body-49')
+
+    // 续读下一页 → 403 → 该 scope 读权限撤销。
+    fireEvent.click(view.getByTestId('seat-load-older'))
+    await waitFor(
+      () => expect(view.container.querySelectorAll('[data-message-id]').length).toBe(0),
+      { timeout: 5000 },
+    )
+
+    // 1) 正文收回：标记串从 DOM 全部消失。
+    expect(view.container.textContent?.includes('A04HIST-body-')).toBe(false)
+    // 2) 分页入口消失。
+    expect(view.queryByTestId('seat-load-older')).toBeNull()
+    // 3) 重试面（如在场）点击后零新增消息读取。
+    const baselineReadCalls = messageReadCalls
+    const retryAlert = view.container.querySelector('[role="alert"] button')
+    if (retryAlert !== null) fireEvent.click(retryAlert)
+    await new Promise((resolve) => setTimeout(resolve, 150))
+    expect(messageReadCalls).toBe(baselineReadCalls)
+    // 4) 撤权后零 ACK（readAllowed=false 门控）。
+    expect(backend.ackCalls).toBe(0)
+  })
+})
+
+/**
+ * A-04:LOCAL:01/02 跨组织/跨会话/撤权读取拒绝——平台 CS 审计页组件级断言
+ * （PlatformCsSessionsPage 列表 + CsSessionDetailPage 详情）。
+ *
+ * 写集内两个审计页的读边界：
+ * - 跨组织/无租户：列表页没有无租户条件的全局列举（C1 契约），缺 org/ws 时
+ *   零审计网络调用；
+ * - 撤权（customer_service:read 缺失）：零审计网络调用；
+ * - 分页续读撤权：键set分页第二页（after_id）403 → 错误态整体替换列表+分页
+ *   控件，无法续读；
+ * - 跨会话/租户参数不全：详情页零审计网络调用；
+ * - 详情 403（跨组织/跨会话可见性拒绝）：错误态、无摘要渲染、重试再拒。
+ * 错误态文案不带任何令牌样材料（LOCAL:03 页面投影）。
+ */
+describe('A-04 CS 审计页跨组织/跨会话/撤权读取拒绝（PlatformCsSessionsPage / CsSessionDetailPage）', () => {
+  type AnyFn = (..._args: unknown[]) => unknown
+  const mutableAdminClient = client as unknown as { get: AnyFn }
+  const originalAdminGet = mutableAdminClient.get
+  const originalFetch = globalThis.fetch
+
+  const ORG_A = '1234567890123456789'
+  const WS_1 = '9876543210987654321'
+  const SESSION_A = '7300000000000000001'
+  const CONTACT_A = '4444444444444444444'
+
+  const SESSION_ROW = {
+    id: SESSION_A,
+    organization_id: ORG_A,
+    workspace_id: WS_1,
+    contact_id: CONTACT_A,
+    business_identity_id: null,
+    status: 'active',
+    rating: null,
+    queued_at: 1700000000,
+    claimed_at: null,
+    closed_at: null,
+    version: 1,
+    conversation_id: '5000000000000000005',
+  }
+
+  let getCalls: Array<{ url: string; params: Record<string, unknown> }> = []
+
+  function auditCalls(): Array<{ url: string; params: Record<string, unknown> }> {
+    return getCalls.filter((call) => call.url.includes('/customer-service/'))
+  }
+
+  function stubAdminClient(options: {
+    permissions: string[]
+    sessionsResponses?: Array<{ data: { code: number; msg: string; payload?: unknown } }>
+    detailResponses?: Array<{ data: { code: number; msg: string; payload?: unknown } }>
+  }) {
+    getCalls = []
+    mutableAdminClient.get = async (url: string, config?: { params?: Record<string, unknown> }) => {
+      getCalls.push({ url, params: ((config?.params ?? {}) as Record<string, unknown>) })
+      if (url === '/rbac/me') {
+        return { data: { code: 0, msg: 'ok', payload: { permissions: options.permissions } } }
+      }
+      if (url === '/organizations') {
+        return {
+          data: { code: 0, msg: 'ok', payload: { items: [], page: 1, size: 50, total: 0, total_pages: 0 } },
+        }
+      }
+      if (url.startsWith('/organizations/') && url.endsWith('/workspaces')) {
+        return {
+          data: { code: 0, msg: 'ok', payload: { items: [], page: 1, size: 50, total: 0, total_pages: 0 } },
+        }
+      }
+      if (url === `/customer-service/organizations/${ORG_A}/sessions`) {
+        const responses = options.sessionsResponses ?? []
+        const response = responses.shift() ?? {
+          data: { code: 0, msg: 'ok', payload: { sessions: [SESSION_ROW], next_after_id: null } },
+        }
+        return response
+      }
+      if (url === `/customer-service/organizations/${ORG_A}/sessions/${SESSION_A}`) {
+        const responses = options.detailResponses ?? []
+        const response = responses.shift() ?? {
+          data: { code: 0, msg: 'ok', payload: SESSION_ROW },
+        }
+        return response
+      }
+      throw new Error(`unexpected GET url: ${url}`)
+    }
+  }
+
+  function renderAuditRoutes(entry: string) {
+    // 列表页 scope hook 从 window.location 初始化（URL codec 是上下文真源）。
+    window.history.replaceState(null, '', entry)
+    return render(
+      <QueryClientProvider client={makeQueryClient()}>
+        <MemoryRouter initialEntries={[entry]}>
+          <Routes>
+            <Route path="/customer-service/sessions" element={<PlatformCsSessionsPage />} />
+            <Route path="/customer-service/sessions/:sessionId" element={<CsSessionDetailPage />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    )
+  }
+
+  beforeEach(() => {
+    spyOn(console, 'error').mockImplementation(() => {})
+    spyOn(console, 'warn').mockImplementation(() => {})
+    // sidebar 配置查询走全局 fetch：rbac profile 已含 permissions 时权限判定
+    // 不依赖它，但保持查询安静收敛（404 → 模板源缺失走 profile 判定）。
+    globalThis.fetch = (async () =>
+      new Response('{"menu":[]}', { status: 200, headers: { 'Content-Type': 'application/json' } })) as typeof fetch
+  })
+
+  afterEach(() => {
+    cleanup()
+    mutableAdminClient.get = originalAdminGet
+    globalThis.fetch = originalFetch
+    mock.restore()
+  })
+
+  it('A-04:LOCAL:01 跨组织/无租户：列表页缺 org/ws → 空态提示，零审计网络调用（无全局/跨组织列举入口）', async () => {
+    stubAdminClient({ permissions: ['customer_service:read'] })
+    const view = renderAuditRoutes('/customer-service/sessions')
+
+    await waitFor(() => expect(view.container.textContent).toContain('请先填写组织与工作区'))
+    expect(view.container.textContent).toContain('平台面不存在无租户条件的全局列举')
+    expect(auditCalls().length).toBe(0)
+  })
+
+  it('A-04:LOCAL:02 权限缺失（customer_service:read 撤销）：零审计网络调用，空态说明权限要求', async () => {
+    stubAdminClient({ permissions: ['messages:read'] })
+    const view = renderAuditRoutes(`/customer-service/sessions?org=${ORG_A}&ws=${WS_1}`)
+
+    await waitFor(() => expect(view.container.textContent).toContain('无查看权限'))
+    expect(view.container.textContent).toContain('customer_service:read')
+    expect(auditCalls().length).toBe(0)
+  })
+
+  it('A-04:LOCAL:02 分页续读撤权：第二页（after_id）403 → 错误态替换列表与分页控件，重试无第三页', async () => {
+    stubAdminClient({
+      permissions: ['customer_service:read'],
+      sessionsResponses: [
+        { data: { code: 0, msg: 'ok', payload: { sessions: [SESSION_ROW], next_after_id: '7300000000000000099' } } },
+        { data: { code: 403, msg: 'permission revoked mid-pagination A04-TOKEN-MARKER' } },
+      ],
+    })
+    const view = renderAuditRoutes(`/customer-service/sessions?org=${ORG_A}&ws=${WS_1}`)
+
+    // 对照事实：第一页渲染 + 分页可用。
+    await waitFor(() => expect(view.container.textContent).toContain(SESSION_A))
+    await waitFor(() => expect(view.getByTestId('cursor-pagination')).toBeDefined())
+    expect(auditCalls().length).toBe(1)
+
+    // 续读第二页 → 403。
+    fireEvent.click(view.getByRole('button', { name: '下一页' }))
+    await waitFor(() => expect(view.container.textContent).toContain('加载会话列表失败'))
+    // 分页控件整体消失：无法续读。
+    expect(view.queryByTestId('cursor-pagination')).toBeNull()
+    // 第一页行（含 contact TSID 白名单字段）随之收回，错误态不保留旧数据。
+    expect(view.container.textContent?.includes(SESSION_A)).toBe(false)
+    // 错误文案不带令牌样材料（服务端 msg 不透传进 UI）。
+    expect(view.container.textContent?.includes('A04-TOKEN-MARKER')).toBe(false)
+    expect(auditCalls().length).toBe(2)
+    expect(auditCalls()[1]?.params.after_id).toBe('7300000000000000099')
+  })
+
+  it('A-04:LOCAL:01 跨会话/租户参数不全：详情页缺 org/ws → 空态提示，零审计网络调用', async () => {
+    stubAdminClient({ permissions: ['customer_service:read'] })
+    const view = renderAuditRoutes(`/customer-service/sessions/${SESSION_A}`)
+
+    await waitFor(() => expect(view.container.textContent).toContain('缺少租户参数'))
+    expect(auditCalls().length).toBe(0)
+  })
+
+  it('A-04:LOCAL:01 详情可见性 403（跨组织/跨会话拒绝）：错误态、无摘要、无 PII，重试再请求仍拒', async () => {
+    stubAdminClient({
+      permissions: ['customer_service:read'],
+      detailResponses: [
+        { data: { code: 403, msg: 'session visibility denied A04-TOKEN-MARKER' } },
+        { data: { code: 403, msg: 'session visibility denied A04-TOKEN-MARKER' } },
+      ],
+    })
+    const view = renderAuditRoutes(
+      `/customer-service/sessions/${SESSION_A}?org=${ORG_A}&ws=${WS_1}`,
+    )
+
+    await waitFor(() => expect(view.container.textContent).toContain('会话详情加载失败'))
+    expect(view.queryByTestId('cs-session-detail-summary')).toBeNull()
+    expect(view.container.textContent?.includes(CONTACT_A)).toBe(false)
+    expect(view.container.textContent?.includes('A04-TOKEN-MARKER')).toBe(false)
+    expect(auditCalls().length).toBe(1)
+
+    // 重试真实再请求（无本地旁路），仍被拒，仍无摘要。
+    fireEvent.click(view.getByRole('button', { name: '重试' }))
+    await waitFor(() => expect(auditCalls().length).toBe(2))
+    await waitFor(() => expect(view.container.textContent).toContain('会话详情加载失败'))
+    expect(view.queryByTestId('cs-session-detail-summary')).toBeNull()
+    expect(view.container.textContent?.includes(CONTACT_A)).toBe(false)
+  })
+
+  it('A-04:LOCAL:01 详情正向对照：租户参数齐全且授权 → 唯一 scoped 调用（workspace_id 必带），白名单摘要渲染', async () => {
+    stubAdminClient({ permissions: ['customer_service:read'] })
+    const view = renderAuditRoutes(
+      `/customer-service/sessions/${SESSION_A}?org=${ORG_A}&ws=${WS_1}`,
+    )
+
+    await waitFor(() => expect(view.getByTestId('cs-session-detail-summary')).toBeDefined())
+    const calls = auditCalls()
+    expect(calls.length).toBe(1)
+    expect(calls[0]?.url).toBe(`/customer-service/organizations/${ORG_A}/sessions/${SESSION_A}`)
+    expect(calls[0]?.params.workspace_id).toBe(WS_1)
+    // 白名单摘要：conversation 可见；visit_token_id/close_reason 等敏感键不渲染。
+    expect(view.container.textContent).toContain('5000000000000000005')
+    expect(view.container.textContent?.toLowerCase().includes('token')).toBe(false)
   })
 })
