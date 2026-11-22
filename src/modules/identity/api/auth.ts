@@ -1,4 +1,4 @@
-import client from '@/services/api/client'
+import client, { SKIP_AUTH_EXPIRED_EVENT_FLAG } from '@/services/api/client'
 import { requireApiPayload } from '@/services/api/responseAdapter'
 import { ApiResponse } from '@/types/api'
 import { Admin } from '@/types/admin'
@@ -54,28 +54,15 @@ export async function getLoginPage(): Promise<{
   return getLoginMeta()
 }
 
-/**
- * @deprecated Prefer `loginPayload` to consume typed payload directly.
- */
-async function login(params: LoginParams): Promise<ApiResponse<LoginResponse>> {
-  const response = await client.post('/passport/do_login', params)
-  return response.data
+export async function loginPayload(params: LoginParams, signal?: AbortSignal): Promise<LoginResponse> {
+  const config = { signal, [SKIP_AUTH_EXPIRED_EVENT_FLAG]: true }
+  const response = await client.post<ApiResponse<LoginResponse>>('/passport/do_login', params, config)
+  return requireApiPayload(response.data, '/passport/do_login')
 }
 
-export async function loginPayload(params: LoginParams): Promise<LoginResponse> {
-  return requireApiPayload(await login(params), '/passport/do_login')
-}
-
-/**
- * @deprecated Prefer `getCurrentAdminPayload` to consume typed payload directly.
- */
-async function getCurrentAdmin(): Promise<ApiResponse<Admin>> {
-  const response = await client.get('/current')
-  return response.data
-}
-
-export async function getCurrentAdminPayload(): Promise<Admin> {
-  return requireApiPayload(await getCurrentAdmin(), '/current')
+export async function getCurrentAdminPayload(signal?: AbortSignal): Promise<Admin> {
+  const response = await client.get<ApiResponse<Admin>>('/current', { signal })
+  return requireApiPayload(response.data, '/current')
 }
 
 // 登出

@@ -45,6 +45,20 @@ describe('useAuthStore', () => {
     expect(state.isAuthenticated).toBe(false)
   })
 
+  it('keeps the session epoch for same-admin refresh and advances it for a different identity', () => {
+    const { setAdmin, refreshAdmin } = useAuthStore.getState()
+    setAdmin(mockAdmin)
+    const epoch = useAuthStore.getState().authEpoch
+
+    refreshAdmin({ ...mockAdmin, nickname: 'Renamed' })
+    expect(useAuthStore.getState().admin?.nickname).toBe('Renamed')
+    expect(useAuthStore.getState().authEpoch).toBe(epoch)
+
+    refreshAdmin({ ...mockAdmin, id: '2' })
+    expect(useAuthStore.getState().admin?.id).toBe('2')
+    expect(useAuthStore.getState().authEpoch).toBe(epoch + 1)
+  })
+
   it('logout clears admin and isAuthenticated', () => {
     useAuthStore.getState().setAdmin(mockAdmin)
     useAuthStore.getState().logout()

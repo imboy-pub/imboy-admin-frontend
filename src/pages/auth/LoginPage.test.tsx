@@ -291,4 +291,26 @@ describe('A-06 实际 Admin 登录调用方（S-04 服务端合同消费）', ()
     expect(useAuthStore.getState().admin).toBeNull()
     expect(view.container.textContent).not.toContain('dashboard-page')
   })
+
+  it('aborts a pending login when leaving the login page', async () => {
+    const response = Promise.withResolvers<unknown>()
+    let signal: AbortSignal | undefined
+    mutableClient.get = authedGet
+    mutableClient.post = (_url: string, _data: unknown, config: { signal: AbortSignal }) => {
+      signal = config.signal
+      return response.promise
+    }
+
+    let view!: ReturnType<typeof renderPage>
+    await act(async () => { view = renderPage() })
+    await fillAndSubmit(view)
+    await waitFor(() => expect(signal?.aborted).toBe(false))
+    view.unmount()
+
+    expect(signal?.aborted).toBe(true)
+    await act(async () => {
+      response.resolve({ data: { code: 0, payload: LOGIN_SUCCESS_PAYLOAD } })
+    })
+    expect(useAuthStore.getState().admin).toBeNull()
+  })
 })

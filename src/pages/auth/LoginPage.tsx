@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, Navigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -117,6 +117,7 @@ function normalizeNextRoute(rawNext?: string): string {
 
 export function LoginPage() {
   const [loading, setLoading] = useState(false)
+  const loginRequest = useRef<AbortController | null>(null)
   const [showPassword, setShowPassword] = useState(false)
   const [captchaUrl, setCaptchaUrl] = useState(() => getCaptchaUrl())
   // 标题默认跟随白标品牌配置（store 异步加载后自动更新）；
@@ -167,12 +168,18 @@ export function LoginPage() {
     initLoginPage()
   }, [initLoginPage])
 
+  useEffect(() => () => loginRequest.current?.abort(), [])
+
   const onSubmit = async (data: LoginForm) => {
+    if (loginRequest.current) return
+    const controller = new AbortController()
+    loginRequest.current = controller
     setLoading(true)
-    // 认证域代次：请求在途期间发生注销/401 过期/并发登录会递增代次。
     const authEpoch = useAuthStore.getState().authEpoch
+    const isCurrent = () => !controller.signal.aborted && useAuthStore.getState().authEpoch === authEpoch
     try {
       const encryptedPwd = await encryptLoginPassword(data.password, publicKey)
+      if (!isCurrent()) return
       if (!encryptedPwd) {
         toast.error('登录信息初始化失败，请刷新页面后重试')
         refreshCaptcha()
@@ -184,9 +191,8 @@ export function LoginPage() {
         pwd: encryptedPwd,
         captcha: data.captcha,
         csrf_token: csrfToken,
-      })
-      // 迟到守卫（A-06）：终结/切换后到达的迟到成功不得复活已清空的认证域。
-      if (useAuthStore.getState().authEpoch !== authEpoch) return
+      }, controller.signal)
+      if (!isCurrent()) return
       setAdmin({
         id: loginData.id,
         account: loginData.account,
@@ -203,11 +209,13 @@ export function LoginPage() {
       toast.success('登录成功')
       navigate(normalizeNextRoute(loginData.next))
     } catch (error: unknown) {
+      if (!isCurrent()) return
       const err = error as { msg?: string }
       toast.error(err.msg || '登录失败')
       refreshCaptcha()
     } finally {
-      setLoading(false)
+      loginRequest.current = null
+      if (!controller.signal.aborted) setLoading(false)
     }
   }
 

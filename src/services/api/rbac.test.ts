@@ -1,6 +1,7 @@
 import { afterEach, beforeAll, describe, expect, it } from 'bun:test'
 import client from './client'
 import { getMyRbacProfilePayload, clearRbacUnavailable } from './rbac'
+import { useAuthStore } from '@/stores/authStore'
 
 // Provide sessionStorage if not available (bun test environment)
 if (typeof globalThis.sessionStorage === 'undefined') {
@@ -125,6 +126,26 @@ describe('getMyRbacProfilePayload', () => {
     expect(r3.role_id).toBe('1')
     // Only one real HTTP request was made
     expect(callCount).toBe(1)
+  })
+
+  it('keeps in-flight deduplication inside the current Admin session', async () => {
+    const old = Promise.withResolvers<unknown>()
+    const next = Promise.withResolvers<unknown>()
+    let callCount = 0
+    mutableClient.get = () => ++callCount === 1 ? old.promise : next.promise
+    const oldProfile = getMyRbacProfilePayload()
+
+    useAuthStore.getState().logout()
+    const nextProfile = getMyRbacProfilePayload()
+    expect(callCount).toBe(2)
+
+    old.resolve({ data: { code: 0, payload: { role_id: 1, permissions: ['users:write'] } } })
+    expect((await oldProfile).permissions).toEqual(['users:write'])
+    const joined = getMyRbacProfilePayload()
+    expect(callCount).toBe(2)
+    next.resolve({ data: { code: 0, payload: { role_id: 2, permissions: ['users:read'] } } })
+    const profiles = await Promise.all([nextProfile, joined])
+    expect(profiles.map((profile) => profile.permissions)).toEqual([['users:read'], ['users:read']])
   })
 
   it('filters empty strings from permissions and menu_paths', async () => {

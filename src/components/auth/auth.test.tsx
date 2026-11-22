@@ -3,11 +3,11 @@
  *   FeatureDisabledPage, FeatureRoute, PermissionRoute, ProtectedRoute
  */
 import '../../test/setupDom'
-import { afterEach, describe, expect, it } from 'bun:test'
+import { afterEach, describe, expect, it, mock } from 'bun:test'
 import { cleanup, render, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act } from 'react'
+import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from '@tanstack/react-query'
+import { act, useEffect } from 'react'
 import React from 'react'
 
 import { FeatureDisabledPage, FeatureRoute } from './FeatureRoute'
@@ -15,6 +15,7 @@ import { PermissionRoute } from './PermissionRoute'
 import { ProtectedRoute } from './ProtectedRoute'
 import { useAuthStore } from '@/stores/authStore'
 import client from '@/services/api/client'
+import type { Admin } from '@/types/admin'
 
 type AnyFn = (..._args: unknown[]) => unknown
 type MutableClient = { get: AnyFn }
@@ -203,6 +204,99 @@ describe('PermissionRoute', () => {
 
 // ProtectedRoute — redirects to /login when not authenticated
 describe('ProtectedRoute', () => {
+  const admin: Admin = {
+    id: '1', account: 'admin', nickname: 'Admin', avatar: '', status: 1,
+    role_id: '1', created_at: '', login_count: 0, last_login_ip: '', last_login_at: '',
+  }
+
+  const renderProtected = (content = <span>dashboard-content</span>) => render(
+    <MemoryRouter initialEntries={['/dashboard']}>
+      <Routes>
+        <Route element={<ProtectedRoute />}>
+          <Route path="/dashboard" element={content} />
+        </Route>
+        <Route path="/login" element={<span>login-page</span>} />
+      </Routes>
+    </MemoryRouter>
+  )
+
+  it('ignores a successful session check that completes after logout', async () => {
+    useAuthStore.getState().setAdmin(admin)
+    const response = Promise.withResolvers<unknown>()
+    mutableClient.get = () => response.promise
+    const view = renderProtected()
+
+    await act(async () => {
+      useAuthStore.getState().logout()
+      response.resolve({ data: { code: 0, payload: admin } })
+    })
+
+    expect(view.getByText('login-page')).toBeTruthy()
+    expect(useAuthStore.getState().admin).toBeNull()
+  })
+
+  it('ignores unauthorized results from an older session check', async () => {
+    useAuthStore.getState().setAdmin(admin)
+    const response = Promise.withResolvers<unknown>()
+    mutableClient.get = () => response.promise
+    const view = renderProtected()
+
+    await act(async () => {
+      useAuthStore.getState().setAdmin({ ...admin, id: '2' })
+      response.reject({ code: 401 })
+    })
+
+    expect(view.getByText('dashboard-content')).toBeTruthy()
+    expect(useAuthStore.getState().admin?.id).toBe('2')
+  })
+
+  it('isolates cached and in-flight data when switching Admin identities on the same route', async () => {
+    const { setAdmin, refreshAdmin } = useAuthStore.getState()
+    setAdmin(admin)
+    mutableClient.get = async () => ({ data: { code: 0, payload: admin } })
+    const late = Promise.withResolvers<string>()
+    const next = Promise.withResolvers<string>()
+    const fetchDetails = mock(() => next.promise)
+      .mockResolvedValueOnce('first-session-data')
+      .mockReturnValueOnce(late.promise)
+    const queryKey = ['admin-session-details']
+    let currentClient!: QueryClient
+    function SessionDetails() {
+      const queryClient = useQueryClient()
+      useEffect(() => { currentClient = queryClient }, [queryClient])
+      const { data } = useQuery({ queryKey, queryFn: fetchDetails })
+      return <span>{data ?? 'loading-session-data'}</span>
+    }
+
+    const view = renderProtected(<SessionDetails />)
+    await view.findByText('first-session-data')
+    const oldClient = currentClient
+    await act(async () => refreshAdmin({ ...admin, nickname: 'Updated' }))
+    expect(currentClient).toBe(oldClient)
+    expect(fetchDetails).toHaveBeenCalledTimes(1)
+
+    let pending!: Promise<void>
+    await act(async () => {
+      pending = oldClient.refetchQueries({ queryKey })
+    })
+    await waitFor(() => expect(fetchDetails).toHaveBeenCalledTimes(2))
+    await act(async () => setAdmin({ ...admin, id: '2' }))
+    await waitFor(() => expect(fetchDetails).toHaveBeenCalledTimes(3))
+    expect(currentClient).not.toBe(oldClient)
+    expect(view.queryByText('first-session-data')).toBeNull()
+    expect(oldClient.getQueryData(queryKey)).toBeUndefined()
+
+    await act(async () => {
+      late.resolve('late-first-session-data')
+      await pending
+    })
+    expect(view.queryByText('late-first-session-data')).toBeNull()
+    expect(view.getByText('loading-session-data')).toBeTruthy()
+    expect(currentClient.getQueryData(queryKey)).toBeUndefined()
+    await act(async () => next.resolve('second-session-data'))
+    expect(await view.findByText('second-session-data')).toBeTruthy()
+  })
+
   it('redirects to /login when getCurrentAdmin fails', async () => {
     useAuthStore.setState({ admin: null, isAuthenticated: false })
     mutableClient.get = async () => {

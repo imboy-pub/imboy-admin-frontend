@@ -129,7 +129,7 @@ export function SettingsHomePage() {
     refetch: refetchAdmin,
   } = useQuery({
     queryKey: ['settings', 'current-admin'],
-    queryFn: () => getCurrentAdminPayload(),
+    queryFn: ({ signal }) => getCurrentAdminPayload(signal),
   })
 
   if ((overviewLoading && !overview) || (adminLoading && !currentAdmin)) {

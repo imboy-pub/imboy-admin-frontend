@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
-import { AUTH_EXPIRED_EVENT, handleUnauthorizedStatus, toApiError } from './client'
+import { AxiosError } from 'axios'
+import client, { AUTH_EXPIRED_EVENT, handleUnauthorizedStatus, toApiError } from './client'
+import { useAuthStore } from '@/stores/authStore'
 
 describe('client unauthorized handling', () => {
   const originalWindow = (globalThis as { window?: unknown }).window
@@ -44,6 +46,47 @@ describe('client unauthorized handling', () => {
     }
     expect(handleUnauthorizedStatus(500)).toBeFalse()
     expect(handleUnauthorizedStatus(undefined)).toBeFalse()
+  })
+
+  it('broadcasts a 401 only for the session that started the request', async () => {
+    const dispatched: string[] = []
+    ;(globalThis as { window?: unknown }).window = {
+      dispatchEvent: (event: Event) => {
+        dispatched.push(event.type)
+        return true
+      },
+    }
+    const baseEpoch = useAuthStore.getState().authEpoch
+    try {
+      const started = Promise.withResolvers<void>()
+      const finish = Promise.withResolvers<void>()
+      const pending = client.get('/current', {
+        adapter: async (config) => {
+          started.resolve()
+          await finish.promise
+          throw new AxiosError('Unauthorized', undefined, config, undefined, {
+            data: {}, status: 401, statusText: 'Unauthorized', headers: {}, config,
+          })
+        },
+      })
+      const result = pending.catch((error: unknown) => error)
+      await started.promise
+      useAuthStore.setState({ authEpoch: baseEpoch + 1 })
+      finish.resolve()
+      expect(await result).toMatchObject({ code: 401 })
+      expect(dispatched).not.toContain(AUTH_EXPIRED_EVENT)
+
+      await expect(client.get('/current', {
+        adapter: async (config) => {
+          throw new AxiosError('Unauthorized', undefined, config, undefined, {
+            data: {}, status: 401, statusText: 'Unauthorized', headers: {}, config,
+          })
+        },
+      })).rejects.toMatchObject({ code: 401 })
+      expect(dispatched).toContain(AUTH_EXPIRED_EVENT)
+    } finally {
+      useAuthStore.setState({ authEpoch: baseEpoch })
+    }
   })
 })
 

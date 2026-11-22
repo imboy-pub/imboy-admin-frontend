@@ -72,7 +72,7 @@ export function RolePermissionPage() {
 
   const { data: currentAdmin, isLoading, error, refetch } = useQuery({
     queryKey: ['roles', 'current-admin'],
-    queryFn: () => getCurrentAdminPayload(),
+    queryFn: ({ signal }) => getCurrentAdminPayload(signal),
   })
   const { data: sidebarConfig } = useQuery({
     queryKey: ['roles', 'sidebar-config'],

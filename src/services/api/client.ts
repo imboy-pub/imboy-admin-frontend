@@ -2,10 +2,16 @@ import axios, { AxiosError, AxiosInstance, InternalAxiosRequestConfig } from 'ax
 import { ApiResponse, ApiError } from '@/types/api'
 import { startTopLoading, finishTopLoading } from '@/components/shared/TopLoadingBar'
 import { safeParseBigIntJson } from '@/lib/safeParseBigIntJson'
+import { useAuthStore } from '@/stores/authStore'
 
 export const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/adm'
 export const AUTH_EXPIRED_EVENT = 'imboy:auth-expired'
 export const SKIP_AUTH_EXPIRED_EVENT_FLAG = 'skipAuthExpiredEvent'
+
+type AuthRequestConfig = InternalAxiosRequestConfig & {
+  authEpoch?: number
+  [SKIP_AUTH_EXPIRED_EVENT_FLAG]?: boolean
+}
 
 export function emitAuthExpired() {
   if (typeof window === 'undefined' || typeof window.dispatchEvent !== 'function') {
@@ -72,8 +78,9 @@ const client: AxiosInstance = axios.create({
 
 // 请求拦截器
 client.interceptors.request.use(
-  (config: InternalAxiosRequestConfig) => {
+  (config: AuthRequestConfig) => {
     startTopLoading()
+    config.authEpoch = useAuthStore.getState().authEpoch
     return config
   },
   (error: AxiosError) => {
@@ -110,13 +117,11 @@ client.interceptors.response.use(
   },
   (error: AxiosError<ApiResponse>) => {
     finishTopLoading()
-    const requestConfig = error.config as (InternalAxiosRequestConfig & {
-      [SKIP_AUTH_EXPIRED_EVENT_FLAG]?: boolean
-    }) | undefined
-    const skipAuthExpiredEvent = Boolean(requestConfig?.[SKIP_AUTH_EXPIRED_EVENT_FLAG])
+    const requestConfig = error.config as AuthRequestConfig | undefined
 
     // 通过事件通知路由守卫处理会话失效，避免网络层直接耦合页面跳转
-    if (!skipAuthExpiredEvent) {
+    if (requestConfig?.authEpoch === useAuthStore.getState().authEpoch &&
+        !requestConfig[SKIP_AUTH_EXPIRED_EVENT_FLAG]) {
       handleUnauthorizedStatus(error.response?.status)
     }
 

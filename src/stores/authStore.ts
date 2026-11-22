@@ -9,6 +9,7 @@ interface AuthState {
    * 终结（注销/401 过期）或切换后到达的迟到成功不得复活已清空的认证状态（A-06）。 */
   authEpoch: number
   setAdmin: (_admin: Admin | null) => void
+  refreshAdmin: (_admin: Admin) => void
   logout: () => void
 }
 
@@ -19,6 +20,11 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       authEpoch: 0,
       setAdmin: (admin) => set((state) => ({ admin, isAuthenticated: !!admin, authEpoch: state.authEpoch + 1 })),
+      refreshAdmin: (admin) => set((state) => ({
+        admin,
+        isAuthenticated: true,
+        authEpoch: state.admin && state.admin.id === admin.id ? state.authEpoch : state.authEpoch + 1,
+      })),
       logout: () => set((state) => ({ admin: null as Admin | null, isAuthenticated: false, authEpoch: state.authEpoch + 1 })),
     }),
     {

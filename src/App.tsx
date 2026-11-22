@@ -1,6 +1,5 @@
 import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'sonner'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 import { PermissionRoute } from '@/components/auth/PermissionRoute'
@@ -116,15 +115,6 @@ const OrganizationMembersPage = lazy(() => import('@/modules/organization').then
 const OrganizationInvitationsPage = lazy(() => import('@/modules/organization').then((m) => ({ default: m.OrganizationInvitationsPage })))
 const OrganizationDepartmentsPage = lazy(() => import('@/modules/organization').then((m) => ({ default: m.OrganizationDepartmentsPage })))
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      retry: 1,
-    },
-  },
-})
-
 function PageFallback() {
   return (
     <div className="flex h-[50vh] items-center justify-center text-muted-foreground">
@@ -135,7 +125,7 @@ function PageFallback() {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
+    <>
       <TopLoadingBar />
       <BrowserRouter>
         <ErrorBoundary>
@@ -892,7 +882,7 @@ function App() {
         </ErrorBoundary>
       </BrowserRouter>
       <Toaster position="top-center" richColors />
-    </QueryClientProvider>
+    </>
   )
 }
 

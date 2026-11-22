@@ -4,6 +4,7 @@ import { requireApiPayload } from './responseAdapter'
 import { AxiosRequestConfig } from 'axios'
 import type { EntityId } from '@/types/common'
 import { coerceEntityId } from '@/lib/entityId'
+import { useAuthStore } from '@/stores/authStore'
 
 interface RbacProfile {
   /** TSID 角色 ID；后端 JSON integer 经 safeParseBigIntJson 转为 string */
@@ -50,39 +51,35 @@ function normalizeRbacProfile(raw: Partial<RbacProfile> | undefined): RbacProfil
 }
 
 const RBAC_UNAVAILABLE_KEY = 'imboy_admin_rbac_endpoint_unavailable'
-let rbacUnavailableInSession = false
-let pendingProfileRequest: Promise<RbacProfile> | null = null
+type RbacSession = {
+  epoch: number
+  unavailable: boolean
+  pending: Promise<RbacProfile> | null
+}
+let session: RbacSession | undefined
 
 type AuthAwareRequestConfig = AxiosRequestConfig & {
   [SKIP_AUTH_EXPIRED_EVENT_FLAG]?: boolean
 }
 
-function markRbacUnavailable() {
-  rbacUnavailableInSession = true
-  if (typeof window !== 'undefined') {
-    sessionStorage.setItem(RBAC_UNAVAILABLE_KEY, '1')
-  }
-}
-
 export function clearRbacUnavailable() {
-  rbacUnavailableInSession = false
-  // 同时清模块级去重 promise：bun 单进程连跑全部测试文件时，其他文件的组件测试
-  // 可能在 mock 还原后触发一次真实请求并永不 settle，遗留的 pendingProfileRequest
-  // 会让后续调用（含测试）死等。清态函数应清理全部会话级状态。
-  pendingProfileRequest = null
+  session = undefined
   if (typeof window !== 'undefined') {
     sessionStorage.removeItem(RBAC_UNAVAILABLE_KEY)
   }
 }
 
-function isRbacUnavailable(): boolean {
-  if (rbacUnavailableInSession) return true
-  if (typeof window === 'undefined') return false
-  if (sessionStorage.getItem(RBAC_UNAVAILABLE_KEY) === '1') {
-    rbacUnavailableInSession = true
-    return true
+function currentRbacSession(): RbacSession {
+  const epoch = useAuthStore.getState().authEpoch
+  if (session?.epoch !== epoch) {
+    if (session) clearRbacUnavailable()
+    session = {
+      epoch,
+      pending: null,
+      unavailable: typeof window !== 'undefined' && sessionStorage.getItem(RBAC_UNAVAILABLE_KEY) === '1',
+    }
   }
-  return false
+  return session
 }
 
 function is404Error(error: unknown): boolean {
@@ -103,27 +100,32 @@ async function getMyRbacProfile(): Promise<ApiResponse<RbacProfile>> {
 }
 
 export async function getMyRbacProfilePayload(): Promise<RbacProfile> {
-  if (isRbacUnavailable()) {
+  const requestSession = currentRbacSession()
+  if (requestSession.unavailable) {
     throw new Error('RBAC endpoint unavailable')
   }
 
-  if (pendingProfileRequest) {
-    return pendingProfileRequest
+  if (requestSession.pending) {
+    return requestSession.pending
   }
 
-  pendingProfileRequest = (async () => {
+  requestSession.pending = (async () => {
     try {
       const payload = requireApiPayload(await getMyRbacProfile(), '/rbac/me')
       return normalizeRbacProfile(payload)
     } catch (error) {
-      if (is404Error(error)) {
-        markRbacUnavailable()
+      if (session === requestSession && useAuthStore.getState().authEpoch === requestSession.epoch &&
+          is404Error(error)) {
+        requestSession.unavailable = true
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem(RBAC_UNAVAILABLE_KEY, '1')
+        }
       }
       throw error
     } finally {
-      pendingProfileRequest = null
+      requestSession.pending = null
     }
   })()
 
-  return pendingProfileRequest
+  return requestSession.pending
 }
