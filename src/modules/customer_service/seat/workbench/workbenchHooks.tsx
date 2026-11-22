@@ -516,8 +516,10 @@ export function useSeatEventStream(organizationId: EntityId | null, workspaceId:
     streamRef.current = stream
     stream.start({ organizationId, workspaceId })
     return () => {
-      stream.stop()
+      // 手动重试可能已经替换最初建立的流。
+      const current = streamRef.current
       streamRef.current = null
+      current?.stop()
     }
   }, [scopeKey, organizationId, workspaceId, createStream, applyEnvelope, invalidate, handleEnded])
 

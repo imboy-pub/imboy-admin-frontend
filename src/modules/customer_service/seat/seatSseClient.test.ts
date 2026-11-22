@@ -328,4 +328,46 @@ describe('A-02 单路重连（每 scope 至多一个活动流/重连计划）', 
     stream.stop()
     releasePending(new Response(null, { status: 500 }))
   })
+
+  it('A-02:LOCAL:01 重启后忽略旧连接迟到的失权响应和数据帧', async () => {
+    let finishOldRequest!: (_response: Response) => void
+    const oldRequest = new Promise<Response>((resolve) => { finishOldRequest = resolve })
+    let oldReader!: ReadableStreamDefaultController<Uint8Array>
+    const oldBody = new Response(new ReadableStream<Uint8Array>({
+      start(controller) { oldReader = controller },
+    }))
+    let markOnline!: () => void
+    const online = new Promise<void>((resolve) => { markOnline = resolve })
+    const currentId = '1000000000000000032'
+    const responses = [oldRequest, oldBody, hangingStreamResponse(envelopeFrame(currentId))]
+    const ended: string[] = []
+    const delivered: string[] = []
+    const scope = { organizationId: ORG, workspaceId: WS }
+    const stream = new SeatEventStream({
+      getToken: () => JWT,
+      fetchImpl: async () => responses.shift()!,
+      onEnvelope: (envelope) => delivered.push(envelope.eventId),
+      onResync: () => {},
+      onEnded: (reason) => ended.push(reason),
+      onStatus: (status) => { if (status === 'online') markOnline() },
+    })
+
+    try {
+      stream.start(scope)
+      stream.stop()
+      stream.start(scope)
+      finishOldRequest(new Response(null, { status: 403 }))
+      await online
+      stream.stop()
+      stream.start(scope)
+      oldReader.enqueue(new TextEncoder().encode(envelopeFrame('1000000000000000031')))
+      oldReader.close()
+      await sleep(0)
+      expect(ended).toEqual([])
+      expect(delivered).toEqual([currentId])
+      expect(stream.getCursor()).toBe(currentId)
+    } finally {
+      stream.stop()
+    }
+  })
 })

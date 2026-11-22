@@ -381,6 +381,36 @@ describe('CX03 revocation — isolated mock/JSDOM, not browser/API/SQL acceptanc
     expect(view.result.current.writeRevoked).toBe(true)
   })
 
+  it('切换范围和卸载均关闭手动重连后的当前 SSE', () => {
+    const { gateway, wrapper } = setup()
+    const createStream = gateway.createStream
+    const stoppedStreams: number[] = []
+    let streams = 0
+    spyOn(gateway, 'createStream').mockImplementation((handlers) => {
+      const stream = createStream(handlers)
+      const streamNumber = ++streams
+      const stop = stream.stop.bind(stream)
+      spyOn(stream, 'stop').mockImplementation(() => {
+        stoppedStreams.push(streamNumber)
+        stop()
+      })
+      return stream
+    })
+    const view = renderHook((workspaceId: string) => useSeatEventStream(ORG, workspaceId), {
+      wrapper, initialProps: WS,
+    })
+
+    act(() => view.result.current.retry())
+    expect(stoppedStreams).toEqual([1])
+    view.rerender('3000000000000000004')
+    expect(stoppedStreams).toEqual([1, 2])
+
+    act(() => view.result.current.retry())
+    expect(stoppedStreams).toEqual([1, 2, 3])
+    view.unmount()
+    expect(stoppedStreams).toEqual([1, 2, 3, 4])
+  })
+
   it.each(['stream', 'capability', 'empty-contexts', 'disabled-seat'] as const)('page权威%s撤权接通hook：confirm迟到不能POST；重新获权不恢复旧稿', async (source) => {
     const { gateway, sse, queryClient } = setup()
     const contexts = await gateway.api.fetchContexts()

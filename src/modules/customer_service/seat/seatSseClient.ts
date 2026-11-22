@@ -184,6 +184,8 @@ export class SeatEventStream {
       if (this.controller === controller) this.scheduleReconnect()
       return
     }
+    // 已停用的连接不能处理迟到响应，包括失权通知。
+    if (this.controller !== controller) return
     if (response.status === 401 || response.status === 403) {
       // A04 fail-closed：撤权/停用绝不重试风暴。
       this.stopped = true
@@ -192,7 +194,7 @@ export class SeatEventStream {
       return
     }
     if (!response.ok || response.body === null) {
-      if (this.controller === controller) this.scheduleReconnect()
+      this.scheduleReconnect()
       return
     }
     const retention = response.headers.get('X-CS-Event-Retention-Seconds')
@@ -202,13 +204,13 @@ export class SeatEventStream {
     }
     this.consecutiveFailures = 0
     this.onStatus('online')
-    await this.readStream(response)
+    await this.readStream(response, controller)
     // 服务端到 deadline 正常 fin——凭 Last-Event-ID 无损重连续传；读流中断也
     // 在 readStream 内部吞掉、统一由此收敛点排唯一重连（单计时器）。
     if (this.controller === controller) this.scheduleReconnect()
   }
 
-  private async readStream(response: Response): Promise<void> {
+  private async readStream(response: Response, controller: AbortController): Promise<void> {
     const parser = createSeatSseParser()
     const reader = response.body?.getReader()
     if (reader === undefined) return
@@ -216,7 +218,7 @@ export class SeatEventStream {
     try {
       for (;;) {
         const { done, value } = await reader.read()
-        if (done || this.stopped) break
+        if (done || this.controller !== controller) break
         const text = decoder.decode(value, { stream: true })
         const { events, retryMs } = parser.push(text)
         if (retryMs !== null) this.serverRetryMs = retryMs
