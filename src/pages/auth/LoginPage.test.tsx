@@ -292,22 +292,22 @@ describe('A-06 实际 Admin 登录调用方（S-04 服务端合同消费）', ()
     expect(view.container.textContent).not.toContain('dashboard-page')
   })
 
-  it('aborts a pending login when leaving the login page', async () => {
+  it('discards a late login result without interrupting its cookie response', async () => {
     const response = Promise.withResolvers<unknown>()
-    let signal: AbortSignal | undefined
+    let sent = false
     mutableClient.get = authedGet
-    mutableClient.post = (_url: string, _data: unknown, config: { signal: AbortSignal }) => {
-      signal = config.signal
+    mutableClient.post = (_url: string, _data: unknown, config: { signal?: AbortSignal }) => {
+      expect(config.signal).toBeUndefined()
+      sent = true
       return response.promise
     }
 
     let view!: ReturnType<typeof renderPage>
     await act(async () => { view = renderPage() })
     await fillAndSubmit(view)
-    await waitFor(() => expect(signal?.aborted).toBe(false))
+    await waitFor(() => expect(sent).toBe(true))
     view.unmount()
 
-    expect(signal?.aborted).toBe(true)
     await act(async () => {
       response.resolve({ data: { code: 0, payload: LOGIN_SUCCESS_PAYLOAD } })
     })

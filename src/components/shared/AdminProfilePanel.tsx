@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { LogOut, User, Key, ChevronRight } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 import { logout as logoutApi } from '@/modules/identity'
 import { formatOptionalDate } from '@/lib/utils'
 import { ADMIN_ROLE_LABELS } from './adminRoles'
@@ -10,15 +11,22 @@ export function AdminProfilePanel() {
   const { admin, logout } = useAuthStore()
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
+  const logoutPending = useRef(false)
 
   const handleLogout = async () => {
+    if (logoutPending.current) return
+    logoutPending.current = true
+    const epoch = useAuthStore.getState().authEpoch
     try {
       await logoutApi()
+      if (useAuthStore.getState().authEpoch === epoch) {
+        logout()
+        navigate('/login')
+      }
     } catch {
-      // 忽略服务端登出失败
+      toast.error('服务器未确认退出，请重试')
     } finally {
-      logout()
-      navigate('/login')
+      logoutPending.current = false
     }
   }
 
