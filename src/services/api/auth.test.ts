@@ -25,18 +25,22 @@ describe('normalizeLoginMeta', () => {
 
 describe('Admin cookie mutation ordering', () => {
   type MockPost = (_url: string, _body?: unknown, _config?: { signal?: AbortSignal }) => Promise<unknown>
-  const mutableClient = client as unknown as { post: MockPost }
+  type MockGet = (_url: string, _config?: { signal?: AbortSignal }) => Promise<unknown>
+  const mutableClient = client as unknown as { post: MockPost; get: MockGet }
   const originalPost = mutableClient.post
+  const originalGet = mutableClient.get
   const originalLocks = Object.getOwnPropertyDescriptor(navigator, 'locks')
   const loginInput = { account: 'admin', pwd: 'ciphertext', captcha: 'captcha', csrf_token: 'csrf' }
-  const loginResponse = { data: { code: 0, payload: { account: 'admin' } } }
+  const loginResponse = { data: { code: 0, payload: { id: '1', account: 'admin' } } }
 
   beforeEach(() => {
     Object.defineProperty(navigator, 'locks', { configurable: true, value: undefined })
+    mutableClient.get = async () => loginResponse
   })
 
   afterEach(() => {
     mutableClient.post = originalPost
+    mutableClient.get = originalGet
     if (originalLocks) Object.defineProperty(navigator, 'locks', originalLocks)
     else Reflect.deleteProperty(navigator, 'locks')
   })
@@ -56,7 +60,7 @@ describe('Admin cookie mutation ordering', () => {
     }
 
     const controller = new AbortController()
-    const login = loginPayload(loginInput, controller.signal)
+    const login = loginPayload(loginInput, controller.signal).catch((error: unknown) => error)
     await started.promise
     controller.abort()
     const endSession = logout()
@@ -65,7 +69,8 @@ describe('Admin cookie mutation ordering', () => {
     expect(paths).toEqual(['/passport/do_login'])
 
     response.resolve(loginResponse)
-    await Promise.all([login, endSession])
+    expect(await login).toMatchObject({ name: 'AbortError' })
+    await endSession
     expect(paths).toEqual(['/passport/do_login', '/passport/logout'])
   })
 
@@ -73,28 +78,23 @@ describe('Admin cookie mutation ordering', () => {
     const response = Promise.withResolvers<unknown>()
     const started = Promise.withResolvers<void>()
     const paths: string[] = []
-    const originalGet = client.get
     mutableClient.post = (url) => {
       paths.push(url)
       started.resolve()
       return response.promise
     }
-    client.get = (() => {
-      paths.push('/current')
-      return Promise.resolve(loginResponse)
-    }) as typeof client.get
-    try {
-      const endSession = logout()
-      const current = getCurrentAdminPayload()
-      await started.promise
-      expect(paths).toEqual(['/passport/logout'])
-      response.resolve({ data: { code: 0 } })
-      await endSession
-      await current
-      expect(paths).toEqual(['/passport/logout', '/current'])
-    } finally {
-      client.get = originalGet
+    mutableClient.get = async (url) => {
+      paths.push(url)
+      return loginResponse
     }
+    const endSession = logout()
+    const current = getCurrentAdminPayload()
+    await started.promise
+    expect(paths).toEqual(['/passport/logout'])
+    response.resolve({ data: { code: 0 } })
+    await endSession
+    await current
+    expect(paths).toEqual(['/passport/logout', '/current'])
   })
 
   it('discards a cancelled queued login and continues processing later requests', async () => {
@@ -135,5 +135,56 @@ describe('Admin cookie mutation ordering', () => {
     await logout()
 
     expect(names).toEqual(['imboy:admin-auth-cookie', 'imboy:admin-auth-cookie'])
+  })
+
+  it('rejects a successful login response if the newly issued session has been revoked', async () => {
+    mutableClient.post = async () => loginResponse
+    mutableClient.get = async (url) => {
+      expect(url).toBe('/current')
+      throw { code: 401, msg: '会话已失效' }
+    }
+
+    await expect(loginPayload(loginInput)).rejects.toMatchObject({ code: 401 })
+  })
+
+  it('rejects login when the verified cookie belongs to another subject', async () => {
+    mutableClient.post = async () => loginResponse
+    mutableClient.get = async () => ({ data: { code: 0, payload: { id: '2' } } })
+
+    await expect(loginPayload(loginInput)).rejects.toMatchObject({ code: 401 })
+  })
+
+  it('rejects a verification that became stale while waiting for current', async () => {
+    const verification = Promise.withResolvers<unknown>()
+    const started = Promise.withResolvers<void>()
+    mutableClient.post = async () => loginResponse
+    mutableClient.get = () => {
+      started.resolve()
+      return verification.promise
+    }
+    const login = loginPayload(loginInput).catch((error: unknown) => error)
+
+    await started.promise
+    useAuthStore.getState().logout()
+    verification.resolve(loginResponse)
+
+    expect(await login).toMatchObject({ name: 'AbortError' })
+  })
+
+  it('surfaces a failed session read without replaying login and allows an explicit retry', async () => {
+    let posts = 0
+    mutableClient.post = async () => {
+      posts++
+      return loginResponse
+    }
+    const networkError = new Error('Network Error')
+    mutableClient.get = async () => { throw networkError }
+
+    await expect(loginPayload(loginInput)).rejects.toBe(networkError)
+    expect(posts).toBe(1)
+
+    mutableClient.get = async () => loginResponse
+    await expect(loginPayload(loginInput)).resolves.toMatchObject({ id: '1' })
+    expect(posts).toBe(2)
   })
 })

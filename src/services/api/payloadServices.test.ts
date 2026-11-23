@@ -55,7 +55,12 @@ afterEach(() => {
 describe('payload-first services', () => {
   it('loginPayload returns payload and forwards params', async () => {
     let capturedUrl = ''
+    let verifiedUrl = ''
     let capturedBody: Record<string, unknown> | undefined
+    mutableClient.get = async (url: string) => {
+      verifiedUrl = url
+      return { data: { code: 0, payload: { id: '1' } } }
+    }
     mutableClient.post = async (url: string, body: Record<string, unknown>) => {
       capturedUrl = url
       capturedBody = body
@@ -83,6 +88,7 @@ describe('payload-first services', () => {
     })
 
     expect(capturedUrl).toBe('/passport/do_login')
+    expect(verifiedUrl).toBe('/current')
     expect(capturedBody).toEqual({
       account: 'admin',
       pwd: 'encrypted',

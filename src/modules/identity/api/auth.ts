@@ -1,7 +1,8 @@
 import type { AxiosRequestConfig } from 'axios'
+import { coerceEntityId } from '@/lib/entityId'
 import client, { SKIP_AUTH_EXPIRED_EVENT_FLAG } from '@/services/api/client'
 import { requireApiPayload } from '@/services/api/responseAdapter'
-import { ApiResponse } from '@/types/api'
+import type { ApiError, ApiResponse } from '@/types/api'
 import { Admin } from '@/types/admin'
 import type { EntityId } from '@/types/common'
 import { useAuthStore } from '@/stores/authStore'
@@ -81,17 +82,29 @@ export async function loginPayload(params: LoginParams, signal?: AbortSignal): P
   const epoch = useAuthStore.getState().authEpoch
   return withAuthCookie(async () => {
     requireCurrentAttempt(epoch, signal)
-    // Keep the lock until the browser receives the response carrying Set-Cookie.
     const response = await client.post<ApiResponse<LoginResponse>>('/passport/do_login', params, cookieMutationConfig)
-    return requireApiPayload(response.data, '/passport/do_login')
+    const login = requireApiPayload(response.data, '/passport/do_login')
+    requireCurrentAttempt(epoch, signal)
+    // A session may be revoked after the server issues the login response.
+    const current = await readCurrentAdmin({ ...cookieMutationConfig, signal })
+    requireCurrentAttempt(epoch, signal)
+    const id = coerceEntityId(login.id)
+    if (!id || id !== coerceEntityId(current.id)) {
+      throw { code: 401, msg: '当前会话已更改，请重新登录' } satisfies ApiError
+    }
+    return login
   })
+}
+
+async function readCurrentAdmin(config: AxiosRequestConfig): Promise<Admin> {
+  const response = await client.get<ApiResponse<Admin>>('/current', config)
+  return requireApiPayload(response.data, '/current')
 }
 
 export async function getCurrentAdminPayload(signal?: AbortSignal): Promise<Admin> {
   return withAuthCookie(async () => {
     signal?.throwIfAborted()
-    const response = await client.get<ApiResponse<Admin>>('/current', { signal })
-    return requireApiPayload(response.data, '/current')
+    return readCurrentAdmin({ signal })
   })
 }
 

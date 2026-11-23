@@ -146,10 +146,13 @@ describe('LoginPage flow', () => {
 describe('A-06 实际 Admin 登录调用方（S-04 服务端合同消费）', () => {
   const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms))
 
-  /** /setup/status 已初始化 + /passport/meta 携带可用公钥。 */
+  /** 已初始化、可用登录参数及当前浏览器 Cookie 对应的会话。 */
   function authedGet(url: string) {
     if (url === '/setup/status') {
       return { data: { code: 0, msg: 'ok', payload: { initialized: true } } }
+    }
+    if (url === '/current') {
+      return { data: { code: 0, msg: 'ok', payload: LOGIN_SUCCESS_PAYLOAD } }
     }
     return { data: { code: 0, msg: 'ok', payload: {
       csrf_token: 'test-csrf', public_key: TEST_PUBLIC_KEY, system_name: 'Imboy 测试系统',
