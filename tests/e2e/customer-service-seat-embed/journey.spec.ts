@@ -329,7 +329,7 @@ async function assertDomInstant(page: Page, selector: string, id: string, instan
   const expected = await time.evaluate((_el, isWidget) => {
     const date = new Date(_el.getAttribute('datetime')!)
     return isWidget
-      ? date.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })
+      ? date.toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })
       : new Intl.DateTimeFormat('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }).format(date)
   }, widget)
   await expect(time).toHaveText(expected)
