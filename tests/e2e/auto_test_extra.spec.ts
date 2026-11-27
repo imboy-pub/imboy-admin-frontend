@@ -36,7 +36,6 @@ const TARGETS: Target[] = [
   { slug: 'ContentReviewQueuePage', module: 'content-moderation', path: '/moderation/review-queue' },
   { slug: 'DashboardPage', module: 'dashboard', path: '/dashboard' },
   { slug: 'FeedbackListPage', module: 'feedback', path: '/feedback' },
-  { slug: 'LicensePage', module: 'license', path: '/license' },
   { slug: 'LogoutApplicationListPage', module: 'logout-applications', path: '/logout-applications' },
   { slug: 'AuditLogPage', module: 'logs', path: '/logs' },
   { slug: 'McpGovernanceListPage', module: 'mcp-governance', path: '/mcp-governance' },
@@ -132,7 +131,7 @@ test('auto_test 补充巡检：错误态 + 跳转链接 + 二次确认', async (
       }
 
       // 二次确认：点行内危险按钮 → 期待确认 Dialog → 取消
-      if (!['WithdrawalsPage', 'McpGovernanceListPage', 'LicensePage', 'LogoutApplicationListPage', 'AdminListPage', 'ContentReviewQueuePage', 'BillingInvoiceListPage'].includes(t.slug)) {
+      if (!['WithdrawalsPage', 'McpGovernanceListPage', 'LogoutApplicationListPage', 'AdminListPage', 'ContentReviewQueuePage', 'BillingInvoiceListPage'].includes(t.slug)) {
         try {
           const writeCalls: string[] = []
           const handler = (res: import('@playwright/test').Response) => {

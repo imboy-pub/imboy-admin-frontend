@@ -42,17 +42,12 @@ export async function getSystemHealthStats(): Promise<SystemHealthStats> {
     'imboy_ws_connections_total',
     'db_pool_free',
     'db_pool_in_use',
-    'imboy_license_valid',
-    'imboy_license_users_current',
-    'imboy_license_users_max',
-    'imboy_license_nodes_current',
-    'imboy_license_nodes_max',
-    'imboy_license_expires_at',
   ])
 
   const appCounters: Record<string, number> = {}
   for (const [key, value] of Object.entries(c)) {
-    if (!systemKeys.has(key) && typeof value === 'number') {
+    // Old backend images may still expose retired deployment-license metrics.
+    if (!systemKeys.has(key) && !key.startsWith('imboy_license_') && typeof value === 'number') {
       appCounters[key] = value
     }
   }

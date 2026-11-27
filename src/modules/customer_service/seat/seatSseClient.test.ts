@@ -73,15 +73,6 @@ function makeStreamFetch(responder: (_callIndex: number, _url: string, _init: Re
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms))
 
-/** Wait for async stream transitions without assuming hosted-runner timer precision. */
-async function waitFor(predicate: () => boolean, timeoutMs = 1000): Promise<void> {
-  const deadline = Date.now() + timeoutMs
-  while (!predicate()) {
-    if (Date.now() >= deadline) throw new Error(`Timed out after ${timeoutMs}ms waiting for stream transition`)
-    await sleep(5)
-  }
-}
-
 function baseHarness(responder: (_callIndex: number, _url: string, _init: RequestInit | undefined) => Response) {
   const { calls, fetchImpl } = makeStreamFetch(responder)
   const delivered: string[] = []
@@ -250,18 +241,6 @@ describe('A04 fail-closed（401/403 停流）', () => {
 })
 
 describe('A-02 单路重连（每 scope 至多一个活动流/重连计划）', () => {
-  /** 读流中断形态：先投递一帧（可消费），随后 reader.read() 拒绝（mid-stream break）。 */
-  function erroringStreamResponse(body: string): Response {
-    const encoder = new TextEncoder()
-    const stream = new ReadableStream<Uint8Array>({
-      start(controller) {
-        controller.enqueue(encoder.encode(body))
-        setTimeout(() => controller.error(new TypeError('mock mid-stream break')), 5)
-      },
-    })
-    return new Response(stream, { status: 200, headers: { 'Content-Type': 'text/event-stream' } })
-  }
-
   /** 挂起流：投递一帧后永不 fin（阻断后续调度链，稳定观测窗口）。 */
   function hangingStreamResponse(body: string): Response {
     const encoder = new TextEncoder()
@@ -277,9 +256,23 @@ describe('A-02 单路重连（每 scope 至多一个活动流/重连计划）', 
     const calls: RecordedCall[] = []
     const delivered: string[] = []
     const statuses: string[] = []
+    const firstId = '1000000000000000011'
+    const resumedId = '1000000000000000012'
+    const encoder = new TextEncoder()
+    let firstStream!: ReadableStreamDefaultController<Uint8Array>
+    let resumed!: () => void
+    const resumedFrame = new Promise<void>((resolve) => { resumed = resolve })
     const fetchImpl = async (url: string, init?: RequestInit) => {
       calls.push({ url, init })
-      if (calls.length === 1) return erroringStreamResponse(envelopeFrame('1000000000000000011'))
+      if (calls.length === 1) {
+        const firstBody = new ReadableStream<Uint8Array>({
+          start(controller) {
+            firstStream = controller
+            controller.enqueue(encoder.encode(envelopeFrame(firstId)))
+          },
+        })
+        return new Response(firstBody, { status: 200, headers: { 'Content-Type': 'text/event-stream' } })
+      }
       // 断线重连：服务端按 at-least-once 重发已见帧 + 新帧。
       return hangingStreamResponse(`${envelopeFrame('1000000000000000011')}${envelopeFrame('1000000000000000012')}`)
     }
@@ -287,25 +280,40 @@ describe('A-02 单路重连（每 scope 至多一个活动流/重连计划）', 
       getToken: () => JWT,
       fetchImpl,
       backoffBaseMs: 5,
-      onEnvelope: (envelope) => delivered.push(envelope.eventId),
+      onEnvelope: (envelope) => {
+        delivered.push(envelope.eventId)
+        // Inject the broken connection only after the first frame is consumed.
+        if (envelope.eventId === firstId) queueMicrotask(() => firstStream.error(new TypeError('mock mid-stream break')))
+        if (envelope.eventId === resumedId) resumed()
+      },
       onResync: () => {},
       onStatus: (status) => statuses.push(status),
     })
-    stream.start({ organizationId: ORG, workspaceId: WS })
-    // Hosted CI runners can delay short timers under a large parallel test suite.
-    // Wait for the one expected reconnect to become online instead of assuming 40ms is enough.
-    await waitFor(() => calls.length === 2 && statuses.at(-1) === 'online')
-    // 读流中断只允许一个重连计划：双计时器会产生 2 次排队调度（reconnecting×3
-    // 后双连并发，calls=3）；修复后恰一次调度 + 单链续连（calls=2）。
-    expect(statuses).toEqual(['connecting', 'online', 'reconnecting', 'reconnecting', 'online'])
-    expect(calls).toHaveLength(2)
-    // 断线续传水位一致：重连以 Last-Event-ID 携带最后已见事件。
-    const secondHeaders = (calls[1]!.init as RequestInit).headers as Record<string, string>
-    expect(secondHeaders['Last-Event-ID']).toBe('1000000000000000011')
-    // at-least-once 重投的旧帧去重（正文一致），新帧恰好投递一次，游标推进。
-    expect(delivered).toEqual(['1000000000000000011', '1000000000000000012'])
-    expect(stream.getCursor()).toBe('1000000000000000012')
-    stream.stop()
+    let deadline: ReturnType<typeof setTimeout> | undefined
+    try {
+      stream.start({ organizationId: ORG, workspaceId: WS })
+      await Promise.race([
+        resumedFrame,
+        new Promise<never>((_, reject) => {
+          deadline = setTimeout(() => reject(new Error('Resumed SSE frame was not delivered')), 2000)
+        }),
+      ])
+      // Keep the original quiet window to observe any extra queued reconnect.
+      await sleep(40)
+      // 读流中断只允许一个重连计划：双计时器会产生 2 次排队调度（reconnecting×3
+      // 后双连并发，calls=3）；修复后恰一次调度 + 单链续连（calls=2）。
+      expect(statuses).toEqual(['connecting', 'online', 'reconnecting', 'reconnecting', 'online'])
+      expect(calls).toHaveLength(2)
+      // 断线续传水位一致：重连以 Last-Event-ID 携带最后已见事件。
+      const secondHeaders = (calls[1]!.init as RequestInit).headers as Record<string, string>
+      expect(secondHeaders['Last-Event-ID']).toBe('1000000000000000011')
+      // at-least-once 重投的旧帧去重（正文一致），新帧恰好投递一次，游标推进。
+      expect(delivered).toEqual(['1000000000000000011', '1000000000000000012'])
+      expect(stream.getCursor()).toBe('1000000000000000012')
+    } finally {
+      if (deadline !== undefined) clearTimeout(deadline)
+      stream.stop()
+    }
   })
 
   it('A-02:LOCAL:01 stop 清理待运行重连回调：重启后旧计划不复活，同 scope 只有一条活动流', async () => {

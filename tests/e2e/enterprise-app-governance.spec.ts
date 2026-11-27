@@ -179,7 +179,7 @@ async function installGovernanceRoutes(page: Page, state: GovernanceState) {
 
   // 登录 / 会话 / 权限 / 侧边栏
   // PR-W2-C05：SPA 外壳在受保护路由启动时会拉取 ambient 端点（feature 清单、
-  // 侧栏徽章、license 状态）。此前未 mock → 请求落到真实后端且无合成会话
+  // 侧栏徽章）。此前未 mock → 请求落到真实后端且无合成会话
   // cookie → 401 → AUTH_EXPIRED_EVENT 把合成会话踢回 /login（V1.2 D 类 8 连败
   // 根因）。按真实后端响应形态补齐 mock，spec 恢复「全合成、零后端依赖」。
   await page.route(`**${ADM}/admin/config/features*`, (route) =>
@@ -190,9 +190,6 @@ async function installGovernanceRoutes(page: Page, state: GovernanceState) {
   )
   await page.route(`**${ADM}/feedback/index*`, (route) =>
     route.fulfill(envelope({ list: [], size: 1, total: 0, page: 1 }))
-  )
-  await page.route(`**${ADM}/stats/license*`, (route) =>
-    route.fulfill(envelope({ status: 'trial', valid: true, current_nodes: 1, current_users: 0, edition: 'trial' }))
   )
   await page.route(`**${ADM}/setup/status*`, (route) => route.fulfill(envelope({ initialized: true })))
   await page.route(`**${ADM}/passport/meta*`, (route) =>

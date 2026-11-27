@@ -36,7 +36,8 @@ describe('micro community API', () => {
   })
   it('requires explicit live profile and channel flag', async () => {
     for (const [profile, flag, enabled] of [
-      ['community', true, true], ['phase1_delivery', true, false],
+      ['standard', true, true], ['audited', true, true], ['community', true, true],
+      ['enterprise', true, true], ['phase1_delivery', true, false],
       ['unknown', true, false], [undefined, true, false], ['community', undefined, false],
     ] as const) {
       client.get = (async () => ({ data: { payload: { profile, features: { channel: flag } } } })) as typeof client.get

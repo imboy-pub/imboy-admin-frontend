@@ -114,28 +114,6 @@ export async function getFinanceSummary(): Promise<FinanceSummaryData> {
   return requireApiPayload(response.data, '/stats/finance')
 }
 
-interface LicenseStatusData {
-  edition: string
-  valid: boolean
-  status: string
-  max_users: number
-  max_nodes: number
-  current_users: number
-  current_nodes: number
-  licensee: string
-  expires_at: number
-}
-
-export async function getLicenseStatus(): Promise<LicenseStatusData> {
-  const response = await client.get('/stats/license')
-  return requireApiPayload(response.data, '/stats/license')
-}
-
-export async function applyLicense(licenseText: string): Promise<LicenseStatusData> {
-  const response = await client.post('/stats/license', { license_text: licenseText })
-  return requireApiPayload(response.data, '/stats/license')
-}
-
 interface FinanceMonthData {
   month: string
   recharge_amount: number

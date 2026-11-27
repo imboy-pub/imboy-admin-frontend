@@ -67,8 +67,7 @@ it('builtin default grants remain exactly the established permission sets', () =
     "roles:create",
     "roles:update",
     "logs:view",
-    "stats:ranking:read",
-    "license:write"
+    "stats:ranking:read"
   ],
   "2": [
     "dashboard:view",

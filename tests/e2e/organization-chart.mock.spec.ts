@@ -26,7 +26,6 @@ async function mockDirectory(page: Page) {
     if (path === '/current') payload = { id: '1', account: 'synthetic-admin', nickname: '布局测试', status: 1, role_id: '1', role_ids: ['1'] }
     else if (path === '/rbac/me') payload = { role_ids: ['1'], permissions: ['organizations:read', 'organizations:write'], menu_paths: ['/organizations'] }
     else if (path === '/brand') payload = {}
-    else if (path === '/stats/license') payload = {}
     else if (path === '/admin/config/features') payload = { manifest_hash: productFeatureManifestHash, manifest_schema_version: productFeatureSchemaVersion, compiled_features: compiledProductFeatures }
     else if (path === '/moment/report/list' || path === '/feedback/index') payload = { items: [], total: 0, page: 1, size: 10 }
     else if (path === '/admin/config/sidebar') payload = { items: [], rbac: { roles: [] } }

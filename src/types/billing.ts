@@ -130,7 +130,7 @@ export interface BillingPlan {
   billing_period: 'month' | 'year'
   /** 状态：0=下架，1=上架 */
   status: number
-  /** 配额配置 JSON（含 max_users/max_nodes 等） */
+  /** 计费订阅用量的配额配置 JSON，按业务指标名称索引 */
   quota_config?: Record<string, unknown>
   /** 套餐描述 */
   description?: string

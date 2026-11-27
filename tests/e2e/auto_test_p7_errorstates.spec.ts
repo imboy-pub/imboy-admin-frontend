@@ -18,7 +18,6 @@ const TARGETS = [
   { slug: 'WithdrawalsPage', module: 'withdrawals', path: '/withdrawals' },
   { slug: 'FinanceReportPage', module: 'finance-report', path: '/finance-report' },
   { slug: 'PricingPage', module: 'pricing', path: '/pricing' },
-  { slug: 'LicensePage', module: 'license', path: '/license' },
   { slug: 'LogoutApplicationListPage', module: 'logout-applications', path: '/logout-applications' },
   { slug: 'McpGovernanceListPage', module: 'mcp-governance', path: '/mcp-governance' },
   { slug: 'ReportCenterPage', module: 'reports', path: '/reports' },

@@ -13,23 +13,28 @@ import {
   policyQueryKey,
   storageModeLabel,
   type Capabilities,
+  type ProductProfile,
 } from '@/services/api/policy'
 import { getErrorMessage } from '@/lib/errorUtils'
 
-type ProductProfile = 'community' | 'enterprise'
-
-const PROFILE_META: Record<ProductProfile, { label: string; description: string; icon: typeof Users }> = {
-  community: {
-    label: '社区版',
-    description: '适合小型团队与开源社区，E2EE 可选，消息保留 30 天，基础审计',
-    icon: Users,
-  },
-  enterprise: {
-    label: '企业版',
-    description: '适合合规型企业，消息可搜索导出，完整审计，消息保留 365 天',
-    icon: Building2,
-  },
+const standardPreset = {
+  label: '标准预设',
+  description: '基础审计和滚动消息保留',
+  icon: Users,
 }
+const auditedPreset = {
+  label: '审计预设',
+  description: '全量审计、消息搜索和导出',
+  icon: Building2,
+}
+const PROFILE_META = {
+  standard: standardPreset,
+  audited: auditedPreset,
+  community: standardPreset,
+  enterprise: auditedPreset,
+  overseas_baseline: { label: '海外基线', description: '默认关闭敏感功能', icon: Users },
+  phase1_delivery: { label: '一期交付', description: '限制可开启的功能范围', icon: Users },
+} satisfies Record<ProductProfile, { label: string; description: string; icon: typeof Users }>
 
 function CapabilityList({ caps }: { caps: Capabilities }) {
   const items: [string, string][] = [
@@ -66,15 +71,15 @@ export function ProfileSwitchPage() {
   })
 
   const currentProfile: ProductProfile =
-    (data?.effective?.profile as ProductProfile) ?? 'community'
+    data?.effective?.profile ?? 'standard'
   const supported: ProductProfile[] =
-    (data?.meta?.profiles?.supported as ProductProfile[]) ?? ['community', 'enterprise']
+    data?.meta?.profiles?.supported ?? []
   const defaults = data?.meta?.profiles?.defaults
 
   const switchMutation = useMutation({
     mutationFn: (profile: ProductProfile) => savePolicyChange({ profile }),
     onSuccess: () => {
-      toast.success('产品套餐已切换')
+      toast.success('策略预设已切换')
       setPendingProfile(null)
       setConfirmOpen(false)
       queryClient.invalidateQueries({ queryKey: policyQueryKey() })
@@ -95,16 +100,16 @@ export function ProfileSwitchPage() {
     switchMutation.mutate(pendingProfile)
   }, [pendingProfile, switchMutation])
 
-  if (isLoading) return <LoadingState message="加载套餐配置..." />
-  if (error) return <ErrorState message="加载套餐配置失败" onRetry={() => refetch()} />
+  if (isLoading) return <LoadingState message="加载预设配置..." />
+  if (error) return <ErrorState message="加载预设配置失败" onRetry={() => refetch()} />
 
   const pendingLabel = pendingProfile ? PROFILE_META[pendingProfile]?.label : ''
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="产品套餐"
-        description="切换部署套餐档位。切换会将能力配置重置为目标套餐的默认值。"
+        title="策略预设"
+        description="切换策略预设。切换会将能力配置重置为目标预设的默认值。"
       />
 
       <div className="flex items-center justify-between">
@@ -114,11 +119,11 @@ export function ProfileSwitchPage() {
         </Button>
       </div>
 
-      {/* 当前套餐状态 */}
+      {/* 当前预设状态 */}
       <Card className="border-primary/30 bg-primary/5">
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-            当前套餐
+            当前预设
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -136,7 +141,7 @@ export function ProfileSwitchPage() {
         </CardContent>
       </Card>
 
-      {/* 套餐对比卡片 */}
+      {/* 预设对比卡片 */}
       <div className="grid gap-4 md:grid-cols-2">
         {supported.map((profile) => {
           const meta = PROFILE_META[profile]
@@ -193,7 +198,7 @@ export function ProfileSwitchPage() {
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
         title={`切换到${pendingLabel}？`}
-        description="切换套餐将把能力配置重置为目标套餐的默认值，已自定义的功能开关不受影响。此操作立即生效。"
+        description="切换预设将把能力配置重置为目标预设的默认值，已自定义的功能开关不受影响。此操作立即生效。"
         confirmText="确认切换"
         onConfirm={handleConfirmSwitch}
         loading={switchMutation.isPending}

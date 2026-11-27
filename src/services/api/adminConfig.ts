@@ -57,7 +57,7 @@ function normalizePermissionCatalog(input: unknown): PermissionCatalogItem[] {
       const name = typeof raw.name === 'string' ? raw.name.trim() : ''
       const module = typeof raw.module === 'string' ? raw.module.trim() : ''
       const path = typeof raw.path === 'string' ? raw.path.trim() : ''
-      if (!key || !name || !module || !path) return null
+      if (!key || key === 'license:write' || !name || !module || !path) return null
       return { key, name, module, path }
     })
     .filter((item): item is PermissionCatalogItem => item !== null)
@@ -84,15 +84,24 @@ function appendNoCacheStamp(url: string, stamp: number): string {
   return `${url}${separator}t=${stamp}`
 }
 
+// Ignore retired licensing entries when the Admin is paired with an older backend.
+function activeMenuItems(items: MenuConfigItem[]): MenuConfigItem[] {
+  return items
+    .filter((item) => item && (typeof item.path !== 'string' || !/^\/license\/?$/.test(item.path)))
+    .map((item) => Array.isArray(item.children)
+      ? { ...item, children: activeMenuItems(item.children) }
+      : item)
+}
+
 function normalizeSidebarConfig(data: SidebarMenuConfig | MenuConfigItem[]): SidebarMenuConfig {
   if (Array.isArray(data)) {
-    return { items: data }
+    return { items: activeMenuItems(data) }
   }
 
   const rbac = data.rbac || {}
   return {
     title: data.title,
-    items: Array.isArray(data.items) ? data.items : [],
+    items: Array.isArray(data.items) ? activeMenuItems(data.items) : [],
     rbac: {
       permissions: normalizePermissionCatalog(rbac.permissions),
       roles: normalizeRoleTemplates(rbac.roles),

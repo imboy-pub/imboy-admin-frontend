@@ -31,8 +31,8 @@ type SettingsModule = {
 
 const modules: SettingsModule[] = [
   {
-    title: '产品套餐',
-    description: '切换社区版 / 企业版套餐，查看各档位默认能力配置对比。',
+    title: '策略预设',
+    description: '查看预设的默认能力配置并切换当前策略。',
     path: '/settings/profile',
     icon: Building2,
   },

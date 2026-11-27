@@ -31,7 +31,6 @@ export interface BrandConfig {
   supportUrl: string;
   /** 隐私政策地址，同上，默认为空 */
   privacyUrl: string;
-  edition: string;
 }
 
 /** 默认品牌 = 未配置任何 brand_* 时的开源 imboy 形态 */
@@ -48,7 +47,6 @@ export const BRAND_FALLBACK: Readonly<BrandConfig> = Object.freeze({
   company: '',
   supportUrl: '',
   privacyUrl: '',
-  edition: 'community',
 });
 
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
@@ -95,7 +93,6 @@ export function parseBrandConfig(raw: unknown): BrandConfig {
     company: text(j.company, BRAND_FALLBACK.company),
     supportUrl: httpUrl(j.support_url),
     privacyUrl: httpUrl(j.privacy_url),
-    edition: text(j.edition, BRAND_FALLBACK.edition, false),
   };
 }
 

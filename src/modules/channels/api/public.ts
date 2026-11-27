@@ -111,7 +111,7 @@ export async function setChannelMessageEssence(channelId: EntityId, messageId: E
 export async function getMicroCommunityEnabled(): Promise<boolean> {
   const response = await client.get('/admin/config/policy')
   const policy = requireApiPayload<{ profile?: string; features?: Record<string, boolean> }>(response.data, '/admin/config/policy')
-  return ['community', 'enterprise', 'overseas_baseline'].includes(policy.profile ?? '') && policy.features?.channel === true
+  return ['standard', 'audited', 'overseas_baseline', 'community', 'enterprise'].includes(policy.profile ?? '') && policy.features?.channel === true
 }
 
 interface ChannelMessageListParams {
