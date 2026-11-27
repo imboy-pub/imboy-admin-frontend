@@ -2,6 +2,8 @@
 
 IMBoy 的 Web 管理后台，基于 React、TypeScript、Vite 和 Bun，提供用户、群组、消息、频道、举报及系统配置等管理功能。
 
+AI 工程提示词：[Admin ECC 使用案例](./docs/prompts/ECC_USE_CASES.zh-CN.md) · [四仓统一索引](https://github.com/imboy-pub/imboy/blob/main/docs/prompts/README.md)。提示词是可复用任务入口；实际执行计划、测试报告和运行证据仍按项目规则管理。
+
 ## 本地启动
 
 ### 1. 准备环境

@@ -73,6 +73,15 @@ function makeStreamFetch(responder: (_callIndex: number, _url: string, _init: Re
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms))
 
+/** Wait for async stream transitions without assuming hosted-runner timer precision. */
+async function waitFor(predicate: () => boolean, timeoutMs = 1000): Promise<void> {
+  const deadline = Date.now() + timeoutMs
+  while (!predicate()) {
+    if (Date.now() >= deadline) throw new Error(`Timed out after ${timeoutMs}ms waiting for stream transition`)
+    await sleep(5)
+  }
+}
+
 function baseHarness(responder: (_callIndex: number, _url: string, _init: RequestInit | undefined) => Response) {
   const { calls, fetchImpl } = makeStreamFetch(responder)
   const delivered: string[] = []
@@ -283,7 +292,9 @@ describe('A-02 单路重连（每 scope 至多一个活动流/重连计划）', 
       onStatus: (status) => statuses.push(status),
     })
     stream.start({ organizationId: ORG, workspaceId: WS })
-    await sleep(40)
+    // Hosted CI runners can delay short timers under a large parallel test suite.
+    // Wait for the one expected reconnect to become online instead of assuming 40ms is enough.
+    await waitFor(() => calls.length === 2 && statuses.at(-1) === 'online')
     // 读流中断只允许一个重连计划：双计时器会产生 2 次排队调度（reconnecting×3
     // 后双连并发，calls=3）；修复后恰一次调度 + 单链续连（calls=2）。
     expect(statuses).toEqual(['connecting', 'online', 'reconnecting', 'reconnecting', 'online'])
