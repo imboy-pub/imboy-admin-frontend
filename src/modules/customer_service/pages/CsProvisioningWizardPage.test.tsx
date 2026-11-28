@@ -307,7 +307,8 @@ describe('CsProvisioningWizardPage（unit 层替身）', () => {
     // 后端不出站审计数组；审计表不应渲染（真实合同对齐）
     expect(view.queryByTestId('cs-provision-audit')).toBeNull()
 
-    // 进入 Widget installation 步骤
+    // 进入 Widget installation 步骤；等待 provisioning onSuccess 切换步骤完成。
+    await waitForUi(() => inputByTestId(view, 'cs-provision-install-name'))
     changeInput(view, 'cs-provision-install-name', '商城在线客服')
     changeInput(view, 'cs-provision-install-origins', 'https://shop.example.com')
     const createButton = view.getByTestId('cs-provision-install-submit') as HTMLButtonElement
