@@ -24,8 +24,10 @@ pre-commit:
 # ⚠️ 门禁生效前提：lefthook 需算出 push 文件集（首选 HEAD @{push}）。新 clone 后执行
 #   git config remote.pushDefault gitcode && git branch --set-upstream-to=gitcode/main main
 # 否则会以 "no matching push files" 静默跳过全部命令（2026-09-29 三仓实证）。
+# lint 与全量单测都占用 CPU；并发执行会放大 React Query / debounce 测试的时序抖动。
+# 串行运行，避免资源竞争把异步 UI 测试变成偶发失败。
 pre-push:
-  parallel: true
+  parallel: false
   commands:
     lint:
       run: bun run lint

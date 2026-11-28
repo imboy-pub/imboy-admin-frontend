@@ -3,7 +3,6 @@ import '../../test/setupDom'
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, waitFor } from '@testing-library/react'
-import { act } from 'react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { GroupCategoryManagePage } from './GroupCategoryManagePage'
 import client from '../../services/api/client'
@@ -47,20 +46,30 @@ function renderPage(gid = '55') {
   )
 }
 
+// This page intentionally debounces the owner UID before fetching categories.
+const UI_WAIT_TIMEOUT_MS = 5_000
+
+function waitForUi<T>(callback: () => T): Promise<T> {
+  return waitFor(callback, { timeout: UI_WAIT_TIMEOUT_MS })
+}
+
 describe('GroupCategoryManagePage flow', () => {
   beforeEach(() => {
     document.body.innerHTML = ''
+    mutableClient.get = originalGet
     mutableClient.post = async () => ({ data: { code: 0, msg: 'ok', payload: {} } })
   })
 
   afterEach(() => {
+    cleanup()
     mutableClient.get = originalGet
     mutableClient.post = originalPost
-    cleanup()
   })
 
   it('loads group detail and then displays categories', async () => {
+    const requestedUrls: string[] = []
     mutableClient.get = async (url: string) => {
+      requestedUrls.push(url)
       if (url === '/group/detail') {
         return { data: { code: 0, msg: 'ok', payload: groupDetailFixture } }
       }
@@ -78,26 +87,28 @@ describe('GroupCategoryManagePage flow', () => {
       throw new Error(`unexpected GET: ${url}`)
     }
 
-    let view: ReturnType<typeof renderPage>
-    await act(async () => { view = renderPage() })
+    const view = renderPage()
 
-    await waitFor(() => {
-      expect(view.container.textContent).toContain('群分组分类管理')
+    await waitForUi(() => expect(requestedUrls).toContain('/group/category/list'))
+    await waitForUi(() => {
+      expect(view.container.textContent).toContain(categoryFixture.category_name)
     })
   })
 
   it('shows error when categories API fails', async () => {
+    const requestedUrls: string[] = []
     mutableClient.get = async (url: string) => {
+      requestedUrls.push(url)
       if (url === '/group/detail') {
         return { data: { code: 0, msg: 'ok', payload: groupDetailFixture } }
       }
       throw new Error('network error')
     }
 
-    let view: ReturnType<typeof renderPage>
-    await act(async () => { view = renderPage() })
+    const view = renderPage()
 
-    await waitFor(() => {
+    await waitForUi(() => expect(requestedUrls).toContain('/group/category/list'))
+    await waitForUi(() => {
       expect(view.container.textContent).toContain('加载群分组分类失败')
     })
   })
@@ -107,10 +118,9 @@ describe('GroupCategoryManagePage flow', () => {
       data: { code: 0, msg: 'ok', payload: { items: [], page: 1, size: 10, total: 0, total_pages: 0 } },
     })
 
-    let view: ReturnType<typeof renderPage>
-    await act(async () => { view = renderPage() })
+    const view = renderPage()
 
-    await waitFor(() => {
+    await waitForUi(() => {
       expect(view.container.textContent).toContain('群分组分类管理')
       // Requires UID input before fetching
       expect(view.container.textContent).toContain('目标用户')
