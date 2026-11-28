@@ -23,7 +23,6 @@ import {
   DollarSign,
   Receipt,
   TrendingUp,
-  BadgeCheck,
   ArrowDownToLine,
   ShieldAlert,
   ListChecks,
@@ -76,7 +75,6 @@ export const iconMap: Record<string, LucideIcon> = {
   DollarSign,
   Receipt,
   TrendingUp,
-  BadgeCheck,
   ArrowDownToLine,
   ShieldAlert,
   ListChecks,
@@ -182,7 +180,6 @@ export const defaultConfig: SidebarMenuConfig = {
       children: [
         { path: '/settings', icon: 'Settings', label: '系统设置', roles: ['1'], permission: 'settings:view' },
         { path: '/settings/product-experience', icon: 'MonitorSmartphone', label: '产品体验', roles: ['1'], permission: 'settings:view' },
-        { path: '/license', icon: 'BadgeCheck', label: '授权状态', roles: ['1'], permission: 'settings:view' },
         { path: '/system-health', icon: 'HeartPulse', label: '系统健康', roles: ['1'], permission: 'settings:view' },
         { path: '/plugins', icon: 'Puzzle', label: '插件管理', roles: ['1'], permission: 'settings:view' },
         { path: '/storage', icon: 'HardDrive', label: '存储管理', roles: ['1'], permission: 'storage:view' },

@@ -129,7 +129,7 @@ export type Capabilities = {
 
 export type FeatureFlags = Partial<Record<FeatureName, boolean>>
 
-type ProductProfile = 'community' | 'enterprise'
+export type ProductProfile = 'standard' | 'audited' | 'overseas_baseline' | 'phase1_delivery' | 'community' | 'enterprise'
 
 export type PolicyConfig = {
   profile?: ProductProfile
@@ -161,7 +161,7 @@ type CapabilityFieldMeta = {
 type PolicyMetaResponse = {
   profiles?: {
     supported: ProductProfile[]
-    defaults: Record<ProductProfile, PolicyConfig>
+    defaults: Partial<Record<ProductProfile, PolicyConfig>>
   }
   capabilities?: Record<string, CapabilityFieldMeta>
   features?: FeatureMeta
@@ -190,8 +190,8 @@ export type PolicyResponse = {
 
 // --- 默认值 ---
 // 注意：此仅为前端表单初始值。后端真实出厂默认（imboy_profile_preset）：
-// community = storage_mode archived + e2ee_mode optional（当前实现等价关闭）；
-// enterprise = archived + disabled。保存/展示一律以后端 effective 为准。
+// standard = storage_mode archived + e2ee_mode optional（当前实现等价关闭）；
+// audited = archived + disabled。保存/展示一律以后端 effective 为准。
 
 export const DEFAULT_CAPABILITIES: Capabilities = {
   storage_mode: 'archived',

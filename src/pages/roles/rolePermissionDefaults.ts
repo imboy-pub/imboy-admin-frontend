@@ -58,7 +58,6 @@ const establishedPermissions: PermissionCatalogItem[] = [
   { key: 'roles:update', name: '编辑角色权限', module: '角色权限', path: '/roles' },
   { key: 'logs:view', name: '查看审计日志（只读）', module: '日志审计', path: '/logs' },
   { key: 'stats:ranking:read', name: '查看排行榜统计', module: '仪表盘', path: '/dashboard' },
-  { key: 'license:write', name: '写入/更新 License 授权', module: '系统设置', path: '/settings' },
 ]
 
 export const defaultRoleTemplates: RoleTemplateConfig[] = [

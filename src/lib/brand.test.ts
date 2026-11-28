@@ -20,7 +20,6 @@ const defaultFixture = () => ({
   company: '',
   support_url: '',
   privacy_url: '',
-  edition: 'community',
 });
 
 /** 白标 fixture：私有化客户完整换品牌 */
@@ -36,7 +35,6 @@ const whiteLabelFixture = () => ({
   company: '某企业股份有限公司',
   support_url: 'https://support.example.com',
   privacy_url: 'https://example.com/privacy',
-  edition: 'enterprise',
 });
 
 const URL_FIELDS = [
@@ -81,8 +79,13 @@ describe('白标 fixture', () => {
     expect(b.theme).toBe('dark');
     expect(b.supportUrl).toBe('https://support.example.com');
     expect(b.privacyUrl).toBe('https://example.com/privacy');
-    expect(b.edition).toBe('enterprise');
     expect(isWhiteLabelled(b)).toBe(true);
+  });
+
+  test('旧版品牌响应中的 edition 不改变品牌或默认配置', () => {
+    const legacy = { ...whiteLabelFixture(), edition: 'enterprise' };
+    expect(parseBrandConfig(legacy)).toEqual(parseBrandConfig(whiteLabelFixture()));
+    expect('edition' in parseBrandConfig(legacy)).toBe(false);
   });
 
   test('默认配置不算白标', () => {
@@ -180,9 +183,8 @@ describe('三端契约对齐', () => {
       'support_url',
       'privacy_url',
     ];
-    // edition 由 license 注入，不在 defaults/0 里但在响应中
     expect(Object.keys(BRAND_FALLBACK).sort()).toEqual(
-      [...backendFields, 'edition']
+      backendFields
         .map((k) => k.replace(/_([a-z])/g, (_, c) => c.toUpperCase()))
         .sort(),
     );

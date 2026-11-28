@@ -422,7 +422,7 @@ export function BillingPlanListPage() {
             <Textarea
               value={form.quota_config_str}
               onChange={(e) => setForm((p) => ({ ...p, quota_config_str: e.target.value }))}
-              placeholder={'{\n  "max_users": 500,\n  "max_nodes": 3\n}'}
+              placeholder={'{\n  "api_calls": 500\n}'}
               rows={5}
               className="font-mono text-xs"
             />

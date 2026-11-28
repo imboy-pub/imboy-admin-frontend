@@ -79,7 +79,6 @@ const PAGES: PageSpec[] = [
   { slug: 'DashboardPage', module: 'dashboard', path: '/dashboard' },
   { slug: 'ForbiddenPage', module: 'errors', path: '/forbidden' },
   { slug: 'NotFoundPage', module: 'errors', path: '/nonexistent-xyz-404' },
-  { slug: 'LicensePage', module: 'license', path: '/license', skipCreate: true },
   { slug: 'LogoutApplicationListPage', module: 'logout-applications', path: '/logout-applications', skipCreate: true },
   { slug: 'AuditLogPage', module: 'logs', path: '/logs' },
   { slug: 'McpGovernanceListPage', module: 'mcp-governance', path: '/mcp-governance', skipCreate: true },

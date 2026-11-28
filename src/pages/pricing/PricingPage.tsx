@@ -41,95 +41,65 @@ const TIERS: readonly PricingTier[] = [
   {
     key: 'community',
     name: '社区版',
-    note: '开源自托管，功能完整，适合个人/团队评估与小规模自建。',
+    note: '面向希望自主安装和维护的团队。',
     price: '¥0',
-    priceUnit: '/ 永久',
-    priceSub: '木兰宽松许可 · 限规模上限',
-    cta: '下载开源版',
+    priceUnit: '/ 自助部署',
+    priceSub: '自助安装文档 · 社区交流',
+    cta: '查看项目',
     ctaVariant: 'outline',
     feats: [
-      { label: '单聊 / 群聊 / 朋友圈', included: true },
-      { label: 'E2EE 端到端加密', included: true },
-      { label: '钱包 / 付费频道 / 支付', included: true },
-      { label: '单机部署 + 可观测性栈', included: true },
-      { label: '集群水平扩展', included: false },
-      { label: '白标 / 品牌定制', included: false },
-      { label: '信创国产化适配', included: false },
+      { label: '自助部署与升级', included: true },
+      { label: '社区交流', included: true },
     ],
   },
   {
     key: 'professional',
     name: '专业版',
-    note: '私有化授权买断，含集群与白标，适合企业自主可控部署。',
+    note: '面向需要部署协助和技术支持的团队。',
     price: '¥3.9',
     priceUnit: '万 / 套',
-    priceSub: '终身授权 · 绑定域名 · 含 1 年升级',
+    priceSub: '私有化部署与支持服务参考价',
     cta: '联系销售',
     ctaVariant: 'default',
     featured: true,
-    badge: '推荐 · 最快现金流',
+    badge: '部署支持',
     feats: [
-      { label: '社区版全部功能', included: true },
-      { label: '集群部署（水平扩展）', included: true },
-      { label: '运行时白标 / 换肤', included: true },
-      { label: '付费频道运营后台', included: true },
-      { label: '加密对象存储增强', included: true },
-      { label: '优先技术支持 SLA', included: true },
-      { label: '信创国产化 / SSO 审计', included: false },
+      { label: '私有化部署协助', included: true },
+      { label: '升级与运维指导', included: true },
+      { label: '约定技术支持', included: true },
     ],
   },
   {
     key: 'enterprise',
     name: '企业版',
-    note: '面向政企/金融/信创：国产化、合规审计、专属支持。',
+    note: '面向需要集成开发、专属交付和长期支持的团队。',
     price: '¥12',
     priceUnit: '万 / 年起',
-    priceSub: '按规模与模块定制报价',
+    priceSub: '按交付及服务需求报价',
     cta: '商务洽谈',
     ctaVariant: 'outline',
     feats: [
-      { label: '专业版全部功能', included: true },
-      { label: '信创国产化（达梦/鲲鹏/国密）', included: true },
-      { label: 'SSO / 审计合规', included: true },
-      { label: '气隙(air-gap)部署', included: true },
-      { label: '更强 SLA + 专属支持', included: true },
-      { label: '定制开发与集成', included: true },
-      { label: '数据不出境保障', included: true },
+      { label: '定制开发与系统集成', included: true },
+      { label: '专属交付和技术支持', included: true },
+      { label: '按需提供部署与运维服务', included: true },
     ],
   },
 ] as const
 
 const COMPARE_GROUPS: readonly CompareGroup[] = [
   {
-    group: '核心 IM',
+    group: '部署能力',
     rows: [
-      { label: '单聊 / 群聊 / 朋友圈', values: [true, true, true] },
-      { label: 'E2EE 端到端加密', values: [true, true, true] },
-      { label: '钱包 / 付费频道 / 支付', values: [true, true, true] },
+      { label: '统一部署入口', values: [true, true, true] },
+      { label: '注册人数与集群节点数', values: ['不按版次限制', '不按版次限制', '不按版次限制'] },
     ],
   },
   {
-    group: '部署与运营',
+    group: '交付与服务',
     rows: [
-      { label: '单机部署 + 可观测性', values: [true, true, true] },
-      { label: '集群部署（水平扩展）', values: [false, true, true] },
-      { label: '运行时白标 / 换肤', values: [false, true, true] },
-      { label: '付费频道运营后台', values: [false, true, true] },
-    ],
-  },
-  {
-    group: '合规与信创',
-    rows: [
-      { label: '信创国产化（达梦/鲲鹏/国密）', values: [false, false, true] },
-      { label: 'SSO / 审计合规', values: [false, false, true] },
-      { label: '气隙部署 / 数据不出境', values: [false, false, true] },
-    ],
-  },
-  {
-    group: '服务',
-    rows: [
-      { label: '技术支持', values: ['社区', '优先 SLA', '专属'] },
-      { label: '授权方式', values: ['开源', '终身买断', '年费订阅'] },
+      { label: '部署与运维', values: ['自助', '部署协助与运维指导', '专属交付'] },
+      { label: '技术支持', values: ['社区', '按服务合同', '按服务合同'] },
+      { label: '定制开发与系统集成', values: [false, false, '可按需订购'] },
     ],
   },
 ] as const
@@ -214,10 +184,10 @@ export function PricingPage() {
         ))}
       </div>
 
-      {/* 功能对比表 */}
+      {/* 交付与服务对比表 */}
       <Card>
         <CardHeader>
-          <h2 className="text-lg font-bold">功能对比</h2>
+          <h2 className="text-lg font-bold">交付与服务对比</h2>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -268,8 +238,7 @@ export function PricingPage() {
             </table>
           </div>
           <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
-            价格为建议参考价（专业版对标主流私有化 IM 终身授权区间）。最终授权方式、规模上限与信创适配范围以商务报价为准。社区版规模上限由
-            License 授权层控制，购买专业版/企业版解锁更高上限。
+            版次仅用于说明交付与服务。实际容量取决于部署配置与可用资源，价格及服务范围以合同为准。
           </p>
         </CardContent>
       </Card>

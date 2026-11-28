@@ -75,7 +75,6 @@ const BillingInvoiceListPage = lazy(() => import('@/modules/finance').then((m) =
 const WithdrawalsPage = lazy(() => import('@/modules/finance').then((m) => ({ default: m.WithdrawalsPage })))
 const FinanceReportPage = lazy(() => import('@/modules/finance').then((m) => ({ default: m.FinanceReportPage })))
 const PricingPage = lazy(() => import('@/pages/pricing/PricingPage').then((m) => ({ default: m.PricingPage })))
-const LicensePage = lazy(() => import('@/pages/license/LicensePage').then((m) => ({ default: m.LicensePage })))
 const SensitiveWordPage = lazy(() => import('@/pages/content-moderation/SensitiveWordPage').then((m) => ({ default: m.SensitiveWordPage })))
 const ContentReviewQueuePage = lazy(() => import('@/pages/content-moderation/ContentReviewQueuePage').then((m) => ({ default: m.ContentReviewQueuePage })))
 const AppealReviewPage = lazy(() => import('@/pages/content-moderation/AppealReviewPage').then((m) => ({ default: m.AppealReviewPage })))
@@ -537,15 +536,6 @@ function App() {
                   element={(
                     <PermissionRoute permission="settings:view" roles={['1']}>
                       <SSOConfigPage />
-                    </PermissionRoute>
-                  )}
-                />
-                {/* 授权状态 */}
-                <Route
-                  path="/license"
-                  element={(
-                    <PermissionRoute permission="settings:view" roles={['1']}>
-                      <LicensePage />
                     </PermissionRoute>
                   )}
                 />

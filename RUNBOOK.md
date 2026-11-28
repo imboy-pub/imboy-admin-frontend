@@ -14,7 +14,7 @@
 | 形态 | 载体 | 适用 |
 |------|------|------|
 | A. 静态上传（自托管生产现役） | 本地 `bun run build` → `dist/` → rsync/scp 到服务器 nginx 静态目录 | `prodadm.imboy.pub` |
-| B. Docker 镜像（私有化交付） | `ghcr.io/imboy-pub/imboy-admin:<version>`，`IMBOY_API_HOST` 运行时注入 | 社区版/商务版 Compose 编排 |
+| B. Docker 镜像（私有化交付） | `ghcr.io/imboy-pub/imboy-admin:<version>`，`IMBOY_API_HOST` 运行时注入 | 后端仓库根 Compose 统一编排（生产使用 `--profile prod`） |
 
 形态 B 的编排细节见主仓 `../imboy/deploy/README.md`（`admin` 服务）；镜像构建与 `IMBOY_API_HOST` 占位符注入机制见本仓 `Dockerfile` 与 `vite.config.ts`（CSP 占位符 `__IMBOY_API_HOST__` 由镜像 entrypoint sed 替换）。
 

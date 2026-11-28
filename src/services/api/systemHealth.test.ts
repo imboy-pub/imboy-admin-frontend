@@ -66,6 +66,18 @@ describe('getSystemHealthStats', () => {
     expect(result.appCounters['erlang_vm_process_count']).toBeUndefined()
   })
 
+  it('ignores retired commercial metrics without hiding real capacity counters', async () => {
+    mutableClient.get = async () => makeMetrics({
+      imboy_license_users_max: 100,
+      imboy_license_nodes_max: 1,
+      imboy_online_users: 300,
+      imboy_registration_rate_limit_hits_total: 5,
+    })
+    const result = await getSystemHealthStats()
+    expect(result.onlineUsers).toBe(300)
+    expect(result.appCounters).toEqual({ imboy_registration_rate_limit_hits_total: 5 })
+  })
+
   it('excludes non-numeric values from appCounters', async () => {
     mutableClient.get = async () =>
       makeMetrics({

@@ -3,25 +3,8 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
 
-// macOS 大小写不敏感 FS 下，SPA 路由 /license 会被 dev server 解析到根目录
-// LICENSE 静态文件（curl 实测 500 + import-analysis 报错），页面被劫持成许可证
-// 文本。rewrite 回 index.html 让 SPA 路由接管（生产 nginx try_files 不受影响）。
-function spaRouteClashFix() {
-  return {
-    name: 'spa-route-clash-fix',
-    configureServer(server: import('vite').ViteDevServer) {
-      server.middlewares.use((req, _res, next) => {
-        if (req.url && /^\/license\/?$/.test(req.url.split('?')[0])) {
-          req.url = '/index.html'
-        }
-        next()
-      })
-    },
-  }
-}
-
 // index.html CSP 的 connect-src 含部署占位符 __IMBOY_API_HOST__（docker 镜像
-// entrypoint 运行时 sed 注入真实 API 域，见 imboy/deploy/docker-compose.community.yml）。
+// entrypoint 运行时 sed 注入真实 API 域，见 imboy/docker-compose.yml）。
 // dev server 没有这个替换环节，浏览器把非法源报 console error（每次加载一条）；
 // 默认仅 dev 替换为空（connect-src 退化为 'self'，API 走 vite proxy 同源），
 // apply: 'serve' 确保 build 产物保留占位符，不破坏 docker 部署契约。
@@ -137,7 +120,7 @@ export default defineConfig(({ mode }) => {
       ? { 'react-router-dom': path.resolve(__dirname, 'src/seat/routerStub.tsx') }
       : {}
   return {
-  plugins: [devCspPlaceholderFix(), spaRouteClashFix(), react(), tailwindcss()],
+  plugins: [devCspPlaceholderFix(), react(), tailwindcss()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

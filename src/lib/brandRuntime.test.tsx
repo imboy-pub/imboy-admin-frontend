@@ -40,7 +40,6 @@ const defaultFixture = () => ({
   company: '',
   support_url: '',
   privacy_url: '',
-  edition: 'community',
 })
 
 /** 与 brand.test.ts 逐字段对齐的白标 fixture（私有化客户完整换品牌） */
@@ -56,7 +55,6 @@ const whiteLabelFixture = () => ({
   company: '某企业股份有限公司',
   support_url: 'https://support.example.com',
   privacy_url: 'https://example.com/privacy',
-  edition: 'enterprise',
 })
 
 const jsonRes = (payload: unknown) =>

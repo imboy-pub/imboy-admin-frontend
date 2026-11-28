@@ -68,6 +68,30 @@ describe('fetchSidebarMenuConfig', () => {
     expect(result.rbac?.roles?.[0].name).toBe('超级管理员')
   })
 
+  it('ignores retired menu and permission catalog entries from older servers', async () => {
+    const users = { label: '用户管理', path: '/users' }
+    const usersRead = { key: 'users:read', name: '查看用户', module: 'users', path: '/users' }
+    mockFetch({
+      '/api/adm/admin/config/sidebar': {
+        ok: true,
+        body: {
+          items: [{ label: '系统', children: [
+            { label: '授权', path: '/license/' },
+            users,
+          ] }],
+          rbac: { permissions: [
+            { key: 'license:write', name: '更新授权', module: 'license', path: '/license' },
+            usersRead,
+          ] },
+        },
+      },
+    })
+
+    const result = await fetchSidebarMenuConfig()
+    expect(result.items?.[0].children).toEqual([users])
+    expect(result.rbac?.permissions).toEqual([usersRead])
+  })
+
   it('falls back to local sidebar-menu.json when remote fails', async () => {
     const localItems = [{ label: '本地配置', path: '/local', enabled: true }]
 

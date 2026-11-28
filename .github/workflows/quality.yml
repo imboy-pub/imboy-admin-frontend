@@ -2,8 +2,10 @@
 #
 # 关联：.claude/plans/quality-loop.md v1.3 T4.1（v1.1 §301: 三仓各一份）
 # 与 ci.yml 互补：本 workflow 仅跑质量门（lint/typecheck/deadcode/secrets）
-# Ratchet 上限：lint 37 / typecheck 31 / knip 35 / gitleaks 40
-# 注：lint 阈值 2026-05-10 从 10 修正为 37（baseline 时 quick stat 不全；实跑含 react-hooks/exhaustive-deps 等）
+# lint / typecheck / knip 为零容忍直跑门（无阈值逻辑；2026-11-28 实测三项目全 0：
+# lint exit 0 / tsc exit 0 / knip exit 0）。旧「ratchet 上限 lint 37 / typecheck 31 /
+# knip 35」注释描述的是早已不存在的阈值机制，2026-11-28 纠正。
+# gitleaks 保留递减基线 40（见下方 Verify no new leaks 步）。
 # 创建：2026-05-09 / iteration 74 / T4.1
 
 name: admin Quality Gate
