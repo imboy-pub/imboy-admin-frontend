@@ -19,7 +19,6 @@ import '../../../test/setupDom'
 import { afterAll, afterEach, beforeEach, describe, expect, it, mock, spyOn } from 'bun:test'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, waitFor, type RenderResult } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { CsProvisioningWizardPage } from '../index'
 import { useAuthStore } from '@/stores/authStore'
@@ -177,19 +176,33 @@ function inputByTestId(view: RenderResult, testId: string): HTMLInputElement | H
   return element
 }
 
-async function walkToIdentityStep(postCalls: Array<{ url: string; body: unknown }>): Promise<RenderResult> {
+// React Query transitions and the org/workspace bootstrap are asynchronous; allow headroom
+// for resource-constrained local runs instead of relying on Testing Library's 1s default.
+const UI_WAIT_TIMEOUT_MS = 5_000
+const UI_TEST_TIMEOUT_MS = 20_000
+
+function waitForUi<T>(callback: () => T): Promise<T> {
+  return waitFor(callback, { timeout: UI_WAIT_TIMEOUT_MS })
+}
+
+function changeInput(view: RenderResult, testId: string, value: string): void {
+  fireEvent.change(inputByTestId(view, testId), { target: { value } })
+}
+
+async function walkToInstallationStep(postCalls: Array<{ url: string; body: unknown }>): Promise<RenderResult> {
   const view = renderWizard()
-  const orgSelect = await waitFor(() => selectByTestId(view, 'cs-provision-org-select'))
+  const orgSelect = await waitForUi(() => selectByTestId(view, 'cs-provision-org-select'))
   fireEvent.change(orgSelect, { target: { value: ORG_ID } })
-  const wsSelect = await waitFor(() => selectByTestId(view, 'cs-provision-ws-select'))
-  await waitFor(() => expect(wsSelect.value).toBe(WS_ID))
+  const wsSelect = await waitForUi(() => selectByTestId(view, 'cs-provision-ws-select'))
+  await waitForUi(() => expect(wsSelect.value).toBe(WS_ID))
   fireEvent.click(view.getByRole('button', { name: '下一步：开通客服坐席' }))
-  const memberSelect = await waitFor(() => selectByTestId(view, 'cs-provision-member-select'))
+  const memberSelect = await waitForUi(() => selectByTestId(view, 'cs-provision-member-select'))
   fireEvent.change(memberSelect, { target: { value: MEMBER_ID } })
-  const submit = await waitFor(() => view.getByTestId('cs-provision-submit'))
-  await waitFor(() => expect((submit as HTMLButtonElement).disabled).toBe(false))
+  const submit = await waitForUi(() => view.getByTestId('cs-provision-submit'))
+  await waitForUi(() => expect((submit as HTMLButtonElement).disabled).toBe(false))
   expect(postCalls).toHaveLength(0)
   fireEvent.click(submit)
+  await waitForUi(() => inputByTestId(view, 'cs-provision-install-name'))
   return view
 }
 
@@ -198,6 +211,8 @@ describe('CsProvisioningWizardPage（unit 层替身）', () => {
   const originalPost = mutableClient.post
 
   beforeEach(() => {
+    // useOrgWorkspaceScope reads window.location.search directly; MemoryRouter does not reset it.
+    window.history.replaceState(null, '', '/')
     spyOn(console, 'warn').mockImplementation(() => {})
     spyOn(console, 'error').mockImplementation(() => {})
     getResponder = defaultGetResponder
@@ -229,10 +244,10 @@ describe('CsProvisioningWizardPage（unit 层替身）', () => {
   })
 
   afterEach(() => {
-    mutableClient.get = originalGet
-    mutableClient.post = originalPost
     cleanup()
     document.body.innerHTML = ''
+    mutableClient.get = originalGet
+    mutableClient.post = originalPost
   })
 
   it('A01+A03：选择器主流程完成自举，POST 落平台面，审计五键可见，全程无裸 TSID 输入', async () => {
@@ -245,7 +260,7 @@ describe('CsProvisioningWizardPage（unit 层替身）', () => {
 
     const view = renderWizard()
     const container = view.container
-    const orgSelect = await waitFor(() => selectByTestId(view, 'cs-provision-org-select'))
+    const orgSelect = await waitForUi(() => selectByTestId(view, 'cs-provision-org-select'))
 
     // A03：组织/工作区均为 select，主流程无任何数字输入框（裸 TSID 手填面）
     expect(container.querySelectorAll('input[inputmode="numeric"]').length).toBe(0)
@@ -255,18 +270,18 @@ describe('CsProvisioningWizardPage（unit 层替身）', () => {
     fireEvent.change(orgSelect, { target: { value: ORG_ID } })
 
     // 工作区 select 出现且默认选中第一个（default workspace）
-    const wsSelect = await waitFor(() => selectByTestId(view, 'cs-provision-ws-select'))
+    const wsSelect = await waitForUi(() => selectByTestId(view, 'cs-provision-ws-select'))
     expect(wsSelect.value).toBe(WS_ID)
 
     fireEvent.click(view.getByRole('button', { name: '下一步：开通客服坐席' }))
-    const memberSelect = await waitFor(() => selectByTestId(view, 'cs-provision-member-select'))
+    const memberSelect = await waitForUi(() => selectByTestId(view, 'cs-provision-member-select'))
     fireEvent.change(memberSelect, { target: { value: MEMBER_ID } })
-    const submit = (await waitFor(() => view.getByTestId('cs-provision-submit'))) as HTMLButtonElement
-    await waitFor(() => expect(submit.disabled).toBe(false))
+    const submit = (await waitForUi(() => view.getByTestId('cs-provision-submit'))) as HTMLButtonElement
+    await waitForUi(() => expect(submit.disabled).toBe(false))
     fireEvent.click(submit)
 
     // A01：显式 Admin provisioning API 事务化提交
-    await waitFor(() => expect(postCalls.some((call) => call.url.endsWith('/provisioning'))).toBe(true))
+    await waitForUi(() => expect(postCalls.some((call) => call.url.endsWith('/provisioning'))).toBe(true))
     const provisionCall = postCalls.find((call) => call.url.endsWith('/provisioning'))
     expect(provisionCall?.url).toBe(`/customer-service/organizations/${ORG_ID}/provisioning`)
     expect(provisionCall?.url.includes('/api/v1')).toBe(false)
@@ -292,14 +307,15 @@ describe('CsProvisioningWizardPage（unit 层替身）', () => {
     // 后端不出站审计数组；审计表不应渲染（真实合同对齐）
     expect(view.queryByTestId('cs-provision-audit')).toBeNull()
 
-    // 进入 Widget installation 步骤
-    await userEvent.type(await waitFor(() => inputByTestId(view, 'cs-provision-install-name')), '商城在线客服')
-    await userEvent.type(inputByTestId(view, 'cs-provision-install-origins'), 'https://shop.example.com')
+    // 进入 Widget installation 步骤；等待 provisioning onSuccess 切换步骤完成。
+    await waitForUi(() => inputByTestId(view, 'cs-provision-install-name'))
+    changeInput(view, 'cs-provision-install-name', '商城在线客服')
+    changeInput(view, 'cs-provision-install-origins', 'https://shop.example.com')
     const createButton = view.getByTestId('cs-provision-install-submit') as HTMLButtonElement
-    await waitFor(() => expect(createButton.disabled).toBe(false))
+    await waitForUi(() => expect(createButton.disabled).toBe(false))
     fireEvent.click(createButton)
 
-    await waitFor(() => expect(postCalls.some((call) => call.url === '/customer-service/widget-installations')).toBe(true))
+    await waitForUi(() => expect(postCalls.some((call) => call.url === '/customer-service/widget-installations')).toBe(true))
     const installCall = postCalls.find((call) => call.url === '/customer-service/widget-installations')
     const installBody = installCall?.body as Record<string, unknown>
     expect(installBody['organization_id']).toBe(ORG_ID)
@@ -307,15 +323,16 @@ describe('CsProvisioningWizardPage（unit 层替身）', () => {
     expect(installBody['allowed_origins']).toEqual(['https://shop.example.com'])
 
     // A05：snippet 只含 public widget id；origin 只在 loader src；无租户参数/secret
-    await userEvent.type(await waitFor(() => inputByTestId(view, 'cs-provision-widget-origin')), 'https://widget.example.com')
-    const snippet = await waitFor(() => inputByTestId(view, 'cs-provision-snippet')) as HTMLTextAreaElement
+    await waitForUi(() => inputByTestId(view, 'cs-provision-widget-origin'))
+    changeInput(view, 'cs-provision-widget-origin', 'https://widget.example.com')
+    const snippet = await waitForUi(() => inputByTestId(view, 'cs-provision-snippet')) as HTMLTextAreaElement
     expect(snippet.value).toBe(
       '<script async src="https://widget.example.com/loader.js" data-widget-id="wgt_pub_demo1"></script>'
     )
     expect(snippet.value.includes('data-org-id')).toBe(false)
     expect(snippet.value.includes(ORG_ID)).toBe(false)
     expect(snippet.value.includes('secret')).toBe(false)
-  })
+  }, UI_TEST_TIMEOUT_MS)
 
   it('A03：max_concurrent 选择器发送数值（1..20），非字符串', async () => {
     const postCalls: Array<{ url: string; body: unknown }> = []
@@ -326,22 +343,22 @@ describe('CsProvisioningWizardPage（unit 层替身）', () => {
     }
 
     const view = renderWizard()
-    const orgSelect = await waitFor(() => selectByTestId(view, 'cs-provision-org-select'))
+    const orgSelect = await waitForUi(() => selectByTestId(view, 'cs-provision-org-select'))
     fireEvent.change(orgSelect, { target: { value: ORG_ID } })
-    const wsSelect = await waitFor(() => selectByTestId(view, 'cs-provision-ws-select'))
-    await waitFor(() => expect(wsSelect.value).toBe(WS_ID))
+    const wsSelect = await waitForUi(() => selectByTestId(view, 'cs-provision-ws-select'))
+    await waitForUi(() => expect(wsSelect.value).toBe(WS_ID))
     fireEvent.click(view.getByRole('button', { name: '下一步：开通客服坐席' }))
-    const memberSelect = await waitFor(() => selectByTestId(view, 'cs-provision-member-select'))
+    const memberSelect = await waitForUi(() => selectByTestId(view, 'cs-provision-member-select'))
     fireEvent.change(memberSelect, { target: { value: MEMBER_ID } })
 
-    const mcSelect = await waitFor(() => selectByTestId(view, 'cs-provision-max-concurrent'))
+    const mcSelect = await waitForUi(() => selectByTestId(view, 'cs-provision-max-concurrent'))
     fireEvent.change(mcSelect, { target: { value: '5' } })
 
-    const submit = (await waitFor(() => view.getByTestId('cs-provision-submit'))) as HTMLButtonElement
-    await waitFor(() => expect(submit.disabled).toBe(false))
+    const submit = (await waitForUi(() => view.getByTestId('cs-provision-submit'))) as HTMLButtonElement
+    await waitForUi(() => expect(submit.disabled).toBe(false))
     fireEvent.click(submit)
 
-    await waitFor(() => expect(postCalls.some((call) => call.url.endsWith('/provisioning'))).toBe(true))
+    await waitForUi(() => expect(postCalls.some((call) => call.url.endsWith('/provisioning'))).toBe(true))
     const provisionCall = postCalls.find((call) => call.url.endsWith('/provisioning'))
     const sent = (provisionCall?.body as Record<string, unknown>)['max_concurrent']
     // 必须是数值且等于选择值，而非字符串
@@ -362,12 +379,12 @@ describe('CsProvisioningWizardPage（unit 层替身）', () => {
     }
 
     const view = renderWizard()
-    const orgSelect = await waitFor(() => selectByTestId(view, 'cs-provision-org-select'))
+    const orgSelect = await waitForUi(() => selectByTestId(view, 'cs-provision-org-select'))
     fireEvent.change(orgSelect, { target: { value: ORG_ID } })
-    const wsSelect = await waitFor(() => selectByTestId(view, 'cs-provision-ws-select'))
-    await waitFor(() => expect(wsSelect.value).toBe(WS_ID))
+    const wsSelect = await waitForUi(() => selectByTestId(view, 'cs-provision-ws-select'))
+    await waitForUi(() => expect(wsSelect.value).toBe(WS_ID))
     fireEvent.click(view.getByRole('button', { name: '下一步：开通客服坐席' }))
-    const memberSelect = (await waitFor(() => selectByTestId(view, 'cs-provision-member-select'))) as HTMLSelectElement
+    const memberSelect = (await waitForUi(() => selectByTestId(view, 'cs-provision-member-select'))) as HTMLSelectElement
     const optionTexts = Array.from(memberSelect.options).map((option) => option.textContent ?? '')
     // active 成员可见，archived 成员被过滤
     expect(optionTexts.some((text) => text.includes('cs_agent_01'))).toBe(true)
@@ -382,20 +399,21 @@ describe('CsProvisioningWizardPage（unit 层替身）', () => {
       configurable: true,
     })
 
-    const view = await walkToIdentityStep([])
-    await userEvent.type(await waitFor(() => inputByTestId(view, 'cs-provision-install-name')), '商城在线客服')
-    await userEvent.type(inputByTestId(view, 'cs-provision-install-origins'), 'https://shop.example.com')
+    const view = await walkToInstallationStep([])
+    changeInput(view, 'cs-provision-install-name', '商城在线客服')
+    changeInput(view, 'cs-provision-install-origins', 'https://shop.example.com')
     fireEvent.click(view.getByTestId('cs-provision-install-submit'))
-    await userEvent.type(await waitFor(() => inputByTestId(view, 'cs-provision-widget-origin')), 'https://widget.example.com')
-    const copyButton = (await waitFor(() => view.getByTestId('cs-provision-copy'))) as HTMLButtonElement
-    await waitFor(() => expect(copyButton.disabled).toBe(false))
+    await waitForUi(() => inputByTestId(view, 'cs-provision-widget-origin'))
+    changeInput(view, 'cs-provision-widget-origin', 'https://widget.example.com')
+    const copyButton = (await waitForUi(() => view.getByTestId('cs-provision-copy'))) as HTMLButtonElement
+    await waitForUi(() => expect(copyButton.disabled).toBe(false))
     fireEvent.click(copyButton)
-    await waitFor(() =>
+    await waitForUi(() =>
       expect(copied).toBe(
         '<script async src="https://widget.example.com/loader.js" data-widget-id="wgt_pub_demo1"></script>'
       )
     )
-  })
+  }, UI_TEST_TIMEOUT_MS)
 
   it('A02：只有 read 权限时为只读姿态——提示条可见，开通按钮禁用且无 POST', async () => {
     rbacPermissions = ['customer_service:read']
@@ -407,14 +425,14 @@ describe('CsProvisioningWizardPage（unit 层替身）', () => {
     }
 
     const view = renderWizard()
-    await waitFor(() => view.getByText(/只读模式/))
-    const orgSelect = await waitFor(() => selectByTestId(view, 'cs-provision-org-select'))
+    await waitForUi(() => view.getByText(/只读模式/))
+    const orgSelect = await waitForUi(() => selectByTestId(view, 'cs-provision-org-select'))
     fireEvent.change(orgSelect, { target: { value: ORG_ID } })
-    await waitFor(() => selectByTestId(view, 'cs-provision-ws-select'))
+    await waitForUi(() => selectByTestId(view, 'cs-provision-ws-select'))
     fireEvent.click(view.getByRole('button', { name: '下一步：开通客服坐席' }))
-    const memberSelect = await waitFor(() => selectByTestId(view, 'cs-provision-member-select'))
+    const memberSelect = await waitForUi(() => selectByTestId(view, 'cs-provision-member-select'))
     fireEvent.change(memberSelect, { target: { value: MEMBER_ID } })
-    const submit = (await waitFor(() => view.getByTestId('cs-provision-submit'))) as HTMLButtonElement
+    const submit = (await waitForUi(() => view.getByTestId('cs-provision-submit'))) as HTMLButtonElement
     expect(submit.disabled).toBe(true)
     expect(submit.title).toContain('customer_service:write')
     fireEvent.click(submit)
@@ -424,31 +442,32 @@ describe('CsProvisioningWizardPage（unit 层替身）', () => {
   it('A02：无 read 权限 → 整页 fail-closed，不渲染任何向导步骤', async () => {
     rbacPermissions = []
     const view = renderWizard()
-    await waitFor(() => view.getByText('无权访问'))
+    await waitForUi(() => view.getByText('无权访问'))
     expect(view.queryByTestId('cs-provision-org-select')).toBeNull()
   })
 
   it('A04：非法 origin（通配/路径）逐个拒绝并阻断创建', async () => {
-    const view = await walkToIdentityStep([])
-    await userEvent.type(await waitFor(() => inputByTestId(view, 'cs-provision-install-name')), '商城在线客服')
-    await userEvent.type(
-      inputByTestId(view, 'cs-provision-install-origins'),
+    const view = await walkToInstallationStep([])
+    changeInput(view, 'cs-provision-install-name', '商城在线客服')
+    changeInput(
+      view,
+      'cs-provision-install-origins',
       'https://shop.example.com,https://*.evil.com,https://bad.example.com/path'
     )
-    const alert = await waitFor(() => view.getByRole('alert'))
+    const alert = await waitForUi(() => view.getByRole('alert'))
     expect(alert.textContent).toContain('https://*.evil.com')
     expect(alert.textContent).toContain('https://bad.example.com/path')
     expect(alert.textContent).not.toContain('https://shop.example.com')
     const createButton = view.getByTestId('cs-provision-install-submit') as HTMLButtonElement
     expect(createButton.disabled).toBe(true)
-  })
+  }, UI_TEST_TIMEOUT_MS)
 
   it('A06：组织加载失败呈现错误态并可重试', async () => {
     getResponder = () => {
       throw new Error('boom')
     }
     const view = renderWizard()
-    await waitFor(() => view.getByText(/加载组织失败/))
+    await waitForUi(() => view.getByText(/加载组织失败/))
     expect(view.getByRole('button', { name: '重试' })).toBeTruthy()
   })
 
@@ -458,12 +477,12 @@ describe('CsProvisioningWizardPage（unit 层替身）', () => {
       throw new Error(`unexpected GET url: ${url}`)
     }
     const view = renderWizard()
-    await waitFor(() => view.getByText('暂无可用组织'))
+    await waitForUi(() => view.getByText('暂无可用组织'))
   })
 
   it('A06：组织加载中呈现 loading 态', async () => {
     mutableClient.get = () => new Promise(() => {})
     const view = renderWizard()
-    await waitFor(() => view.getByText('加载组织列表…'))
+    await waitForUi(() => view.getByText('加载组织列表…'))
   })
 })
