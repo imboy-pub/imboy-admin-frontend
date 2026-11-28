@@ -1,9 +1,13 @@
 # Browser smoke scope / 浏览器冒烟范围：
-# Only setup-flow.spec.ts runs here, using mocked API responses without a backend.
-# 此门仅运行 setup-flow.spec.ts 的 API mock 用例，不代表后端真实链路或全部 E2E 通过。
+# Only pure-mock specs run here (setup-flow + customer-service-home.mock),
+# using mocked API responses without a backend.
+# 此门仅运行纯 mock 用例（setup-flow + customer-service-home.mock），不代表
+# 后端真实链路或全部 E2E 通过。
 # Keep the explicit file selection: other suites require backend credentials,
 # dedicated integration stacks, or production access and must not run implicitly.
 # 其他套件需要后端凭据、专用集成栈或生产访问，禁止在此隐式扩大执行范围。
+# 新增纯 mock 用例时显式追加到此清单并先本地验证（2026-11-28 扩容：混合池
+# ~17 需真后端走 nightly 路线、纯真后端 ~33 需凭据，均不入此门）。
 
 name: admin Playwright E2E
 
@@ -63,15 +67,17 @@ jobs:
           total=$(find tests/e2e -type f -name '*.spec.ts' | wc -l)
           {
             echo '### Playwright scope / Playwright 执行范围'
-            echo '- Selected / 已选择：tests/e2e/setup-flow.spec.ts (mocked API / API mock)'
+            echo '- Selected / 已选择（纯 mock / pure mock）：'
+            echo '  - tests/e2e/setup-flow.spec.ts'
+            echo '  - tests/e2e/customer-service-home.mock.spec.ts'
             echo "- Repository spec files / 仓库 spec 文件：${total}"
-            echo "- Outside this invocation / 本次未选择：$((total - 1)) spec files"
-            echo '- A passing result covers only the selected mock suite, not backend integration or production health.'
+            echo "- Outside this invocation / 本次未选择：$((total - 2)) spec files"
+            echo '- A passing result covers only the selected mock suites, not backend integration or production health.'
             echo '- 绿色结果仅覆盖所选 mock 套件，不代表后端集成或生产健康检查通过。'
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Run setup-flow browser smoke / 运行 setup-flow 浏览器冒烟
-        run: bunx playwright test tests/e2e/setup-flow.spec.ts
+      - name: Run pure-mock browser smoke / 运行纯 mock 浏览器冒烟
+        run: bunx playwright test tests/e2e/setup-flow.spec.ts tests/e2e/customer-service-home.mock.spec.ts
 
       - name: Upload Playwright HTML report
         if: failure()
